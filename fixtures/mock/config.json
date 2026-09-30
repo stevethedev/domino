@@ -1,0 +1,32 @@
+{
+  "sites": [
+    {
+      "id": "acme",
+      "label": "Acme",
+      "baseUrl": "https://acme.atlassian.net",
+      "auth": { "type": "apiToken", "email": "bot@acme.example", "secretRef": "DOMINO_ACME_TOKEN" },
+      "color": "#7c3aed",
+      "enabled": true,
+      "baseJql": "project in (CORE, WEB)"
+    },
+    {
+      "id": "partner",
+      "label": "Partner",
+      "baseUrl": "https://partner.atlassian.net",
+      "auth": { "type": "oauth3lo" },
+      "color": "#c2410c",
+      "enabled": true,
+      "baseJql": "project in (PAY, CORE)"
+    },
+    {
+      "id": "legacy",
+      "label": "Legacy",
+      "baseUrl": "https://legacy.atlassian.net",
+      "auth": { "type": "apiToken", "email": "bot@acme.example", "secretRef": "DOMINO_LEGACY_TOKEN" },
+      "color": "#0f766e",
+      "enabled": false
+    }
+  ],
+  "defaultSiteIds": ["acme", "partner"],
+  "backend": "mock"
+}

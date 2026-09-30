@@ -1,0 +1,1525 @@
+{
+  "issues": [
+    {
+      "id": "106701",
+      "key": "CORE-1",
+      "self": "https://acme.atlassian.net/rest/api/3/issue/106701",
+      "fields": {
+        "summary": "Checkout v2",
+        "issuetype": {
+          "id": "10000",
+          "name": "Epic",
+          "subtask": false,
+          "hierarchyLevel": 1
+        },
+        "status": {
+          "name": "In Progress",
+          "id": "1002",
+          "statusCategory": {
+            "id": 4,
+            "key": "indeterminate",
+            "name": "In Progress",
+            "colorName": "yellow"
+          }
+        },
+        "assignee": {
+          "accountId": "acc-dana-whitfield",
+          "displayName": "Dana Whitfield",
+          "avatarUrls": {}
+        },
+        "customfield_10016": null,
+        "issuelinks": []
+      }
+    },
+    {
+      "id": "106707",
+      "key": "CORE-7",
+      "self": "https://acme.atlassian.net/rest/api/3/issue/106707",
+      "fields": {
+        "summary": "Rate limiter for public API",
+        "issuetype": {
+          "id": "10001",
+          "name": "Story",
+          "subtask": false,
+          "hierarchyLevel": 0
+        },
+        "status": {
+          "name": "In Progress",
+          "id": "1002",
+          "statusCategory": {
+            "id": 4,
+            "key": "indeterminate",
+            "name": "In Progress",
+            "colorName": "yellow"
+          }
+        },
+        "assignee": {
+          "accountId": "acc-priya-raman",
+          "displayName": "Priya Raman",
+          "avatarUrls": {}
+        },
+        "customfield_10016": 5,
+        "issuelinks": [
+          {
+            "id": "10006",
+            "self": "https://acme.atlassian.net/rest/api/3/issueLink/10006",
+            "type": {
+              "id": "10000",
+              "name": "Blocks",
+              "inward": "is blocked by",
+              "outward": "blocks",
+              "self": "https://acme.atlassian.net/rest/api/3/issueLinkType/10000"
+            },
+            "outwardIssue": {
+              "id": "106708",
+              "key": "CORE-8",
+              "self": "https://acme.atlassian.net/rest/api/3/issue/106708",
+              "fields": {
+                "summary": "Expose rate-limit headers to clients",
+                "status": {
+                  "name": "To Do",
+                  "id": "1001",
+                  "statusCategory": {
+                    "id": 2,
+                    "key": "new",
+                    "name": "To Do",
+                    "colorName": "blue-gray"
+                  }
+                },
+                "issuetype": {
+                  "id": "10002",
+                  "name": "Task",
+                  "subtask": false,
+                  "hierarchyLevel": 0
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "106708",
+      "key": "CORE-8",
+      "self": "https://acme.atlassian.net/rest/api/3/issue/106708",
+      "fields": {
+        "summary": "Expose rate-limit headers to clients",
+        "issuetype": {
+          "id": "10002",
+          "name": "Task",
+          "subtask": false,
+          "hierarchyLevel": 0
+        },
+        "status": {
+          "name": "To Do",
+          "id": "1001",
+          "statusCategory": {
+            "id": 2,
+            "key": "new",
+            "name": "To Do",
+            "colorName": "blue-gray"
+          }
+        },
+        "assignee": {
+          "accountId": "acc-marcus-lee",
+          "displayName": "Marcus Lee",
+          "avatarUrls": {}
+        },
+        "customfield_10016": 2,
+        "issuelinks": [
+          {
+            "id": "10004",
+            "self": "https://acme.atlassian.net/rest/api/3/issueLink/10004",
+            "type": {
+              "id": "10000",
+              "name": "Blocks",
+              "inward": "is blocked by",
+              "outward": "blocks",
+              "self": "https://acme.atlassian.net/rest/api/3/issueLinkType/10000"
+            },
+            "outwardIssue": {
+              "id": "108702",
+              "key": "WEB-2",
+              "self": "https://acme.atlassian.net/rest/api/3/issue/108702",
+              "fields": {
+                "summary": "Checkout v2 launch toggle",
+                "status": {
+                  "name": "To Do",
+                  "id": "1001",
+                  "statusCategory": {
+                    "id": 2,
+                    "key": "new",
+                    "name": "To Do",
+                    "colorName": "blue-gray"
+                  }
+                },
+                "issuetype": {
+                  "id": "10001",
+                  "name": "Story",
+                  "subtask": false,
+                  "hierarchyLevel": 0
+                }
+              }
+            }
+          },
+          {
+            "id": "10006",
+            "self": "https://acme.atlassian.net/rest/api/3/issueLink/10006",
+            "type": {
+              "id": "10000",
+              "name": "Blocks",
+              "inward": "is blocked by",
+              "outward": "blocks",
+              "self": "https://acme.atlassian.net/rest/api/3/issueLinkType/10000"
+            },
+            "inwardIssue": {
+              "id": "106707",
+              "key": "CORE-7",
+              "self": "https://acme.atlassian.net/rest/api/3/issue/106707",
+              "fields": {
+                "summary": "Rate limiter for public API",
+                "status": {
+                  "name": "In Progress",
+                  "id": "1002",
+                  "statusCategory": {
+                    "id": 4,
+                    "key": "indeterminate",
+                    "name": "In Progress",
+                    "colorName": "yellow"
+                  }
+                },
+                "issuetype": {
+                  "id": "10001",
+                  "name": "Story",
+                  "subtask": false,
+                  "hierarchyLevel": 0
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "106710",
+      "key": "CORE-10",
+      "self": "https://acme.atlassian.net/rest/api/3/issue/106710",
+      "fields": {
+        "summary": "Accept partner payment tokens in checkout",
+        "issuetype": {
+          "id": "10001",
+          "name": "Story",
+          "subtask": false,
+          "hierarchyLevel": 0
+        },
+        "status": {
+          "name": "To Do",
+          "id": "1001",
+          "statusCategory": {
+            "id": 2,
+            "key": "new",
+            "name": "To Do",
+            "colorName": "blue-gray"
+          }
+        },
+        "assignee": {
+          "accountId": "acc-dana-whitfield",
+          "displayName": "Dana Whitfield",
+          "avatarUrls": {}
+        },
+        "customfield_10016": 8,
+        "parent": {
+          "id": "106701",
+          "key": "CORE-1",
+          "self": "https://acme.atlassian.net/rest/api/3/issue/106701",
+          "fields": {
+            "summary": "Checkout v2",
+            "status": {
+              "name": "In Progress",
+              "id": "1002",
+              "statusCategory": {
+                "id": 4,
+                "key": "indeterminate",
+                "name": "In Progress",
+                "colorName": "yellow"
+              }
+            },
+            "issuetype": {
+              "id": "10000",
+              "name": "Epic",
+              "subtask": false,
+              "hierarchyLevel": 1
+            }
+          }
+        },
+        "issuelinks": [
+          {
+            "id": "10001",
+            "self": "https://acme.atlassian.net/rest/api/3/issueLink/10001",
+            "type": {
+              "id": "10000",
+              "name": "Blocks",
+              "inward": "is blocked by",
+              "outward": "blocks",
+              "self": "https://acme.atlassian.net/rest/api/3/issueLinkType/10000"
+            },
+            "outwardIssue": {
+              "id": "106711",
+              "key": "CORE-11",
+              "self": "https://acme.atlassian.net/rest/api/3/issue/106711",
+              "fields": {
+                "summary": "Persist tokenized cards on the order",
+                "status": {
+                  "name": "To Do",
+                  "id": "1001",
+                  "statusCategory": {
+                    "id": 2,
+                    "key": "new",
+                    "name": "To Do",
+                    "colorName": "blue-gray"
+                  }
+                },
+                "issuetype": {
+                  "id": "10001",
+                  "name": "Story",
+                  "subtask": false,
+                  "hierarchyLevel": 0
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "106711",
+      "key": "CORE-11",
+      "self": "https://acme.atlassian.net/rest/api/3/issue/106711",
+      "fields": {
+        "summary": "Persist tokenized cards on the order",
+        "issuetype": {
+          "id": "10001",
+          "name": "Story",
+          "subtask": false,
+          "hierarchyLevel": 0
+        },
+        "status": {
+          "name": "To Do",
+          "id": "1001",
+          "statusCategory": {
+            "id": 2,
+            "key": "new",
+            "name": "To Do",
+            "colorName": "blue-gray"
+          }
+        },
+        "assignee": {
+          "accountId": "acc-priya-raman",
+          "displayName": "Priya Raman",
+          "avatarUrls": {}
+        },
+        "customfield_10016": 5,
+        "parent": {
+          "id": "106701",
+          "key": "CORE-1",
+          "self": "https://acme.atlassian.net/rest/api/3/issue/106701",
+          "fields": {
+            "summary": "Checkout v2",
+            "status": {
+              "name": "In Progress",
+              "id": "1002",
+              "statusCategory": {
+                "id": 4,
+                "key": "indeterminate",
+                "name": "In Progress",
+                "colorName": "yellow"
+              }
+            },
+            "issuetype": {
+              "id": "10000",
+              "name": "Epic",
+              "subtask": false,
+              "hierarchyLevel": 1
+            }
+          }
+        },
+        "issuelinks": [
+          {
+            "id": "10001",
+            "self": "https://acme.atlassian.net/rest/api/3/issueLink/10001",
+            "type": {
+              "id": "10000",
+              "name": "Blocks",
+              "inward": "is blocked by",
+              "outward": "blocks",
+              "self": "https://acme.atlassian.net/rest/api/3/issueLinkType/10000"
+            },
+            "inwardIssue": {
+              "id": "106710",
+              "key": "CORE-10",
+              "self": "https://acme.atlassian.net/rest/api/3/issue/106710",
+              "fields": {
+                "summary": "Accept partner payment tokens in checkout",
+                "status": {
+                  "name": "To Do",
+                  "id": "1001",
+                  "statusCategory": {
+                    "id": 2,
+                    "key": "new",
+                    "name": "To Do",
+                    "colorName": "blue-gray"
+                  }
+                },
+                "issuetype": {
+                  "id": "10001",
+                  "name": "Story",
+                  "subtask": false,
+                  "hierarchyLevel": 0
+                }
+              }
+            }
+          },
+          {
+            "id": "10002",
+            "self": "https://acme.atlassian.net/rest/api/3/issueLink/10002",
+            "type": {
+              "id": "10000",
+              "name": "Blocks",
+              "inward": "is blocked by",
+              "outward": "blocks",
+              "self": "https://acme.atlassian.net/rest/api/3/issueLinkType/10000"
+            },
+            "outwardIssue": {
+              "id": "108701",
+              "key": "WEB-1",
+              "self": "https://acme.atlassian.net/rest/api/3/issue/108701",
+              "fields": {
+                "summary": "Checkout v2 order confirmation page",
+                "status": {
+                  "name": "To Do",
+                  "id": "1001",
+                  "statusCategory": {
+                    "id": 2,
+                    "key": "new",
+                    "name": "To Do",
+                    "colorName": "blue-gray"
+                  }
+                },
+                "issuetype": {
+                  "id": "10001",
+                  "name": "Story",
+                  "subtask": false,
+                  "hierarchyLevel": 0
+                }
+              }
+            }
+          },
+          {
+            "id": "10003",
+            "self": "https://acme.atlassian.net/rest/api/3/issueLink/10003",
+            "type": {
+              "id": "10000",
+              "name": "Blocks",
+              "inward": "is blocked by",
+              "outward": "blocks",
+              "self": "https://acme.atlassian.net/rest/api/3/issueLinkType/10000"
+            },
+            "outwardIssue": {
+              "id": "108702",
+              "key": "WEB-2",
+              "self": "https://acme.atlassian.net/rest/api/3/issue/108702",
+              "fields": {
+                "summary": "Checkout v2 launch toggle",
+                "status": {
+                  "name": "To Do",
+                  "id": "1001",
+                  "statusCategory": {
+                    "id": 2,
+                    "key": "new",
+                    "name": "To Do",
+                    "colorName": "blue-gray"
+                  }
+                },
+                "issuetype": {
+                  "id": "10001",
+                  "name": "Story",
+                  "subtask": false,
+                  "hierarchyLevel": 0
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "106716",
+      "key": "CORE-16",
+      "self": "https://acme.atlassian.net/rest/api/3/issue/106716",
+      "fields": {
+        "summary": "Migrate card vault schema",
+        "issuetype": {
+          "id": "10004",
+          "name": "Sub-task",
+          "subtask": true,
+          "hierarchyLevel": -1
+        },
+        "status": {
+          "name": "In Progress",
+          "id": "1002",
+          "statusCategory": {
+            "id": 4,
+            "key": "indeterminate",
+            "name": "In Progress",
+            "colorName": "yellow"
+          }
+        },
+        "assignee": {
+          "accountId": "acc-priya-raman",
+          "displayName": "Priya Raman",
+          "avatarUrls": {}
+        },
+        "customfield_10016": null,
+        "parent": {
+          "id": "106711",
+          "key": "CORE-11",
+          "self": "https://acme.atlassian.net/rest/api/3/issue/106711",
+          "fields": {
+            "summary": "Persist tokenized cards on the order",
+            "status": {
+              "name": "To Do",
+              "id": "1001",
+              "statusCategory": {
+                "id": 2,
+                "key": "new",
+                "name": "To Do",
+                "colorName": "blue-gray"
+              }
+            },
+            "issuetype": {
+              "id": "10001",
+              "name": "Story",
+              "subtask": false,
+              "hierarchyLevel": 0
+            }
+          }
+        },
+        "issuelinks": []
+      }
+    },
+    {
+      "id": "106712",
+      "key": "CORE-12",
+      "self": "https://acme.atlassian.net/rest/api/3/issue/106712",
+      "fields": {
+        "summary": "Audit logging for order writes",
+        "issuetype": {
+          "id": "10002",
+          "name": "Task",
+          "subtask": false,
+          "hierarchyLevel": 0
+        },
+        "status": {
+          "name": "Done",
+          "id": "1004",
+          "statusCategory": {
+            "id": 3,
+            "key": "done",
+            "name": "Done",
+            "colorName": "green"
+          }
+        },
+        "assignee": {
+          "accountId": "acc-marcus-lee",
+          "displayName": "Marcus Lee",
+          "avatarUrls": {}
+        },
+        "customfield_10016": 3,
+        "issuelinks": [
+          {
+            "id": "10010",
+            "self": "https://acme.atlassian.net/rest/api/3/issueLink/10010",
+            "type": {
+              "id": "10003",
+              "name": "Relates",
+              "inward": "relates to",
+              "outward": "relates to",
+              "self": "https://acme.atlassian.net/rest/api/3/issueLinkType/10003"
+            },
+            "outwardIssue": {
+              "id": "106713",
+              "key": "CORE-13",
+              "self": "https://acme.atlassian.net/rest/api/3/issue/106713",
+              "fields": {
+                "summary": "Retention policy for audit logs",
+                "status": {
+                  "name": "Backlog",
+                  "id": "1000",
+                  "statusCategory": {
+                    "id": 2,
+                    "key": "new",
+                    "name": "To Do",
+                    "colorName": "blue-gray"
+                  }
+                },
+                "issuetype": {
+                  "id": "10002",
+                  "name": "Task",
+                  "subtask": false,
+                  "hierarchyLevel": 0
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "106713",
+      "key": "CORE-13",
+      "self": "https://acme.atlassian.net/rest/api/3/issue/106713",
+      "fields": {
+        "summary": "Retention policy for audit logs",
+        "issuetype": {
+          "id": "10002",
+          "name": "Task",
+          "subtask": false,
+          "hierarchyLevel": 0
+        },
+        "status": {
+          "name": "Backlog",
+          "id": "1000",
+          "statusCategory": {
+            "id": 2,
+            "key": "new",
+            "name": "To Do",
+            "colorName": "blue-gray"
+          }
+        },
+        "assignee": null,
+        "customfield_10016": 2,
+        "issuelinks": [
+          {
+            "id": "10010",
+            "self": "https://acme.atlassian.net/rest/api/3/issueLink/10010",
+            "type": {
+              "id": "10003",
+              "name": "Relates",
+              "inward": "relates to",
+              "outward": "relates to",
+              "self": "https://acme.atlassian.net/rest/api/3/issueLinkType/10003"
+            },
+            "inwardIssue": {
+              "id": "106712",
+              "key": "CORE-12",
+              "self": "https://acme.atlassian.net/rest/api/3/issue/106712",
+              "fields": {
+                "summary": "Audit logging for order writes",
+                "status": {
+                  "name": "Done",
+                  "id": "1004",
+                  "statusCategory": {
+                    "id": 3,
+                    "key": "done",
+                    "name": "Done",
+                    "colorName": "green"
+                  }
+                },
+                "issuetype": {
+                  "id": "10002",
+                  "name": "Task",
+                  "subtask": false,
+                  "hierarchyLevel": 0
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "106714",
+      "key": "CORE-14",
+      "self": "https://acme.atlassian.net/rest/api/3/issue/106714",
+      "fields": {
+        "summary": "Cart total rounds half-cents incorrectly",
+        "issuetype": {
+          "id": "10003",
+          "name": "Bug",
+          "subtask": false,
+          "hierarchyLevel": 0
+        },
+        "status": {
+          "name": "Done",
+          "id": "1004",
+          "statusCategory": {
+            "id": 3,
+            "key": "done",
+            "name": "Done",
+            "colorName": "green"
+          }
+        },
+        "assignee": {
+          "accountId": "acc-sofia-alvarez",
+          "displayName": "Sofia Alvarez",
+          "avatarUrls": {}
+        },
+        "customfield_10016": 1,
+        "issuelinks": [
+          {
+            "id": "10011",
+            "self": "https://acme.atlassian.net/rest/api/3/issueLink/10011",
+            "type": {
+              "id": "10001",
+              "name": "Cloners",
+              "inward": "is cloned by",
+              "outward": "clones",
+              "self": "https://acme.atlassian.net/rest/api/3/issueLinkType/10001"
+            },
+            "inwardIssue": {
+              "id": "106715",
+              "key": "CORE-15",
+              "self": "https://acme.atlassian.net/rest/api/3/issue/106715",
+              "fields": {
+                "summary": "Cart total rounding (mobile clone)",
+                "status": {
+                  "name": "In Review",
+                  "id": "1003",
+                  "statusCategory": {
+                    "id": 4,
+                    "key": "indeterminate",
+                    "name": "In Progress",
+                    "colorName": "yellow"
+                  }
+                },
+                "issuetype": {
+                  "id": "10003",
+                  "name": "Bug",
+                  "subtask": false,
+                  "hierarchyLevel": 0
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "106715",
+      "key": "CORE-15",
+      "self": "https://acme.atlassian.net/rest/api/3/issue/106715",
+      "fields": {
+        "summary": "Cart total rounding (mobile clone)",
+        "issuetype": {
+          "id": "10003",
+          "name": "Bug",
+          "subtask": false,
+          "hierarchyLevel": 0
+        },
+        "status": {
+          "name": "In Review",
+          "id": "1003",
+          "statusCategory": {
+            "id": 4,
+            "key": "indeterminate",
+            "name": "In Progress",
+            "colorName": "yellow"
+          }
+        },
+        "assignee": {
+          "accountId": "acc-sofia-alvarez",
+          "displayName": "Sofia Alvarez",
+          "avatarUrls": {}
+        },
+        "customfield_10016": 1,
+        "issuelinks": [
+          {
+            "id": "10011",
+            "self": "https://acme.atlassian.net/rest/api/3/issueLink/10011",
+            "type": {
+              "id": "10001",
+              "name": "Cloners",
+              "inward": "is cloned by",
+              "outward": "clones",
+              "self": "https://acme.atlassian.net/rest/api/3/issueLinkType/10001"
+            },
+            "outwardIssue": {
+              "id": "106714",
+              "key": "CORE-14",
+              "self": "https://acme.atlassian.net/rest/api/3/issue/106714",
+              "fields": {
+                "summary": "Cart total rounds half-cents incorrectly",
+                "status": {
+                  "name": "Done",
+                  "id": "1004",
+                  "statusCategory": {
+                    "id": 3,
+                    "key": "done",
+                    "name": "Done",
+                    "colorName": "green"
+                  }
+                },
+                "issuetype": {
+                  "id": "10003",
+                  "name": "Bug",
+                  "subtask": false,
+                  "hierarchyLevel": 0
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "106720",
+      "key": "CORE-20",
+      "self": "https://acme.atlassian.net/rest/api/3/issue/106720",
+      "fields": {
+        "summary": "Shared session store",
+        "issuetype": {
+          "id": "10001",
+          "name": "Story",
+          "subtask": false,
+          "hierarchyLevel": 0
+        },
+        "status": {
+          "name": "In Progress",
+          "id": "1002",
+          "statusCategory": {
+            "id": 4,
+            "key": "indeterminate",
+            "name": "In Progress",
+            "colorName": "yellow"
+          }
+        },
+        "assignee": {
+          "accountId": "acc-jonas-berg",
+          "displayName": "Jonas Berg",
+          "avatarUrls": {}
+        },
+        "customfield_10016": 5,
+        "issuelinks": [
+          {
+            "id": "10007",
+            "self": "https://acme.atlassian.net/rest/api/3/issueLink/10007",
+            "type": {
+              "id": "10000",
+              "name": "Blocks",
+              "inward": "is blocked by",
+              "outward": "blocks",
+              "self": "https://acme.atlassian.net/rest/api/3/issueLinkType/10000"
+            },
+            "outwardIssue": {
+              "id": "106721",
+              "key": "CORE-21",
+              "self": "https://acme.atlassian.net/rest/api/3/issue/106721",
+              "fields": {
+                "summary": "Session handoff between web and partner widget",
+                "status": {
+                  "name": "To Do",
+                  "id": "1001",
+                  "statusCategory": {
+                    "id": 2,
+                    "key": "new",
+                    "name": "To Do",
+                    "colorName": "blue-gray"
+                  }
+                },
+                "issuetype": {
+                  "id": "10001",
+                  "name": "Story",
+                  "subtask": false,
+                  "hierarchyLevel": 0
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "106721",
+      "key": "CORE-21",
+      "self": "https://acme.atlassian.net/rest/api/3/issue/106721",
+      "fields": {
+        "summary": "Session handoff between web and partner widget",
+        "issuetype": {
+          "id": "10001",
+          "name": "Story",
+          "subtask": false,
+          "hierarchyLevel": 0
+        },
+        "status": {
+          "name": "To Do",
+          "id": "1001",
+          "statusCategory": {
+            "id": 2,
+            "key": "new",
+            "name": "To Do",
+            "colorName": "blue-gray"
+          }
+        },
+        "assignee": {
+          "accountId": "acc-jonas-berg",
+          "displayName": "Jonas Berg",
+          "avatarUrls": {}
+        },
+        "customfield_10016": 3,
+        "issuelinks": [
+          {
+            "id": "10007",
+            "self": "https://acme.atlassian.net/rest/api/3/issueLink/10007",
+            "type": {
+              "id": "10000",
+              "name": "Blocks",
+              "inward": "is blocked by",
+              "outward": "blocks",
+              "self": "https://acme.atlassian.net/rest/api/3/issueLinkType/10000"
+            },
+            "inwardIssue": {
+              "id": "106720",
+              "key": "CORE-20",
+              "self": "https://acme.atlassian.net/rest/api/3/issue/106720",
+              "fields": {
+                "summary": "Shared session store",
+                "status": {
+                  "name": "In Progress",
+                  "id": "1002",
+                  "statusCategory": {
+                    "id": 4,
+                    "key": "indeterminate",
+                    "name": "In Progress",
+                    "colorName": "yellow"
+                  }
+                },
+                "issuetype": {
+                  "id": "10001",
+                  "name": "Story",
+                  "subtask": false,
+                  "hierarchyLevel": 0
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "108701",
+      "key": "WEB-1",
+      "self": "https://acme.atlassian.net/rest/api/3/issue/108701",
+      "fields": {
+        "summary": "Checkout v2 order confirmation page",
+        "issuetype": {
+          "id": "10001",
+          "name": "Story",
+          "subtask": false,
+          "hierarchyLevel": 0
+        },
+        "status": {
+          "name": "To Do",
+          "id": "1001",
+          "statusCategory": {
+            "id": 2,
+            "key": "new",
+            "name": "To Do",
+            "colorName": "blue-gray"
+          }
+        },
+        "assignee": {
+          "accountId": "acc-alex-kim",
+          "displayName": "Alex Kim",
+          "avatarUrls": {}
+        },
+        "customfield_10016": 3,
+        "parent": {
+          "id": "106701",
+          "key": "CORE-1",
+          "self": "https://acme.atlassian.net/rest/api/3/issue/106701",
+          "fields": {
+            "summary": "Checkout v2",
+            "status": {
+              "name": "In Progress",
+              "id": "1002",
+              "statusCategory": {
+                "id": 4,
+                "key": "indeterminate",
+                "name": "In Progress",
+                "colorName": "yellow"
+              }
+            },
+            "issuetype": {
+              "id": "10000",
+              "name": "Epic",
+              "subtask": false,
+              "hierarchyLevel": 1
+            }
+          }
+        },
+        "issuelinks": [
+          {
+            "id": "10002",
+            "self": "https://acme.atlassian.net/rest/api/3/issueLink/10002",
+            "type": {
+              "id": "10000",
+              "name": "Blocks",
+              "inward": "is blocked by",
+              "outward": "blocks",
+              "self": "https://acme.atlassian.net/rest/api/3/issueLinkType/10000"
+            },
+            "inwardIssue": {
+              "id": "106711",
+              "key": "CORE-11",
+              "self": "https://acme.atlassian.net/rest/api/3/issue/106711",
+              "fields": {
+                "summary": "Persist tokenized cards on the order",
+                "status": {
+                  "name": "To Do",
+                  "id": "1001",
+                  "statusCategory": {
+                    "id": 2,
+                    "key": "new",
+                    "name": "To Do",
+                    "colorName": "blue-gray"
+                  }
+                },
+                "issuetype": {
+                  "id": "10001",
+                  "name": "Story",
+                  "subtask": false,
+                  "hierarchyLevel": 0
+                }
+              }
+            }
+          },
+          {
+            "id": "10013",
+            "self": "https://acme.atlassian.net/rest/api/3/issueLink/10013",
+            "type": {
+              "id": "10003",
+              "name": "Relates",
+              "inward": "relates to",
+              "outward": "relates to",
+              "self": "https://acme.atlassian.net/rest/api/3/issueLinkType/10003"
+            },
+            "inwardIssue": {
+              "id": "108705",
+              "key": "WEB-5",
+              "self": "https://acme.atlassian.net/rest/api/3/issue/108705",
+              "fields": {
+                "summary": "Update checkout copy for accessibility review",
+                "status": {
+                  "name": "To Do",
+                  "id": "1001",
+                  "statusCategory": {
+                    "id": 2,
+                    "key": "new",
+                    "name": "To Do",
+                    "colorName": "blue-gray"
+                  }
+                },
+                "issuetype": {
+                  "id": "10002",
+                  "name": "Task",
+                  "subtask": false,
+                  "hierarchyLevel": 0
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "108702",
+      "key": "WEB-2",
+      "self": "https://acme.atlassian.net/rest/api/3/issue/108702",
+      "fields": {
+        "summary": "Checkout v2 launch toggle",
+        "issuetype": {
+          "id": "10001",
+          "name": "Story",
+          "subtask": false,
+          "hierarchyLevel": 0
+        },
+        "status": {
+          "name": "To Do",
+          "id": "1001",
+          "statusCategory": {
+            "id": 2,
+            "key": "new",
+            "name": "To Do",
+            "colorName": "blue-gray"
+          }
+        },
+        "assignee": {
+          "accountId": "acc-alex-kim",
+          "displayName": "Alex Kim",
+          "avatarUrls": {}
+        },
+        "customfield_10016": 2,
+        "parent": {
+          "id": "106701",
+          "key": "CORE-1",
+          "self": "https://acme.atlassian.net/rest/api/3/issue/106701",
+          "fields": {
+            "summary": "Checkout v2",
+            "status": {
+              "name": "In Progress",
+              "id": "1002",
+              "statusCategory": {
+                "id": 4,
+                "key": "indeterminate",
+                "name": "In Progress",
+                "colorName": "yellow"
+              }
+            },
+            "issuetype": {
+              "id": "10000",
+              "name": "Epic",
+              "subtask": false,
+              "hierarchyLevel": 1
+            }
+          }
+        },
+        "issuelinks": [
+          {
+            "id": "10003",
+            "self": "https://acme.atlassian.net/rest/api/3/issueLink/10003",
+            "type": {
+              "id": "10000",
+              "name": "Blocks",
+              "inward": "is blocked by",
+              "outward": "blocks",
+              "self": "https://acme.atlassian.net/rest/api/3/issueLinkType/10000"
+            },
+            "inwardIssue": {
+              "id": "106711",
+              "key": "CORE-11",
+              "self": "https://acme.atlassian.net/rest/api/3/issue/106711",
+              "fields": {
+                "summary": "Persist tokenized cards on the order",
+                "status": {
+                  "name": "To Do",
+                  "id": "1001",
+                  "statusCategory": {
+                    "id": 2,
+                    "key": "new",
+                    "name": "To Do",
+                    "colorName": "blue-gray"
+                  }
+                },
+                "issuetype": {
+                  "id": "10001",
+                  "name": "Story",
+                  "subtask": false,
+                  "hierarchyLevel": 0
+                }
+              }
+            }
+          },
+          {
+            "id": "10004",
+            "self": "https://acme.atlassian.net/rest/api/3/issueLink/10004",
+            "type": {
+              "id": "10000",
+              "name": "Blocks",
+              "inward": "is blocked by",
+              "outward": "blocks",
+              "self": "https://acme.atlassian.net/rest/api/3/issueLinkType/10000"
+            },
+            "inwardIssue": {
+              "id": "106708",
+              "key": "CORE-8",
+              "self": "https://acme.atlassian.net/rest/api/3/issue/106708",
+              "fields": {
+                "summary": "Expose rate-limit headers to clients",
+                "status": {
+                  "name": "To Do",
+                  "id": "1001",
+                  "statusCategory": {
+                    "id": 2,
+                    "key": "new",
+                    "name": "To Do",
+                    "colorName": "blue-gray"
+                  }
+                },
+                "issuetype": {
+                  "id": "10002",
+                  "name": "Task",
+                  "subtask": false,
+                  "hierarchyLevel": 0
+                }
+              }
+            }
+          },
+          {
+            "id": "10005",
+            "self": "https://acme.atlassian.net/rest/api/3/issueLink/10005",
+            "type": {
+              "id": "10000",
+              "name": "Blocks",
+              "inward": "is blocked by",
+              "outward": "blocks",
+              "self": "https://acme.atlassian.net/rest/api/3/issueLinkType/10000"
+            },
+            "inwardIssue": {
+              "id": "107903",
+              "key": "OPS-3",
+              "self": "https://acme.atlassian.net/rest/api/3/issue/107903",
+              "fields": {
+                "summary": "Provision PCI-scoped database cluster",
+                "status": {
+                  "name": "In Progress",
+                  "id": "1002",
+                  "statusCategory": {
+                    "id": 4,
+                    "key": "indeterminate",
+                    "name": "In Progress",
+                    "colorName": "yellow"
+                  }
+                },
+                "issuetype": {
+                  "id": "10002",
+                  "name": "Task",
+                  "subtask": false,
+                  "hierarchyLevel": 0
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "108703",
+      "key": "WEB-3",
+      "self": "https://acme.atlassian.net/rest/api/3/issue/108703",
+      "fields": {
+        "summary": "Safari: promo code field loses focus",
+        "issuetype": {
+          "id": "10003",
+          "name": "Bug",
+          "subtask": false,
+          "hierarchyLevel": 0
+        },
+        "status": {
+          "name": "To Do",
+          "id": "1001",
+          "statusCategory": {
+            "id": 2,
+            "key": "new",
+            "name": "To Do",
+            "colorName": "blue-gray"
+          }
+        },
+        "assignee": null,
+        "customfield_10016": 1,
+        "issuelinks": [
+          {
+            "id": "10012",
+            "self": "https://acme.atlassian.net/rest/api/3/issueLink/10012",
+            "type": {
+              "id": "10002",
+              "name": "Duplicate",
+              "inward": "is duplicated by",
+              "outward": "duplicates",
+              "self": "https://acme.atlassian.net/rest/api/3/issueLinkType/10002"
+            },
+            "outwardIssue": {
+              "id": "108704",
+              "key": "WEB-4",
+              "self": "https://acme.atlassian.net/rest/api/3/issue/108704",
+              "fields": {
+                "summary": "Promo code input blurs on iOS Safari",
+                "status": {
+                  "name": "Closed",
+                  "id": "1005",
+                  "statusCategory": {
+                    "id": 3,
+                    "key": "done",
+                    "name": "Done",
+                    "colorName": "green"
+                  }
+                },
+                "issuetype": {
+                  "id": "10003",
+                  "name": "Bug",
+                  "subtask": false,
+                  "hierarchyLevel": 0
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "108704",
+      "key": "WEB-4",
+      "self": "https://acme.atlassian.net/rest/api/3/issue/108704",
+      "fields": {
+        "summary": "Promo code input blurs on iOS Safari",
+        "issuetype": {
+          "id": "10003",
+          "name": "Bug",
+          "subtask": false,
+          "hierarchyLevel": 0
+        },
+        "status": {
+          "name": "Closed",
+          "id": "1005",
+          "statusCategory": {
+            "id": 3,
+            "key": "done",
+            "name": "Done",
+            "colorName": "green"
+          }
+        },
+        "assignee": {
+          "accountId": "acc-alex-kim",
+          "displayName": "Alex Kim",
+          "avatarUrls": {}
+        },
+        "customfield_10016": 1,
+        "issuelinks": [
+          {
+            "id": "10012",
+            "self": "https://acme.atlassian.net/rest/api/3/issueLink/10012",
+            "type": {
+              "id": "10002",
+              "name": "Duplicate",
+              "inward": "is duplicated by",
+              "outward": "duplicates",
+              "self": "https://acme.atlassian.net/rest/api/3/issueLinkType/10002"
+            },
+            "inwardIssue": {
+              "id": "108703",
+              "key": "WEB-3",
+              "self": "https://acme.atlassian.net/rest/api/3/issue/108703",
+              "fields": {
+                "summary": "Safari: promo code field loses focus",
+                "status": {
+                  "name": "To Do",
+                  "id": "1001",
+                  "statusCategory": {
+                    "id": 2,
+                    "key": "new",
+                    "name": "To Do",
+                    "colorName": "blue-gray"
+                  }
+                },
+                "issuetype": {
+                  "id": "10003",
+                  "name": "Bug",
+                  "subtask": false,
+                  "hierarchyLevel": 0
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "108705",
+      "key": "WEB-5",
+      "self": "https://acme.atlassian.net/rest/api/3/issue/108705",
+      "fields": {
+        "summary": "Update checkout copy for accessibility review",
+        "issuetype": {
+          "id": "10002",
+          "name": "Task",
+          "subtask": false,
+          "hierarchyLevel": 0
+        },
+        "status": {
+          "name": "To Do",
+          "id": "1001",
+          "statusCategory": {
+            "id": 2,
+            "key": "new",
+            "name": "To Do",
+            "colorName": "blue-gray"
+          }
+        },
+        "assignee": {
+          "accountId": "acc-sofia-alvarez",
+          "displayName": "Sofia Alvarez",
+          "avatarUrls": {}
+        },
+        "customfield_10016": 1,
+        "issuelinks": [
+          {
+            "id": "10013",
+            "self": "https://acme.atlassian.net/rest/api/3/issueLink/10013",
+            "type": {
+              "id": "10003",
+              "name": "Relates",
+              "inward": "relates to",
+              "outward": "relates to",
+              "self": "https://acme.atlassian.net/rest/api/3/issueLinkType/10003"
+            },
+            "outwardIssue": {
+              "id": "108701",
+              "key": "WEB-1",
+              "self": "https://acme.atlassian.net/rest/api/3/issue/108701",
+              "fields": {
+                "summary": "Checkout v2 order confirmation page",
+                "status": {
+                  "name": "To Do",
+                  "id": "1001",
+                  "statusCategory": {
+                    "id": 2,
+                    "key": "new",
+                    "name": "To Do",
+                    "colorName": "blue-gray"
+                  }
+                },
+                "issuetype": {
+                  "id": "10001",
+                  "name": "Story",
+                  "subtask": false,
+                  "hierarchyLevel": 0
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "107903",
+      "key": "OPS-3",
+      "self": "https://acme.atlassian.net/rest/api/3/issue/107903",
+      "fields": {
+        "summary": "Provision PCI-scoped database cluster",
+        "issuetype": {
+          "id": "10002",
+          "name": "Task",
+          "subtask": false,
+          "hierarchyLevel": 0
+        },
+        "status": {
+          "name": "In Progress",
+          "id": "1002",
+          "statusCategory": {
+            "id": 4,
+            "key": "indeterminate",
+            "name": "In Progress",
+            "colorName": "yellow"
+          }
+        },
+        "assignee": {
+          "accountId": "acc-riley-chen",
+          "displayName": "Riley Chen",
+          "avatarUrls": {}
+        },
+        "customfield_10016": 8,
+        "issuelinks": [
+          {
+            "id": "10005",
+            "self": "https://acme.atlassian.net/rest/api/3/issueLink/10005",
+            "type": {
+              "id": "10000",
+              "name": "Blocks",
+              "inward": "is blocked by",
+              "outward": "blocks",
+              "self": "https://acme.atlassian.net/rest/api/3/issueLinkType/10000"
+            },
+            "outwardIssue": {
+              "id": "108702",
+              "key": "WEB-2",
+              "self": "https://acme.atlassian.net/rest/api/3/issue/108702",
+              "fields": {
+                "summary": "Checkout v2 launch toggle",
+                "status": {
+                  "name": "To Do",
+                  "id": "1001",
+                  "statusCategory": {
+                    "id": 2,
+                    "key": "new",
+                    "name": "To Do",
+                    "colorName": "blue-gray"
+                  }
+                },
+                "issuetype": {
+                  "id": "10001",
+                  "name": "Story",
+                  "subtask": false,
+                  "hierarchyLevel": 0
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "remoteLinks": {
+    "CORE-10": [
+      {
+        "id": 30001,
+        "self": "https://acme.atlassian.net/rest/api/3/issue/CORE-10/remotelink/30001",
+        "globalId": "appId=mock&issueId=PAY-3",
+        "application": {
+          "type": "com.atlassian.jira",
+          "name": "Jira"
+        },
+        "relationship": "is blocked by",
+        "object": {
+          "url": "https://partner.atlassian.net/browse/PAY-3",
+          "title": "PAY-3",
+          "icon": {}
+        }
+      },
+      {
+        "id": 30002,
+        "self": "https://acme.atlassian.net/rest/api/3/issue/CORE-10/remotelink/30002",
+        "globalId": "url=https://github.com/acme/web/pull/42",
+        "application": {},
+        "relationship": "mentioned in",
+        "object": {
+          "url": "https://github.com/acme/web/pull/42",
+          "title": "PR #42",
+          "icon": {}
+        }
+      }
+    ],
+    "CORE-21": [
+      {
+        "id": 30003,
+        "self": "https://acme.atlassian.net/rest/api/3/issue/CORE-21/remotelink/30003",
+        "globalId": "appId=mock&issueId=PAY-10",
+        "application": {
+          "type": "com.atlassian.jira",
+          "name": "Jira"
+        },
+        "relationship": "blocks",
+        "object": {
+          "url": "https://partner.atlassian.net/browse/PAY-10",
+          "title": "PAY-10",
+          "icon": {}
+        }
+      }
+    ],
+    "WEB-2": [
+      {
+        "id": 30004,
+        "self": "https://acme.atlassian.net/rest/api/3/issue/WEB-2/remotelink/30004",
+        "globalId": "appId=mock&issueId=LEG-4",
+        "application": {
+          "type": "com.atlassian.jira",
+          "name": "Jira"
+        },
+        "relationship": "is blocked by",
+        "object": {
+          "url": "https://legacy.atlassian.net/browse/LEG-4",
+          "title": "LEG-4",
+          "icon": {}
+        }
+      }
+    ]
+  }
+}

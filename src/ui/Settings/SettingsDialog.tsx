@@ -1,0 +1,138 @@
+import { useEffect, useRef, useState } from "react";
+import type { SiteConfig } from "../../config/types";
+import type { Domino } from "../../state/useDomino";
+import { BackendSection } from "./BackendSection";
+import { blankSite, SiteForm, type SiteFormResult } from "./SiteForm";
+import { SiteRow } from "./SiteRow";
+
+type Editing = { kind: "new" } | { kind: "edit"; id: string } | null;
+
+export function SettingsDialog({ domino, open, onClose }: { domino: Domino; open: boolean; onClose: () => void }) {
+  const ref = useRef<HTMLDialogElement>(null);
+  const [editing, setEditing] = useState<Editing>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [justSaved, setJustSaved] = useState<string | null>(null);
+  const config = domino.config;
+
+  useEffect(() => {
+    const d = ref.current;
+    if (!d) return;
+    if (open && !d.open) d.showModal();
+    if (!open && d.open) d.close();
+  }, [open]);
+
+  if (!config) return null;
+
+  const editingSite = editing?.kind === "edit" ? config.sites.find((s) => s.id === editing.id) : undefined;
+
+  const persist = async (sites: SiteConfig[], defaultSiteIds = config.defaultSiteIds) => {
+    setError(null);
+    try {
+      await domino.saveConfig({ ...config, sites, defaultSiteIds: defaultSiteIds.filter((id) => sites.some((s) => s.id === id)) });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      throw e;
+    }
+  };
+
+  const submit = async ({ site, isDefault, token, test }: SiteFormResult) => {
+    const exists = config.sites.some((s) => s.id === site.id);
+    const sites = exists ? config.sites.map((s) => (s.id === site.id ? { ...site, cloudId: s.cloudId } : s)) : [...config.sites, site];
+    const defaults = isDefault
+      ? [...new Set([...config.defaultSiteIds, site.id])]
+      : config.defaultSiteIds.filter((id) => id !== site.id);
+    await persist(sites, defaults);
+    if (token && site.auth.type === "apiToken") await domino.store.setSecret(site.auth.secretRef, token);
+    setEditing(null);
+    setJustSaved(site.id);
+    if (test) domino.testConnection(site.id);
+  };
+
+  const switchToLive = () => domino.saveConfig({ ...config, backend: "jira" }).catch((e) => setError(e instanceof Error ? e.message : String(e)));
+
+  const form = editing && (
+    <SiteForm
+      key={editing.kind === "edit" ? editing.id : "new"}
+      initial={editingSite ?? blankSite(config.sites)}
+      initialDefault={editingSite ? config.defaultSiteIds.includes(editingSite.id) : true}
+      others={config.sites.filter((s) => s.id !== editingSite?.id)}
+      isNew={editing.kind === "new"}
+      store={domino.store}
+      backend={config.backend}
+      onSwitchToLive={switchToLive}
+      onSubmit={submit}
+      onCancel={() => setEditing(null)}
+    />
+  );
+
+
+  return (
+    <dialog
+      ref={ref}
+      className="settings"
+      aria-labelledby="settings-title"
+      onClose={() => {
+        setEditing(null);
+        onClose();
+      }}
+    >
+      <header>
+        <h2 id="settings-title">Settings: Jira sites</h2>
+        <button type="button" className="icon-btn" onClick={onClose} aria-label="Close settings">
+          ✕
+        </button>
+      </header>
+      {error && (
+        <p className="banner error" role="alert">
+          {error}
+        </p>
+      )}
+      <BackendSection domino={domino} />
+      <div className="section-row">
+        <h3 className="section-h">Sites</h3>
+        {editing?.kind !== "new" && (
+          <button type="button" className="primary" onClick={() => setEditing({ kind: "new" })}>
+            + Add site
+          </button>
+        )}
+      </div>
+      {editing?.kind === "new" && form}
+      <table className="sites-table">
+        <thead>
+          <tr>
+            <th scope="col">Site</th>
+            <th scope="col">Base URL</th>
+            <th scope="col">Auth</th>
+            <th scope="col">Enabled</th>
+            <th scope="col">Connection</th>
+            <th scope="col">
+              <span className="sr-only">Actions</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {config.sites.map((s) => (
+            <SiteRow
+              key={s.id}
+              site={s}
+              highlight={justSaved === s.id}
+              health={domino.health[s.id] ?? { state: "unknown" }}
+              onToggle={(enabled) => persist(config.sites.map((x) => (x.id === s.id ? { ...x, enabled } : x))).catch(() => {})}
+              onTest={() => domino.testConnection(s.id)}
+              onEdit={() => setEditing({ kind: "edit", id: s.id })}
+              onRemove={() => persist(config.sites.filter((x) => x.id !== s.id)).catch(() => {})}
+            />
+          ))}
+          {config.sites.length === 0 && (
+            <tr>
+              <td colSpan={6} className="muted">
+                No sites yet. Click <strong>+ Add site</strong> and paste a link from your Jira.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+      {editing?.kind === "edit" && form}
+    </dialog>
+  );
+}

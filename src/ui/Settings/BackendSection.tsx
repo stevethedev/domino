@@ -1,0 +1,126 @@
+import { useCallback, useEffect, useId, useState } from "react";
+import type { BackendKind, OAuthStatus } from "../../config/types";
+import { errorMessage } from "../../data/errors";
+import type { Domino } from "../../state/useDomino";
+
+const CLIENT_ID_REF = "DOMINO_OAUTH_CLIENT_ID";
+const CLIENT_SECRET_REF = "DOMINO_OAUTH_CLIENT_SECRET";
+
+/** Data source switch plus the (write-only) OAuth app credentials and Connect flow. */
+export function BackendSection({ domino }: { domino: Domino }) {
+  const uid = useId();
+  const config = domino.config!;
+  const store = domino.store;
+  const [status, setStatus] = useState<OAuthStatus | null>(null);
+  const [clientId, setClientId] = useState("");
+  const [clientSecret, setClientSecret] = useState("");
+  const [busy, setBusy] = useState<"save" | "connect" | "disconnect" | "backend" | null>(null);
+  const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  const hasOAuthSites = config.sites.some((s) => s.auth.type === "oauth3lo");
+
+  const refresh = useCallback(() => {
+    store.oauthStatus().then(setStatus, () => setStatus(null));
+  }, [store]);
+  useEffect(refresh, [refresh]);
+
+  const run = async (kind: NonNullable<typeof busy>, fn: () => Promise<string | void>) => {
+    setBusy(kind);
+    setMessage(null);
+    try {
+      const text = await fn();
+      if (text) setMessage({ kind: "ok", text });
+    } catch (e) {
+      setMessage({ kind: "error", text: errorMessage(e) });
+    } finally {
+      setBusy(null);
+      refresh();
+    }
+  };
+
+  const setBackend = (backend: BackendKind) =>
+    run("backend", async () => {
+      await domino.saveConfig({ ...config, backend });
+    });
+
+  const saveApp = () =>
+    run("save", async () => {
+      if (clientId.trim()) await store.setSecret(CLIENT_ID_REF, clientId.trim());
+      if (clientSecret) await store.setSecret(CLIENT_SECRET_REF, clientSecret);
+      setClientId("");
+      setClientSecret("");
+      return "OAuth app credentials stored in the keychain.";
+    });
+
+  const connect = () =>
+    run("connect", async () => {
+      const sites = await store.oauthConnect();
+      await domino.refreshConfig(); // pick up discovered cloudIds
+      return `Connected. Your account can access ${sites.length} site${sites.length === 1 ? "" : "s"}: ${sites.join(", ") || "none"}.`;
+    });
+
+  return (
+    <section className="backend-section" aria-labelledby={`${uid}-h`}>
+      <h3 id={`${uid}-h`}>Data source</h3>
+      <fieldset className="radio-row">
+        <legend className="sr-only">Data source</legend>
+        <label className="check">
+          <input type="radio" name={`${uid}-backend`} checked={config.backend === "mock"} onChange={() => setBackend("mock")} disabled={busy === "backend"} />
+          Mock data <span className="muted small">(bundled fixtures)</span>
+        </label>
+        <label className="check">
+          <input type="radio" name={`${uid}-backend`} checked={config.backend === "jira"} onChange={() => setBackend("jira")} disabled={busy === "backend"} />
+          Live Jira <span className="muted small">(REST API v3)</span>
+        </label>
+      </fieldset>
+
+      <details className="oauth-app">
+        <summary>
+          OAuth 2.0 (3LO) app{" "}
+          <span className={`health ${status?.connected ? "health-ok" : "health-unknown"}`}>
+            {status === null
+              ? ""
+              : status.connected
+                ? "✓ Connected"
+                : hasOAuthSites
+                  ? status.appConfigured ? "Not connected" : "Not configured (needed by your OAuth sites)"
+                  : "Not configured"}
+          </span>
+        </summary>
+        <p className="hint">
+          Needed only for sites that use OAuth. Create the app in the Atlassian developer console with callback URL{" "}
+          <code>http://127.0.0.1:53682/callback</code> (see the README). The values are stored in the OS keychain and never shown again.
+        </p>
+        <div className="form-grid">
+          <div className="form-field">
+            <label htmlFor={`${uid}-cid`}>Client ID</label>
+            <input id={`${uid}-cid`} value={clientId} onChange={(e) => setClientId(e.target.value)} autoComplete="off" spellCheck={false}
+              placeholder={status?.appConfigured ? "Stored. Type to replace." : ""} />
+          </div>
+          <div className="form-field">
+            <label htmlFor={`${uid}-csec`}>Client secret</label>
+            <input id={`${uid}-csec`} type="password" value={clientSecret} onChange={(e) => setClientSecret(e.target.value)} autoComplete="off"
+              placeholder={status?.appConfigured ? "Stored. Type to replace." : ""} />
+          </div>
+        </div>
+        <div className="form-actions">
+          <button type="button" onClick={saveApp} disabled={busy !== null || (!clientId.trim() && !clientSecret)}>
+            {busy === "save" ? "Saving…" : "Save app credentials"}
+          </button>
+          {status?.connected ? (
+            <button type="button" onClick={() => run("disconnect", async () => (await store.oauthDisconnect(), "Disconnected."))} disabled={busy !== null}>
+              {busy === "disconnect" ? "Disconnecting…" : "Disconnect"}
+            </button>
+          ) : null}
+          <button type="button" className="primary" onClick={connect} disabled={busy !== null || !status?.appConfigured}>
+            {busy === "connect" ? "Waiting for browser sign-in…" : status?.connected ? "Reconnect" : "Connect with Atlassian"}
+          </button>
+        </div>
+      </details>
+      {message && (
+        <p className={message.kind === "error" ? "field-error" : "hint"} role={message.kind === "error" ? "alert" : "status"}>
+          {message.text}
+        </p>
+      )}
+    </section>
+  );
+}

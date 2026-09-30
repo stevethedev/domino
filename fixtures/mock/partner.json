@@ -1,0 +1,913 @@
+{
+  "issues": [
+    {
+      "id": "208020",
+      "key": "PAY-20",
+      "self": "https://partner.atlassian.net/rest/api/3/issue/208020",
+      "fields": {
+        "summary": "Tokenized payments for Acme",
+        "issuetype": {
+          "id": "10000",
+          "name": "Epic",
+          "subtask": false,
+          "hierarchyLevel": 1
+        },
+        "status": {
+          "name": "In Progress",
+          "id": "1002",
+          "statusCategory": {
+            "id": 4,
+            "key": "indeterminate",
+            "name": "In Progress",
+            "colorName": "yellow"
+          }
+        },
+        "assignee": {
+          "accountId": "acc-noor-haddad",
+          "displayName": "Noor Haddad",
+          "avatarUrls": {}
+        },
+        "customfield_10016": null,
+        "issuelinks": []
+      }
+    },
+    {
+      "id": "208001",
+      "key": "PAY-1",
+      "self": "https://partner.atlassian.net/rest/api/3/issue/208001",
+      "fields": {
+        "summary": "Tokenization service skeleton",
+        "issuetype": {
+          "id": "10001",
+          "name": "Story",
+          "subtask": false,
+          "hierarchyLevel": 0
+        },
+        "status": {
+          "name": "Done",
+          "id": "1004",
+          "statusCategory": {
+            "id": 3,
+            "key": "done",
+            "name": "Done",
+            "colorName": "green"
+          }
+        },
+        "assignee": {
+          "accountId": "acc-noor-haddad",
+          "displayName": "Noor Haddad",
+          "avatarUrls": {}
+        },
+        "customfield_10016": 3,
+        "parent": {
+          "id": "208020",
+          "key": "PAY-20",
+          "self": "https://partner.atlassian.net/rest/api/3/issue/208020",
+          "fields": {
+            "summary": "Tokenized payments for Acme",
+            "status": {
+              "name": "In Progress",
+              "id": "1002",
+              "statusCategory": {
+                "id": 4,
+                "key": "indeterminate",
+                "name": "In Progress",
+                "colorName": "yellow"
+              }
+            },
+            "issuetype": {
+              "id": "10000",
+              "name": "Epic",
+              "subtask": false,
+              "hierarchyLevel": 1
+            }
+          }
+        },
+        "issuelinks": [
+          {
+            "id": "10001",
+            "self": "https://partner.atlassian.net/rest/api/3/issueLink/10001",
+            "type": {
+              "id": "10000",
+              "name": "Blocks",
+              "inward": "is blocked by",
+              "outward": "blocks",
+              "self": "https://partner.atlassian.net/rest/api/3/issueLinkType/10000"
+            },
+            "outwardIssue": {
+              "id": "208002",
+              "key": "PAY-2",
+              "self": "https://partner.atlassian.net/rest/api/3/issue/208002",
+              "fields": {
+                "summary": "Token vault with HSM-backed keys",
+                "status": {
+                  "name": "In Progress",
+                  "id": "1002",
+                  "statusCategory": {
+                    "id": 4,
+                    "key": "indeterminate",
+                    "name": "In Progress",
+                    "colorName": "yellow"
+                  }
+                },
+                "issuetype": {
+                  "id": "10001",
+                  "name": "Story",
+                  "subtask": false,
+                  "hierarchyLevel": 0
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "208002",
+      "key": "PAY-2",
+      "self": "https://partner.atlassian.net/rest/api/3/issue/208002",
+      "fields": {
+        "summary": "Token vault with HSM-backed keys",
+        "issuetype": {
+          "id": "10001",
+          "name": "Story",
+          "subtask": false,
+          "hierarchyLevel": 0
+        },
+        "status": {
+          "name": "In Progress",
+          "id": "1002",
+          "statusCategory": {
+            "id": 4,
+            "key": "indeterminate",
+            "name": "In Progress",
+            "colorName": "yellow"
+          }
+        },
+        "assignee": {
+          "accountId": "acc-tom-s-ortega",
+          "displayName": "Tomás Ortega",
+          "avatarUrls": {}
+        },
+        "customfield_10016": 8,
+        "parent": {
+          "id": "208020",
+          "key": "PAY-20",
+          "self": "https://partner.atlassian.net/rest/api/3/issue/208020",
+          "fields": {
+            "summary": "Tokenized payments for Acme",
+            "status": {
+              "name": "In Progress",
+              "id": "1002",
+              "statusCategory": {
+                "id": 4,
+                "key": "indeterminate",
+                "name": "In Progress",
+                "colorName": "yellow"
+              }
+            },
+            "issuetype": {
+              "id": "10000",
+              "name": "Epic",
+              "subtask": false,
+              "hierarchyLevel": 1
+            }
+          }
+        },
+        "issuelinks": [
+          {
+            "id": "10001",
+            "self": "https://partner.atlassian.net/rest/api/3/issueLink/10001",
+            "type": {
+              "id": "10000",
+              "name": "Blocks",
+              "inward": "is blocked by",
+              "outward": "blocks",
+              "self": "https://partner.atlassian.net/rest/api/3/issueLinkType/10000"
+            },
+            "inwardIssue": {
+              "id": "208001",
+              "key": "PAY-1",
+              "self": "https://partner.atlassian.net/rest/api/3/issue/208001",
+              "fields": {
+                "summary": "Tokenization service skeleton",
+                "status": {
+                  "name": "Done",
+                  "id": "1004",
+                  "statusCategory": {
+                    "id": 3,
+                    "key": "done",
+                    "name": "Done",
+                    "colorName": "green"
+                  }
+                },
+                "issuetype": {
+                  "id": "10001",
+                  "name": "Story",
+                  "subtask": false,
+                  "hierarchyLevel": 0
+                }
+              }
+            }
+          },
+          {
+            "id": "10002",
+            "self": "https://partner.atlassian.net/rest/api/3/issueLink/10002",
+            "type": {
+              "id": "10000",
+              "name": "Blocks",
+              "inward": "is blocked by",
+              "outward": "blocks",
+              "self": "https://partner.atlassian.net/rest/api/3/issueLinkType/10000"
+            },
+            "outwardIssue": {
+              "id": "208003",
+              "key": "PAY-3",
+              "self": "https://partner.atlassian.net/rest/api/3/issue/208003",
+              "fields": {
+                "summary": "Public token exchange endpoint",
+                "status": {
+                  "name": "To Do",
+                  "id": "1001",
+                  "statusCategory": {
+                    "id": 2,
+                    "key": "new",
+                    "name": "To Do",
+                    "colorName": "blue-gray"
+                  }
+                },
+                "issuetype": {
+                  "id": "10001",
+                  "name": "Story",
+                  "subtask": false,
+                  "hierarchyLevel": 0
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "208003",
+      "key": "PAY-3",
+      "self": "https://partner.atlassian.net/rest/api/3/issue/208003",
+      "fields": {
+        "summary": "Public token exchange endpoint",
+        "issuetype": {
+          "id": "10001",
+          "name": "Story",
+          "subtask": false,
+          "hierarchyLevel": 0
+        },
+        "status": {
+          "name": "To Do",
+          "id": "1001",
+          "statusCategory": {
+            "id": 2,
+            "key": "new",
+            "name": "To Do",
+            "colorName": "blue-gray"
+          }
+        },
+        "assignee": {
+          "accountId": "acc-noor-haddad",
+          "displayName": "Noor Haddad",
+          "avatarUrls": {}
+        },
+        "customfield_10016": 5,
+        "parent": {
+          "id": "208020",
+          "key": "PAY-20",
+          "self": "https://partner.atlassian.net/rest/api/3/issue/208020",
+          "fields": {
+            "summary": "Tokenized payments for Acme",
+            "status": {
+              "name": "In Progress",
+              "id": "1002",
+              "statusCategory": {
+                "id": 4,
+                "key": "indeterminate",
+                "name": "In Progress",
+                "colorName": "yellow"
+              }
+            },
+            "issuetype": {
+              "id": "10000",
+              "name": "Epic",
+              "subtask": false,
+              "hierarchyLevel": 1
+            }
+          }
+        },
+        "issuelinks": [
+          {
+            "id": "10002",
+            "self": "https://partner.atlassian.net/rest/api/3/issueLink/10002",
+            "type": {
+              "id": "10000",
+              "name": "Blocks",
+              "inward": "is blocked by",
+              "outward": "blocks",
+              "self": "https://partner.atlassian.net/rest/api/3/issueLinkType/10000"
+            },
+            "inwardIssue": {
+              "id": "208002",
+              "key": "PAY-2",
+              "self": "https://partner.atlassian.net/rest/api/3/issue/208002",
+              "fields": {
+                "summary": "Token vault with HSM-backed keys",
+                "status": {
+                  "name": "In Progress",
+                  "id": "1002",
+                  "statusCategory": {
+                    "id": 4,
+                    "key": "indeterminate",
+                    "name": "In Progress",
+                    "colorName": "yellow"
+                  }
+                },
+                "issuetype": {
+                  "id": "10001",
+                  "name": "Story",
+                  "subtask": false,
+                  "hierarchyLevel": 0
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "206707",
+      "key": "CORE-7",
+      "self": "https://partner.atlassian.net/rest/api/3/issue/206707",
+      "fields": {
+        "summary": "Partner onboarding checklist",
+        "issuetype": {
+          "id": "10002",
+          "name": "Task",
+          "subtask": false,
+          "hierarchyLevel": 0
+        },
+        "status": {
+          "name": "To Do",
+          "id": "1001",
+          "statusCategory": {
+            "id": 2,
+            "key": "new",
+            "name": "To Do",
+            "colorName": "blue-gray"
+          }
+        },
+        "assignee": {
+          "accountId": "acc-mei-tanaka",
+          "displayName": "Mei Tanaka",
+          "avatarUrls": {}
+        },
+        "customfield_10016": 2,
+        "issuelinks": [
+          {
+            "id": "10003",
+            "self": "https://partner.atlassian.net/rest/api/3/issueLink/10003",
+            "type": {
+              "id": "10003",
+              "name": "Relates",
+              "inward": "relates to",
+              "outward": "relates to",
+              "self": "https://partner.atlassian.net/rest/api/3/issueLinkType/10003"
+            },
+            "outwardIssue": {
+              "id": "208004",
+              "key": "PAY-4",
+              "self": "https://partner.atlassian.net/rest/api/3/issue/208004",
+              "fields": {
+                "summary": "Fraud scoring integration",
+                "status": {
+                  "name": "In Progress",
+                  "id": "1002",
+                  "statusCategory": {
+                    "id": 4,
+                    "key": "indeterminate",
+                    "name": "In Progress",
+                    "colorName": "yellow"
+                  }
+                },
+                "issuetype": {
+                  "id": "10002",
+                  "name": "Task",
+                  "subtask": false,
+                  "hierarchyLevel": 0
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "208004",
+      "key": "PAY-4",
+      "self": "https://partner.atlassian.net/rest/api/3/issue/208004",
+      "fields": {
+        "summary": "Fraud scoring integration",
+        "issuetype": {
+          "id": "10002",
+          "name": "Task",
+          "subtask": false,
+          "hierarchyLevel": 0
+        },
+        "status": {
+          "name": "In Progress",
+          "id": "1002",
+          "statusCategory": {
+            "id": 4,
+            "key": "indeterminate",
+            "name": "In Progress",
+            "colorName": "yellow"
+          }
+        },
+        "assignee": {
+          "accountId": "acc-tom-s-ortega",
+          "displayName": "Tomás Ortega",
+          "avatarUrls": {}
+        },
+        "customfield_10016": 5,
+        "issuelinks": [
+          {
+            "id": "10003",
+            "self": "https://partner.atlassian.net/rest/api/3/issueLink/10003",
+            "type": {
+              "id": "10003",
+              "name": "Relates",
+              "inward": "relates to",
+              "outward": "relates to",
+              "self": "https://partner.atlassian.net/rest/api/3/issueLinkType/10003"
+            },
+            "inwardIssue": {
+              "id": "206707",
+              "key": "CORE-7",
+              "self": "https://partner.atlassian.net/rest/api/3/issue/206707",
+              "fields": {
+                "summary": "Partner onboarding checklist",
+                "status": {
+                  "name": "To Do",
+                  "id": "1001",
+                  "statusCategory": {
+                    "id": 2,
+                    "key": "new",
+                    "name": "To Do",
+                    "colorName": "blue-gray"
+                  }
+                },
+                "issuetype": {
+                  "id": "10002",
+                  "name": "Task",
+                  "subtask": false,
+                  "hierarchyLevel": 0
+                }
+              }
+            }
+          },
+          {
+            "id": "10006",
+            "self": "https://partner.atlassian.net/rest/api/3/issueLink/10006",
+            "type": {
+              "id": "10000",
+              "name": "Blocks",
+              "inward": "is blocked by",
+              "outward": "blocks",
+              "self": "https://partner.atlassian.net/rest/api/3/issueLinkType/10000"
+            },
+            "inwardIssue": {
+              "id": "208010",
+              "key": "PAY-10",
+              "self": "https://partner.atlassian.net/rest/api/3/issue/208010",
+              "fields": {
+                "summary": "Partner widget reads shared session",
+                "status": {
+                  "name": "In Review",
+                  "id": "1003",
+                  "statusCategory": {
+                    "id": 4,
+                    "key": "indeterminate",
+                    "name": "In Progress",
+                    "colorName": "yellow"
+                  }
+                },
+                "issuetype": {
+                  "id": "10001",
+                  "name": "Story",
+                  "subtask": false,
+                  "hierarchyLevel": 0
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "208005",
+      "key": "PAY-5",
+      "self": "https://partner.atlassian.net/rest/api/3/issue/208005",
+      "fields": {
+        "summary": "Sandbox credentials for Acme",
+        "issuetype": {
+          "id": "10002",
+          "name": "Task",
+          "subtask": false,
+          "hierarchyLevel": 0
+        },
+        "status": {
+          "name": "Done",
+          "id": "1004",
+          "statusCategory": {
+            "id": 3,
+            "key": "done",
+            "name": "Done",
+            "colorName": "green"
+          }
+        },
+        "assignee": {
+          "accountId": "acc-mei-tanaka",
+          "displayName": "Mei Tanaka",
+          "avatarUrls": {}
+        },
+        "customfield_10016": 1,
+        "issuelinks": [
+          {
+            "id": "10004",
+            "self": "https://partner.atlassian.net/rest/api/3/issueLink/10004",
+            "type": {
+              "id": "10003",
+              "name": "Relates",
+              "inward": "relates to",
+              "outward": "relates to",
+              "self": "https://partner.atlassian.net/rest/api/3/issueLinkType/10003"
+            },
+            "outwardIssue": {
+              "id": "208006",
+              "key": "PAY-6",
+              "self": "https://partner.atlassian.net/rest/api/3/issue/208006",
+              "fields": {
+                "summary": "Rotate sandbox credentials quarterly",
+                "status": {
+                  "name": "To Do",
+                  "id": "1001",
+                  "statusCategory": {
+                    "id": 2,
+                    "key": "new",
+                    "name": "To Do",
+                    "colorName": "blue-gray"
+                  }
+                },
+                "issuetype": {
+                  "id": "10002",
+                  "name": "Task",
+                  "subtask": false,
+                  "hierarchyLevel": 0
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "208006",
+      "key": "PAY-6",
+      "self": "https://partner.atlassian.net/rest/api/3/issue/208006",
+      "fields": {
+        "summary": "Rotate sandbox credentials quarterly",
+        "issuetype": {
+          "id": "10002",
+          "name": "Task",
+          "subtask": false,
+          "hierarchyLevel": 0
+        },
+        "status": {
+          "name": "To Do",
+          "id": "1001",
+          "statusCategory": {
+            "id": 2,
+            "key": "new",
+            "name": "To Do",
+            "colorName": "blue-gray"
+          }
+        },
+        "assignee": null,
+        "customfield_10016": 1,
+        "issuelinks": [
+          {
+            "id": "10004",
+            "self": "https://partner.atlassian.net/rest/api/3/issueLink/10004",
+            "type": {
+              "id": "10003",
+              "name": "Relates",
+              "inward": "relates to",
+              "outward": "relates to",
+              "self": "https://partner.atlassian.net/rest/api/3/issueLinkType/10003"
+            },
+            "inwardIssue": {
+              "id": "208005",
+              "key": "PAY-5",
+              "self": "https://partner.atlassian.net/rest/api/3/issue/208005",
+              "fields": {
+                "summary": "Sandbox credentials for Acme",
+                "status": {
+                  "name": "Done",
+                  "id": "1004",
+                  "statusCategory": {
+                    "id": 3,
+                    "key": "done",
+                    "name": "Done",
+                    "colorName": "green"
+                  }
+                },
+                "issuetype": {
+                  "id": "10002",
+                  "name": "Task",
+                  "subtask": false,
+                  "hierarchyLevel": 0
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "208007",
+      "key": "PAY-7",
+      "self": "https://partner.atlassian.net/rest/api/3/issue/208007",
+      "fields": {
+        "summary": "Webhook retries fire twice",
+        "issuetype": {
+          "id": "10003",
+          "name": "Bug",
+          "subtask": false,
+          "hierarchyLevel": 0
+        },
+        "status": {
+          "name": "To Do",
+          "id": "1001",
+          "statusCategory": {
+            "id": 2,
+            "key": "new",
+            "name": "To Do",
+            "colorName": "blue-gray"
+          }
+        },
+        "assignee": {
+          "accountId": "acc-tom-s-ortega",
+          "displayName": "Tomás Ortega",
+          "avatarUrls": {}
+        },
+        "customfield_10016": 2,
+        "issuelinks": [
+          {
+            "id": "10005",
+            "self": "https://partner.atlassian.net/rest/api/3/issueLink/10005",
+            "type": {
+              "id": "10002",
+              "name": "Duplicate",
+              "inward": "is duplicated by",
+              "outward": "duplicates",
+              "self": "https://partner.atlassian.net/rest/api/3/issueLinkType/10002"
+            },
+            "outwardIssue": {
+              "id": "208008",
+              "key": "PAY-8",
+              "self": "https://partner.atlassian.net/rest/api/3/issue/208008",
+              "fields": {
+                "summary": "Duplicate webhook deliveries",
+                "status": {
+                  "name": "In Progress",
+                  "id": "1002",
+                  "statusCategory": {
+                    "id": 4,
+                    "key": "indeterminate",
+                    "name": "In Progress",
+                    "colorName": "yellow"
+                  }
+                },
+                "issuetype": {
+                  "id": "10003",
+                  "name": "Bug",
+                  "subtask": false,
+                  "hierarchyLevel": 0
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "208008",
+      "key": "PAY-8",
+      "self": "https://partner.atlassian.net/rest/api/3/issue/208008",
+      "fields": {
+        "summary": "Duplicate webhook deliveries",
+        "issuetype": {
+          "id": "10003",
+          "name": "Bug",
+          "subtask": false,
+          "hierarchyLevel": 0
+        },
+        "status": {
+          "name": "In Progress",
+          "id": "1002",
+          "statusCategory": {
+            "id": 4,
+            "key": "indeterminate",
+            "name": "In Progress",
+            "colorName": "yellow"
+          }
+        },
+        "assignee": {
+          "accountId": "acc-mei-tanaka",
+          "displayName": "Mei Tanaka",
+          "avatarUrls": {}
+        },
+        "customfield_10016": 2,
+        "issuelinks": [
+          {
+            "id": "10005",
+            "self": "https://partner.atlassian.net/rest/api/3/issueLink/10005",
+            "type": {
+              "id": "10002",
+              "name": "Duplicate",
+              "inward": "is duplicated by",
+              "outward": "duplicates",
+              "self": "https://partner.atlassian.net/rest/api/3/issueLinkType/10002"
+            },
+            "inwardIssue": {
+              "id": "208007",
+              "key": "PAY-7",
+              "self": "https://partner.atlassian.net/rest/api/3/issue/208007",
+              "fields": {
+                "summary": "Webhook retries fire twice",
+                "status": {
+                  "name": "To Do",
+                  "id": "1001",
+                  "statusCategory": {
+                    "id": 2,
+                    "key": "new",
+                    "name": "To Do",
+                    "colorName": "blue-gray"
+                  }
+                },
+                "issuetype": {
+                  "id": "10003",
+                  "name": "Bug",
+                  "subtask": false,
+                  "hierarchyLevel": 0
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "208010",
+      "key": "PAY-10",
+      "self": "https://partner.atlassian.net/rest/api/3/issue/208010",
+      "fields": {
+        "summary": "Partner widget reads shared session",
+        "issuetype": {
+          "id": "10001",
+          "name": "Story",
+          "subtask": false,
+          "hierarchyLevel": 0
+        },
+        "status": {
+          "name": "In Review",
+          "id": "1003",
+          "statusCategory": {
+            "id": 4,
+            "key": "indeterminate",
+            "name": "In Progress",
+            "colorName": "yellow"
+          }
+        },
+        "assignee": {
+          "accountId": "acc-noor-haddad",
+          "displayName": "Noor Haddad",
+          "avatarUrls": {}
+        },
+        "customfield_10016": 3,
+        "issuelinks": [
+          {
+            "id": "10006",
+            "self": "https://partner.atlassian.net/rest/api/3/issueLink/10006",
+            "type": {
+              "id": "10000",
+              "name": "Blocks",
+              "inward": "is blocked by",
+              "outward": "blocks",
+              "self": "https://partner.atlassian.net/rest/api/3/issueLinkType/10000"
+            },
+            "outwardIssue": {
+              "id": "208004",
+              "key": "PAY-4",
+              "self": "https://partner.atlassian.net/rest/api/3/issue/208004",
+              "fields": {
+                "summary": "Fraud scoring integration",
+                "status": {
+                  "name": "In Progress",
+                  "id": "1002",
+                  "statusCategory": {
+                    "id": 4,
+                    "key": "indeterminate",
+                    "name": "In Progress",
+                    "colorName": "yellow"
+                  }
+                },
+                "issuetype": {
+                  "id": "10002",
+                  "name": "Task",
+                  "subtask": false,
+                  "hierarchyLevel": 0
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "remoteLinks": {
+    "PAY-3": [
+      {
+        "id": 20001,
+        "self": "https://partner.atlassian.net/rest/api/3/issue/PAY-3/remotelink/20001",
+        "globalId": "appId=mock&issueId=CORE-10",
+        "application": {
+          "type": "com.atlassian.jira",
+          "name": "Jira"
+        },
+        "relationship": "blocks",
+        "object": {
+          "url": "https://acme.atlassian.net/browse/CORE-10",
+          "title": "CORE-10",
+          "icon": {}
+        }
+      }
+    ],
+    "PAY-10": [
+      {
+        "id": 20002,
+        "self": "https://partner.atlassian.net/rest/api/3/issue/PAY-10/remotelink/20002",
+        "globalId": "appId=mock&issueId=CORE-20",
+        "application": {
+          "type": "com.atlassian.jira",
+          "name": "Jira"
+        },
+        "relationship": "blocks",
+        "object": {
+          "url": "https://acme.atlassian.net/browse/CORE-20",
+          "title": "CORE-20",
+          "icon": {}
+        }
+      }
+    ],
+    "PAY-4": [
+      {
+        "id": 20003,
+        "self": "https://partner.atlassian.net/rest/api/3/issue/PAY-4/remotelink/20003",
+        "globalId": "appId=mock&issueId=EXT-9",
+        "application": {
+          "type": "com.atlassian.jira",
+          "name": "Jira"
+        },
+        "relationship": "is blocked by",
+        "object": {
+          "url": "https://other.atlassian.net/browse/EXT-9",
+          "title": "EXT-9",
+          "icon": {}
+        }
+      }
+    ],
+    "CORE-7": [
+      {
+        "id": 20004,
+        "self": "https://partner.atlassian.net/rest/api/3/issue/CORE-7/remotelink/20004",
+        "globalId": "appId=mock&issueId=CORE-7",
+        "application": {
+          "type": "com.atlassian.jira",
+          "name": "Jira"
+        },
+        "relationship": "discussed with",
+        "object": {
+          "url": "https://acme.atlassian.net/browse/CORE-7",
+          "title": "CORE-7",
+          "icon": {}
+        }
+      }
+    ]
+  }
+}
