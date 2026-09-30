@@ -17,7 +17,7 @@ export type LoadState =
 const QUERY_KEY = "domino.query";
 
 /** The last-run top-bar query; a per-viewer convenience, so storage failures just fall back. */
-export function loadQuery(): string {
+function loadQuery(): string {
   try {
     const q = localStorage.getItem(QUERY_KEY);
     if (q !== null) return q;

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { SiteConfig } from "../../config/types";
+import { errorMessage } from "../../data/errors";
 import type { Domino } from "../../state/useDomino";
 import { BackendSection } from "./BackendSection";
 import { blankSite, SiteForm, type SiteFormResult } from "./SiteForm";
@@ -30,7 +31,7 @@ export function SettingsDialog({ domino, open, onClose }: { domino: Domino; open
     try {
       await domino.saveConfig({ ...config, sites, defaultSiteIds: defaultSiteIds.filter((id) => sites.some((s) => s.id === id)) });
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorMessage(e));
       throw e;
     }
   };
@@ -48,7 +49,7 @@ export function SettingsDialog({ domino, open, onClose }: { domino: Domino; open
     if (test) domino.testConnection(site.id);
   };
 
-  const switchToLive = () => domino.saveConfig({ ...config, backend: "jira" }).catch((e) => setError(e instanceof Error ? e.message : String(e)));
+  const switchToLive = () => domino.saveConfig({ ...config, backend: "jira" }).catch((e) => setError(errorMessage(e)));
 
   const form = editing && (
     <SiteForm

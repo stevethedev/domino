@@ -13,7 +13,7 @@ function blocksAdjacency(nodes: readonly GraphNode[], edges: readonly GraphEdge[
 }
 
 /** Tarjan's strongly connected components (iterative, so deep chains can't overflow the stack). */
-export function stronglyConnected(adj: Adjacency): string[][] {
+function stronglyConnected(adj: Adjacency): string[][] {
   let index = 0;
   const idx = new Map<string, number>();
   const low = new Map<string, number>();
@@ -127,5 +127,5 @@ export function findCycles(nodes: readonly GraphNode[], edges: readonly GraphEdg
   }
 
   const cycles = comps.map((c) => cycleOrder(c, adj)).sort((a, b) => a[0].localeCompare(b[0]));
-  return { cycles, cycleEdgeIds: cycleEdgeIds as ReadonlySet<string>, brokenEdgeIds: brokenEdgeIds as ReadonlySet<string> };
+  return { cycles, cycleEdgeIds, brokenEdgeIds };
 }

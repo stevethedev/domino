@@ -76,7 +76,7 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
         <span className="card-key">{n.key}</span>
         <span className={`pill pill-${status}`}>{n.ghost && status === "unknown" ? "Unknown" : n.statusName || STATUS_LABEL[status]}</span>
         {(showSite || n.ghost) && (
-          <span className="site-badge" style={{ ["--site" as string]: n.siteColor ?? "#6b7280" }} title={`Site: ${n.siteLabel}`}>
+          <span className="site-badge" style={{ "--site": n.siteColor ?? "#6b7280" }} title={`Site: ${n.siteLabel}`}>
             {n.siteLabel}
           </span>
         )}
@@ -119,7 +119,7 @@ export type SiteGroupNode = Node<SiteGroupData, "siteGroup">;
 
 export const SiteGroup = memo(function SiteGroup({ data }: NodeProps<SiteGroupNode>) {
   return (
-    <div className="site-group" style={{ ["--site" as string]: data.color ?? "#6b7280" }}>
+    <div className="site-group" style={{ "--site": data.color ?? "#6b7280" }}>
       {data.url ? (
         <button
           type="button"

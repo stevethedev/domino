@@ -1,7 +1,7 @@
 //! Phase 1 backend: serves the shared fixtures in fixtures/mock/ and evaluates
 //! a tiny JQL subset (kept in sync with src/data/FixtureSource.ts).
 
-use super::{and_filter, is_issue_key, JiraBackend, JiraResult};
+use super::{and_filter, is_issue_key, strip_order_by, JiraBackend, JiraResult};
 use crate::config::SiteConfig;
 use async_trait::async_trait;
 use serde_json::{json, Value};
@@ -128,15 +128,6 @@ fn split_top_level_and(input: &str) -> Vec<String> {
             }
         })
         .collect()
-}
-
-fn strip_order_by(jql: &str) -> &str {
-    let lower = jql.to_ascii_lowercase();
-    match lower.find(" order by ") {
-        Some(i) => &jql[..i],
-        None if lower.starts_with("order by ") => "",
-        None => jql,
-    }
 }
 
 fn parse_jql(jql: &str) -> JiraResult<Vec<Clause>> {

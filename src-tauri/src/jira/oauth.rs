@@ -206,7 +206,11 @@ pub async fn wait_for_callback(listener: TcpListener, expected_state: &str, time
         loop {
             let (mut sock, _) = listener.accept().await.map_err(|e| e.to_string())?;
             let mut buf = vec![0u8; 8192];
-            let n = sock.read(&mut buf).await.unwrap_or(0);
+            // A connection that never sends must not block the real browser redirect behind it.
+            let n = match tokio::time::timeout(Duration::from_secs(5), sock.read(&mut buf)).await {
+                Ok(Ok(n)) => n,
+                _ => continue,
+            };
             let req = String::from_utf8_lossy(&buf[..n]);
             let target = req.lines().next().and_then(|l| l.split_whitespace().nth(1)).unwrap_or("");
             let parsed = url::Url::parse(&format!("http://localhost{target}")).ok();
@@ -348,7 +352,8 @@ mod tests {
     async fn callback_ignores_wrong_state_then_accepts_right_one() {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
-        let waiter = tokio::spawn(wait_for_callback(listener, "good", Duration::from_secs(5)));
+        let waiter = tokio::spawn(wait_for_callback(listener, "good", Duration::from_secs(15)));
+        let _idle = tokio::net::TcpStream::connect(addr).await.unwrap(); // connects, never sends
         let get = |target: String| async move {
             let mut s = tokio::net::TcpStream::connect(addr).await.unwrap();
             s.write_all(format!("GET {target} HTTP/1.1\r\nHost: x\r\n\r\n").as_bytes()).await.unwrap();

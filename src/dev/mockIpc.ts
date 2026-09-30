@@ -11,7 +11,7 @@ const KEY = "domino.dev.config";
 function readConfig(): DominoConfig {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) return configSchema.parse(JSON.parse(raw)) as DominoConfig;
+    if (raw) return configSchema.parse(JSON.parse(raw));
   } catch {
     /* fall back to the bundled config */
   }
@@ -49,27 +49,29 @@ export async function installMockIpc() {
 
   mockWindows("main");
   mockIPC(async (cmd, payload) => {
-    const a = (payload ?? {}) as Record<string, unknown>;
-    const siteId = a.siteId as string;
-    const key = a.key as string;
+    const args: Record<string, unknown> = payload && typeof payload === "object" ? { ...payload } : {};
+    const str = (name: string) => (typeof args[name] === "string" ? args[name] : "");
+    const optStr = (name: string) => (typeof args[name] === "string" ? args[name] : undefined);
+    const siteId = str("siteId");
+    const key = str("key");
     // small latency so loading states are visible
     await new Promise((r) => setTimeout(r, 30));
     switch (cmd) {
       case "get_config":
         return config;
       case "save_config": {
-        const parsed = configSchema.safeParse(a.config);
+        const parsed = configSchema.safeParse(args.config);
         if (!parsed.success) throw parsed.error.issues[0]?.message ?? "Invalid config";
-        config = parsed.data as DominoConfig;
+        config = parsed.data;
         writeConfig(config);
         return config;
       }
       case "site_health":
         return wrap(async () => void (await source.fetchLinkTypes(site(siteId, false).id)));
       case "fetch_by_jql":
-        return wrap(() => source.fetchByJql(site(siteId).id, a.jql as string, a.maxResults as number | undefined));
+        return wrap(() => source.fetchByJql(site(siteId).id, str("jql"), typeof args.maxResults === "number" ? args.maxResults : undefined));
       case "fetch_epic":
-        return wrap(() => source.fetchEpic(site(siteId).id, key, a.filter as string | undefined));
+        return wrap(() => source.fetchEpic(site(siteId).id, key, optStr("filter")));
       case "fetch_issue":
         return wrap(() => source.fetchIssue(site(siteId).id, key));
       case "fetch_remote_links":
@@ -77,10 +79,10 @@ export async function installMockIpc() {
       case "fetch_link_types":
         return wrap(async () => ({ issueLinkTypes: await source.fetchLinkTypes(site(siteId).id) }));
       case "set_secret":
-        secrets.add(a.secretRef as string);
+        secrets.add(str("secretRef"));
         return null;
       case "secret_status":
-        return secrets.has(a.secretRef as string);
+        return secrets.has(str("secretRef"));
       case "oauth_status":
         return { appConfigured: secrets.has("DOMINO_OAUTH_CLIENT_ID") && secrets.has("DOMINO_OAUTH_CLIENT_SECRET"), connected: false };
       case "oauth_connect":
@@ -88,7 +90,7 @@ export async function installMockIpc() {
       case "oauth_disconnect":
         return null;
       case "plugin:opener|open_url":
-        window.open(a.url as string, "_blank", "noopener,noreferrer");
+        window.open(str("url"), "_blank", "noopener,noreferrer");
         return null;
       default:
         throw `mockIpc: unhandled command ${cmd}`;

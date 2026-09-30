@@ -34,8 +34,8 @@ describe("MultiSiteLoader", () => {
     };
     await new MultiSiteLoader(spy).load({ mode: "jql", jql: "statusCategory != Done" }, selected, sites);
     expect(seen.sort()).toEqual([
-      "acme: (project in (CORE, WEB)) AND statusCategory != Done",
-      "partner: (project in (PAY, CORE)) AND statusCategory != Done",
+      "acme: (project in (CORE, WEB)) AND (statusCategory != Done)",
+      "partner: (project in (PAY, CORE)) AND (statusCategory != Done)",
     ]);
   });
 

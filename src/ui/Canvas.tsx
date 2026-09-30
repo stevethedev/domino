@@ -5,30 +5,32 @@ import {
   MiniMap,
   ReactFlow,
   useReactFlow,
-  type Node,
 } from "@xyflow/react";
 import { useEffect, useMemo, useState } from "react";
 import { blockingChain, criticalPath, openBlockerCounts, readyIssues } from "../graph/analysis";
 import { CARD_HEIGHT, CARD_WIDTH, computeLayout, laneByEpic, laneBySite, type Layout } from "../graph/layout";
 import type { Graph, GraphEdge, GraphNode, LinkKind } from "../graph/types";
-import { openIssue } from "../platform";
+import { openExternal } from "../platform";
 import { LinkEdge, type LinkFlowEdge } from "./edges/LinkEdge";
 import { IssueCard, SiteGroup, type IssueFlowNode, type SiteGroupNode } from "./IssueCard";
 
 export type Filters = Record<LinkKind, boolean> & { crossSite: boolean };
-export type GroupBy = "none" | "site" | "epic";
+export const GROUP_BY = ["none", "site", "epic"] as const;
+export type GroupBy = (typeof GROUP_BY)[number];
+export const isGroupBy = (v: string): v is GroupBy => (GROUP_BY as readonly string[]).includes(v);
 export type ViewOptions = { groupBy: GroupBy; criticalPath: boolean; ready: boolean };
 
 const LANES = { none: undefined, site: laneBySite, epic: laneByEpic } as const;
 
 const nodeTypes = { issue: IssueCard, siteGroup: SiteGroup };
+type FlowNode = IssueFlowNode | SiteGroupNode;
 const edgeTypes = { link: LinkEdge };
 
 const CSS_VAR = (name: string) =>
   typeof window === "undefined" ? "#555" : getComputedStyle(document.documentElement).getPropertyValue(name).trim() || "#555";
 
 /** Edges that pass the filter panel, plus the nodes worth showing (ghosts only when still connected). */
-export function visibleSubgraph(graph: Graph, filters: Filters): { nodes: GraphNode[]; edges: GraphEdge[] } {
+function visibleSubgraph(graph: Graph, filters: Filters): { nodes: GraphNode[]; edges: GraphEdge[] } {
   const edges = graph.edges.filter((e) => filters[e.kind] && (filters.crossSite || !e.crossSite));
   const touched = new Set(edges.flatMap((e) => [e.source, e.target]));
   const nodes = graph.nodes.filter((n) => !n.ghost || touched.has(n.uid));
@@ -71,7 +73,7 @@ export function Canvas({
   const chain = useMemo(() => (hovered ? blockingChain(graph, hovered) : null), [graph, hovered]);
   const byUid = useMemo(() => new Map(graph.nodes.map((n) => [n.uid, n])), [graph]);
 
-  const flowNodes = useMemo<Node[]>(() => {
+  const flowNodes = useMemo<FlowNode[]>(() => {
     if (!layout) return [];
     const criticalSet = new Set(critical?.nodes ?? []);
     const emphasis = critical || ready ? new Set([...criticalSet, ...(ready ?? [])]) : null;
@@ -79,7 +81,7 @@ export function Canvas({
       id: g.id,
       type: "siteGroup",
       position: { x: g.x, y: g.y },
-      data: { label: g.label, color: g.color, url: g.url, onOpen: openIssue },
+      data: { label: g.label, color: g.color, url: g.url, onOpen: openExternal },
       width: g.width,
       height: g.height,
       selectable: false,
@@ -106,7 +108,7 @@ export function Canvas({
             showSite: showSiteBadges,
             dimmed: chain ? !chain.nodes.has(n.uid) : emphasis ? !emphasis.has(n.uid) : false,
             highlight: isCrit && isReady ? "both" : isCrit ? "critical" : isReady ? "ready" : null,
-            onOpen: openIssue,
+            onOpen: openExternal,
             onHover: setHovered,
           },
           draggable: false,
@@ -170,8 +172,8 @@ export function Canvas({
         style={{ width: 170, height: 110 }}
         zoomable
         ariaLabel="Minimap, tinted by site"
-        nodeColor={(n) => (n.type === "siteGroup" ? "transparent" : (n.data as { node: GraphNode }).node.siteColor ?? "#9ca3af")}
-        nodeStrokeColor={(n) => (n.type === "siteGroup" ? ((n.data as { color?: string }).color ?? "#9ca3af") : "transparent")}
+        nodeColor={(n: FlowNode) => (n.type === "issue" ? n.data.node.siteColor ?? "#9ca3af" : "transparent")}
+        nodeStrokeColor={(n: FlowNode) => (n.type === "siteGroup" ? n.data.color ?? "#9ca3af" : "transparent")}
       />
     </ReactFlow>
   );

@@ -34,7 +34,7 @@ const authSchema = z.discriminatedUnion("type", [
 /** Older configs called the site filter `defaultJql`. */
 const migrateSite = (raw: unknown) => {
   if (raw && typeof raw === "object" && "defaultJql" in raw && !("baseJql" in raw)) {
-    const { defaultJql, ...rest } = raw as Record<string, unknown>;
+    const { defaultJql, ...rest } = raw;
     return { ...rest, baseJql: defaultJql };
   }
   return raw;
@@ -91,5 +91,5 @@ export function normalizeBaseUrl(url: string): string {
 }
 
 export function parseConfig(raw: unknown): DominoConfig {
-  return configSchema.parse(raw) as DominoConfig;
+  return configSchema.parse(raw);
 }

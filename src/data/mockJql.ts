@@ -5,9 +5,10 @@
 import type { RawIssue } from "./jiraTypes";
 
 type Field = "project" | "key" | "parent" | "statuscategory" | "issuelinktype";
-export type MockClause = { field: Field; negate: boolean; values: string[] } | { field: "ignored" };
+type MockClause = { field: Field; negate: boolean; values: string[] } | { field: "ignored" };
 
-const EVALUATED = new Set<string>(["project", "key", "parent", "statuscategory", "issuelinktype"]);
+const EVALUATED: ReadonlySet<string> = new Set<Field>(["project", "key", "parent", "statuscategory", "issuelinktype"]);
+const isEvaluated = (f: string): f is Field => EVALUATED.has(f);
 const IGNORED = new Set(["updated", "created", "sprint", "assignee", "reporter"]);
 
 /** Splits on AND at paren depth 0 (outside quotes); unwraps fully parenthesized groups. */
@@ -54,15 +55,15 @@ export function parseMockJql(jql: string): MockClause[] {
   return splitTopLevelAnd(body).map((raw) => {
     const m = /^(\w+)\s*(not in|in|!=|>=|<=|=|>|<|is not|is|~)\s*([\s\S]+)$/i.exec(raw);
     const field = m?.[1].toLowerCase();
-    if (!m || !field || !(EVALUATED.has(field) || IGNORED.has(field))) {
+    if (!m || !field || !(isEvaluated(field) || IGNORED.has(field))) {
       throw new Error(`Mock backend can't evaluate "${raw}" (supports project, key, parent, statusCategory, issueLinkType)`);
     }
-    if (IGNORED.has(field)) return { field: "ignored" };
+    if (!isEvaluated(field)) return { field: "ignored" };
     const op = m[2].toLowerCase();
     if (!["=", "!=", "in", "not in"].includes(op)) throw new Error(`Mock backend can't evaluate "${raw}"`);
     const list = op.endsWith("in") ? m[3].trim().replace(/^\(|\)$/g, "") : m[3];
     return {
-      field: field as Field,
+      field,
       negate: op === "!=" || op === "not in",
       values: list.split(",").map((v) => v.trim().replace(/^"|"$/g, "").toLowerCase()).filter(Boolean),
     };

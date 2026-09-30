@@ -17,16 +17,22 @@ export const DEFAULT_PRESET_ID = "open-blockers";
 
 export const presetById = (id: string | undefined) => JQL_PRESETS.find((p) => p.id === id) ?? JQL_PRESETS[0];
 
-const ORDER_BY = /\s+order\s+by\s+[\s\S]*$/i;
+const ORDER_BY = /(?:^|\s+)order\s+by\s+[\s\S]*$/i;
 
-/** `(base) AND narrow`, keeping base's ORDER BY at the end. Either side may be blank. */
-export function combineJql(base: string, narrow: string): string {
-  const b = base.trim();
-  const n = narrow.trim();
-  if (!n) return b;
-  if (!b) return n;
-  const order = ORDER_BY.exec(` ${b}`)?.[0].trim() ?? "";
-  const body = ` ${b}`.replace(ORDER_BY, "").trim();
-  if (!body) return `${n} ${order}`.trim();
-  return `(${body}) AND ${n}${order ? ` ${order}` : ""}`;
+function splitOrderBy(jql: string): [where: string, orderBy: string] {
+  const t = jql.trim();
+  const m = ORDER_BY.exec(t);
+  return m ? [t.slice(0, m.index).trim(), m[0].trim()] : [t, ""];
+}
+
+/**
+ * `(base) AND (query)`. Both sides are parenthesized because Jira's AND binds tighter than OR:
+ * without them, `project = A AND x OR y` would match `y` across the whole site. ORDER BY is
+ * lifted out of both sides (the query's wins) since it can't appear inside parentheses.
+ */
+export function combineJql(base: string, query: string): string {
+  const [b, bOrder] = splitOrderBy(base);
+  const [q, qOrder] = splitOrderBy(query);
+  const where = b && q ? `(${b}) AND (${q})` : b || q;
+  return [where, qOrder || bOrder].filter(Boolean).join(" ");
 }

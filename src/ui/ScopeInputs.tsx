@@ -5,6 +5,8 @@ import { ISSUE_KEY_RE, type Scope } from "../data/MultiSiteLoader";
 import { saveQuery } from "../state/useDomino";
 
 type Mode = Scope["mode"];
+const MODES: readonly Mode[] = ["jql", "epic", "seed"];
+const isMode = (v: string): v is Mode => (MODES as readonly string[]).includes(v);
 
 export function ScopeInputs({
   sites,
@@ -63,7 +65,7 @@ export function ScopeInputs({
     <form className="scope" onSubmit={submit} aria-label="Scope">
       <label className="field">
         <span className="field-label">Mode</span>
-        <select value={mode} onChange={(e) => setMode(e.target.value as Mode)}>
+        <select value={mode} onChange={(e) => isMode(e.target.value) && setMode(e.target.value)}>
           <option value="jql">JQL</option>
           <option value="epic">Epic</option>
           <option value="seed">Seed + depth</option>

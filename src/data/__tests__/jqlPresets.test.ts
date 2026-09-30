@@ -9,11 +9,20 @@ import { MultiSiteLoader } from "../MultiSiteLoader";
 describe("combineJql", () => {
   it("ANDs the filter onto the base and keeps ORDER BY last", () => {
     expect(combineJql("project = CHANGE ORDER BY rank", "statusCategory != Done")).toBe(
-      "(project = CHANGE) AND statusCategory != Done ORDER BY rank",
+      "(project = CHANGE) AND (statusCategory != Done) ORDER BY rank",
     );
     expect(combineJql("", "statusCategory != Done")).toBe("statusCategory != Done");
     expect(combineJql("project = A", "")).toBe("project = A");
-    expect(combineJql("project = A OR project = B", "x = 1")).toBe("(project = A OR project = B) AND x = 1");
+    expect(combineJql("ORDER BY rank", "")).toBe("ORDER BY rank");
+  });
+
+  it("keeps the site filter binding when the query uses OR", () => {
+    // Unparenthesized, this would be ((project = A) AND x = 1) OR y = 2 — y leaking across the whole site.
+    expect(combineJql("project = A", "x = 1 OR y = 2")).toBe("(project = A) AND (x = 1 OR y = 2)");
+  });
+
+  it("lets the query's ORDER BY win and never nests ORDER BY in parentheses", () => {
+    expect(combineJql("project = A ORDER BY rank", "x = 1 ORDER BY updated DESC")).toBe("(project = A) AND (x = 1) ORDER BY updated DESC");
   });
 });
 

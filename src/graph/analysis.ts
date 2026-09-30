@@ -2,6 +2,9 @@ import type { Graph, GraphNode } from "./types";
 
 const isOpen = (n: GraphNode | undefined) => !n || n.statusCategory !== "done";
 
+/** A chain of issues and the blocks edges between consecutive ones. */
+export type Chain = { nodes: string[]; edges: string[] };
+
 /** Open blockers per uid: distinct blockers that aren't Done (unknown-status ghosts count as open). */
 export function openBlockerCounts(graph: Graph): Map<string, number> {
   const byUid = new Map(graph.nodes.map((n) => [n.uid, n]));
@@ -36,7 +39,7 @@ function compareUids(a: readonly string[], b: readonly string[]): number {
  * Longest chain (by issue count) of blocks edges among in-scope, not-Done issues, after cycle breaking.
  * Ties go to the lexicographically smallest uid sequence. Returns the uids and the edge ids on the path.
  */
-export function criticalPath(graph: Graph): { nodes: string[]; edges: string[] } {
+export function criticalPath(graph: Graph): Chain {
   const eligible = new Set(graph.nodes.filter((n) => !n.ghost && n.statusCategory !== "done").map((n) => n.uid));
   const edges = graph.edges.filter(
     (e) =>
@@ -53,7 +56,7 @@ export function criticalPath(graph: Graph): { nodes: string[]; edges: string[] }
     (out.get(e.source) ?? out.set(e.source, []).get(e.source)!).push({ to: e.target, id: e.id });
   }
   // best[v] = best path ending at v
-  const best = new Map<string, { nodes: string[]; edges: string[] }>(
+  const best = new Map<string, Chain>(
     [...eligible].map((u) => [u, { nodes: [u], edges: [] }]),
   );
   const queue = [...eligible].filter((u) => indeg.get(u) === 0).sort();
@@ -71,7 +74,7 @@ export function criticalPath(graph: Graph): { nodes: string[]; edges: string[] }
     }
     queue.sort();
   }
-  let result = { nodes: [] as string[], edges: [] as string[] };
+  let result: Chain = { nodes: [], edges: [] };
   for (const p of best.values()) {
     if (p.nodes.length > result.nodes.length || (p.nodes.length === result.nodes.length && compareUids(p.nodes, result.nodes) < 0)) {
       result = p;

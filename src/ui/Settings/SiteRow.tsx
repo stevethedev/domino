@@ -31,7 +31,7 @@ export function SiteRow({
   return (
     <tr ref={rowRef} className={highlight ? "row-new" : undefined}>
       <th scope="row">
-        <span className="chip" style={{ ["--site" as string]: site.color }}>
+        <span className="chip" style={{ "--site": site.color }}>
           <span className="dot" aria-hidden="true" />
           {site.label}
         </span>

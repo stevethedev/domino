@@ -13,7 +13,7 @@ export type BuildInput = {
   data: readonly RawSiteData[];
 };
 
-export function statusCategoryOf(status: RawStatus | undefined): StatusCategory {
+function statusCategoryOf(status: RawStatus | undefined): StatusCategory {
   switch (status?.statusCategory?.key) {
     case "new":
       return "todo";
@@ -36,7 +36,7 @@ const isEpicType = (t: { name?: string; hierarchyLevel?: number } | undefined) =
  * parent is an epic, else the legacy Epic Link. A sub-task (parent is a story) returns `{ viaParent }`
  * so the caller can inherit the story's epic once every issue is known.
  */
-export function directEpic(issue: RawIssue, site: SiteConfig): EpicRef | { viaParent: string } | undefined {
+function directEpic(issue: RawIssue, site: SiteConfig): EpicRef | { viaParent: string } | undefined {
   const f = issue.fields;
   const ref = (key: string, summary?: string): EpicRef => ({ uid: uidOf(site.id, key), key, summary, url: browseUrl(site.baseUrl, key) });
   if (isEpicType(f.issuetype)) return ref(issue.key, f.summary);

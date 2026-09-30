@@ -3,6 +3,7 @@ import type { ConfigStore } from "../../config/ConfigStore";
 import { validateSite } from "../../config/schema";
 import { API_TOKEN_URL, applyUrl, parseJiraUrl, suggestedSecretRef } from "../../config/siteDraft";
 import type { BackendKind, SiteConfig } from "../../config/types";
+import { errorMessage } from "../../data/errors";
 import { openExternal } from "../../platform";
 
 export type SiteFormResult = { site: SiteConfig; isDefault: boolean; token: string; test: boolean };
@@ -112,7 +113,7 @@ export function SiteForm({
     try {
       await onSubmit({ site: normalize(draft), isDefault, token, test });
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : String(err));
+      setSaveError(errorMessage(err));
       setSaving(false);
     }
   };
@@ -289,7 +290,7 @@ export function SiteForm({
         </label>
       </div>
 
-      <details className="advanced" open={advancedOpen} onToggle={(e) => setAdvancedOpen((e.target as HTMLDetailsElement).open)}>
+      <details className="advanced" open={advancedOpen} onToggle={(e) => setAdvancedOpen(e.currentTarget.open)}>
         <summary>Advanced</summary>
         <div className="form-grid">
           {field(
@@ -310,7 +311,7 @@ export function SiteForm({
             "Badge color",
             <span className="color-row">
               <input {...aria("color")} type="color" value={draft.color} onChange={(e) => update({ color: e.target.value })} />
-              <span className="chip" style={{ ["--site" as string]: draft.color }}>
+              <span className="chip" style={{ "--site": draft.color }}>
                 <span className="dot" aria-hidden="true" />
                 {draft.label || "Preview"}
               </span>

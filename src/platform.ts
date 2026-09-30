@@ -14,5 +14,3 @@ export function openExternal(url: string): void {
   if (!/^https:\/\//i.test(url)) return;
   openUrl(url).catch(() => window.open(url, "_blank", "noopener,noreferrer"));
 }
-
-export const openIssue = openExternal;

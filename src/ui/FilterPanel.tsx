@@ -1,4 +1,4 @@
-import type { Filters, GroupBy, ViewOptions } from "./Canvas";
+import { isGroupBy, type Filters, type ViewOptions } from "./Canvas";
 
 const LINK_ROWS: { key: keyof Filters; label: string; sample: string }[] = [
   { key: "blocks", label: "Blocks", sample: "solid" },
@@ -31,7 +31,7 @@ export function FilterPanel({
       <h2>View</h2>
       <label className="field group-by">
         <span>Group by</span>
-        <select value={view.groupBy} onChange={(e) => onView({ ...view, groupBy: e.target.value as GroupBy })}>
+        <select value={view.groupBy} onChange={(e) => isGroupBy(e.target.value) && onView({ ...view, groupBy: e.target.value })}>
           <option value="none">None</option>
           <option value="site">Site</option>
           <option value="epic">Epic</option>

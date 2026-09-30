@@ -16,7 +16,7 @@ export function SiteSelector({
 
   useEffect(() => {
     const close = (e: MouseEvent) => {
-      if (ref.current?.open && !ref.current.contains(e.target as Node)) ref.current.open = false;
+      if (ref.current?.open && e.target instanceof Node && !ref.current.contains(e.target)) ref.current.open = false;
     };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
@@ -39,7 +39,7 @@ export function SiteSelector({
           <span className="muted">None</span>
         ) : (
           chosen.map((s) => (
-            <span key={s.id} className="chip" style={{ ["--site" as string]: s.color }}>
+            <span key={s.id} className="chip" style={{ "--site": s.color }}>
               <span className="dot" aria-hidden="true" />
               {s.label}
             </span>
@@ -57,7 +57,7 @@ export function SiteSelector({
               checked={selected.includes(s.id)}
               onChange={(e) => onChange(e.target.checked ? [...selected, s.id] : selected.filter((id) => id !== s.id))}
             />
-            <span className="dot" style={{ ["--site" as string]: s.color }} aria-hidden="true" />
+            <span className="dot" style={{ "--site": s.color }} aria-hidden="true" />
             {s.label} <span className="muted">{new URL(s.baseUrl).host}</span>
           </label>
         ))}

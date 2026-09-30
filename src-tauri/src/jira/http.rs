@@ -146,10 +146,14 @@ impl HttpBackend {
                 body["nextPageToken"] = json!(tok);
             }
             let page = self.send(site, Method::POST, "/rest/api/3/search/jql", Some(&body)).await?;
-            out.extend(page["issues"].as_array().cloned().unwrap_or_default());
+            let issues = page["issues"].as_array().cloned().unwrap_or_default();
+            let empty = issues.is_empty();
+            out.extend(issues);
+            let prev = next.take();
             next = page["nextPageToken"].as_str().map(String::from);
             let last = page["isLast"].as_bool().unwrap_or(next.is_none());
-            if last || next.is_none() || out.len() >= limit {
+            // An empty page or a repeated token would otherwise page forever.
+            if last || empty || next.is_none() || next == prev || out.len() >= limit {
                 break;
             }
         }
@@ -309,6 +313,18 @@ mod tests {
             .mount(&f.server)
             .await;
         assert_eq!(f.backend.search(&acme(&f), "project = A", Some(2)).await.unwrap().len(), 2);
+    }
+
+    #[tokio::test]
+    async fn search_stops_on_empty_page_even_with_a_token() {
+        let f = fixture().await;
+        Mock::given(method("POST"))
+            .and(path("/rest/api/3/search/jql"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "issues": [], "nextPageToken": "same", "isLast": false })))
+            .expect(1)
+            .mount(&f.server)
+            .await;
+        assert!(f.backend.search(&acme(&f), "project = A", None).await.unwrap().is_empty());
     }
 
     struct RateLimitOnce(std::sync::atomic::AtomicBool);

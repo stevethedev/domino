@@ -25,13 +25,25 @@ pub trait JiraBackend: Send + Sync {
     async fn health(&self, site: &SiteConfig) -> JiraResult<()>;
 }
 
-/// `(filter) AND clause`, or just `clause` when there's no filter.
+/// The JQL before any `ORDER BY`.
+pub fn strip_order_by(jql: &str) -> &str {
+    let lower = jql.to_ascii_lowercase();
+    match lower.find(" order by ") {
+        Some(i) => &jql[..i],
+        None if lower.trim_start().starts_with("order by ") => "",
+        None => jql,
+    }
+}
+
+/// `clause AND (filter)`, or just `clause` when there's no filter. The filter's ORDER BY is
+/// dropped, since ORDER BY can't appear inside parentheses.
 pub fn and_filter(clause: &str, filter: Option<&str>) -> String {
-    match filter.map(str::trim).filter(|f| !f.is_empty()) {
+    match filter.map(|f| strip_order_by(f).trim()).filter(|f| !f.is_empty()) {
         Some(f) => format!("{clause} AND ({f})"),
         None => clause.to_string(),
     }
 }
+
 
 pub fn is_issue_key(s: &str) -> bool {
     let Some((proj, num)) = s.split_once('-') else { return false };
@@ -39,4 +51,17 @@ pub fn is_issue_key(s: &str) -> bool {
         && proj.chars().all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_')
         && !num.is_empty()
         && num.chars().all(|c| c.is_ascii_digit())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn and_filter_parenthesizes_and_drops_order_by() {
+        assert_eq!(and_filter("parent = A-1", Some("project = A OR project = B ORDER BY rank")), "parent = A-1 AND (project = A OR project = B)");
+        assert_eq!(and_filter("parent = A-1", Some("  ")), "parent = A-1");
+        assert_eq!(and_filter("parent = A-1", Some("ORDER BY rank")), "parent = A-1");
+        assert_eq!(and_filter("parent = A-1", None), "parent = A-1");
+    }
 }
