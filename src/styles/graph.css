@@ -137,3 +137,12 @@
 .agg-label.closed { color: var(--muted); }
 .lane-collapse { position: absolute; top: 8px; right: 12px; font-size: 12px; padding: 2px 8px; pointer-events: all; }
 .site-group { position: relative; }
+
+/* Change tags: what moved since the scope was last marked seen */
+.chg { font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 4px; white-space: nowrap; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+.chg-blocked { background: var(--warn-bg); color: var(--warn-fg); border-color: transparent; }
+.chg-unblocked, .chg-done { background: var(--pill-done-bg); color: var(--pill-done-fg); border-color: transparent; }
+.chg-aging { background: var(--error-bg); color: var(--error-fg); border-color: transparent; }
+.chg-new { background: var(--pill-inprogress-bg); color: var(--pill-inprogress-fg); border-color: transparent; }
+.card.hl-changed { box-shadow: 0 0 0 3px var(--accent); }
+.card.compact .chg { font-size: 15px; padding: 1px 8px; }

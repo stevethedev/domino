@@ -1,6 +1,7 @@
 import { Handle, Position, useStore, type Node, type NodeProps } from "@xyflow/react";
 import { memo } from "react";
 import { agingLabel, type Aging } from "../graph/aging";
+import { CHANGE_LABEL, type ChangeKind } from "../graph/changes";
 import type { Highlight } from "../graph/insights";
 import type { GraphNode, StatusCategory } from "../graph/types";
 
@@ -11,6 +12,8 @@ export type IssueNodeData = {
   dimmed: boolean;
   highlight: Exclude<Highlight, "none"> | null;
   aging?: Aging;
+  /** The most notable change since the scope was last marked seen. */
+  change?: ChangeKind;
   onOpen: (url: string) => void;
   onHover: (uid: string | null) => void;
   /** Set on epic-map summary nodes: activating the card expands the epic instead of opening Jira. */
@@ -88,6 +91,10 @@ function RollupBody({ node, compact }: { node: GraphNode; compact: boolean }) {
   );
 }
 
+export function ChangeTag({ change }: { change: ChangeKind }) {
+  return <span className={`chg chg-${change}`}>{CHANGE_LABEL[change]}</span>;
+}
+
 export function AgingBadge({ aging }: { aging: Aging }) {
   return (
     <span className={`age age-${aging.kind}`} title={agingDescription(aging)}>
@@ -110,12 +117,14 @@ function CompactBody({
   openBlockers,
   ready,
   aging,
+  change,
 }: {
   node: GraphNode;
   statusText: string;
   openBlockers: number;
   ready: boolean;
   aging?: Aging;
+  change?: ChangeKind;
 }) {
   return (
     <>
@@ -128,13 +137,14 @@ function CompactBody({
         {openBlockers > 0 && <span className="blockers">{blockerText(openBlockers)}</span>}
         {ready && <span className="tag-ready">Ready</span>}
         {aging && <AgingBadge aging={aging} />}
+        {change && <ChangeTag change={change} />}
       </div>
     </>
   );
 }
 
 export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNode>) {
-  const { node: n, openBlockers, showSite, dimmed, highlight, aging, onOpen, onHover, onExpand } = data;
+  const { node: n, openBlockers, showSite, dimmed, highlight, aging, change, onOpen, onHover, onExpand } = data;
   const activate = onExpand ?? (() => onOpen(n.url));
   // Selecting a boolean means cards re-render only when crossing the threshold, not on every zoom step.
   const compact = useStore((s) => s.transform[2] < COMPACT_BELOW_ZOOM);
@@ -150,6 +160,7 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
     highlight === "critical" ? "on critical path" : null,
     highlight === "ready" ? "ready to start" : null,
     aging ? agingDescription(aging) : null,
+    change ? `changed: ${CHANGE_LABEL[change]}` : null,
   ]
     .filter(Boolean)
     .join(", ");
@@ -176,7 +187,7 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
       <Handle type="target" position={Position.Left} isConnectable={false} />
       {n.rollup ? (
         <RollupBody node={n} compact={compact} />
-      ) : compact ? <CompactBody node={n} statusText={statusText} openBlockers={openBlockers} ready={highlight === "ready"} aging={aging} /> : (
+      ) : compact ? <CompactBody node={n} statusText={statusText} openBlockers={openBlockers} ready={highlight === "ready"} aging={aging} change={change} /> : (
         <>
       <div className="card-row1">
         <TypeIcon type={n.issueType} />
@@ -216,6 +227,7 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
         )}
         {highlight === "ready" && <span className="tag-ready">Ready</span>}
         {aging && <AgingBadge aging={aging} />}
+        {change && <ChangeTag change={change} />}
       </div>
         </>
       )}

@@ -2,14 +2,15 @@ import { memo } from "react";
 import { addDays, maxDay, type Day, type Span } from "../../graph/schedule";
 import type { GraphNode } from "../../graph/types";
 import type { Aging } from "../../graph/aging";
-import { AgingBadge, agingDescription, TypeIcon } from "../IssueCard";
+import type { ChangeKind } from "../../graph/changes";
+import { AgingBadge, agingDescription, ChangeTag, TypeIcon } from "../IssueCard";
 import { entryEnd, PX_PER_DAY, varianceLabel, xOf, type EpicSummary, type Scale, type TimelineRowModel } from "./timelineLayout";
 
 const fmt = (d: Day) => new Date(`${d}T00:00:00Z`).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
 /** Spans are half-open; people read the last day inclusively. */
 const spanText = (s: Span) => `${fmt(s.start)} – ${fmt(addDays(s.end, -1))}`;
 
-export type RowFlags = { dimmed: boolean; critical: boolean; ready: boolean; aging?: Aging };
+export type RowFlags = { dimmed: boolean; critical: boolean; ready: boolean; aging?: Aging; change?: ChangeKind };
 
 function describe(node: GraphNode, row: TimelineRowModel): string {
   const p = row.entry.progress;
@@ -92,6 +93,7 @@ export const TimelineRow = memo(function TimelineRow({
         <span className={`pill pill-${node.statusCategory}`}>{node.statusName}</span>
         {flags.ready && <span className="tag-ready">Ready</span>}
         {flags.aging && <AgingBadge aging={flags.aging} />}
+        {flags.change && <ChangeTag change={flags.change} />}
       </div>
       {epic ? (
         <div className="tl-track">

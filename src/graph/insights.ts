@@ -1,11 +1,12 @@
 import { AGING_DEFAULTS, computeAging, type Aging } from "./aging";
 import { criticalPath, openBlockerCounts, readyIssues, type Chain } from "./analysis";
+import type { ChangeKind } from "./changes";
 import type { Day, StatusHistory } from "./schedule";
 import type { Graph, GraphNode } from "./types";
 
 /** What the user asked to emphasize; everything else dims. */
-export type Highlight = "none" | "blocked" | "ready" | "critical" | "aging";
-export const HIGHLIGHTS: readonly Highlight[] = ["none", "blocked", "ready", "critical", "aging"];
+export type Highlight = "none" | "blocked" | "ready" | "critical" | "aging" | "changed";
+export const HIGHLIGHTS: readonly Highlight[] = ["none", "blocked", "ready", "critical", "aging", "changed"];
 export const isHighlight = (v: string): v is Highlight => (HIGHLIGHTS as readonly string[]).includes(v);
 
 /** The at-a-glance answers, computed once per graph and shared by both views. */
@@ -23,6 +24,8 @@ export type Insights = {
   holdingUpByAssignee: ReadonlyMap<string, number>;
   /** Stuck or long-waiting open work; empty until status history has loaded. */
   aging: ReadonlyMap<string, Aging>;
+  /** What changed per issue since the scope was last marked seen; empty until compared. */
+  changed: ReadonlyMap<string, readonly ChangeKind[]>;
 };
 
 /** Inputs for aging; without history, aging is simply empty. */
@@ -104,6 +107,7 @@ export function computeInsights(graph: Graph, opts?: InsightOptions): Insights {
     unblockers: rankUnblockers(graph, downstream),
     holdingUpByAssignee: holdingUp(graph, downstream),
     aging: opts ? computeAging(graph, opts.history, openBlockers, { ...opts, ...AGING_DEFAULTS }) : new Map(),
+    changed: new Map(),
   };
 }
 
@@ -120,5 +124,7 @@ export function emphasis(h: Highlight, insights: Insights): { nodes: ReadonlySet
       return { nodes: new Set(insights.critical.nodes), edges: new Set(insights.critical.edges) };
     case "aging":
       return { nodes: new Set(insights.aging.keys()), edges: new Set() };
+    case "changed":
+      return { nodes: new Set(insights.changed.keys()), edges: new Set() };
   }
 }

@@ -22,8 +22,8 @@ export function FilterPanel({
   epicMapAvailable: boolean;
 }) {
   return (
-    <section className="panel" aria-labelledby="filters-h">
-      <h2 id="filters-h">Links</h2>
+    <>
+      <h3 className="subhead">Links</h3>
       {LINK_ROWS.map((r) => (
         <label key={r.key} className="check">
           <input type="checkbox" checked={filters[r.key]} onChange={(e) => onFilters({ ...filters, [r.key]: e.target.checked })} />
@@ -31,7 +31,7 @@ export function FilterPanel({
           {r.label}
         </label>
       ))}
-      <h2>View</h2>
+      <h3 className="subhead">Layout</h3>
       <label className="field group-by">
         <span>Group by</span>
         <select value={view.groupBy} disabled={view.collapseEpics && epicMapAvailable} title={view.collapseEpics && epicMapAvailable ? "The epic map groups by epic" : undefined} onChange={(e) => isGroupBy(e.target.value) && onView({ ...view, groupBy: e.target.value })}>
@@ -51,6 +51,6 @@ export function FilterPanel({
         />
         Epic map (collapse epics)
       </label>
-    </section>
+    </>
   );
 }

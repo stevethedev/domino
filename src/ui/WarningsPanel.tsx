@@ -10,13 +10,7 @@ export function WarningsPanel({ graph, onFocusNode }: { graph: Graph; onFocusNod
     return multiSite ? `${n.siteLabel}:${n.key}` : n.key;
   };
   return (
-    <details className="panel warnings" open>
-      <summary>
-        <h2>
-          ⚠ Warnings <span className="count">{graph.cycles.length}</span>
-        </h2>
-      </summary>
-      <ul>
+    <ul className="warnings-list">
         {graph.cycles.map((cycle) => (
           <li key={cycle.join(">")}>
             <span className="muted">Blocking cycle: </span>
@@ -31,7 +25,6 @@ export function WarningsPanel({ graph, onFocusNode }: { graph: Graph; onFocusNod
             <span className="mono muted">{label(cycle[0])}</span>
           </li>
         ))}
-      </ul>
-    </details>
+    </ul>
   );
 }

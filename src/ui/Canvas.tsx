@@ -160,6 +160,7 @@ export function Canvas({
             node: n,
             openBlockers: insights.openBlockers.get(n.uid) ?? 0,
             aging: insights.aging.get(n.uid),
+            change: insights.changed.get(n.uid)?.[0],
             showSite: showSiteBadges,
             dimmed: chain ? !chain.nodes.has(n.uid) : emphasized ? !isEmphasized : false,
             highlight: isEmphasized && view.highlight !== "none" ? view.highlight : null,
