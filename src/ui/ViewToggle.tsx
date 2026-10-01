@@ -1,6 +1,8 @@
+import { isOneOf } from "../lib/guards";
+
 export type ViewMode = "graph" | "timeline";
 const MODES: readonly ViewMode[] = ["graph", "timeline"];
-export const isViewMode = (v: string): v is ViewMode => (MODES as readonly string[]).includes(v);
+export const isViewMode = isOneOf(MODES);
 
 const LABELS: Record<ViewMode, string> = { graph: "Graph", timeline: "Timeline" };
 

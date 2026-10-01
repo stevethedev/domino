@@ -1,5 +1,5 @@
 import { Background, Controls, MiniMap, ReactFlow, useReactFlow } from "@xyflow/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { blockingChain } from "../graph/analysis";
 import { collapseEpics, shownEdgeId } from "../graph/collapse";
 import { emphasis, type Highlight, type Insights } from "../graph/insights";
@@ -9,11 +9,12 @@ import { visibleSubgraph } from "../graph/visible";
 import { openExternal } from "../platform";
 import { LinkEdge, type LinkFlowEdge } from "./edges/LinkEdge";
 import { IssueCard, SiteGroup, type IssueFlowNode, type SiteGroupNode } from "./IssueCard";
+import { isOneOf } from "../lib/guards";
 
 export type Filters = Record<LinkKind, boolean> & { crossSite: boolean };
-export const GROUP_BY = ["none", "site", "epic", "assignee"] as const;
+const GROUP_BY = ["none", "site", "epic", "assignee"] as const;
 export type GroupBy = (typeof GROUP_BY)[number];
-export const isGroupBy = (v: string): v is GroupBy => (GROUP_BY as readonly string[]).includes(v);
+export const isGroupBy = isOneOf(GROUP_BY);
 export type ViewOptions = { groupBy: GroupBy; highlight: Highlight; collapseEpics: boolean };
 
 /** The lane function for a Group by choice; assignee lanes need the insights for their labels. */
@@ -86,6 +87,7 @@ export function Canvas({
   const rf = useReactFlow();
   const [hovered, setHovered] = useState<string | null>(null);
   const [layout, setLayout] = useState<Layout | null>(null);
+  const fittedShape = useRef<string | null>(null);
 
   // The epic map swaps in a collapsed graph; everything below draws whichever graph is shown.
   const collapsed = useMemo(
@@ -105,8 +107,13 @@ export function Canvas({
     computeLayout(vNodes, vEdges, graph.brokenEdgeIds, laneOf).then((l) => {
       if (cancelled) return;
       setLayout(l);
-      // Never zoom in past 100%: a small graph should look like cards, not a poster.
-      requestAnimationFrame(() => rf.fitView({ padding: 0.2, maxZoom: 1, duration: 250 }));
+      // Re-fit only when the set of cards changes; re-layouts for new insights (e.g. status history
+      // arriving) keep the user's viewport. Never zoom past 100%: small graphs stay card-sized.
+      const shape = [...l.positions.keys()].sort().join("|") + `#${l.groups.length}`;
+      if (shape !== fittedShape.current) {
+        fittedShape.current = shape;
+        requestAnimationFrame(() => rf.fitView({ padding: 0.2, maxZoom: 1, duration: 250 }));
+      }
     });
     return () => {
       cancelled = true;

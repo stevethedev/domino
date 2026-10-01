@@ -31,7 +31,8 @@ export function toStatusHistory(
       .flatMap((h) =>
         h.items
           .filter((i) => i.fieldId === "status" || i.field?.toLowerCase() === "status")
-          .map((i) => ({ created: h.created, category: (i.to && byId.get(i.to)) ?? byName.get((i.toString ?? "").toLowerCase()) })),
+          // `toString` is also an inherited Object member, so check it's really a string field.
+          .map((i) => ({ created: h.created, category: (i.to && byId.get(i.to)) ?? byName.get((typeof i.toString === "string" ? i.toString : "").toLowerCase()) })),
       )
       .filter((c): c is { created: string | number; category: StatusCategory } => c.category !== undefined)
       .map((c) => ({ at: toDay(c.created), toCategory: c.category, sortKey: new Date(c.created).getTime() }))

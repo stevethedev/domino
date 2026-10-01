@@ -38,9 +38,14 @@ const parse = (d: Day) => Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(
 const format = (ms: number): Day => new Date(ms).toISOString().slice(0, 10);
 const isWeekend = (ms: number) => [0, 6].includes(new Date(ms).getUTCDay());
 
-/** Normalizes any ISO date/datetime (or epoch ms) to its UTC calendar day. */
+/**
+ * The viewer's local calendar day for an instant (Jira datetimes, epoch ms), so it lines up with
+ * `localToday()`: work moved at 6pm in California belongs to that day, not tomorrow's UTC date.
+ * Calendar math elsewhere in this module is pure date arithmetic on these day strings.
+ */
 export function toDay(value: string | number | Date): Day {
-  return format(new Date(value).getTime());
+  const d = new Date(value);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 export const addDays = (d: Day, n: number): Day => format(parse(d) + n * DAY_MS);

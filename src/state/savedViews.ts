@@ -14,7 +14,7 @@ export type SavedView = {
 };
 
 export const SAVED_VIEWS_KEY = "domino.savedViews";
-export const MAX_SAVED_VIEWS = 30;
+const MAX_SAVED_VIEWS = 30;
 
 const str = (v: unknown): v is string => typeof v === "string";
 const bool = (v: unknown): v is boolean => typeof v === "boolean";

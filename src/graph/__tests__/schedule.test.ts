@@ -136,3 +136,33 @@ describe("computeTimeline", () => {
     expect(t.get("a:U-2")!.progress.state).toBe("unknown");
   });
 });
+
+import { toStatusHistory } from "../history";
+
+describe("toStatusHistory", () => {
+  it("doesn't trip over items without toString (an inherited Object.prototype member)", () => {
+    const g = chainGraph([pointed("H-1", 1)]);
+    // Parsed from JSON like real payloads: the item has no own `toString`, only the inherited method.
+    const logs = JSON.parse('[{ "issueId": "H-1", "changeHistories": [{ "created": "2026-10-05T10:00:00.000+0000", "items": [{ "fieldId": "status", "to": "999" }] }] }]');
+    expect(() => toStatusHistory(logs, [], g.nodes, "a")).not.toThrow();
+    expect(toStatusHistory(logs, [], g.nodes, "a").size).toBe(0); // unknown status: dropped
+  });
+});
+
+import { toDay } from "../schedule";
+
+describe("toDay", () => {
+  it("buckets an instant by the viewer's local calendar day, matching localToday()", () => {
+    // Node re-reads TZ when it changes; typed locally since the app's tsconfig has no Node types.
+    const env = (globalThis as unknown as { process: { env: Record<string, string | undefined> } }).process.env;
+    const tz = env.TZ;
+    env.TZ = "America/Los_Angeles";
+    try {
+      // 6pm Oct 1 in California is already Oct 2 in UTC.
+      expect(toDay("2026-10-02T01:00:00.000+0000")).toBe("2026-10-01");
+      expect(toDay("2026-10-01T18:00:00.000-0700")).toBe("2026-10-01");
+    } finally {
+      env.TZ = tz;
+    }
+  });
+});

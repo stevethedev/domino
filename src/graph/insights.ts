@@ -3,11 +3,12 @@ import { criticalPath, openBlockerCounts, readyIssues, type Chain } from "./anal
 import type { ChangeKind } from "./changes";
 import type { Day, StatusHistory } from "./schedule";
 import type { Graph, GraphNode } from "./types";
+import { isOneOf } from "../lib/guards";
 
 /** What the user asked to emphasize; everything else dims. */
 export type Highlight = "none" | "blocked" | "ready" | "critical" | "aging" | "changed";
-export const HIGHLIGHTS: readonly Highlight[] = ["none", "blocked", "ready", "critical", "aging", "changed"];
-export const isHighlight = (v: string): v is Highlight => (HIGHLIGHTS as readonly string[]).includes(v);
+const HIGHLIGHTS: readonly Highlight[] = ["none", "blocked", "ready", "critical", "aging", "changed"];
+export const isHighlight = isOneOf(HIGHLIGHTS);
 
 /** The at-a-glance answers, computed once per graph and shared by both views. */
 export type Insights = {

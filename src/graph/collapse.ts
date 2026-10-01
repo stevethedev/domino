@@ -37,10 +37,15 @@ export function collapseEpics(graph: Graph, insights: Insights, expanded: Readon
     if (n.uid !== epicUid) members.set(epicUid, [...(members.get(epicUid) ?? []), n]);
     else if (!members.has(epicUid)) members.set(epicUid, []);
   }
+  // An epic that's only present as a ghost (linked, not loaded) folds into its summary too.
+  for (const epicUid of members.keys()) {
+    if (byUid.get(epicUid)?.ghost) shownAs.set(epicUid, summaryUid(epicUid));
+  }
 
   const summaries: GraphNode[] = [...members].map(([epicUid, ms]) => {
-    const epic = byUid.get(epicUid);
-    const ref = (epic ?? ms[0]).epic!;
+    const node = byUid.get(epicUid);
+    const epic = node && !node.ghost ? node : undefined; // ghosts carry no epic ref
+    const ref = (epic ?? ms.find((m) => m.epic))!.epic!;
     const site = epic ?? ms[0];
     const rollup: EpicRollup = {
       epicUid,
@@ -49,7 +54,9 @@ export function collapseEpics(graph: Graph, insights: Insights, expanded: Readon
       blocked: ms.filter((m) => insights.blocked.has(m.uid)).length,
       aging: ms.filter((m) => insights.aging.has(m.uid)).length,
     };
-    const category = rollupCategory(ms);
+    // With no loaded children, the epic's own status is the best signal.
+    const category = ms.length ? rollupCategory(ms) : (epic?.statusCategory ?? "todo");
+    const statusName = !ms.length && epic ? epic.statusName : category === "done" ? "Done" : category === "inprogress" ? "In Progress" : "To Do";
     return {
       uid: summaryUid(epicUid),
       siteId: site.siteId,
@@ -58,7 +65,7 @@ export function collapseEpics(graph: Graph, insights: Insights, expanded: Readon
       key: ref.key,
       summary: ref.summary ?? epic?.summary ?? ref.key,
       issueType: "Epic",
-      statusName: category === "done" ? "Done" : category === "inprogress" ? "In Progress" : "To Do",
+      statusName,
       statusCategory: category,
       url: ref.url,
       ghost: false,

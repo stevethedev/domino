@@ -1,10 +1,11 @@
 import type { Lane, LaneFn } from "../../graph/layout";
 import { addDays, daysBetween, maxDay, minDay, type Day, type Span, type TimelineEntry } from "../../graph/schedule";
 import type { GraphNode } from "../../graph/types";
+import { isOneOf } from "../../lib/guards";
 
 export type Scale = "day" | "week" | "month";
 export const SCALES: readonly Scale[] = ["day", "week", "month"];
-export const isScale = (v: string): v is Scale => (SCALES as readonly string[]).includes(v);
+export const isScale = isOneOf(SCALES);
 
 export const PX_PER_DAY: Record<Scale, number> = { day: 28, week: 11, month: 4 };
 export const LABEL_WIDTH = 320;

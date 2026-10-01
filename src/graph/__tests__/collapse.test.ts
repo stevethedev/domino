@@ -65,3 +65,28 @@ describe("collapseEpics", () => {
     expect(collapseEpics(g, computeInsights(g), new Set()).graph.cycles).toHaveLength(1);
   });
 });
+
+describe("collapseEpics edge cases", () => {
+  it("handles an epic that is only loaded as a ghost (linked but not in scope)", () => {
+    const epic = issue("E-1");
+    epic.fields.issuetype = { name: "Epic", hierarchyLevel: 1 };
+    const child = inEpic("A-1", epic);
+    const other = issue("X-1");
+    link("1", BLOCKS, other, epic, { out: true, in: false }); // E-1 appears only as a ghost of X-1's link
+    const g = buildGraph({ sites: [A], data: [data("a", [child, other])] });
+    expect(g.nodes.find((n) => n.uid === "a:E-1")?.ghost).toBe(true);
+    const c = collapseEpics(g, computeInsights(g), new Set());
+    const summary = c.graph.nodes.find((n) => n.uid === summaryUid("a:E-1"))!;
+    expect(summary).toMatchObject({ key: "E-1", ghost: false });
+    expect(c.graph.nodes.some((n) => n.uid === "a:E-1")).toBe(false); // the ghost folds into its summary
+    expect(c.graph.edges.find((e) => e.source === "a:X-1")!.target).toBe(summaryUid("a:E-1"));
+  });
+
+  it("an epic with no loaded children keeps the epic's own status", () => {
+    const epic = issue("E-1", "done");
+    epic.fields.issuetype = { name: "Epic", hierarchyLevel: 1 };
+    const g = buildGraph({ sites: [A], data: [data("a", [epic])] });
+    const summary = collapseEpics(g, computeInsights(g), new Set()).graph.nodes[0];
+    expect(summary).toMatchObject({ statusCategory: "done", statusName: "Done" });
+  });
+});

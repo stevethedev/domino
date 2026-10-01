@@ -107,8 +107,8 @@ impl<S: SecretStore> SecretStore for CachedSecrets<S> {
         }
         // Not cached: read outside the lock so a slow keychain prompt doesn't block other secrets.
         let v = self.inner.get(name)?;
-        self.values().insert(name.to_string(), v.clone());
-        Ok(v)
+        // A `set` that landed while we were reading is newer than what we read: keep it.
+        Ok(self.values().entry(name.to_string()).or_insert(v).clone())
     }
 
     fn set(&self, name: &str, value: &str) -> Result<(), String> {
@@ -213,6 +213,45 @@ mod tests {
         assert!(s.is_set("A_TOKEN"));
         assert!(!s.is_set("B_TOKEN"));
         assert_eq!(s.inner.value_reads.load(Ordering::SeqCst), 0);
+    }
+
+    /// A store whose reads block until released, to race a write against an in-flight read.
+    struct GatedStore {
+        value: Mutex<String>,
+        entered: std::sync::mpsc::SyncSender<()>,
+        release: Mutex<std::sync::mpsc::Receiver<()>>,
+    }
+    impl SecretStore for GatedStore {
+        fn get(&self, _: &str) -> Result<String, String> {
+            let snapshot = self.value.lock().unwrap().clone(); // what the read "sees"
+            self.entered.send(()).unwrap();
+            self.release.lock().unwrap().recv().unwrap(); // e.g. waiting on an access prompt
+            Ok(snapshot)
+        }
+        fn set(&self, _: &str, v: &str) -> Result<(), String> {
+            *self.value.lock().unwrap() = v.to_string();
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn a_write_during_a_slow_read_wins() {
+        let (entered_tx, entered_rx) = std::sync::mpsc::sync_channel(1);
+        let (release_tx, release_rx) = std::sync::mpsc::channel();
+        let cache = std::sync::Arc::new(CachedSecrets::new(GatedStore {
+            value: Mutex::new("old".into()),
+            entered: entered_tx,
+            release: Mutex::new(release_rx),
+        }));
+        let reader = {
+            let cache = cache.clone();
+            std::thread::spawn(move || cache.get("A_TOKEN").unwrap())
+        };
+        entered_rx.recv().unwrap(); // the read is in flight with "old"
+        cache.set("A_TOKEN", "new").unwrap(); // a newer token is saved meanwhile
+        release_tx.send(()).unwrap();
+        reader.join().unwrap();
+        assert_eq!(cache.get("A_TOKEN").unwrap(), "new");
     }
 
     #[test]

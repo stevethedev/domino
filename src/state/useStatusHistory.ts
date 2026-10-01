@@ -7,22 +7,18 @@ export type HistoryState = { status: "idle" | "loading" } | ({ status: "done" } 
 
 /** Status history for the loaded graph, fetched only while `enabled` (the Timeline view is open). */
 export function useStatusHistory(source: JiraSource, graph: Graph, enabled: boolean): HistoryState {
-  const [state, setState] = useState<HistoryState>({ status: "idle" });
-  const [loadedFor, setLoadedFor] = useState<Graph | null>(null);
+  // Results are tagged with the graph they were loaded for, so a new graph never sees stale history.
+  const [loaded, setLoaded] = useState<{ graph: Graph; result: HistoryResult } | null>(null);
 
   useEffect(() => {
-    if (!enabled || loadedFor === graph || graph.nodes.length === 0) return;
+    if (!enabled || graph.nodes.length === 0 || loaded?.graph === graph) return;
     let cancelled = false;
-    setState({ status: "loading" });
-    loadStatusHistory(source, graph).then((res) => {
-      if (cancelled) return;
-      setState({ status: "done", ...res });
-      setLoadedFor(graph);
-    });
+    loadStatusHistory(source, graph).then((result) => !cancelled && setLoaded({ graph, result }));
     return () => {
       cancelled = true;
     };
-  }, [source, graph, enabled, loadedFor]);
+  }, [source, graph, enabled, loaded]);
 
-  return state;
+  if (loaded?.graph === graph) return { status: "done", ...loaded.result };
+  return { status: enabled && graph.nodes.length > 0 ? "loading" : "idle" };
 }

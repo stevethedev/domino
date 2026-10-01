@@ -3,10 +3,11 @@ import type { SiteConfig } from "../config/types";
 import { combineJql, JQL_PRESETS, presetById } from "../data/jqlPresets";
 import { ISSUE_KEY_RE, type Scope } from "../data/MultiSiteLoader";
 import { saveQuery } from "../state/useDomino";
+import { isOneOf } from "../lib/guards";
 
 type Mode = Scope["mode"];
 const MODES: readonly Mode[] = ["jql", "epic", "seed"];
-const isMode = (v: string): v is Mode => (MODES as readonly string[]).includes(v);
+const isMode = isOneOf(MODES);
 
 export function ScopeInputs({
   sites,

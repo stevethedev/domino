@@ -1,5 +1,6 @@
 import type { Insights } from "./insights";
 import type { Graph, StatusCategory } from "./types";
+import { isOneOf } from "../lib/guards";
 
 /** What Domino remembers about a scope between visits: small enough to keep per scope locally. */
 export type Snapshot = {
@@ -77,7 +78,7 @@ export function diffSnapshot(prev: Snapshot, graph: Graph, insights: Insights, h
 }
 
 const CATEGORIES: readonly StatusCategory[] = ["todo", "inprogress", "done", "unknown"];
-const isCategory = (v: unknown): v is StatusCategory => typeof v === "string" && (CATEGORIES as readonly string[]).includes(v);
+const isCategory = isOneOf(CATEGORIES);
 
 /** Validates a stored snapshot entry by entry; malformed entries are dropped. */
 export function parseSnapshot(raw: unknown): Snapshot | undefined {

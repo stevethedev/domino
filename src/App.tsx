@@ -7,7 +7,7 @@ import { useDomino } from "./state/useDomino";
 import { DEFAULT_ESTIMATE_SETTINGS, ESTIMATE_SETTINGS_KEY, parseEstimateSettings } from "./state/estimateSettings";
 import { oneOf, usePersistentState } from "./state/storage";
 import { parseSavedViews, SAVED_VIEWS_KEY, upsertView, type SavedView } from "./state/savedViews";
-import { saveQuery } from "./state/useDomino";
+import { saveQuery, scopeKeyOf } from "./state/useDomino";
 import { useChanges } from "./state/useChanges";
 import { useStatusHistory } from "./state/useStatusHistory";
 import { Canvas, useFocusNode, type Filters, type ViewOptions } from "./ui/Canvas";
@@ -82,11 +82,13 @@ function Shell() {
   );
   // "Since you last looked" is tracked per scope: the selected sites plus the query or mode.
   const scopeKey = useMemo(
-    () => (domino.selectedSites.length ? JSON.stringify({ sites: domino.selectedSites.map((s) => s.id).sort(), scope: domino.scope }) : null),
+    () => (domino.selectedSites.length ? scopeKeyOf(domino.selectedSites, domino.scope) : null),
     [domino.selectedSites, domino.scope],
   );
   const loaded = load.status === "done" && load.result.kind === "ok";
-  const { changes, markSeen } = useChanges(scopeKey, graph, baseInsights, loaded, history.status === "done");
+  // Only compare once the loaded result belongs to the current scope (not the previous one mid-switch).
+  const loadedThisScope = loaded && load.scopeKey === scopeKey;
+  const { changes, markSeen } = useChanges(scopeKey, graph, baseInsights, loadedThisScope, history.status === "done");
   const insights = useMemo(() => ({ ...baseInsights, changed: changes?.byIssue ?? new Map() }), [baseInsights, changes]);
 
   const [savedViews, setSavedViews] = usePersistentState<SavedView[]>(SAVED_VIEWS_KEY, parseSavedViews, []);

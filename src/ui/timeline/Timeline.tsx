@@ -7,6 +7,7 @@ import { visibleSubgraph } from "../../graph/visible";
 import type { EstimateSettings } from "../../state/estimateSettings";
 import type { HistoryState } from "../../state/useStatusHistory";
 import { lanesFor, type Filters, type ViewOptions } from "../Canvas";
+import { NumberField } from "../NumberField";
 import { TimeAxis, TimeGrid } from "./TimeAxis";
 import { isViolated, TimelineArrows, type ArrowModel } from "./TimelineArrows";
 import {
@@ -111,11 +112,11 @@ export function Timeline({
         )}
         <label className="field">
           <span className="field-label">Days / point</span>
-          <input type="number" min={0.25} step={0.25} value={settings.daysPerPoint} onChange={(e) => setSettings({ daysPerPoint: Math.max(0.25, Number(e.target.value) || 1) })} />
+          <NumberField min={0.25} step={0.25} value={settings.daysPerPoint} onCommit={(daysPerPoint) => setSettings({ daysPerPoint })} />
         </label>
         <label className="field">
           <span className="field-label">Unpointed</span>
-          <input type="number" min={1} step={1} value={settings.defaultDays} onChange={(e) => setSettings({ defaultDays: Math.max(1, Math.round(Number(e.target.value)) || 2) })} />
+          <NumberField min={1} step={1} integer value={settings.defaultDays} onCommit={(defaultDays) => setSettings({ defaultDays })} />
           <span className="muted small">days</span>
         </label>
         <ul className="tl-legend" aria-label="Legend">

@@ -9,7 +9,14 @@ export type ArrowModel = { edge: GraphEdge; violated: boolean; inCycle: boolean;
 export function isViolated(blocker: TimelineEntry, blocked: TimelineEntry): boolean {
   const started = blocked.progress.state === "done" ? blocked.progress.actual.start : blocked.progress.state === "started" ? blocked.progress.actualStart : undefined;
   if (!started) return false;
-  return blocker.progress.state === "done" ? started < blocker.progress.actual.end : true;
+  switch (blocker.progress.state) {
+    case "done":
+      return started < blocker.progress.actual.end;
+    case "unknown":
+      return false; // no real dates for the blocker: nothing to compare
+    default:
+      return true; // the blocker is still open
+  }
 }
 
 /** Finish-to-start elbow connectors from blocker's projected end to blocked's projected start. */

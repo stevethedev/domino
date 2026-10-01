@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ConfigStore } from "../config/ConfigStore";
-import type { DominoConfig, HealthStatus } from "../config/types";
+import type { DominoConfig, HealthStatus, SiteConfig } from "../config/types";
 import { errorMessage } from "../data/errors";
 import type { JiraSource } from "../data/JiraSource";
 import { DEFAULT_PRESET_ID, presetById } from "../data/jqlPresets";
@@ -12,7 +12,8 @@ import type { Graph } from "../graph/types";
 export type LoadState =
   | { status: "idle" }
   | { status: "loading" }
-  | { status: "done"; result: LoadResult }
+  /** `scopeKey` identifies what was loaded, so consumers never pair a result with a newer scope. */
+  | { status: "done"; result: LoadResult; scopeKey: string }
   | { status: "failed"; message: string };
 
 const QUERY_KEY = "domino.query";
@@ -21,6 +22,10 @@ const asString = (raw: unknown) => (typeof raw === "string" ? raw : undefined);
 /** The last-run top-bar query, remembered per viewer. */
 const loadQuery = () => readStored(QUERY_KEY, asString, presetById(DEFAULT_PRESET_ID).jql);
 export const saveQuery = (q: string) => writeStored(QUERY_KEY, q);
+
+/** Stable identity of a scope: the selected sites plus the query or mode. */
+export const scopeKeyOf = (sites: readonly SiteConfig[], scope: Scope) =>
+  JSON.stringify({ sites: sites.map((s) => s.id).sort(), scope });
 
 const EMPTY_GRAPH: Graph = { nodes: [], edges: [], cycles: [], cycleEdgeIds: new Set(), brokenEdgeIds: new Set() };
 
@@ -66,8 +71,9 @@ export function useDomino(store: ConfigStore, source: JiraSource) {
     }
     let cancelled = false;
     setLoad({ status: "loading" });
+    const scopeKey = scopeKeyOf(selectedSites, scope);
     loader.load(scope, selectedSites, config.sites).then(
-      (result) => !cancelled && setLoad({ status: "done", result }),
+      (result) => !cancelled && setLoad({ status: "done", result, scopeKey }),
       (e) => !cancelled && setLoad({ status: "failed", message: errorMessage(e) }),
     );
     return () => {
