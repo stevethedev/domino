@@ -1,7 +1,7 @@
 import ELK, { type ElkExtendedEdge, type ElkNode } from "elkjs/lib/elk.bundled.js";
 import type { GraphEdge, GraphNode } from "./types";
 
-export const CARD_WIDTH = 260;
+export const CARD_WIDTH = 280;
 export const CARD_HEIGHT = 112;
 const GROUP_PADDING_TOP = 44;
 const LANE_PADDING = 20;

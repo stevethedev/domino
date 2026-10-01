@@ -1,11 +1,15 @@
 import { ReactFlowProvider } from "@xyflow/react";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { computeInsights } from "./graph/insights";
 import { configStore, jiraSource, openExternal } from "./platform";
 import { useDomino } from "./state/useDomino";
+import { oneOf, usePersistentState } from "./state/storage";
 import { useStatusHistory } from "./state/useStatusHistory";
 import { Canvas, useFocusNode, type Filters, type ViewOptions } from "./ui/Canvas";
 import { ErrorBanner } from "./ui/ErrorBanner";
 import { FilterPanel } from "./ui/FilterPanel";
+import { InsightsBar } from "./ui/InsightsBar";
+import { QuickFind } from "./ui/QuickFind";
 import { ScopeInputs } from "./ui/ScopeInputs";
 import { SettingsDialog } from "./ui/Settings/SettingsDialog";
 import { SiteSelector } from "./ui/SiteSelector";
@@ -14,23 +18,28 @@ import { isViewMode, ViewToggle, type ViewMode } from "./ui/ViewToggle";
 import { WarningsPanel } from "./ui/WarningsPanel";
 
 const DEFAULT_FILTERS: Filters = { blocks: true, relates: false, duplicates: false, crossSite: true };
-const DEFAULT_VIEW: ViewOptions = { groupBy: "none", criticalPath: false, ready: false };
-const VIEW_MODE_KEY = "domino.view";
-
-function loadViewMode(): ViewMode {
-  try {
-    const v = localStorage.getItem(VIEW_MODE_KEY);
-    return v && isViewMode(v) ? v : "graph";
-  } catch {
-    return "graph";
-  }
-}
+const DEFAULT_VIEW: ViewOptions = { groupBy: "none", highlight: "none" };
+const parseViewMode = oneOf(isViewMode);
 
 /** Focus a timeline row by uid (the graph view uses React Flow's viewport instead). */
 function focusTimelineRow(uid: string) {
   const el = document.querySelector<HTMLElement>(`[data-tl-uid="${CSS.escape(uid)}"]`);
   el?.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
   el?.focus({ preventScroll: true });
+}
+
+/** `g` / `t` switch between Graph and Timeline when focus isn't in a text field. */
+function useViewHotkeys(setViewMode: (m: ViewMode) => void) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.target instanceof HTMLElement && e.target.matches("input, textarea, select, [contenteditable]")) return;
+      if (e.key === "g") setViewMode("graph");
+      if (e.key === "t") setViewMode("timeline");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [setViewMode]);
 }
 
 export function App() {
@@ -46,18 +55,13 @@ function Shell() {
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [view, setView] = useState(DEFAULT_VIEW);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [viewMode, setViewModeState] = useState(loadViewMode);
-  const setViewMode = (m: ViewMode) => {
-    setViewModeState(m);
-    try {
-      localStorage.setItem(VIEW_MODE_KEY, m);
-    } catch {
-      /* ignore */
-    }
-  };
+  const [viewMode, setViewMode] = usePersistentState<ViewMode>("domino.view", parseViewMode, "graph");
   const focusGraphNode = useFocusNode();
   const { config, load, graph } = domino;
   const history = useStatusHistory(jiraSource, graph, viewMode === "timeline");
+  const insights = useMemo(() => computeInsights(graph), [graph]);
+  const focusIssue = viewMode === "graph" ? focusGraphNode : focusTimelineRow;
+  useViewHotkeys(setViewMode);
 
   const errors = load.status === "done" ? load.result.errors : [];
   const full = graph.nodes.filter((n) => !n.ghost).length;
@@ -74,14 +78,9 @@ function Shell() {
             <ScopeInputs sites={domino.selectedSites} scope={domino.scope} onApply={domino.setScope} />
           </>
         )}
+        <QuickFind nodes={graph.nodes} showSite={domino.loadedSiteCount > 1} onPick={focusIssue} />
         <ViewToggle value={viewMode} onChange={setViewMode} />
-        <span className="status-text" aria-live="polite">
-          {load.status === "loading"
-            ? "Loading…"
-            : load.status === "done" && load.result.kind === "ok"
-              ? `${full} issues · ${graph.nodes.length - full} outside scope`
-              : ""}
-        </span>
+
         <button type="button" className="icon-btn" onClick={domino.reload} aria-label="Reload" title="Reload">
           ↻
         </button>
@@ -99,15 +98,28 @@ function Shell() {
 
       <main className="workspace">
         <aside className="sidebar" aria-label="Filters and warnings">
+          <InsightsBar
+            summary={
+              load.status === "loading"
+                ? "Loading…"
+                : load.status === "done" && load.result.kind === "ok"
+                  ? `${full} issues · ${graph.nodes.length - full} outside scope`
+                  : ""
+            }
+            insights={insights}
+            highlight={view.highlight}
+            onHighlight={(highlight) => setView({ ...view, highlight })}
+            onShowCycle={() => graph.cycles[0] && focusIssue(graph.cycles[0][0])}
+          />
           <FilterPanel filters={filters} onFilters={setFilters} view={view} onView={setView} />
-          <WarningsPanel graph={graph} onFocusNode={viewMode === "graph" ? focusGraphNode : focusTimelineRow} />
+          <WarningsPanel graph={graph} onFocusNode={focusIssue} />
           <Legend />
         </aside>
         <section className="canvas" aria-label={viewMode === "graph" ? "Dependency graph" : "Timeline"}>
           {viewMode === "graph" ? (
-            <Canvas graph={graph} filters={filters} view={view} showSiteBadges={domino.loadedSiteCount > 1} />
+            <Canvas graph={graph} insights={insights} filters={filters} view={view} showSiteBadges={domino.loadedSiteCount > 1} />
           ) : (
-            <Timeline graph={graph} filters={filters} view={view} history={history} onOpen={openExternal} />
+            <Timeline graph={graph} insights={insights} filters={filters} view={view} history={history} onOpen={openExternal} />
           )}
           <CanvasMessage domino={domino} />
         </section>
@@ -152,6 +164,9 @@ function Legend() {
         <li><span className="swatch ghost-swatch" aria-hidden="true" /> Outside scope</li>
       </ul>
       <p className="hint">Hover or focus a card to trace its blockers. Enter or click opens it in Jira.</p>
+      <p className="hint">
+        <kbd>/</kbd> find · <kbd>g</kbd> graph · <kbd>t</kbd> timeline
+      </p>
     </section>
   );
 }

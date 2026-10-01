@@ -34,7 +34,8 @@ const ISSUES = {
   acme: [
     ["CORE-1", "Epic", "In Progress", "Checkout v2", "Dana Whitfield", null],
     ["CORE-7", "Story", "In Progress", "Rate limiter for public API", "Priya Raman", 5],
-    ["CORE-8", "Task", "To Do", "Expose rate-limit headers to clients", "Marcus Lee", 2],
+    // Deliberately long, with an unbroken path: summaries like this must truncate, not overflow.
+    ["CORE-8", "Task", "To Do", "Expose rate-limit headers (X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset) to clients via src/api/middleware/rateLimitHeadersMiddlewareForPartnerAndMobileSdkClients.ts so SDKs can back off before 429s", "Marcus Lee", 2],
     ["CORE-10", "Story", "To Do", "Accept partner payment tokens in checkout", "Dana Whitfield", 8, "CORE-1"],
     ["CORE-11", "Story", "To Do", "Persist tokenized cards on the order", "Priya Raman", 5, "CORE-1"],
     // Sub-task: its parent is a story, so its epic (CORE-1) is found through CORE-11.

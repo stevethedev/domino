@@ -37,14 +37,6 @@ export function FilterPanel({
           <option value="epic">Epic</option>
         </select>
       </label>
-      <label className="check">
-        <input type="checkbox" role="switch" checked={view.criticalPath} onChange={(e) => onView({ ...view, criticalPath: e.target.checked })} />
-        Critical path
-      </label>
-      <label className="check">
-        <input type="checkbox" role="switch" checked={view.ready} onChange={(e) => onView({ ...view, ready: e.target.checked })} />
-        What's ready
-      </label>
     </section>
   );
 }

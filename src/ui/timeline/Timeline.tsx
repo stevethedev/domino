@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
-import { blockingChain, criticalPath, readyIssues } from "../../graph/analysis";
+import { blockingChain } from "../../graph/analysis";
+import { emphasis, type Insights } from "../../graph/insights";
 import { laneByEpic, laneBySite } from "../../graph/layout";
 import { computeTimeline, type ScheduleOptions, type TimelineEntry } from "../../graph/schedule";
 import type { Graph } from "../../graph/types";
 import { visibleSubgraph } from "../../graph/visible";
+import { usePersistentState } from "../../state/storage";
 import type { HistoryState } from "../../state/useStatusHistory";
 import type { Filters, ViewOptions } from "../Canvas";
 import { TimeAxis, TimeGrid } from "./TimeAxis";
@@ -31,52 +33,37 @@ const SETTINGS_KEY = "domino.timeline";
 type Settings = { scale: Scale; daysPerPoint: number; defaultDays: number; planStart: string | null };
 const DEFAULT_SETTINGS: Settings = { scale: "week", daysPerPoint: 1, defaultDays: 2, planStart: null };
 
-/** Per-viewer preferences; storage failures fall back to defaults. */
-function loadSettings(): Settings {
-  try {
-    const raw: unknown = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "null");
-    if (!raw || typeof raw !== "object") return DEFAULT_SETTINGS;
-    const r = raw as Record<string, unknown>;
-    return {
-      scale: typeof r.scale === "string" && isScale(r.scale) ? r.scale : DEFAULT_SETTINGS.scale,
-      daysPerPoint: typeof r.daysPerPoint === "number" && r.daysPerPoint > 0 ? r.daysPerPoint : DEFAULT_SETTINGS.daysPerPoint,
-      defaultDays: typeof r.defaultDays === "number" && r.defaultDays > 0 ? r.defaultDays : DEFAULT_SETTINGS.defaultDays,
-      planStart: typeof r.planStart === "string" && /^\d{4}-\d{2}-\d{2}$/.test(r.planStart) ? r.planStart : null,
-    };
-  } catch {
-    return DEFAULT_SETTINGS;
-  }
-}
-
-function saveSettings(s: Settings) {
-  try {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
-  } catch {
-    /* ignore */
-  }
+/** Validates stored timeline settings field by field, keeping defaults for anything invalid. */
+function parseSettings(raw: unknown): Settings | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const r: Record<string, unknown> = { ...raw };
+  const positive = (v: unknown, d: number) => (typeof v === "number" && v > 0 ? v : d);
+  return {
+    scale: typeof r.scale === "string" && isScale(r.scale) ? r.scale : DEFAULT_SETTINGS.scale,
+    daysPerPoint: positive(r.daysPerPoint, DEFAULT_SETTINGS.daysPerPoint),
+    defaultDays: positive(r.defaultDays, DEFAULT_SETTINGS.defaultDays),
+    planStart: typeof r.planStart === "string" && /^\d{4}-\d{2}-\d{2}$/.test(r.planStart) ? r.planStart : null,
+  };
 }
 
 export function Timeline({
   graph,
+  insights,
   filters,
   view,
   history,
   onOpen,
 }: {
   graph: Graph;
+  insights: Insights;
   filters: Filters;
   view: ViewOptions;
   history: HistoryState;
   onOpen: (url: string) => void;
 }) {
-  const [settings, setSettingsState] = useState(loadSettings);
+  const [settings, saveSettings] = usePersistentState(SETTINGS_KEY, parseSettings, DEFAULT_SETTINGS);
   const [hovered, setHovered] = useState<string | null>(null);
-  const setSettings = (patch: Partial<Settings>) =>
-    setSettingsState((s) => {
-      const next = { ...s, ...patch };
-      saveSettings(next);
-      return next;
-    });
+  const setSettings = (patch: Partial<Settings>) => saveSettings({ ...settings, ...patch });
 
   const today = localToday();
   const historyMap = useMemo(() => (history.status === "done" ? history.history : new Map()), [history]);
@@ -102,11 +89,8 @@ export function Timeline({
   );
 
   const chain = useMemo(() => (hovered ? blockingChain(graph, hovered) : null), [graph, hovered]);
-  const critical = useMemo(() => (view.criticalPath ? criticalPath(graph) : null), [graph, view.criticalPath]);
-  const ready = useMemo(() => (view.ready ? readyIssues(graph) : null), [graph, view.ready]);
-  const criticalNodes = new Set(critical?.nodes ?? []);
-  const criticalEdges = new Set(critical?.edges ?? []);
-  const emphasis = critical || ready ? new Set([...criticalNodes, ...(ready ?? [])]) : null;
+  const emphasized = useMemo(() => emphasis(view.highlight, insights), [view.highlight, insights]);
+  const criticalEdges = view.highlight === "critical" ? (emphasized?.edges ?? new Set<string>()) : new Set<string>();
 
   const rowY = new Map(rows.map((r) => [r.node.uid, r.y]));
   const arrows: ArrowModel[] = edges
@@ -116,7 +100,7 @@ export function Timeline({
       violated: isViolated(timeline.get(e.source)!, timeline.get(e.target)!),
       inCycle: graph.cycleEdgeIds.has(e.id),
       critical: criticalEdges.has(e.id),
-      dimmed: chain ? !chain.edges.has(e.id) : emphasis ? !criticalEdges.has(e.id) : false,
+      dimmed: chain ? !chain.edges.has(e.id) : emphasized ? !criticalEdges.has(e.id) : false,
     }));
 
   const late = rows.filter((r) => !r.node.ghost && !isEpicNode(r.node) && r.entry.varianceDays > 0).length;
@@ -202,9 +186,9 @@ export function Timeline({
                     scale={settings.scale}
                     today={today}
                     flags={{
-                      dimmed: chain ? !chain.nodes.has(item.node.uid) : emphasis ? !emphasis.has(item.node.uid) : false,
-                      critical: criticalNodes.has(item.node.uid),
-                      ready: ready?.has(item.node.uid) ?? false,
+                      dimmed: chain ? !chain.nodes.has(item.node.uid) : emphasized ? !emphasized.nodes.has(item.node.uid) : false,
+                      critical: view.highlight === "critical" && (emphasized?.nodes.has(item.node.uid) ?? false),
+                      ready: view.highlight === "ready" && insights.ready.has(item.node.uid),
                     }}
                     onOpen={onOpen}
                     onHover={setHovered}

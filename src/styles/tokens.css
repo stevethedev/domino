@@ -1,0 +1,83 @@
+/* Design tokens: every color and radius lives here, with dark-mode overrides. */
+
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #f1f3f6;
+  --text: #1f2430;
+  --muted: #5d6576;
+  --border: #d7dbe3;
+  --focus: #2563eb;
+  --accent: #2563eb;
+  --accent-text: #ffffff;
+
+  --todo: #8b93a3;
+  --inprogress: #2f6fe4;
+  --done: #1f9d55;
+  --unknown: #9aa1ad;
+
+  --pill-todo-bg: #eceef2;
+  --pill-todo-fg: #3d4452;
+  --pill-inprogress-bg: #e1ebfd;
+  --pill-inprogress-fg: #1c4fb0;
+  --pill-done-bg: #dcf3e5;
+  --pill-done-fg: #146c3a;
+  --pill-unknown-bg: #eceef2;
+  --pill-unknown-fg: #4b5261;
+
+  --edge: #5b6475;
+  --cycle: #d62d2d;
+  --critical: #b45309;
+  --ready: #1f9d55;
+  --warn-bg: #fff4d6;
+  --warn-fg: #7a4b00;
+  --error-bg: #fde8e8;
+  --error-fg: #8a1c1c;
+
+  --epic: #7c3aed;
+  --type-default: #6b7280;
+  --type-epic: var(--epic);
+  --type-story: #16a34a;
+  --type-task: #2563eb;
+  --type-bug: #dc2626;
+  --on-type: #ffffff;
+  --minimap-mask: rgb(240 242 246 / 0.7);
+
+  --radius: 8px;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171d;
+    --surface: #1d2129;
+    --surface-2: #252a34;
+    --text: #e6e9ef;
+    --muted: #a0a8b8;
+    --border: #363c49;
+    --focus: #7aa7ff;
+    --accent: #4f86f7;
+    --todo: #7d8596;
+    --inprogress: #5b8ff0;
+    --done: #3fbf74;
+    --pill-todo-bg: #2c313c;
+    --pill-todo-fg: #c9ceda;
+    --pill-inprogress-bg: #1f3563;
+    --pill-inprogress-fg: #bcd2ff;
+    --pill-done-bg: #173b28;
+    --pill-done-fg: #a5e8c0;
+    --pill-unknown-bg: #2c313c;
+    --pill-unknown-fg: #c9ceda;
+    --edge: #9aa3b5;
+    --cycle: #ff6161;
+    --critical: #f59e0b;
+    --warn-bg: #3b2f12;
+    --warn-fg: #ffd98a;
+    --error-bg: #3d1c1c;
+    --error-fg: #ffb4b4;
+    --epic: #a78bfa;
+    --minimap-mask: rgb(10 12 16 / 0.65);
+    color-scheme: dark;
+  }
+}

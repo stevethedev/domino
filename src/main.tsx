@@ -1,7 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import "@xyflow/react/dist/style.css";
-import "./styles.css";
+import "./styles/index.css";
 
 async function start() {
   // `npm run dev:web` only: answer Tauri IPC in the browser from fixtures. Stripped from real builds.

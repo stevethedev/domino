@@ -142,6 +142,13 @@ What `HttpBackend` does:
     - Issues without an epic go in a *No epic* lane, and ghosts in *Outside scope*. Both lanes come last.
     - Epic keys are site-qualified, so the same key on two sites is two lanes.
 
+## Finding your way around
+
+- **At a glance** (top of the sidebar): counts of **Blocked**, **Ready**, **Critical path** and **Cycles** for the loaded scope. Click a count to highlight those issues in either view; click it again to clear. The insights are computed once per load in `src/graph/insights.ts`.
+- **Quick find** (top bar): type a key or part of a summary to jump to the issue in the current view. Exact and prefix key matches come first.
+- **Semantic zoom:** below 60% zoom, graph cards switch to a compact form (key, status, blocker count) that stays readable.
+- **Keyboard:** `/` or ⌘K / Ctrl+K opens quick find. `g` and `t` switch to Graph and Timeline. Tab moves between cards and rows; Enter opens the issue in Jira.
+
 ## Timeline view
 
 **Graph / Timeline** in the top bar switches between the dependency graph and a projected-vs-actual timeline of the same loaded issues. Sites, query, link filters, Group by, Critical path and What's ready all apply to both views.
@@ -172,6 +179,7 @@ src/config/           SiteConfig types, Zod schema, ConfigStore + TauriConfigSto
 src/data/             JiraSource, TauriSource, FixtureSource, MultiSiteLoader
 src/graph/            pure graph logic: buildGraph, cycles, analysis, layout (+ tests)
 src/ui/               React components (consume graph/types.ts only)
+src/styles/           tokens.css (every color, light + dark) and one stylesheet per surface
 src/dev/mockIpc.ts    browser-only IPC mock for dev:web
 src-tauri/            Rust core: config, secrets (keychain), commands, jira/{mock,http,oauth}.rs
 ```

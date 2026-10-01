@@ -5,6 +5,7 @@ import { errorMessage } from "../data/errors";
 import type { JiraSource } from "../data/JiraSource";
 import { DEFAULT_PRESET_ID, presetById } from "../data/jqlPresets";
 import { MultiSiteLoader, type LoadResult, type Scope } from "../data/MultiSiteLoader";
+import { readStored, writeStored } from "./storage";
 import { buildGraph } from "../graph/buildGraph";
 import type { Graph } from "../graph/types";
 
@@ -15,25 +16,11 @@ export type LoadState =
   | { status: "failed"; message: string };
 
 const QUERY_KEY = "domino.query";
+const asString = (raw: unknown) => (typeof raw === "string" ? raw : undefined);
 
-/** The last-run top-bar query; a per-viewer convenience, so storage failures just fall back. */
-function loadQuery(): string {
-  try {
-    const q = localStorage.getItem(QUERY_KEY);
-    if (q !== null) return q;
-  } catch {
-    /* fall through */
-  }
-  return presetById(DEFAULT_PRESET_ID).jql;
-}
-
-export function saveQuery(q: string) {
-  try {
-    localStorage.setItem(QUERY_KEY, q);
-  } catch {
-    /* ignore */
-  }
-}
+/** The last-run top-bar query, remembered per viewer. */
+const loadQuery = () => readStored(QUERY_KEY, asString, presetById(DEFAULT_PRESET_ID).jql);
+export const saveQuery = (q: string) => writeStored(QUERY_KEY, q);
 
 const EMPTY_GRAPH: Graph = { nodes: [], edges: [], cycles: [], cycleEdgeIds: new Set(), brokenEdgeIds: new Set() };
 

@@ -1,5 +1,6 @@
-import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
+import { Handle, Position, useStore, type Node, type NodeProps } from "@xyflow/react";
 import { memo } from "react";
+import type { Highlight } from "../graph/insights";
 import type { GraphNode, StatusCategory } from "../graph/types";
 
 export type IssueNodeData = {
@@ -7,11 +8,14 @@ export type IssueNodeData = {
   openBlockers: number;
   showSite: boolean;
   dimmed: boolean;
-  highlight: "critical" | "ready" | "both" | null;
+  highlight: Exclude<Highlight, "none"> | null;
   onOpen: (url: string) => void;
   onHover: (uid: string | null) => void;
 };
 export type IssueFlowNode = Node<IssueNodeData, "issue">;
+
+/** Below this zoom, card text is too small to read, so cards switch to a compact, high-contrast form. */
+const COMPACT_BELOW_ZOOM = 0.6;
 
 const STATUS_LABEL: Record<StatusCategory, string> = {
   todo: "To Do",
@@ -40,9 +44,31 @@ function initials(name?: string) {
   return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase();
 }
 
+const blockerText = (count: number) => `⚠ ${count} blocker${count === 1 ? "" : "s"}`;
+
+/** Zoomed-out card: key, status and blockers only, large enough to read at a glance. */
+function CompactBody({ node, statusText, openBlockers, ready }: { node: GraphNode; statusText: string; openBlockers: number; ready: boolean }) {
+  return (
+    <>
+      <div className="card-row1">
+        <TypeIcon type={node.issueType} />
+        <span className="card-key">{node.key}</span>
+      </div>
+      <div className="card-row3">
+        <span className={`pill pill-${node.statusCategory}`}>{statusText}</span>
+        {openBlockers > 0 && <span className="blockers">{blockerText(openBlockers)}</span>}
+        {ready && <span className="tag-ready">Ready</span>}
+      </div>
+    </>
+  );
+}
+
 export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNode>) {
   const { node: n, openBlockers, showSite, dimmed, highlight, onOpen, onHover } = data;
+  // Selecting a boolean means cards re-render only when crossing the threshold, not on every zoom step.
+  const compact = useStore((s) => s.transform[2] < COMPACT_BELOW_ZOOM);
   const status = n.statusCategory;
+  const statusText = n.ghost && status === "unknown" ? "Unknown" : n.statusName || STATUS_LABEL[status];
   const label = [
     n.key,
     n.summary,
@@ -50,15 +76,15 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
     showSite || n.ghost ? `site ${n.siteLabel}` : null,
     openBlockers ? `${openBlockers} open blocker${openBlockers === 1 ? "" : "s"}` : null,
     n.ghost ? "outside scope" : null,
-    highlight === "critical" || highlight === "both" ? "on critical path" : null,
-    highlight === "ready" || highlight === "both" ? "ready to start" : null,
+    highlight === "critical" ? "on critical path" : null,
+    highlight === "ready" ? "ready to start" : null,
   ]
     .filter(Boolean)
     .join(", ");
 
   return (
     <div
-      className={`card status-${status}${n.ghost ? " ghost" : ""}${dimmed ? " dimmed" : ""}${highlight ? ` hl-${highlight}` : ""}`}
+      className={`card status-${status}${n.ghost ? " ghost" : ""}${dimmed ? " dimmed" : ""}${highlight ? ` hl-${highlight}` : ""}${compact ? " compact" : ""}`}
       role="link"
       tabIndex={0}
       aria-label={`${label}. Opens in browser.`}
@@ -76,10 +102,12 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
       onBlur={() => onHover(null)}
     >
       <Handle type="target" position={Position.Left} isConnectable={false} />
+      {compact ? <CompactBody node={n} statusText={statusText} openBlockers={openBlockers} ready={highlight === "ready"} /> : (
+        <>
       <div className="card-row1">
         <TypeIcon type={n.issueType} />
         <span className="card-key">{n.key}</span>
-        <span className={`pill pill-${status}`}>{n.ghost && status === "unknown" ? "Unknown" : n.statusName || STATUS_LABEL[status]}</span>
+        <span className={`pill pill-${status}`}>{statusText}</span>
         {(showSite || n.ghost) && (
           <span className="site-badge" style={{ "--site": n.siteColor ?? "#6b7280" }} title={`Site: ${n.siteLabel}`}>
             {n.siteLabel}
@@ -109,11 +137,13 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
         )}
         {openBlockers > 0 && (
           <span className="blockers" title={`${openBlockers} open blocker${openBlockers === 1 ? "" : "s"}`}>
-            ⚠ {openBlockers} blocker{openBlockers === 1 ? "" : "s"}
+            {blockerText(openBlockers)}
           </span>
         )}
-        {(highlight === "ready" || highlight === "both") && <span className="tag-ready">Ready</span>}
+        {highlight === "ready" && <span className="tag-ready">Ready</span>}
       </div>
+        </>
+      )}
       <Handle type="source" position={Position.Right} isConnectable={false} />
     </div>
   );

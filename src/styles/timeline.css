@@ -1,0 +1,67 @@
+/* Timeline view: rows, bars, axis and connectors. */
+
+.timeline { position: absolute; inset: 0; display: flex; flex-direction: column; background: var(--bg); }
+.tl-toolbar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 8px 12px; border-bottom: 1px solid var(--border); background: var(--surface); }
+.tl-toolbar input[type="number"] { width: 64px; }
+.tl-toolbar .status-text { margin-left: auto; }
+.tl-legend { display: flex; gap: 12px; list-style: none; margin: 0; padding: 0; font-size: 12px; color: var(--muted); }
+.tl-legend li { display: flex; align-items: center; gap: 5px; }
+.tl-key { display: inline-block; width: 22px; height: 10px; position: static !important; }
+.tl-scroll { flex: 1; overflow: auto; position: relative; }
+.tl-inner { position: relative; min-width: 100%; }
+.tl-axis { position: sticky; top: 0; z-index: 4; display: flex; height: 30px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.tl-corner { position: sticky; left: 0; z-index: 5; width: 320px; flex: none; background: var(--surface); border-right: 1px solid var(--border); padding: 6px 12px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.tl-axis-ticks { position: relative; flex: 1; }
+.tl-tick { position: absolute; top: 8px; font-size: 11px; color: var(--muted); white-space: nowrap; padding-left: 3px; border-left: 1px solid var(--border); line-height: 14px; }
+.tl-tick.major { color: var(--text); font-weight: 600; }
+.tl-today-flag { position: absolute; top: 0; transform: translateX(-50%); font-size: 10px; font-weight: 700; color: var(--accent-text); background: var(--accent); border-radius: 0 0 4px 4px; padding: 0 5px; }
+.tl-body { position: relative; }
+.tl-chart { position: absolute; top: 0; right: 0; bottom: 0; pointer-events: none; }
+.tl-grid { position: absolute; inset: 0 auto auto 0; width: 100%; }
+.tl-weekend { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--muted) 7%, transparent); }
+.tl-today { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--accent); opacity: 0.6; }
+.tl-arrows { position: absolute; top: 0; left: 0; overflow: visible; }
+.tl-arrow { fill: none; stroke: var(--edge); stroke-width: 1.4; }
+.tl-arrow.violated { stroke: var(--cycle); stroke-width: 2; }
+.tl-arrow.critical { stroke: var(--critical); stroke-width: 2; }
+.tl-arrow.cross-site { stroke-dasharray: 5 3; }
+.tl-arrow.dimmed { opacity: 0.15; }
+.tl-arrowhead.edge { fill: var(--edge); }
+.tl-arrowhead.violated { fill: var(--cycle); }
+.tl-arrowhead.critical { fill: var(--critical); }
+.tl-lane { position: absolute; left: 0; right: 0; display: flex; align-items: center; padding: 0 12px; font-weight: 700; font-size: 13px; background: var(--surface-2); border-bottom: 1px solid var(--border); z-index: 3; }
+.tl-lane > :first-child { position: sticky; left: 12px; }
+.tl-row { position: absolute; left: 0; right: 0; height: 40px; display: flex; border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); cursor: pointer; transition: opacity 120ms ease; }
+.tl-row:hover { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+.tl-row:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; }
+.tl-row.dimmed { opacity: 0.2; }
+.tl-row.ghost { opacity: 0.5; }
+.tl-row.ghost .tl-label { font-style: italic; }
+.tl-row.critical .tl-label { box-shadow: inset 4px 0 0 var(--critical); }
+.tl-label { position: sticky; left: 0; z-index: 3; width: 320px; flex: none; display: flex; align-items: center; gap: 6px; padding: 0 10px 0 12px; background: var(--surface); border-right: 1px solid var(--border); min-width: 0; }
+.tl-row.status-todo .tl-label { border-left: 4px solid var(--todo); }
+.tl-row.status-inprogress .tl-label { border-left: 4px solid var(--inprogress); }
+.tl-row.status-done .tl-label { border-left: 4px solid var(--done); }
+.tl-row.status-unknown .tl-label { border-left: 4px dashed var(--unknown); }
+.tl-summary { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.tl-track { position: relative; flex: 1; }
+.tl-bar { position: absolute; border-radius: 4px; }
+.tl-projected { top: 7px; height: 26px; border: 1.5px dashed color-mix(in srgb, var(--muted) 75%, transparent); background: color-mix(in srgb, var(--muted) 6%, transparent); }
+.tl-actual { top: 14px; height: 12px; background: var(--inprogress); }
+.tl-row.status-done .tl-actual, .tl-key.tl-actual { background: var(--done); }
+.tl-forecast { top: 14px; height: 12px; border: 2px dotted var(--inprogress); background: color-mix(in srgb, var(--inprogress) 12%, transparent); }
+.tl-row.status-todo .tl-forecast { border-color: var(--todo); background: color-mix(in srgb, var(--todo) 12%, transparent); }
+.tl-key.tl-projected { border: 1.5px dashed var(--muted); border-radius: 3px; }
+.tl-key.tl-forecast { border: 2px dotted var(--inprogress); border-radius: 3px; }
+.tl-due { position: absolute; top: 11px; transform: translateX(-50%); font-size: 14px; line-height: 1; color: var(--text); }
+.tl-due.past { color: var(--cycle); }
+.tl-legend .tl-due { position: static; transform: none; }
+.tl-variance { position: absolute; z-index: 1; top: 12px; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 4px; white-space: nowrap; background: var(--surface-2); color: var(--muted); }
+.tl-variance.late { background: var(--error-bg); color: var(--error-fg); }
+.tl-variance.early { background: var(--pill-done-bg); color: var(--pill-done-fg); }
+.tl-epic-projected { top: 9px; height: 22px; border: 1.5px dashed color-mix(in srgb, var(--epic) 60%, transparent); background: color-mix(in srgb, var(--epic) 6%, transparent); }
+.tl-epic-work { top: 16px; height: 8px; background: color-mix(in srgb, var(--epic) 70%, var(--surface)); border-radius: 2px; }
+
+/* Long names in the timeline: status pill never shrinks; lane titles truncate within the visible width. */
+.tl-label .pill, .tl-label .card-key { flex: none; }
+.tl-lane > :first-child { max-width: min(70vw, 900px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
