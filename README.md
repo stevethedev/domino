@@ -133,7 +133,7 @@ What `HttpBackend` does:
 - **Cap:** more than 300 nodes, ghosts included, stops the load and asks you to narrow the scope.
 - **Cycles:** found with Tarjan's SCC algorithm, drawn in red, listed under Warnings. A DFS back edge in each cycle is left out of layout and critical path, and drawn as a loop underneath.
 - **Layout:** ELK layered, left to right, using only blocks edges, so blockers always sit left of what they block.
-- **Group by** (None / Site / Epic) draws labeled swimlanes and keeps ELK's global x order. Separate ELK containers can't keep that order when groups block each other in both directions.
+- **Group by** (None / Site / Epic / Assignee) draws labeled swimlanes and keeps ELK's global x order. Separate ELK containers can't keep that order when groups block each other in both directions.
   - *Site:* one lane per site. Ghosts on unconfigured Jira sites get a lane named after the host.
   - *Epic:* one lane per epic. The lane header opens the epic in Jira.
     - An issue's epic is its `parent` when that parent is an epic (`hierarchyLevel` 1, or type "Epic"). An epic sits in its own lane.
@@ -145,6 +145,8 @@ What `HttpBackend` does:
 ## Finding your way around
 
 - **At a glance** (top of the sidebar): counts of **Blocked**, **Ready**, **Critical path** and **Cycles** for the loaded scope. Click a count to highlight those issues in either view; click it again to clear. The insights are computed once per load in `src/graph/insights.ts`.
+- **Finish first** (under At a glance): the five open issues whose completion unblocks the most open work. That's distinct open, in-scope issues downstream through blocking links, at any depth and across sites; Done issues are passed through but not counted. Click one to show it and trace its chain.
+- **Group by Assignee:** one lane per person, matched by display name so the same person on two sites shares a lane. Each lane header says how many of *other people's* open issues are waiting downstream of that person's work ("Noor · holding up 7"). Unassigned issues and ghosts get their own lanes at the end.
 - **Quick find** (top bar): type a key or part of a summary to jump to the issue in the current view. Exact and prefix key matches come first.
 - **Semantic zoom:** below 60% zoom, graph cards switch to a compact form (key, status, blocker count) that stays readable.
 - **Keyboard:** `/` or ⌘K / Ctrl+K opens quick find. `g` and `t` switch to Graph and Timeline. Tab moves between cards and rows; Enter opens the issue in Jira.

@@ -130,3 +130,21 @@ kbd {
 .warnings li, .banner { overflow-wrap: anywhere; }
 .quick-find-list .card-key, .quick-find-list .pill { flex: none; }
 .site-selector .chip { max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+
+/* Finish first: open issues whose completion unblocks the most work */
+.finish-first-h { font-size: 12px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); margin: 14px 0 6px; }
+.finish-first { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; counter-reset: unblocker; }
+.finish-first li { counter-increment: unblocker; }
+.finish-first button {
+  width: 100%; display: grid; gap: 1px; text-align: left; padding: 6px 8px 6px 26px; position: relative;
+  border-radius: 6px; border: 1px solid var(--border); background: var(--surface);
+}
+.finish-first button::before {
+  content: counter(unblocker); position: absolute; left: 8px; top: 7px;
+  font-size: 11px; font-weight: 800; color: var(--muted); font-variant-numeric: tabular-nums;
+}
+.finish-first-top { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; min-width: 0; }
+.finish-first-top .card-key { flex: none; }
+.finish-first-reach { font-size: 11px; font-weight: 700; color: var(--critical); white-space: nowrap; }
+.finish-first-summary { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.finish-first-who { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

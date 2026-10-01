@@ -1,13 +1,12 @@
 import { useMemo, useState } from "react";
 import { blockingChain } from "../../graph/analysis";
 import { emphasis, type Insights } from "../../graph/insights";
-import { laneByEpic, laneBySite } from "../../graph/layout";
 import { computeTimeline, type ScheduleOptions, type TimelineEntry } from "../../graph/schedule";
 import type { Graph } from "../../graph/types";
 import { visibleSubgraph } from "../../graph/visible";
 import { usePersistentState } from "../../state/storage";
 import type { HistoryState } from "../../state/useStatusHistory";
-import type { Filters, ViewOptions } from "../Canvas";
+import { lanesFor, type Filters, type ViewOptions } from "../Canvas";
 import { TimeAxis, TimeGrid } from "./TimeAxis";
 import { isViolated, TimelineArrows, type ArrowModel } from "./TimelineArrows";
 import {
@@ -27,7 +26,6 @@ import {
 } from "./timelineLayout";
 import { TimelineRow } from "./TimelineRow";
 
-const LANES = { none: undefined, site: laneBySite, epic: laneByEpic } as const;
 const SETTINGS_KEY = "domino.timeline";
 
 type Settings = { scale: Scale; daysPerPoint: number; defaultDays: number; planStart: string | null };
@@ -81,7 +79,7 @@ export function Timeline({
   }, [timeline, epics]);
 
   const { nodes, edges } = useMemo(() => visibleSubgraph(graph, filters), [graph, filters]);
-  const { items, height } = useMemo(() => layoutRows(nodes, placed, LANES[view.groupBy]), [nodes, placed, view.groupBy]);
+  const { items, height } = useMemo(() => layoutRows(nodes, placed, lanesFor(view.groupBy, insights)), [nodes, placed, view.groupBy, insights]);
   const rows = items.filter((i) => i.kind === "row");
   const range = useMemo(
     () => (rows.length ? dayRange(rows.map((r) => r.entry), [today, opts.planStart, ...rows.flatMap((r) => (r.node.dates?.due ? [r.node.dates.due] : []))]) : null),
@@ -175,7 +173,7 @@ export function Timeline({
                     ) : (
                       <span>{item.lane.label}</span>
                     )}
-                    <span className="muted small"> · {item.count}</span>
+                    <span className="muted small"> · {item.count} {item.count === 1 ? "issue" : "issues"}</span>
                   </div>
                 ) : (
                   <TimelineRow

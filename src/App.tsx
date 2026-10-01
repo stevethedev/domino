@@ -60,6 +60,7 @@ function Shell() {
   const { config, load, graph } = domino;
   const history = useStatusHistory(jiraSource, graph, viewMode === "timeline");
   const insights = useMemo(() => computeInsights(graph), [graph]);
+  const nodesByUid = useMemo(() => new Map(graph.nodes.map((n) => [n.uid, n])), [graph]);
   const focusIssue = viewMode === "graph" ? focusGraphNode : focusTimelineRow;
   useViewHotkeys(setViewMode);
 
@@ -99,6 +100,8 @@ function Shell() {
       <main className="workspace">
         <aside className="sidebar" aria-label="Filters and warnings">
           <InsightsBar
+            nodes={nodesByUid}
+            onPick={focusIssue}
             summary={
               load.status === "loading"
                 ? "Loading…"

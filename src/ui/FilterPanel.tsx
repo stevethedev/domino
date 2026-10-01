@@ -35,6 +35,7 @@ export function FilterPanel({
           <option value="none">None</option>
           <option value="site">Site</option>
           <option value="epic">Epic</option>
+          <option value="assignee">Assignee</option>
         </select>
       </label>
     </section>

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { buildGraph } from "../buildGraph";
-import { computeInsights, emphasis } from "../insights";
-import { BLOCKS, data, issue, link, site } from "./helpers";
+import type { RawIssue } from "../../data/jiraTypes";
+import { computeInsights, downstreamOpen, emphasis } from "../insights";
+import { laneByAssignee } from "../layout";
+import { BLOCKS, data, issue, link, remote, site } from "./helpers";
 
 const A = site("a");
 
@@ -26,5 +28,62 @@ describe("computeInsights", () => {
     expect(emphasis("none", i)).toBeNull();
     expect([...emphasis("blocked", i)!.nodes]).toEqual(["a:B-1"]);
     expect([...emphasis("critical", i)!.edges]).toEqual(["a:link:2"]);
+  });
+});
+
+
+const B = site("b");
+const owned = (key: string, who: string | null, cat: "new" | "indeterminate" | "done" = "new"): RawIssue => {
+  const i = issue(key, cat);
+  i.fields.assignee = who ? { displayName: who } : null;
+  return i;
+};
+
+describe("unblock impact", () => {
+  // X-1 -> X-2 -> X-3 (done) -> X-4, and X-2 =(remote)=> b:Y-1
+  function chain() {
+    const [x1, x2, x3, x4] = [owned("X-1", "Ana"), owned("X-2", "Ana"), owned("X-3", "Bo", "done"), owned("X-4", "Cy")];
+    link("1", BLOCKS, x1, x2);
+    link("2", BLOCKS, x2, x3);
+    link("3", BLOCKS, x3, x4);
+    return buildGraph({
+      sites: [A, B],
+      data: [data("a", [x1, x2, x3, x4], { "X-2": [remote(9, "blocks", "https://b.atlassian.net/browse/Y-1")] }), data("b", [owned("Y-1", "Dee")])],
+    });
+  }
+
+  it("counts distinct open work downstream, through done issues and across sites", () => {
+    const d = downstreamOpen(chain());
+    expect([...d.get("a:X-1")!].sort()).toEqual(["a:X-2", "a:X-4", "b:Y-1"]); // X-3 is done: passed through, not counted
+    expect(d.has("a:X-3")).toBe(false); // done issues aren't unblockers
+  });
+
+  it("ranks the biggest unblockers first, with the sites they reach", () => {
+    const top = computeInsights(chain()).unblockers;
+    expect(top[0]).toEqual({ uid: "a:X-1", downstream: 3, sites: 2 });
+    expect(top.map((u) => u.uid)).toEqual(["a:X-1", "a:X-2"]);
+  });
+
+  it("terminates on cycles and never counts an issue as its own dependent", () => {
+    const [p, q] = [owned("P-1", "Ana"), owned("P-2", "Bo")];
+    link("1", BLOCKS, p, q);
+    link("2", BLOCKS, q, p);
+    const d = downstreamOpen(buildGraph({ sites: [A], data: [data("a", [p, q])] }));
+    expect([...d.get("a:P-1")!]).toEqual(["a:P-2"]);
+  });
+
+  it("holding up counts only other people's open issues", () => {
+    const h = computeInsights(chain()).holdingUpByAssignee;
+    expect(h.get("Ana")).toBe(2); // X-4 (Cy) and Y-1 (Dee); X-2 is Ana's own
+    expect(h.has("Cy")).toBe(false);
+  });
+});
+
+describe("laneByAssignee", () => {
+  it("labels lanes with holding-up counts and puts unassigned and ghosts last", () => {
+    const g = buildGraph({ sites: [A], data: [data("a", [owned("Z-1", "Ana"), owned("Z-2", null)])] });
+    const lane = laneByAssignee(new Map([["Ana", 3]]));
+    expect(lane(g.nodes.find((n) => n.key === "Z-1")!)).toEqual({ id: "assignee:Ana", label: "Ana · holding up 3" });
+    expect(lane(g.nodes.find((n) => n.key === "Z-2")!)).toMatchObject({ label: "Unassigned", last: true });
   });
 });

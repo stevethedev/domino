@@ -1,4 +1,5 @@
 import type { Highlight, Insights } from "../graph/insights";
+import type { GraphNode } from "../graph/types";
 
 type Tile = { id: Exclude<Highlight, "none">; label: string; count: number; hint: string };
 
@@ -9,9 +10,11 @@ type Tile = { id: Exclude<Highlight, "none">; label: string; count: number; hint
 export function InsightsBar({
   summary,
   insights,
+  nodes,
   highlight,
   onHighlight,
   onShowCycle,
+  onPick,
 }: {
   /** Load status / counts line, e.g. "12 issues · 6 outside scope". */
   summary: string;
@@ -19,6 +22,10 @@ export function InsightsBar({
   highlight: Highlight;
   onHighlight: (h: Highlight) => void;
   onShowCycle: () => void;
+  /** All graph nodes, to label the unblockers. */
+  nodes: ReadonlyMap<string, GraphNode>;
+  /** Focus an issue in the current view (which also traces its blocking chain). */
+  onPick: (uid: string) => void;
 }) {
   const tiles: Tile[] = [
     { id: "blocked", label: "Blocked", count: insights.blocked.size, hint: "open issues waiting on an open blocker" },
@@ -60,6 +67,37 @@ export function InsightsBar({
       <p className="hint" aria-live="polite">
         {active ? `Showing ${active.count} ${active.hint}. Click again to clear.` : "Click a number to highlight those issues."}
       </p>
+      {insights.unblockers.length > 0 && (
+        <>
+          <h3 className="finish-first-h" id="finish-first-h">
+            Finish first
+          </h3>
+          <ol className="finish-first" aria-labelledby="finish-first-h">
+            {insights.unblockers.map((u) => {
+              const n = nodes.get(u.uid);
+              if (!n) return null;
+              const reach = `unblocks ${u.downstream}${u.sites > 1 ? ` on ${u.sites} sites` : ""}`;
+              return (
+                <li key={u.uid}>
+                  <button
+                    type="button"
+                    onClick={() => onPick(u.uid)}
+                    title={`${n.key}: ${n.summary}`}
+                    aria-label={`${n.key}, ${n.summary}, ${reach}, ${n.assigneeName ?? "unassigned"}. Shows it in the current view.`}
+                  >
+                    <span className="finish-first-top">
+                      <span className="card-key">{n.key}</span>
+                      <span className="finish-first-reach">{reach}</span>
+                    </span>
+                    <span className="finish-first-summary">{n.summary}</span>
+                    <span className="finish-first-who">{n.assigneeName ?? "Unassigned"}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+        </>
+      )}
     </section>
   );
 }

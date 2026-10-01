@@ -2,7 +2,7 @@ import { Background, Controls, MiniMap, ReactFlow, useReactFlow } from "@xyflow/
 import { useEffect, useMemo, useState } from "react";
 import { blockingChain } from "../graph/analysis";
 import { emphasis, type Highlight, type Insights } from "../graph/insights";
-import { CARD_HEIGHT, CARD_WIDTH, computeLayout, laneByEpic, laneBySite, type Layout } from "../graph/layout";
+import { CARD_HEIGHT, CARD_WIDTH, computeLayout, laneByAssignee, laneByEpic, laneBySite, type LaneFn, type Layout } from "../graph/layout";
 import type { Graph, LinkKind } from "../graph/types";
 import { visibleSubgraph } from "../graph/visible";
 import { openExternal } from "../platform";
@@ -10,12 +10,24 @@ import { LinkEdge, type LinkFlowEdge } from "./edges/LinkEdge";
 import { IssueCard, SiteGroup, type IssueFlowNode, type SiteGroupNode } from "./IssueCard";
 
 export type Filters = Record<LinkKind, boolean> & { crossSite: boolean };
-export const GROUP_BY = ["none", "site", "epic"] as const;
+export const GROUP_BY = ["none", "site", "epic", "assignee"] as const;
 export type GroupBy = (typeof GROUP_BY)[number];
 export const isGroupBy = (v: string): v is GroupBy => (GROUP_BY as readonly string[]).includes(v);
 export type ViewOptions = { groupBy: GroupBy; highlight: Highlight };
 
-const LANES = { none: undefined, site: laneBySite, epic: laneByEpic } as const;
+/** The lane function for a Group by choice; assignee lanes need the insights for their labels. */
+export function lanesFor(groupBy: GroupBy, insights: Insights): LaneFn | undefined {
+  switch (groupBy) {
+    case "none":
+      return undefined;
+    case "site":
+      return laneBySite;
+    case "epic":
+      return laneByEpic;
+    case "assignee":
+      return laneByAssignee(insights.holdingUpByAssignee);
+  }
+}
 
 const nodeTypes = { issue: IssueCard, siteGroup: SiteGroup };
 type FlowNode = IssueFlowNode | SiteGroupNode;
@@ -61,7 +73,7 @@ export function Canvas({
 
   useEffect(() => {
     let cancelled = false;
-    computeLayout(vNodes, vEdges, graph.brokenEdgeIds, LANES[view.groupBy]).then((l) => {
+    computeLayout(vNodes, vEdges, graph.brokenEdgeIds, lanesFor(view.groupBy, insights)).then((l) => {
       if (cancelled) return;
       setLayout(l);
       // Never zoom in past 100%: a small graph should look like cards, not a poster.
@@ -70,7 +82,7 @@ export function Canvas({
     return () => {
       cancelled = true;
     };
-  }, [vNodes, vEdges, graph.brokenEdgeIds, view.groupBy, rf]);
+  }, [vNodes, vEdges, graph.brokenEdgeIds, view.groupBy, insights, rf]);
 
   const emphasized = useMemo(() => emphasis(view.highlight, insights), [view.highlight, insights]);
   const chain = useMemo(() => (hovered ? blockingChain(graph, hovered) : null), [graph, hovered]);

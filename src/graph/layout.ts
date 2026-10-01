@@ -42,6 +42,22 @@ export const laneByEpic: LaneFn = (n) => {
 };
 
 /**
+ * One lane per assignee (by display name, so the same person on two sites shares a lane),
+ * labelled with how many of other people's open issues wait on theirs.
+ */
+export const laneByAssignee =
+  (holdingUp: ReadonlyMap<string, number>): LaneFn =>
+  (n) => {
+    if (n.ghost) return { id: "assignee:~ghost", label: "Outside scope", last: true };
+    if (!n.assigneeName) return { id: "assignee:~none", label: "Unassigned", last: true };
+    const waiting = holdingUp.get(n.assigneeName) ?? 0;
+    return {
+      id: `assignee:${n.assigneeName}`,
+      label: waiting ? `${n.assigneeName} · holding up ${waiting}` : n.assigneeName,
+    };
+  };
+
+/**
  * Layered left-to-right layout. Only blocks edges that survived cycle breaking constrain
  * layering, so every blocker sits left of what it blocks; other link kinds are drawn but
  * don't pull nodes around.
