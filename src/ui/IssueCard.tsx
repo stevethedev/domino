@@ -91,6 +91,33 @@ function RollupBody({ node, compact }: { node: GraphNode; compact: boolean }) {
   );
 }
 
+type Badge = { key: string; label: string; el: React.ReactNode };
+
+/**
+ * The card's bottom row fits two badges. With more, it shows the first and a "+N" chip (the chip
+ * takes the second slot) whose tooltip and accessible name list the rest.
+ */
+const ROW_BADGE_SLOTS = 2;
+function CappedBadges({ badges }: { badges: readonly (Badge | false | undefined)[] }) {
+  const all = badges.filter((b): b is Badge => !!b);
+  const visible = all.length > ROW_BADGE_SLOTS ? ROW_BADGE_SLOTS - 1 : all.length;
+  const extra = all.slice(visible);
+  return (
+    <>
+      {all.slice(0, visible).map((b) => (
+        <span key={b.key} className="badge-slot">
+          {b.el}
+        </span>
+      ))}
+      {extra.length > 0 && (
+        <span className="chg badge-more" title={extra.map((b) => b.label).join("\n")} aria-label={`and ${extra.map((b) => b.label).join(", ")}`}>
+          +{extra.length}
+        </span>
+      )}
+    </>
+  );
+}
+
 export function ChangeTag({ change }: { change: ChangeKind }) {
   return <span className={`chg chg-${change}`}>{CHANGE_LABEL[change]}</span>;
 }
@@ -215,19 +242,19 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
                   {initials(n.assigneeName)}
                 </span>
               )}
-              {firstName(n.assigneeName)}
+              <span className="assignee-name">{firstName(n.assigneeName)}</span>
             </span>
             {n.storyPoints !== undefined && <span className="points">{n.storyPoints} pts</span>}
           </>
         )}
-        {openBlockers > 0 && (
-          <span className="blockers" title={`${openBlockers} open blocker${openBlockers === 1 ? "" : "s"}`}>
-            {blockerText(openBlockers)}
-          </span>
-        )}
-        {highlight === "ready" && <span className="tag-ready">Ready</span>}
-        {aging && <AgingBadge aging={aging} />}
-        {change && <ChangeTag change={change} />}
+        <CappedBadges
+          badges={[
+            openBlockers > 0 && { key: "blockers", label: blockerText(openBlockers), el: <span className="blockers">{blockerText(openBlockers)}</span> },
+            highlight === "ready" && { key: "ready", label: "Ready", el: <span className="tag-ready">Ready</span> },
+            aging && { key: "aging", label: agingDescription(aging), el: <AgingBadge aging={aging} /> },
+            change && { key: "change", label: CHANGE_LABEL[change], el: <ChangeTag change={change} /> },
+          ]}
+        />
       </div>
         </>
       )}

@@ -65,3 +65,5 @@
 /* Long names in the timeline: status pill never shrinks; lane titles truncate within the visible width. */
 .tl-label .pill, .tl-label .card-key { flex: none; }
 .tl-lane > :first-child { max-width: min(70vw, 900px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tl-ghost-note { position: sticky; left: 336px; top: 12px; display: inline-block; margin: 12px 0 0 8px; font-size: 11px; font-style: italic; color: var(--muted); }
+.tl-arrow.stub { stroke-dasharray: 3 3; }

@@ -46,7 +46,9 @@ export function layoutRows(
     entry.rows.push(n);
   }
   const startOf = (n: GraphNode) => timeline.get(n.uid)!.projected.start;
-  const byStart = (a: GraphNode, b: GraphNode) => startOf(a).localeCompare(startOf(b)) || a.uid.localeCompare(b.uid);
+  // Ghosts have no loaded dates, so they go last instead of sorting by an invented start.
+  const byStart = (a: GraphNode, b: GraphNode) =>
+    Number(a.ghost) - Number(b.ghost) || startOf(a).localeCompare(startOf(b)) || a.uid.localeCompare(b.uid);
   const ordered = [...lanes.values()]
     .map((l) => ({ ...l, rows: [...l.rows].sort(byStart) }))
     .sort((a, b) => Number(!!a.lane.last) - Number(!!b.lane.last) || startOf(a.rows[0]).localeCompare(startOf(b.rows[0])) || a.lane.id.localeCompare(b.lane.id));
@@ -105,7 +107,8 @@ export const localToday = (): Day => new Date().toLocaleDateString("en-CA");
 
 export type EpicSummary = { projected: Span; work: Span; children: number };
 
-const workSpan = (e: TimelineEntry): Span => {
+/** The solid/dotted bar a row draws: actual for done, actual start to forecast end when started, else the forecast. */
+export const workSpan = (e: TimelineEntry): Span => {
   const p = e.progress;
   if (p.state === "done") return p.actual;
   if (p.state === "started") return { start: p.actualStart, end: p.forecast.end };

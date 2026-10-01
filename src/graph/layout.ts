@@ -115,17 +115,13 @@ function swimlanes(nodes: readonly GraphNode[], flat: Map<string, { x: number; y
   const minX = Math.min(...nodes.map((n) => flat.get(n.uid)!.x));
   let top = 0;
   for (const { lane, members } of lanes) {
-    // Greedy row packing: each card (in flat-layout vertical order) goes into the first row where
-    // it doesn't horizontally collide with a card already there. x is never changed.
-    const rows: number[][] = []; // x positions per row
-    const rowOf = new Map<string, number>();
-    for (const n of [...members].sort((a, b) => flat.get(a.uid)!.y - flat.get(b.uid)!.y || flat.get(a.uid)!.x - flat.get(b.uid)!.x)) {
-      const x = flat.get(n.uid)!.x;
-      let r = rows.findIndex((row) => row.every((ox) => Math.abs(ox - x) >= CARD_WIDTH + LANE_GAP / 2));
-      if (r === -1) r = rows.push([]) - 1;
-      rows[r].push(x);
-      rowOf.set(n.uid, r);
-    }
+    // Rows come from the flat layout: cards ELK put on one row share a row in the lane, so
+    // straight chains stay straight; rows no card in this lane uses are squeezed out.
+    // Cards on one flat row never overlap, so neither do cards on one lane row.
+    const flatRows = [...new Set(members.map((n) => flat.get(n.uid)!.y))].sort((a, b) => a - b);
+    const rowOfY = new Map(flatRows.map((y, i) => [y, i]));
+    const rowOf = new Map(members.map((n) => [n.uid, rowOfY.get(flat.get(n.uid)!.y)!]));
+    const rows = flatRows;
     const xs = members.map((n) => flat.get(n.uid)!.x);
     const left = Math.min(...xs) - minX;
     const width = Math.max(...xs) - Math.min(...xs) + CARD_WIDTH + 2 * LANE_PADDING;

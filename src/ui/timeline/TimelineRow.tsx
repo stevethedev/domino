@@ -113,7 +113,11 @@ export const TimelineRow = memo(function TimelineRow({
         </div>
       ) : (
       <div className="tl-track">
-        <Bar span={entry.projected} start={rangeStart} scale={scale} className="tl-bar tl-projected" />
+        {node.ghost ? (
+          <span className="tl-ghost-note">Outside scope · dates not loaded</span>
+        ) : (
+          <Bar span={entry.projected} start={rangeStart} scale={scale} className="tl-bar tl-projected" />
+        )}
         {p.state === "done" && <Bar span={p.actual} start={rangeStart} scale={scale} className="tl-bar tl-actual" />}
         {p.state === "started" && (
           <>

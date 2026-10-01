@@ -146,3 +146,11 @@
 .chg-new { background: var(--pill-inprogress-bg); color: var(--pill-inprogress-fg); border-color: transparent; }
 .card.hl-changed { box-shadow: 0 0 0 3px var(--accent); }
 .card.compact .chg { font-size: 15px; padding: 1px 8px; }
+
+/* Bottom row: assignee and points give way first; badges keep their full text. */
+.card-row3 { overflow: hidden; }
+.card-row3 .assignee { flex: 1 1 0; min-width: 20px; }
+.assignee-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-row3 .points { flex: none; }
+.card-row3 .badge-slot { display: inline-flex; flex: none; }
+.badge-more { flex: none; cursor: default; }

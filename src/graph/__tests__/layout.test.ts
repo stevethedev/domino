@@ -46,3 +46,17 @@ describe.each(MODES)("computeLayout (group by %s)", (mode, laneOf) => {
     }
   });
 });
+
+describe("swimlanes keep the layout's rows", () => {
+  it("cards on one row in the flat layout stay on one row inside their lane", async () => {
+    const flat = await computeLayout(g.nodes, g.edges, g.brokenEdgeIds, undefined);
+    const lanes = await computeLayout(g.nodes, g.edges, g.brokenEdgeIds, laneBySite);
+    // Same lane and same flat row => same lane row.
+    const lane = (uid: string) => lanes.positions.get(uid)!.parent;
+    const pairs: [string, string][] = [];
+    const uids = [...flat.positions.keys()];
+    for (const a of uids) for (const b of uids) if (a < b && lane(a) === lane(b) && flat.positions.get(a)!.y === flat.positions.get(b)!.y) pairs.push([a, b]);
+    expect(pairs.length).toBeGreaterThan(0);
+    for (const [a, b] of pairs) expect(lanes.positions.get(a)!.y, `${a} vs ${b}`).toBe(lanes.positions.get(b)!.y);
+  });
+});

@@ -9,7 +9,7 @@ import type { HistoryState } from "../../state/useStatusHistory";
 import { lanesFor, type Filters, type ViewOptions } from "../Canvas";
 import { NumberField } from "../NumberField";
 import { TimeAxis, TimeGrid } from "./TimeAxis";
-import { isViolated, TimelineArrows, type ArrowModel } from "./TimelineArrows";
+import { arrowAnchors, isViolated, TimelineArrows, type ArrowModel } from "./TimelineArrows";
 import {
   dayRange,
   entryEnd,
@@ -75,10 +75,12 @@ export function Timeline({
   const criticalEdges = view.highlight === "critical" ? (emphasized?.edges ?? new Set<string>()) : new Set<string>();
 
   const rowY = new Map(rows.map((r) => [r.node.uid, r.y]));
+  const ghostUids = new Set(rows.filter((r) => r.node.ghost).map((r) => r.node.uid));
   const arrows: ArrowModel[] = edges
     .filter((e) => e.kind === "blocks" && !graph.brokenEdgeIds.has(e.id) && rowY.has(e.source) && rowY.has(e.target))
     .map((e) => ({
       edge: e,
+      ...arrowAnchors(timeline.get(e.source)!, timeline.get(e.target)!, ghostUids.has(e.source), ghostUids.has(e.target)),
       violated: isViolated(timeline.get(e.source)!, timeline.get(e.target)!),
       inCycle: graph.cycleEdgeIds.has(e.id),
       critical: criticalEdges.has(e.id),
@@ -145,7 +147,7 @@ export function Timeline({
             <div className="tl-body" style={{ height }}>
               <div className="tl-chart" style={{ left: LABEL_WIDTH }}>
                 <TimeGrid range={range} scale={settings.scale} today={today} height={height} />
-                <TimelineArrows arrows={arrows} rowY={rowY} timeline={timeline} rangeStart={range.start} scale={settings.scale} width={chartWidth + 200} height={height} />
+                <TimelineArrows arrows={arrows} rowY={rowY} rangeStart={range.start} scale={settings.scale} width={chartWidth + 200} height={height} />
               </div>
               {items.map((item) =>
                 item.kind === "lane" ? (

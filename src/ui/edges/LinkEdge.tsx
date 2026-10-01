@@ -1,4 +1,4 @@
-import { BaseEdge, EdgeLabelRenderer, getBezierPath, type Edge, type EdgeProps } from "@xyflow/react";
+import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, type Edge, type EdgeProps } from "@xyflow/react";
 import { memo } from "react";
 import type { GraphEdge } from "../../graph/types";
 
@@ -17,7 +17,10 @@ export const LinkEdge = memo(function LinkEdge(props: EdgeProps<LinkFlowEdge>) {
   const { sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, markerEnd, data } = props;
   if (!data) return null;
   const [path, labelX, labelY] =
-    data.back && targetX < sourceX ? loopPath(sourceX, sourceY, targetX, targetY) : getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition });
+    data.back && targetX < sourceX
+      ? loopPath(sourceX, sourceY, targetX, targetY)
+      : // Orthogonal segments with rounded corners line up with the layered card grid.
+        getSmoothStepPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, borderRadius: 10, offset: 18 });
   const { edge, inCycle, sourceDone, dimmed, critical } = data;
 
   let opacity = edge.kind === "duplicates" ? 0.4 : 1;
