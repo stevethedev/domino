@@ -25,14 +25,27 @@ pub trait JiraBackend: Send + Sync {
     async fn health(&self, site: &SiteConfig) -> JiraResult<()>;
 }
 
-/// The JQL before any `ORDER BY`.
+/// The JQL before any `ORDER BY` (any whitespace around the keywords, like the TS `combineJql`).
 pub fn strip_order_by(jql: &str) -> &str {
-    let lower = jql.to_ascii_lowercase();
-    match lower.find(" order by ") {
-        Some(i) => &jql[..i],
-        None if lower.trim_start().starts_with("order by ") => "",
-        None => jql,
+    let bytes = jql.as_bytes();
+    let at_word = |i: usize, word: &[u8]| bytes.len() >= i + word.len() && bytes[i..i + word.len()].eq_ignore_ascii_case(word);
+    let skip_ws = |mut i: usize| {
+        while i < bytes.len() && bytes[i].is_ascii_whitespace() {
+            i += 1;
+        }
+        i
+    };
+    for i in 0..bytes.len() {
+        let starts_clause = i == 0 || bytes[i - 1].is_ascii_whitespace();
+        if !starts_clause || !at_word(i, b"order") {
+            continue;
+        }
+        let by = skip_ws(i + 5);
+        if by > i + 5 && at_word(by, b"by") && by + 2 < bytes.len() && bytes[by + 2].is_ascii_whitespace() {
+            return jql[..i].trim_end(); // ASCII keyword boundary, so `i` is a char boundary
+        }
     }
+    jql
 }
 
 /// `clause AND (filter)`, or just `clause` when there's no filter. The filter's ORDER BY is
@@ -56,6 +69,15 @@ pub fn is_issue_key(s: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn strip_order_by_accepts_any_whitespace() {
+        assert_eq!(strip_order_by("project = A\tORDER\n BY rank"), "project = A");
+        assert_eq!(strip_order_by("ORDER BY rank"), "");
+        assert_eq!(strip_order_by("project = A"), "project = A");
+        assert_eq!(strip_order_by("reorder = x"), "reorder = x");
+        assert_eq!(strip_order_by("summary = orderly"), "summary = orderly");
+    }
 
     #[test]
     fn and_filter_parenthesizes_and_drops_order_by() {

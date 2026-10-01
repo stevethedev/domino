@@ -167,13 +167,13 @@ export function Canvas({
     >
       <Background gap={24} size={1} />
       <Controls showInteractive={false} position="bottom-left" />
-      <MiniMap
+      <MiniMap<FlowNode>
         pannable
         style={{ width: 170, height: 110 }}
         zoomable
         ariaLabel="Minimap, tinted by site"
-        nodeColor={(n: FlowNode) => (n.type === "issue" ? n.data.node.siteColor ?? "#9ca3af" : "transparent")}
-        nodeStrokeColor={(n: FlowNode) => (n.type === "siteGroup" ? n.data.color ?? "#9ca3af" : "transparent")}
+        nodeColor={(n) => (n.type === "issue" ? n.data.node.siteColor ?? "#9ca3af" : "transparent")}
+        nodeStrokeColor={(n) => (n.type === "siteGroup" ? n.data.color ?? "#9ca3af" : "transparent")}
       />
     </ReactFlow>
   );
