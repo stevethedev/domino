@@ -36,6 +36,16 @@ export const LinkEdge = memo(function LinkEdge(props: EdgeProps<LinkFlowEdge>) {
   return (
     <>
       <BaseEdge id={props.id} path={path} markerEnd={markerEnd} style={style} />
+      {edge.aggregate && (
+        <EdgeLabelRenderer>
+          <div
+            className={`agg-label${edge.aggregate.open ? "" : " closed"}`}
+            style={{ transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY + (edge.crossSite ? 16 : 0)}px)`, opacity: Math.max(opacity, 0.5) }}
+          >
+            {edge.aggregate.links} {edge.aggregate.links === 1 ? "link" : "links"} · {edge.aggregate.open} open
+          </div>
+        </EdgeLabelRenderer>
+      )}
       {edge.crossSite && (
         <EdgeLabelRenderer>
           <div

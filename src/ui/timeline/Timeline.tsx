@@ -4,7 +4,7 @@ import { emphasis, type Insights } from "../../graph/insights";
 import { computeTimeline, type ScheduleOptions, type TimelineEntry } from "../../graph/schedule";
 import type { Graph } from "../../graph/types";
 import { visibleSubgraph } from "../../graph/visible";
-import { usePersistentState } from "../../state/storage";
+import type { EstimateSettings } from "../../state/estimateSettings";
 import type { HistoryState } from "../../state/useStatusHistory";
 import { lanesFor, type Filters, type ViewOptions } from "../Canvas";
 import { TimeAxis, TimeGrid } from "./TimeAxis";
@@ -13,7 +13,6 @@ import {
   dayRange,
   entryEnd,
   isEpicNode,
-  isScale,
   LABEL_WIDTH,
   LANE_HEIGHT,
   layoutRows,
@@ -22,27 +21,8 @@ import {
   SCALES,
   summarizeEpics,
   xOf,
-  type Scale,
 } from "./timelineLayout";
 import { TimelineRow } from "./TimelineRow";
-
-const SETTINGS_KEY = "domino.timeline";
-
-type Settings = { scale: Scale; daysPerPoint: number; defaultDays: number; planStart: string | null };
-const DEFAULT_SETTINGS: Settings = { scale: "week", daysPerPoint: 1, defaultDays: 2, planStart: null };
-
-/** Validates stored timeline settings field by field, keeping defaults for anything invalid. */
-function parseSettings(raw: unknown): Settings | undefined {
-  if (!raw || typeof raw !== "object") return undefined;
-  const r: Record<string, unknown> = { ...raw };
-  const positive = (v: unknown, d: number) => (typeof v === "number" && v > 0 ? v : d);
-  return {
-    scale: typeof r.scale === "string" && isScale(r.scale) ? r.scale : DEFAULT_SETTINGS.scale,
-    daysPerPoint: positive(r.daysPerPoint, DEFAULT_SETTINGS.daysPerPoint),
-    defaultDays: positive(r.defaultDays, DEFAULT_SETTINGS.defaultDays),
-    planStart: typeof r.planStart === "string" && /^\d{4}-\d{2}-\d{2}$/.test(r.planStart) ? r.planStart : null,
-  };
-}
 
 export function Timeline({
   graph,
@@ -50,6 +30,8 @@ export function Timeline({
   filters,
   view,
   history,
+  settings,
+  onSettings,
   onOpen,
 }: {
   graph: Graph;
@@ -57,11 +39,12 @@ export function Timeline({
   filters: Filters;
   view: ViewOptions;
   history: HistoryState;
+  settings: EstimateSettings;
+  onSettings: (s: EstimateSettings) => void;
   onOpen: (url: string) => void;
 }) {
-  const [settings, saveSettings] = usePersistentState(SETTINGS_KEY, parseSettings, DEFAULT_SETTINGS);
   const [hovered, setHovered] = useState<string | null>(null);
-  const setSettings = (patch: Partial<Settings>) => saveSettings({ ...settings, ...patch });
+  const setSettings = (patch: Partial<EstimateSettings>) => onSettings({ ...settings, ...patch });
 
   const today = localToday();
   const historyMap = useMemo(() => (history.status === "done" ? history.history : new Map()), [history]);
@@ -187,6 +170,7 @@ export function Timeline({
                       dimmed: chain ? !chain.nodes.has(item.node.uid) : emphasized ? !emphasized.nodes.has(item.node.uid) : false,
                       critical: view.highlight === "critical" && (emphasized?.nodes.has(item.node.uid) ?? false),
                       ready: view.highlight === "ready" && insights.ready.has(item.node.uid),
+                      aging: insights.aging.get(item.node.uid),
                     }}
                     onOpen={onOpen}
                     onHover={setHovered}

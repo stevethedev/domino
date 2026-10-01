@@ -1,9 +1,11 @@
+import { AGING_DEFAULTS, computeAging, type Aging } from "./aging";
 import { criticalPath, openBlockerCounts, readyIssues, type Chain } from "./analysis";
+import type { Day, StatusHistory } from "./schedule";
 import type { Graph, GraphNode } from "./types";
 
 /** What the user asked to emphasize; everything else dims. */
-export type Highlight = "none" | "blocked" | "ready" | "critical";
-export const HIGHLIGHTS: readonly Highlight[] = ["none", "blocked", "ready", "critical"];
+export type Highlight = "none" | "blocked" | "ready" | "critical" | "aging";
+export const HIGHLIGHTS: readonly Highlight[] = ["none", "blocked", "ready", "critical", "aging"];
 export const isHighlight = (v: string): v is Highlight => (HIGHLIGHTS as readonly string[]).includes(v);
 
 /** The at-a-glance answers, computed once per graph and shared by both views. */
@@ -19,7 +21,12 @@ export type Insights = {
   unblockers: readonly Unblocker[];
   /** Per assignee name: distinct open issues of *other* people waiting downstream of theirs. */
   holdingUpByAssignee: ReadonlyMap<string, number>;
+  /** Stuck or long-waiting open work; empty until status history has loaded. */
+  aging: ReadonlyMap<string, Aging>;
 };
+
+/** Inputs for aging; without history, aging is simply empty. */
+export type InsightOptions = { history: StatusHistory; today: Day; daysPerPoint: number; defaultDays: number };
 
 export type Unblocker = {
   uid: string;
@@ -82,7 +89,7 @@ function holdingUp(graph: Graph, downstream: Map<string, Set<string>>): Map<stri
   return new Map([...waiting].filter(([, s]) => s.size > 0).map(([name, s]) => [name, s.size]));
 }
 
-export function computeInsights(graph: Graph): Insights {
+export function computeInsights(graph: Graph, opts?: InsightOptions): Insights {
   const openBlockers = openBlockerCounts(graph);
   const blocked = new Set(
     graph.nodes.filter((n) => !n.ghost && n.statusCategory !== "done" && (openBlockers.get(n.uid) ?? 0) > 0).map((n) => n.uid),
@@ -96,6 +103,7 @@ export function computeInsights(graph: Graph): Insights {
     cycleCount: graph.cycles.length,
     unblockers: rankUnblockers(graph, downstream),
     holdingUpByAssignee: holdingUp(graph, downstream),
+    aging: opts ? computeAging(graph, opts.history, openBlockers, { ...opts, ...AGING_DEFAULTS }) : new Map(),
   };
 }
 
@@ -110,5 +118,7 @@ export function emphasis(h: Highlight, insights: Insights): { nodes: ReadonlySet
       return { nodes: insights.ready, edges: new Set() };
     case "critical":
       return { nodes: new Set(insights.critical.nodes), edges: new Set(insights.critical.edges) };
+    case "aging":
+      return { nodes: new Set(insights.aging.keys()), edges: new Set() };
   }
 }

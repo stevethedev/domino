@@ -12,11 +12,14 @@ export function FilterPanel({
   onFilters,
   view,
   onView,
+  epicMapAvailable,
 }: {
   filters: Filters;
   onFilters: (f: Filters) => void;
   view: ViewOptions;
   onView: (v: ViewOptions) => void;
+  /** The epic map is a graph-view mode. */
+  epicMapAvailable: boolean;
 }) {
   return (
     <section className="panel" aria-labelledby="filters-h">
@@ -31,12 +34,22 @@ export function FilterPanel({
       <h2>View</h2>
       <label className="field group-by">
         <span>Group by</span>
-        <select value={view.groupBy} onChange={(e) => isGroupBy(e.target.value) && onView({ ...view, groupBy: e.target.value })}>
+        <select value={view.groupBy} disabled={view.collapseEpics && epicMapAvailable} title={view.collapseEpics && epicMapAvailable ? "The epic map groups by epic" : undefined} onChange={(e) => isGroupBy(e.target.value) && onView({ ...view, groupBy: e.target.value })}>
           <option value="none">None</option>
           <option value="site">Site</option>
           <option value="epic">Epic</option>
           <option value="assignee">Assignee</option>
         </select>
+      </label>
+      <label className="check" title={epicMapAvailable ? "One card per epic, with links between epics combined" : "Available in the Graph view"}>
+        <input
+          type="checkbox"
+          role="switch"
+          checked={view.collapseEpics}
+          disabled={!epicMapAvailable}
+          onChange={(e) => onView({ ...view, collapseEpics: e.target.checked })}
+        />
+        Epic map (collapse epics)
       </label>
     </section>
   );

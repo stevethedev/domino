@@ -31,6 +31,7 @@ export function InsightsBar({
     { id: "blocked", label: "Blocked", count: insights.blocked.size, hint: "open issues waiting on an open blocker" },
     { id: "ready", label: "Ready", count: insights.ready.size, hint: "open issues with nothing in the way" },
     { id: "critical", label: "Critical path", count: insights.critical.nodes.length, hint: "issues in the longest open blocking chain" },
+    { id: "aging", label: "Aging", count: insights.aging.size, hint: "issues stuck past twice their estimate, or blocked with no change for a week" },
   ];
   const active = tiles.find((t) => t.id === highlight);
   return (

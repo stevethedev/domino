@@ -1,6 +1,7 @@
 import { Background, Controls, MiniMap, ReactFlow, useReactFlow } from "@xyflow/react";
 import { useEffect, useMemo, useState } from "react";
 import { blockingChain } from "../graph/analysis";
+import { collapseEpics, shownEdgeId } from "../graph/collapse";
 import { emphasis, type Highlight, type Insights } from "../graph/insights";
 import { CARD_HEIGHT, CARD_WIDTH, computeLayout, laneByAssignee, laneByEpic, laneBySite, type LaneFn, type Layout } from "../graph/layout";
 import type { Graph, LinkKind } from "../graph/types";
@@ -13,7 +14,7 @@ export type Filters = Record<LinkKind, boolean> & { crossSite: boolean };
 export const GROUP_BY = ["none", "site", "epic", "assignee"] as const;
 export type GroupBy = (typeof GROUP_BY)[number];
 export const isGroupBy = (v: string): v is GroupBy => (GROUP_BY as readonly string[]).includes(v);
-export type ViewOptions = { groupBy: GroupBy; highlight: Highlight };
+export type ViewOptions = { groupBy: GroupBy; highlight: Highlight; collapseEpics: boolean };
 
 /** The lane function for a Group by choice; assignee lanes need the insights for their labels. */
 export function lanesFor(groupBy: GroupBy, insights: Insights): LaneFn | undefined {
@@ -52,28 +53,56 @@ function ArrowMarkers() {
   );
 }
 
+/** Lanes for the epic map: one per expanded epic (with a collapse action), the rest together. */
+function epicMapLanes(expanded: ReadonlySet<string>): LaneFn | undefined {
+  if (expanded.size === 0) return undefined;
+  return (n) => {
+    const epic = n.epic;
+    if (!n.rollup && epic && expanded.has(epic.uid)) {
+      return { id: `expanded:${epic.uid}`, label: epic.summary ? `${epic.key} · ${epic.summary}` : epic.key, url: epic.url, color: n.siteColor, collapseEpic: epic.uid };
+    }
+    return { id: "epic-map", label: "Epics and other issues", last: true };
+  };
+}
+
 export function Canvas({
-  graph,
+  graph: loaded,
   insights,
   filters,
   view,
   showSiteBadges,
+  expandedEpics,
+  onToggleEpic,
 }: {
   graph: Graph;
   insights: Insights;
   filters: Filters;
   view: ViewOptions;
   showSiteBadges: boolean;
+  /** Epics shown issue-by-issue while the epic map is on. */
+  expandedEpics: ReadonlySet<string>;
+  onToggleEpic: (epicUid: string) => void;
 }) {
   const rf = useReactFlow();
   const [hovered, setHovered] = useState<string | null>(null);
   const [layout, setLayout] = useState<Layout | null>(null);
 
+  // The epic map swaps in a collapsed graph; everything below draws whichever graph is shown.
+  const collapsed = useMemo(
+    () => (view.collapseEpics ? collapseEpics(loaded, insights, expandedEpics) : null),
+    [view.collapseEpics, loaded, insights, expandedEpics],
+  );
+  const graph = collapsed?.graph ?? loaded;
+  const laneOf = useMemo(
+    () => (view.collapseEpics ? epicMapLanes(expandedEpics) : lanesFor(view.groupBy, insights)),
+    [view.collapseEpics, expandedEpics, view.groupBy, insights],
+  );
+
   const { nodes: vNodes, edges: vEdges } = useMemo(() => visibleSubgraph(graph, filters), [graph, filters]);
 
   useEffect(() => {
     let cancelled = false;
-    computeLayout(vNodes, vEdges, graph.brokenEdgeIds, lanesFor(view.groupBy, insights)).then((l) => {
+    computeLayout(vNodes, vEdges, graph.brokenEdgeIds, laneOf).then((l) => {
       if (cancelled) return;
       setLayout(l);
       // Never zoom in past 100%: a small graph should look like cards, not a poster.
@@ -82,9 +111,16 @@ export function Canvas({
     return () => {
       cancelled = true;
     };
-  }, [vNodes, vEdges, graph.brokenEdgeIds, view.groupBy, insights, rf]);
+  }, [vNodes, vEdges, graph.brokenEdgeIds, laneOf, rf]);
 
-  const emphasized = useMemo(() => emphasis(view.highlight, insights), [view.highlight, insights]);
+  // Highlights are computed on loaded issues; in the epic map they light up the node each issue is shown as.
+  const emphasized = useMemo(() => {
+    const e = emphasis(view.highlight, insights);
+    if (!e || !collapsed) return e;
+    const nodes = new Set([...e.nodes].map((u) => collapsed.shownAs.get(u) ?? u));
+    const edges = new Set(loaded.edges.filter((x) => e.edges.has(x.id)).flatMap((x) => shownEdgeId(x, collapsed.shownAs) ?? []));
+    return { nodes, edges };
+  }, [view.highlight, insights, collapsed, loaded.edges]);
   const chain = useMemo(() => (hovered ? blockingChain(graph, hovered) : null), [graph, hovered]);
   const byUid = useMemo(() => new Map(graph.nodes.map((n) => [n.uid, n])), [graph]);
 
@@ -94,7 +130,13 @@ export function Canvas({
       id: g.id,
       type: "siteGroup",
       position: { x: g.x, y: g.y },
-      data: { label: g.label, color: g.color, url: g.url, onOpen: openExternal },
+      data: {
+        label: g.label,
+        color: g.color,
+        url: g.url,
+        onOpen: openExternal,
+        onCollapse: g.collapseEpic ? () => onToggleEpic(g.collapseEpic!) : undefined,
+      },
       width: g.width,
       height: g.height,
       selectable: false,
@@ -117,11 +159,13 @@ export function Canvas({
           data: {
             node: n,
             openBlockers: insights.openBlockers.get(n.uid) ?? 0,
+            aging: insights.aging.get(n.uid),
             showSite: showSiteBadges,
             dimmed: chain ? !chain.nodes.has(n.uid) : emphasized ? !isEmphasized : false,
             highlight: isEmphasized && view.highlight !== "none" ? view.highlight : null,
             onOpen: openExternal,
             onHover: setHovered,
+            onExpand: n.rollup ? () => onToggleEpic(n.rollup!.epicUid) : undefined,
           },
           draggable: false,
           focusable: false, // the card itself is the tab stop
@@ -129,7 +173,7 @@ export function Canvas({
       ];
     });
     return [...groups, ...cards];
-  }, [layout, vNodes, insights, showSiteBadges, chain, emphasized, view.highlight]);
+  }, [layout, vNodes, insights, showSiteBadges, chain, emphasized, view.highlight, onToggleEpic]);
 
   const flowEdges = useMemo<LinkFlowEdge[]>(() => {
     return vEdges.map((e) => {
@@ -147,7 +191,7 @@ export function Canvas({
         data: {
           edge: e,
           inCycle,
-          sourceDone: byUid.get(e.source)?.statusCategory === "done",
+          sourceDone: e.aggregate ? e.aggregate.open === 0 : byUid.get(e.source)?.statusCategory === "done",
           dimmed: chain ? !chain.edges.has(e.id) : emphasized ? !isCritical : false,
           critical: isCritical,
           back: graph.brokenEdgeIds.has(e.id),
@@ -191,12 +235,14 @@ export function Canvas({
 /** Centers the viewport on a card and focuses it (used by the Warnings panel). */
 export function useFocusNode() {
   const rf = useReactFlow();
-  return (uid: string) => {
+  /** Returns false when the node isn't rendered (yet). */
+  return (uid: string): boolean => {
     const n = rf.getInternalNode(uid);
-    if (!n) return;
+    if (!n) return false;
     const { x, y } = n.internals.positionAbsolute;
     rf.setCenter(x + (n.measured.width ?? CARD_WIDTH) / 2, y + (n.measured.height ?? CARD_HEIGHT) / 2, { zoom: 1.1, duration: 300 });
     const el = document.querySelector<HTMLElement>(`[data-uid="${CSS.escape(uid)}"]`);
     el?.focus({ preventScroll: true });
+    return true;
   };
 }

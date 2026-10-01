@@ -24,11 +24,22 @@ export type GraphNode = {
   epic?: EpicRef;
   /** Jira's numeric issue id, needed to match changelog entries. Unknown for ghosts. */
   jiraId?: string;
+  /** Set on collapsed-epic summary nodes: what the epic's loaded issues look like together. */
+  rollup?: EpicRollup;
   /** Calendar days ("YYYY-MM-DD") from Jira fields. */
-  dates?: { resolved?: string; due?: string };
+  dates?: { resolved?: string; due?: string; created?: string };
 };
 
 export type EpicRef = { uid: string; key: string; summary?: string; url: string };
+
+export type EpicRollup = {
+  epicUid: string;
+  /** In-scope member issues (not the epic itself). */
+  members: readonly string[];
+  done: number;
+  blocked: number;
+  aging: number;
+};
 
 export type GraphEdge = {
   id: string;
@@ -38,6 +49,8 @@ export type GraphEdge = {
   linkType: string; // outward verb, e.g. "blocks", "clones"
   linkId: string;
   crossSite: boolean;
+  /** Set on edges that combine several links between collapsed epics. */
+  aggregate?: { links: number; open: number };
 };
 
 export type Cycle = string[]; // uids, in cycle order

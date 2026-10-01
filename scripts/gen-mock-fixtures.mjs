@@ -121,22 +121,25 @@ const TIMES = {
   acme: {
     "CORE-1": { start: -26 },
     "CORE-7": { start: -4 },
-    "CORE-10": { due: 4 },
+    "CORE-10": { due: 4, created: -14 },
+    "CORE-11": { created: -3 },
+    "CORE-21": { created: -2 },
+    "CORE-8": { created: -4 },
+    "WEB-1": { due: 18, created: -20 },
+    "WEB-2": { due: 21, created: -6 },
     "CORE-12": { start: -32, done: -27 },
     "CORE-14": { start: -14, done: -12 },
-    "CORE-15": { start: -6, review: -2 },
+    "CORE-15": { start: -6, review: -2 }, // 1 point, in progress 4 working days: stuck
     "CORE-16": { start: -2 },
     "CORE-20": { start: -9 },
-    "WEB-1": { due: 18 },
-    "WEB-2": { due: 21 },
     "WEB-4": { start: -20, done: -18 },
     "OPS-3": { start: -5 },
   },
   partner: {
     "PAY-20": { start: -24 },
     "PAY-1": { start: -24, done: -19 },
-    "PAY-2": { start: -17 }, // 8 points, still open: overrunning
-    "PAY-3": { due: 6 },
+    "PAY-2": { start: -26 }, // 8 points, in progress ~18 working days: stuck
+    "PAY-3": { due: 6, created: -9 },
     "PAY-4": { start: -7 },
     "PAY-5": { start: -30, done: -29 },
     "PAY-8": { start: -3 },
@@ -196,6 +199,8 @@ function build(site) {
         customfield_10016: points,
         resolutiondate: TIMES[site][key]?.done !== undefined ? jiraDateTime(at(TIMES[site][key].done)) : null,
         duedate: TIMES[site][key]?.due !== undefined ? at(TIMES[site][key].due).toISOString().slice(0, 10) : null,
+        // Created a week before work started, or per TIMES, or 10 days ago.
+        created: jiraDateTime(at(TIMES[site][key]?.created ?? (TIMES[site][key]?.start !== undefined ? TIMES[site][key].start - 7 : -10), 9)),
         parent: parent ? linkedIssueRef(site, rows.get(parent)) : undefined,
         issuelinks: [],
       },

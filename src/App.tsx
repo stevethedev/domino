@@ -1,8 +1,10 @@
 import { ReactFlowProvider } from "@xyflow/react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { summaryUid } from "./graph/collapse";
 import { computeInsights } from "./graph/insights";
 import { configStore, jiraSource, openExternal } from "./platform";
 import { useDomino } from "./state/useDomino";
+import { DEFAULT_ESTIMATE_SETTINGS, ESTIMATE_SETTINGS_KEY, parseEstimateSettings } from "./state/estimateSettings";
 import { oneOf, usePersistentState } from "./state/storage";
 import { useStatusHistory } from "./state/useStatusHistory";
 import { Canvas, useFocusNode, type Filters, type ViewOptions } from "./ui/Canvas";
@@ -14,11 +16,12 @@ import { ScopeInputs } from "./ui/ScopeInputs";
 import { SettingsDialog } from "./ui/Settings/SettingsDialog";
 import { SiteSelector } from "./ui/SiteSelector";
 import { Timeline } from "./ui/timeline/Timeline";
+import { localToday } from "./ui/timeline/timelineLayout";
 import { isViewMode, ViewToggle, type ViewMode } from "./ui/ViewToggle";
 import { WarningsPanel } from "./ui/WarningsPanel";
 
 const DEFAULT_FILTERS: Filters = { blocks: true, relates: false, duplicates: false, crossSite: true };
-const DEFAULT_VIEW: ViewOptions = { groupBy: "none", highlight: "none" };
+const DEFAULT_VIEW: ViewOptions = { groupBy: "none", highlight: "none", collapseEpics: false };
 const parseViewMode = oneOf(isViewMode);
 
 /** Focus a timeline row by uid (the graph view uses React Flow's viewport instead). */
@@ -58,10 +61,43 @@ function Shell() {
   const [viewMode, setViewMode] = usePersistentState<ViewMode>("domino.view", parseViewMode, "graph");
   const focusGraphNode = useFocusNode();
   const { config, load, graph } = domino;
-  const history = useStatusHistory(jiraSource, graph, viewMode === "timeline");
-  const insights = useMemo(() => computeInsights(graph), [graph]);
+  // Status history feeds aging in both views and the Timeline; one bulk request per site per load.
+  const history = useStatusHistory(jiraSource, graph, true);
+  const [estimates, setEstimates] = usePersistentState(ESTIMATE_SETTINGS_KEY, parseEstimateSettings, DEFAULT_ESTIMATE_SETTINGS);
+  const insights = useMemo(
+    () =>
+      computeInsights(
+        graph,
+        history.status === "done"
+          ? { history: history.history, today: localToday(), daysPerPoint: estimates.daysPerPoint, defaultDays: estimates.defaultDays }
+          : undefined,
+      ),
+    [graph, history, estimates.daysPerPoint, estimates.defaultDays],
+  );
   const nodesByUid = useMemo(() => new Map(graph.nodes.map((n) => [n.uid, n])), [graph]);
-  const focusIssue = viewMode === "graph" ? focusGraphNode : focusTimelineRow;
+  const [expandedEpics, setExpandedEpics] = useState<ReadonlySet<string>>(new Set());
+  const toggleEpic = useCallback(
+    (epicUid: string) =>
+      setExpandedEpics((cur) => {
+        const next = new Set(cur);
+        if (!next.delete(epicUid)) next.add(epicUid);
+        return next;
+      }),
+    [],
+  );
+  /** In the epic map, an issue inside a collapsed epic is revealed by expanding that epic first. */
+  const focusInGraph = (uid: string) => {
+    const epicUid = nodesByUid.get(uid)?.epic?.uid;
+    const hidden = view.collapseEpics && !nodesByUid.get(uid)?.ghost && epicUid && !expandedEpics.has(epicUid);
+    if (!hidden) return void focusGraphNode(uid);
+    if (epicUid === uid) return void focusGraphNode(summaryUid(epicUid));
+    toggleEpic(epicUid);
+    // Wait for the re-layout to render the issue, then focus it.
+    let tries = 0;
+    const retry = () => !focusGraphNode(uid) && ++tries < 10 && setTimeout(retry, 120);
+    setTimeout(retry, 120);
+  };
+  const focusIssue = viewMode === "graph" ? focusInGraph : focusTimelineRow;
   useViewHotkeys(setViewMode);
 
   const errors = load.status === "done" ? load.result.errors : [];
@@ -114,15 +150,32 @@ function Shell() {
             onHighlight={(highlight) => setView({ ...view, highlight })}
             onShowCycle={() => graph.cycles[0] && focusIssue(graph.cycles[0][0])}
           />
-          <FilterPanel filters={filters} onFilters={setFilters} view={view} onView={setView} />
+          <FilterPanel filters={filters} onFilters={setFilters} view={view} onView={setView} epicMapAvailable={viewMode === "graph"} />
           <WarningsPanel graph={graph} onFocusNode={focusIssue} />
           <Legend />
         </aside>
         <section className="canvas" aria-label={viewMode === "graph" ? "Dependency graph" : "Timeline"}>
           {viewMode === "graph" ? (
-            <Canvas graph={graph} insights={insights} filters={filters} view={view} showSiteBadges={domino.loadedSiteCount > 1} />
+            <Canvas
+              graph={graph}
+              insights={insights}
+              filters={filters}
+              view={view}
+              showSiteBadges={domino.loadedSiteCount > 1}
+              expandedEpics={expandedEpics}
+              onToggleEpic={toggleEpic}
+            />
           ) : (
-            <Timeline graph={graph} insights={insights} filters={filters} view={view} history={history} onOpen={openExternal} />
+            <Timeline
+              graph={graph}
+              insights={insights}
+              filters={filters}
+              view={view}
+              history={history}
+              settings={estimates}
+              onSettings={setEstimates}
+              onOpen={openExternal}
+            />
           )}
           <CanvasMessage domino={domino} />
         </section>

@@ -114,3 +114,26 @@
 .card-row1 .site-badge { flex: 0 1 auto; min-width: 36px; }
 .card-summary { overflow-wrap: anywhere; }
 .card.compact .card-key { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+/* Aging: open work that stopped moving */
+.age { font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 4px; white-space: nowrap; flex: none; }
+.age-stuck { background: var(--error-bg); color: var(--error-fg); }
+.age-waiting { background: var(--warn-bg); color: var(--warn-fg); }
+.card.hl-aging { box-shadow: 0 0 0 3px var(--cycle); }
+.card.compact .age { font-size: 15px; padding: 1px 8px; }
+.card-row3 .assignee { flex: 1 1 auto; }
+
+/* Epic map */
+.rollup-bar { flex: 1 1 auto; height: 6px; border-radius: 3px; background: var(--surface-2); border: 1px solid var(--border); overflow: hidden; min-width: 40px; }
+.rollup-bar > span { display: block; height: 100%; background: var(--done); }
+.rollup-expand { font-size: 12px; font-weight: 700; color: var(--epic); white-space: nowrap; }
+.card:has(.rollup-bar) { border-left-color: var(--epic); background: color-mix(in srgb, var(--epic) 5%, var(--surface)); }
+.card.compact .rollup-bar { height: 10px; }
+.card.compact .rollup-expand { font-size: 16px; }
+.agg-label {
+  position: absolute; pointer-events: none; font-size: 11px; font-weight: 700; white-space: nowrap;
+  padding: 1px 6px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); color: var(--text);
+}
+.agg-label.closed { color: var(--muted); }
+.lane-collapse { position: absolute; top: 8px; right: 12px; font-size: 12px; padding: 2px 8px; pointer-events: all; }
+.site-group { position: relative; }

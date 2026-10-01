@@ -31,6 +31,7 @@
         "customfield_10016": null,
         "resolutiondate": null,
         "duedate": null,
+        "created": "2026-08-29T09:00:00.000+0000",
         "issuelinks": []
       }
     },
@@ -64,6 +65,7 @@
         "customfield_10016": 5,
         "resolutiondate": null,
         "duedate": null,
+        "created": "2026-09-20T09:00:00.000+0000",
         "issuelinks": [
           {
             "id": "10006",
@@ -133,6 +135,7 @@
         "customfield_10016": 2,
         "resolutiondate": null,
         "duedate": null,
+        "created": "2026-09-27T09:00:00.000+0000",
         "issuelinks": [
           {
             "id": "10004",
@@ -237,6 +240,7 @@
         "customfield_10016": 8,
         "resolutiondate": null,
         "duedate": "2026-10-05",
+        "created": "2026-09-17T09:00:00.000+0000",
         "parent": {
           "id": "106701",
           "key": "CORE-1",
@@ -330,6 +334,7 @@
         "customfield_10016": 5,
         "resolutiondate": null,
         "duedate": null,
+        "created": "2026-09-28T09:00:00.000+0000",
         "parent": {
           "id": "106701",
           "key": "CORE-1",
@@ -493,6 +498,7 @@
         "customfield_10016": null,
         "resolutiondate": null,
         "duedate": null,
+        "created": "2026-09-22T09:00:00.000+0000",
         "parent": {
           "id": "106711",
           "key": "CORE-11",
@@ -550,6 +556,7 @@
         "customfield_10016": 3,
         "resolutiondate": "2026-09-04T15:00:00.000+0000",
         "duedate": null,
+        "created": "2026-08-23T09:00:00.000+0000",
         "issuelinks": [
           {
             "id": "10010",
@@ -615,6 +622,7 @@
         "customfield_10016": 2,
         "resolutiondate": null,
         "duedate": null,
+        "created": "2026-09-21T09:00:00.000+0000",
         "issuelinks": [
           {
             "id": "10010",
@@ -684,6 +692,7 @@
         "customfield_10016": 1,
         "resolutiondate": "2026-09-19T15:00:00.000+0000",
         "duedate": null,
+        "created": "2026-09-10T09:00:00.000+0000",
         "issuelinks": [
           {
             "id": "10011",
@@ -753,6 +762,7 @@
         "customfield_10016": 1,
         "resolutiondate": null,
         "duedate": null,
+        "created": "2026-09-18T09:00:00.000+0000",
         "issuelinks": [
           {
             "id": "10011",
@@ -822,6 +832,7 @@
         "customfield_10016": 5,
         "resolutiondate": null,
         "duedate": null,
+        "created": "2026-09-15T09:00:00.000+0000",
         "issuelinks": [
           {
             "id": "10007",
@@ -891,6 +902,7 @@
         "customfield_10016": 3,
         "resolutiondate": null,
         "duedate": null,
+        "created": "2026-09-29T09:00:00.000+0000",
         "issuelinks": [
           {
             "id": "10007",
@@ -960,6 +972,7 @@
         "customfield_10016": 3,
         "resolutiondate": null,
         "duedate": "2026-10-19",
+        "created": "2026-09-11T09:00:00.000+0000",
         "parent": {
           "id": "106701",
           "key": "CORE-1",
@@ -1088,6 +1101,7 @@
         "customfield_10016": 2,
         "resolutiondate": null,
         "duedate": "2026-10-22",
+        "created": "2026-09-25T09:00:00.000+0000",
         "parent": {
           "id": "106701",
           "key": "CORE-1",
@@ -1247,6 +1261,7 @@
         "customfield_10016": 1,
         "resolutiondate": null,
         "duedate": null,
+        "created": "2026-09-21T09:00:00.000+0000",
         "issuelinks": [
           {
             "id": "10012",
@@ -1316,6 +1331,7 @@
         "customfield_10016": 1,
         "resolutiondate": "2026-09-13T15:00:00.000+0000",
         "duedate": null,
+        "created": "2026-09-04T09:00:00.000+0000",
         "issuelinks": [
           {
             "id": "10012",
@@ -1385,6 +1401,7 @@
         "customfield_10016": 1,
         "resolutiondate": null,
         "duedate": null,
+        "created": "2026-09-21T09:00:00.000+0000",
         "issuelinks": [
           {
             "id": "10013",
@@ -1454,6 +1471,7 @@
         "customfield_10016": 8,
         "resolutiondate": null,
         "duedate": null,
+        "created": "2026-09-19T09:00:00.000+0000",
         "issuelinks": [
           {
             "id": "10005",

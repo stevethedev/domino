@@ -71,6 +71,7 @@ function nodeFromIssue(issue: RawIssue, site: SiteConfig): GraphNode {
     dates: {
       resolved: f.resolutiondate ? toDay(f.resolutiondate) : undefined,
       due: f.duedate ? f.duedate.slice(0, 10) : undefined,
+      created: f.created ? toDay(f.created) : undefined,
     },
   };
 }

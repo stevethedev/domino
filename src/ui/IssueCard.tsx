@@ -1,5 +1,6 @@
 import { Handle, Position, useStore, type Node, type NodeProps } from "@xyflow/react";
 import { memo } from "react";
+import { agingLabel, type Aging } from "../graph/aging";
 import type { Highlight } from "../graph/insights";
 import type { GraphNode, StatusCategory } from "../graph/types";
 
@@ -9,8 +10,11 @@ export type IssueNodeData = {
   showSite: boolean;
   dimmed: boolean;
   highlight: Exclude<Highlight, "none"> | null;
+  aging?: Aging;
   onOpen: (url: string) => void;
   onHover: (uid: string | null) => void;
+  /** Set on epic-map summary nodes: activating the card expands the epic instead of opening Jira. */
+  onExpand?: () => void;
 };
 export type IssueFlowNode = Node<IssueNodeData, "issue">;
 
@@ -44,10 +48,75 @@ function initials(name?: string) {
   return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase();
 }
 
+function rollupLabel(n: GraphNode): string {
+  const r = n.rollup!;
+  const parts = [`Epic ${n.key}, ${n.summary}`, `${r.members.length} issues`, `${r.done} done`];
+  if (r.blocked) parts.push(`${r.blocked} blocked`);
+  if (r.aging) parts.push(`${r.aging} aging`);
+  return `${parts.join(", ")}. Expands the epic.`;
+}
+
+/** Epic-map summary card: progress across the epic's loaded issues. */
+function RollupBody({ node, compact }: { node: GraphNode; compact: boolean }) {
+  const r = node.rollup!;
+  const total = r.members.length;
+  return (
+    <>
+      <div className="card-row1">
+        <TypeIcon type="Epic" />
+        <span className="card-key">{node.key}</span>
+        <span className={`pill pill-${node.statusCategory}`}>
+          {r.done}/{total} done
+        </span>
+      </div>
+      {!compact && (
+        <div className="card-summary" title={node.summary}>
+          {node.summary}
+        </div>
+      )}
+      <div className="card-row3">
+        <span className="rollup-bar" aria-hidden="true">
+          <span style={{ width: `${total ? (100 * r.done) / total : 0}%` }} />
+        </span>
+        {r.blocked > 0 && <span className="blockers">⚠ {r.blocked} blocked</span>}
+        {r.aging > 0 && <span className="age age-waiting">⏳ {r.aging}</span>}
+        <span className="rollup-expand" aria-hidden="true">
+          ⊕ {total}
+        </span>
+      </div>
+    </>
+  );
+}
+
+export function AgingBadge({ aging }: { aging: Aging }) {
+  return (
+    <span className={`age age-${aging.kind}`} title={agingDescription(aging)}>
+      ⏳ {agingLabel(aging)}
+    </span>
+  );
+}
+
+export const agingDescription = (a: Aging) =>
+  a.kind === "stuck"
+    ? `stuck: in progress ${a.days} working days against a ${a.estimateDays}-day estimate`
+    : `waiting: blocked with no status change for ${a.days} working days`;
+
 const blockerText = (count: number) => `⚠ ${count} blocker${count === 1 ? "" : "s"}`;
 
 /** Zoomed-out card: key, status and blockers only, large enough to read at a glance. */
-function CompactBody({ node, statusText, openBlockers, ready }: { node: GraphNode; statusText: string; openBlockers: number; ready: boolean }) {
+function CompactBody({
+  node,
+  statusText,
+  openBlockers,
+  ready,
+  aging,
+}: {
+  node: GraphNode;
+  statusText: string;
+  openBlockers: number;
+  ready: boolean;
+  aging?: Aging;
+}) {
   return (
     <>
       <div className="card-row1">
@@ -58,13 +127,15 @@ function CompactBody({ node, statusText, openBlockers, ready }: { node: GraphNod
         <span className={`pill pill-${node.statusCategory}`}>{statusText}</span>
         {openBlockers > 0 && <span className="blockers">{blockerText(openBlockers)}</span>}
         {ready && <span className="tag-ready">Ready</span>}
+        {aging && <AgingBadge aging={aging} />}
       </div>
     </>
   );
 }
 
 export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNode>) {
-  const { node: n, openBlockers, showSite, dimmed, highlight, onOpen, onHover } = data;
+  const { node: n, openBlockers, showSite, dimmed, highlight, aging, onOpen, onHover, onExpand } = data;
+  const activate = onExpand ?? (() => onOpen(n.url));
   // Selecting a boolean means cards re-render only when crossing the threshold, not on every zoom step.
   const compact = useStore((s) => s.transform[2] < COMPACT_BELOW_ZOOM);
   const status = n.statusCategory;
@@ -78,6 +149,7 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
     n.ghost ? "outside scope" : null,
     highlight === "critical" ? "on critical path" : null,
     highlight === "ready" ? "ready to start" : null,
+    aging ? agingDescription(aging) : null,
   ]
     .filter(Boolean)
     .join(", ");
@@ -85,15 +157,15 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
   return (
     <div
       className={`card status-${status}${n.ghost ? " ghost" : ""}${dimmed ? " dimmed" : ""}${highlight ? ` hl-${highlight}` : ""}${compact ? " compact" : ""}`}
-      role="link"
+      role={onExpand ? "button" : "link"}
       tabIndex={0}
-      aria-label={`${label}. Opens in browser.`}
+      aria-label={n.rollup ? rollupLabel(n) : `${label}. Opens in browser.`}
       data-uid={n.uid}
-      onClick={() => onOpen(n.url)}
+      onClick={activate}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          onOpen(n.url);
+          activate();
         }
       }}
       onMouseEnter={() => onHover(n.uid)}
@@ -102,7 +174,9 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
       onBlur={() => onHover(null)}
     >
       <Handle type="target" position={Position.Left} isConnectable={false} />
-      {compact ? <CompactBody node={n} statusText={statusText} openBlockers={openBlockers} ready={highlight === "ready"} /> : (
+      {n.rollup ? (
+        <RollupBody node={n} compact={compact} />
+      ) : compact ? <CompactBody node={n} statusText={statusText} openBlockers={openBlockers} ready={highlight === "ready"} aging={aging} /> : (
         <>
       <div className="card-row1">
         <TypeIcon type={n.issueType} />
@@ -141,6 +215,7 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
           </span>
         )}
         {highlight === "ready" && <span className="tag-ready">Ready</span>}
+        {aging && <AgingBadge aging={aging} />}
       </div>
         </>
       )}
@@ -149,7 +224,7 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
   );
 });
 
-export type SiteGroupData = { label: string; color?: string; url?: string; onOpen: (url: string) => void };
+export type SiteGroupData = { label: string; color?: string; url?: string; onOpen: (url: string) => void; onCollapse?: () => void };
 export type SiteGroupNode = Node<SiteGroupData, "siteGroup">;
 
 export const SiteGroup = memo(function SiteGroup({ data }: NodeProps<SiteGroupNode>) {
@@ -167,6 +242,11 @@ export const SiteGroup = memo(function SiteGroup({ data }: NodeProps<SiteGroupNo
         </button>
       ) : (
         <div className="site-group-label">{data.label}</div>
+      )}
+      {data.onCollapse && (
+        <button type="button" className="lane-collapse" onClick={data.onCollapse} aria-label={`Collapse ${data.label}`}>
+          ⊖ Collapse
+        </button>
       )}
     </div>
   );

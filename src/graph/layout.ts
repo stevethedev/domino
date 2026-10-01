@@ -9,7 +9,15 @@ const LANE_GAP = 28;
 const LANE_SPACING = 40;
 
 /** Which swimlane a card belongs to. Lanes with `last` sort after all others (e.g. "No epic"). */
-export type Lane = { id: string; label: string; color?: string; url?: string; last?: boolean };
+export type Lane = {
+  id: string;
+  label: string;
+  color?: string;
+  url?: string;
+  last?: boolean;
+  /** Set on an expanded epic's lane in the epic map: the epic to collapse again. */
+  collapseEpic?: string;
+};
 export type LaneFn = (n: GraphNode) => Lane;
 
 export type LayoutGroup = Lane & { x: number; y: number; width: number; height: number };

@@ -46,6 +46,8 @@ export type RawIssue = {
     resolutiondate?: string | null;
     /** "YYYY-MM-DD", or null. */
     duedate?: string | null;
+    /** ISO datetime the issue was created. */
+    created?: string;
     parent?: RawLinkedIssue;
     issuelinks?: RawIssueLink[];
   };
