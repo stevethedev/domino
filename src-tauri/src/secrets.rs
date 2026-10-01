@@ -87,43 +87,60 @@ fn keychain_item_exists(account: &str) -> bool {
 /// process. Writes and deletes update the cache, so it never serves a stale value written here.
 pub struct CachedSecrets<S> {
     inner: S,
-    values: Mutex<HashMap<String, String>>,
+    state: Mutex<CacheState>,
+}
+
+#[derive(Default)]
+struct CacheState {
+    values: HashMap<String, String>,
+    /// Bumped on every write or clear, so a read that started earlier can tell it's stale.
+    writes: HashMap<String, u64>,
 }
 
 impl<S: SecretStore> CachedSecrets<S> {
     pub fn new(inner: S) -> Self {
-        Self { inner, values: Mutex::new(HashMap::new()) }
+        Self { inner, state: Mutex::new(CacheState::default()) }
     }
 
-    fn values(&self) -> std::sync::MutexGuard<'_, HashMap<String, String>> {
-        self.values.lock().unwrap_or_else(|p| p.into_inner())
+    fn state(&self) -> std::sync::MutexGuard<'_, CacheState> {
+        self.state.lock().unwrap_or_else(|p| p.into_inner())
     }
 }
 
 impl<S: SecretStore> SecretStore for CachedSecrets<S> {
     fn get(&self, name: &str) -> Result<String, String> {
-        if let Some(v) = self.values().get(name) {
-            return Ok(v.clone());
-        }
-        // Not cached: read outside the lock so a slow keychain prompt doesn't block other secrets.
+        let writes_before = {
+            let st = self.state();
+            if let Some(v) = st.values.get(name) {
+                return Ok(v.clone());
+            }
+            st.writes.get(name).copied().unwrap_or(0)
+        };
+        // Read outside the lock so a slow keychain prompt doesn't block other secrets.
         let v = self.inner.get(name)?;
-        // A `set` that landed while we were reading is newer than what we read: keep it.
-        Ok(self.values().entry(name.to_string()).or_insert(v).clone())
+        let mut st = self.state();
+        if st.writes.get(name).copied().unwrap_or(0) != writes_before {
+            // Written or cleared while we were reading: what we read is stale.
+            return st.values.get(name).cloned().ok_or_else(|| format!("No secret stored for {name}"));
+        }
+        st.values.insert(name.to_string(), v.clone());
+        Ok(v)
     }
 
     fn set(&self, name: &str, value: &str) -> Result<(), String> {
         self.inner.set(name, value)?;
-        let mut values = self.values();
+        let mut st = self.state();
+        *st.writes.entry(name.to_string()).or_insert(0) += 1;
         if value.is_empty() {
-            values.remove(name);
+            st.values.remove(name);
         } else {
-            values.insert(name.to_string(), value.to_string());
+            st.values.insert(name.to_string(), value.to_string());
         }
         Ok(())
     }
 
     fn is_set(&self, name: &str) -> bool {
-        self.values().contains_key(name) || self.inner.is_set(name)
+        self.state().values.contains_key(name) || self.inner.is_set(name)
     }
 }
 
@@ -234,22 +251,41 @@ mod tests {
         }
     }
 
-    #[test]
-    fn a_write_during_a_slow_read_wins() {
+    fn gated(initial: &str) -> (std::sync::Arc<CachedSecrets<GatedStore>>, std::sync::mpsc::Receiver<()>, std::sync::mpsc::Sender<()>) {
         let (entered_tx, entered_rx) = std::sync::mpsc::sync_channel(1);
         let (release_tx, release_rx) = std::sync::mpsc::channel();
         let cache = std::sync::Arc::new(CachedSecrets::new(GatedStore {
-            value: Mutex::new("old".into()),
+            value: Mutex::new(initial.into()),
             entered: entered_tx,
             release: Mutex::new(release_rx),
         }));
+        (cache, entered_rx, release_tx)
+    }
+
+    #[test]
+    fn a_clear_during_a_slow_read_stays_cleared() {
+        let (cache, entered, release) = gated("old");
+        let reader = {
+            let cache = cache.clone();
+            std::thread::spawn(move || cache.get("A_TOKEN"))
+        };
+        entered.recv().unwrap(); // the read is in flight with "old"
+        cache.set("A_TOKEN", "").unwrap(); // the token is cleared meanwhile
+        release.send(()).unwrap();
+        assert!(reader.join().unwrap().is_err(), "the stale read must not resurrect the token");
+        assert!(!cache.state().values.contains_key("A_TOKEN"));
+    }
+
+    #[test]
+    fn a_write_during_a_slow_read_wins() {
+        let (cache, entered, release) = gated("old");
         let reader = {
             let cache = cache.clone();
             std::thread::spawn(move || cache.get("A_TOKEN").unwrap())
         };
-        entered_rx.recv().unwrap(); // the read is in flight with "old"
+        entered.recv().unwrap(); // the read is in flight with "old"
         cache.set("A_TOKEN", "new").unwrap(); // a newer token is saved meanwhile
-        release_tx.send(()).unwrap();
+        release.send(()).unwrap();
         reader.join().unwrap();
         assert_eq!(cache.get("A_TOKEN").unwrap(), "new");
     }

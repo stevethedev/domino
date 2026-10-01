@@ -162,7 +162,8 @@ describe("toDay", () => {
       expect(toDay("2026-10-02T01:00:00.000+0000")).toBe("2026-10-01");
       expect(toDay("2026-10-01T18:00:00.000-0700")).toBe("2026-10-01");
     } finally {
-      env.TZ = tz;
+      if (tz === undefined) delete env.TZ;
+      else env.TZ = tz;
     }
   });
 });

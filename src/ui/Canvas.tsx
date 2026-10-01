@@ -109,7 +109,7 @@ export function Canvas({
       setLayout(l);
       // Re-fit only when the set of cards changes; re-layouts for new insights (e.g. status history
       // arriving) keep the user's viewport. Never zoom past 100%: small graphs stay card-sized.
-      const shape = [...l.positions.keys()].sort().join("|") + `#${l.groups.length}`;
+      const shape = `${[...l.positions.keys()].sort().join("|")}#${l.groups.map((g) => g.id).join("|")}`;
       if (shape !== fittedShape.current) {
         fittedShape.current = shape;
         requestAnimationFrame(() => rf.fitView({ padding: 0.2, maxZoom: 1, duration: 250 }));

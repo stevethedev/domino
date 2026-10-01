@@ -121,6 +121,10 @@ function Shell() {
   );
   /** In the epic map, an issue inside a collapsed epic is revealed by expanding that epic first. */
   const focusInGraph = (uid: string) => {
+    // A ghost epic with loaded children is drawn as its summary in the epic map.
+    const isFoldedGhostEpic =
+      view.collapseEpics && nodesByUid.get(uid)?.ghost && !expandedEpics.has(uid) && graph.nodes.some((n) => n.epic?.uid === uid);
+    if (isFoldedGhostEpic) return void focusGraphNode(summaryUid(uid));
     const epicUid = nodesByUid.get(uid)?.epic?.uid;
     const hidden = view.collapseEpics && !nodesByUid.get(uid)?.ghost && epicUid && !expandedEpics.has(epicUid);
     if (!hidden) return void focusGraphNode(uid);

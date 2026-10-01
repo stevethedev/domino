@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { JiraSource } from "../data/JiraSource";
 import { loadStatusHistory, type HistoryResult } from "../data/statusHistoryLoader";
 import type { Graph } from "../graph/types";
@@ -19,6 +19,9 @@ export function useStatusHistory(source: JiraSource, graph: Graph, enabled: bool
     };
   }, [source, graph, enabled, loaded]);
 
-  if (loaded?.graph === graph) return { status: "done", ...loaded.result };
-  return { status: enabled && graph.nodes.length > 0 ? "loading" : "idle" };
+  // A stable object per (result, graph): consumers memoize on it, so a fresh object each render would loop.
+  return useMemo<HistoryState>(
+    () => (loaded?.graph === graph ? { status: "done", ...loaded.result } : { status: enabled && graph.nodes.length > 0 ? "loading" : "idle" }),
+    [loaded, graph, enabled],
+  );
 }
