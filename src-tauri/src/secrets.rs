@@ -117,12 +117,13 @@ impl<S: SecretStore> SecretStore for CachedSecrets<S> {
             st.writes.get(name).copied().unwrap_or(0)
         };
         // Read outside the lock so a slow keychain prompt doesn't block other secrets.
-        let v = self.inner.get(name)?;
+        let read = self.inner.get(name);
         let mut st = self.state();
         if st.writes.get(name).copied().unwrap_or(0) != writes_before {
-            // Written or cleared while we were reading: what we read is stale.
+            // Written or cleared while we were reading, successfully or not: the write is newer.
             return st.values.get(name).cloned().ok_or_else(|| format!("No secret stored for {name}"));
         }
+        let v = read?;
         st.values.insert(name.to_string(), v.clone());
         Ok(v)
     }
@@ -243,6 +244,9 @@ mod tests {
             let snapshot = self.value.lock().unwrap().clone(); // what the read "sees"
             self.entered.send(()).unwrap();
             self.release.lock().unwrap().recv().unwrap(); // e.g. waiting on an access prompt
+            if snapshot.is_empty() {
+                return Err("No secret stored".into()); // nothing there when the read started
+            }
             Ok(snapshot)
         }
         fn set(&self, _: &str, v: &str) -> Result<(), String> {
@@ -274,6 +278,19 @@ mod tests {
         release.send(()).unwrap();
         assert!(reader.join().unwrap().is_err(), "the stale read must not resurrect the token");
         assert!(!cache.state().values.contains_key("A_TOKEN"));
+    }
+
+    #[test]
+    fn a_write_during_a_failing_read_is_returned() {
+        let (cache, entered, release) = gated(""); // no token yet: the in-flight read will fail
+        let reader = {
+            let cache = cache.clone();
+            std::thread::spawn(move || cache.get("A_TOKEN"))
+        };
+        entered.recv().unwrap();
+        cache.set("A_TOKEN", "new").unwrap(); // the user pastes a token meanwhile
+        release.send(()).unwrap();
+        assert_eq!(reader.join().unwrap(), Ok("new".to_string()));
     }
 
     #[test]
