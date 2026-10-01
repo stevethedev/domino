@@ -115,13 +115,25 @@ function swimlanes(nodes: readonly GraphNode[], flat: Map<string, { x: number; y
   const minX = Math.min(...nodes.map((n) => flat.get(n.uid)!.x));
   let top = 0;
   for (const { lane, members } of lanes) {
-    // Rows come from the flat layout: cards ELK put on one row share a row in the lane, so
-    // straight chains stay straight; rows no card in this lane uses are squeezed out.
-    // Cards on one flat row never overlap, so neither do cards on one lane row.
-    const flatRows = [...new Set(members.map((n) => flat.get(n.uid)!.y))].sort((a, b) => a - b);
-    const rowOfY = new Map(flatRows.map((y, i) => [y, i]));
+    // Rows come from the flat layout and move as whole units, so cards ELK put on one row stay on
+    // one lane row (straight chains stay straight). Flat rows are then packed greedily, top to
+    // bottom, into the first lane row where none of their cards would collide horizontally.
+    const byFlatRow = new Map<number, number[]>(); // flat y -> card x positions
+    for (const n of members) {
+      const { x, y } = flat.get(n.uid)!;
+      byFlatRow.set(y, [...(byFlatRow.get(y) ?? []), x]);
+    }
+    const collides = (xs: readonly number[], ys: readonly number[]) =>
+      xs.some((a) => ys.some((b) => Math.abs(a - b) < CARD_WIDTH + LANE_GAP / 2));
+    const rows: number[][] = []; // lane row -> card x positions already placed
+    const rowOfY = new Map<number, number>();
+    for (const [y, xs] of [...byFlatRow].sort(([a], [b]) => a - b)) {
+      let r = rows.findIndex((placed) => !collides(placed, xs));
+      if (r === -1) r = rows.push([]) - 1;
+      rows[r].push(...xs);
+      rowOfY.set(y, r);
+    }
     const rowOf = new Map(members.map((n) => [n.uid, rowOfY.get(flat.get(n.uid)!.y)!]));
-    const rows = flatRows;
     const xs = members.map((n) => flat.get(n.uid)!.x);
     const left = Math.min(...xs) - minX;
     const width = Math.max(...xs) - Math.min(...xs) + CARD_WIDTH + 2 * LANE_PADDING;

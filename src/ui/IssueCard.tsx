@@ -95,7 +95,8 @@ type Badge = { key: string; label: string; el: React.ReactNode };
 
 /**
  * The card's bottom row fits two badges. With more, it shows the first and a "+N" chip (the chip
- * takes the second slot) whose tooltip and accessible name list the rest.
+ * takes the second slot) whose tooltip lists the rest; the card's own accessible name already
+ * covers every badge.
  */
 const ROW_BADGE_SLOTS = 2;
 function CappedBadges({ badges }: { badges: readonly (Badge | false | undefined)[] }) {
@@ -110,7 +111,7 @@ function CappedBadges({ badges }: { badges: readonly (Badge | false | undefined)
         </span>
       ))}
       {extra.length > 0 && (
-        <span className="chg badge-more" title={extra.map((b) => b.label).join("\n")} aria-label={`and ${extra.map((b) => b.label).join(", ")}`}>
+        <span className="chg badge-more" title={extra.map((b) => b.label).join("\n")}>
           +{extra.length}
         </span>
       )}
@@ -249,7 +250,7 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
         )}
         <CappedBadges
           badges={[
-            openBlockers > 0 && { key: "blockers", label: blockerText(openBlockers), el: <span className="blockers">{blockerText(openBlockers)}</span> },
+            openBlockers > 0 && { key: "blockers", label: blockerText(openBlockers), el: <span className="blockers" title={`${openBlockers} open blocker${openBlockers === 1 ? "" : "s"}`}>{blockerText(openBlockers)}</span> },
             highlight === "ready" && { key: "ready", label: "Ready", el: <span className="tag-ready">Ready</span> },
             aging && { key: "aging", label: agingDescription(aging), el: <AgingBadge aging={aging} /> },
             change && { key: "change", label: CHANGE_LABEL[change], el: <ChangeTag change={change} /> },

@@ -121,7 +121,6 @@
 .age-waiting { background: var(--warn-bg); color: var(--warn-fg); }
 .card.hl-aging { box-shadow: 0 0 0 3px var(--cycle); }
 .card.compact .age { font-size: 15px; padding: 1px 8px; }
-.card-row3 .assignee { flex: 1 1 auto; }
 
 /* Epic map */
 .rollup-bar { flex: 1 1 auto; height: 6px; border-radius: 3px; background: var(--surface-2); border: 1px solid var(--border); overflow: hidden; min-width: 40px; }

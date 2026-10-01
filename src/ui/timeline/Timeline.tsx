@@ -66,7 +66,12 @@ export function Timeline({
   const { items, height } = useMemo(() => layoutRows(nodes, placed, lanesFor(view.groupBy, insights)), [nodes, placed, view.groupBy, insights]);
   const rows = items.filter((i) => i.kind === "row");
   const range = useMemo(
-    () => (rows.length ? dayRange(rows.map((r) => r.entry), [today, opts.planStart, ...rows.flatMap((r) => (r.node.dates?.due ? [r.node.dates.due] : []))]) : null),
+    () => {
+      if (!rows.length) return null;
+      // Ghost rows draw nothing, so their computed (invented) dates don't widen the chart.
+      const dated = rows.filter((r) => !r.node.ghost);
+      return dayRange(dated.map((r) => r.entry), [today, opts.planStart, ...dated.flatMap((r) => (r.node.dates?.due ? [r.node.dates.due] : []))]);
+    },
     [rows, today, opts.planStart],
   );
 
@@ -76,11 +81,23 @@ export function Timeline({
 
   const rowY = new Map(rows.map((r) => [r.node.uid, r.y]));
   const ghostUids = new Set(rows.filter((r) => r.node.ghost).map((r) => r.node.uid));
+  const emptyEpicUids = new Set(rows.filter((r) => isEpicNode(r.node) && !epics.has(r.node.uid)).map((r) => r.node.uid));
+  // What each row actually draws: epics draw their children's envelope; an epic without loaded
+  // children (like a ghost) draws no bar, so arrows treat it as having no position.
+  const drawn = (uid: string): { entry: TimelineEntry; positionless: boolean } => {
+    const summary = epics.get(uid);
+    if (summary) return { entry: { ...timeline.get(uid)!, projected: summary.projected, progress: { state: "not-started", forecast: summary.work } }, positionless: false };
+    return { entry: timeline.get(uid)!, positionless: ghostUids.has(uid) || emptyEpicUids.has(uid) };
+  };
   const arrows: ArrowModel[] = edges
     .filter((e) => e.kind === "blocks" && !graph.brokenEdgeIds.has(e.id) && rowY.has(e.source) && rowY.has(e.target))
+    .filter((e) => !(drawn(e.source).positionless && drawn(e.target).positionless)) // nothing real to connect
     .map((e) => ({
       edge: e,
-      ...arrowAnchors(timeline.get(e.source)!, timeline.get(e.target)!, ghostUids.has(e.source), ghostUids.has(e.target)),
+      ...(() => {
+        const [from, to] = [drawn(e.source), drawn(e.target)];
+        return arrowAnchors(from.entry, to.entry, from.positionless, to.positionless);
+      })(),
       violated: isViolated(timeline.get(e.source)!, timeline.get(e.target)!),
       inCycle: graph.cycleEdgeIds.has(e.id),
       critical: criticalEdges.has(e.id),
@@ -89,7 +106,7 @@ export function Timeline({
 
   const late = rows.filter((r) => !r.node.ghost && !isEpicNode(r.node) && r.entry.varianceDays > 0).length;
   const chartWidth = range ? xOf(range.start, range.end, settings.scale) + PX_PER_DAY[settings.scale] : 0;
-  const lastBarX = range ? Math.max(0, ...rows.map((r) => xOf(range.start, entryEnd(r.entry), settings.scale))) : 0;
+  const lastBarX = range ? Math.max(0, ...rows.filter((r) => !r.node.ghost).map((r) => xOf(range.start, entryEnd(r.entry), settings.scale))) : 0;
 
   return (
     <div className="timeline">

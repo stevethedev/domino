@@ -60,3 +60,22 @@ describe("swimlanes keep the layout's rows", () => {
     for (const [a, b] of pairs) expect(lanes.positions.get(a)!.y, `${a} vs ${b}`).toBe(lanes.positions.get(b)!.y);
   });
 });
+
+describe("swimlanes stay compact", () => {
+  it("merges flat rows into one lane row when their cards don't collide", async () => {
+    const flat = await computeLayout(g.nodes, g.edges, g.brokenEdgeIds, undefined);
+    const lanes = await computeLayout(g.nodes, g.edges, g.brokenEdgeIds, laneBySite);
+    for (const group of lanes.groups) {
+      const members = [...lanes.positions].filter(([, p]) => p.parent === group.id).map(([uid]) => uid);
+      const flatRows = new Set(members.map((u) => flat.positions.get(u)!.y)).size;
+      const laneRows = new Set(members.map((u) => lanes.positions.get(u)!.y)).size;
+      expect(laneRows, group.label).toBeLessThanOrEqual(flatRows);
+    }
+    // At least one lane got denser than one-row-per-flat-row.
+    const denser = lanes.groups.some((group) => {
+      const members = [...lanes.positions].filter(([, p]) => p.parent === group.id).map(([uid]) => uid);
+      return new Set(members.map((u) => lanes.positions.get(u)!.y)).size < new Set(members.map((u) => flat.positions.get(u)!.y)).size;
+    });
+    expect(denser).toBe(true);
+  });
+});

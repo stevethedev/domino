@@ -1,11 +1,10 @@
 import { memo } from "react";
 import type { Day, TimelineEntry } from "../../graph/schedule";
-import { workSpan } from "./timelineLayout";
+import type { GraphEdge } from "../../graph/types";
+import { ROW_HEIGHT, workSpan, xOf, type Scale } from "./timelineLayout";
 
 const ELBOW_PX = 3;
 const STUB_PX = 22;
-import type { GraphEdge } from "../../graph/types";
-import { ROW_HEIGHT, xOf, type Scale } from "./timelineLayout";
 
 export type ArrowModel = {
   edge: GraphEdge;

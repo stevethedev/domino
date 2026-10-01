@@ -29,7 +29,7 @@ export function SidebarSection({
   const [open, setOpen] = usePersistentState(`domino.sidebar.${id}`, asBool, defaultOpen);
   const bodyId = useId();
   return (
-    <section className={`sb-section${tone ? ` tone-${tone}` : ""}`} data-open={open}>
+    <section className={`sb-section${tone ? ` tone-${tone}` : ""}`}>
       <h2 className="sb-heading">
         <button
           type="button"
