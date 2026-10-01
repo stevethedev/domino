@@ -142,6 +142,27 @@ What `HttpBackend` does:
     - Issues without an epic go in a *No epic* lane, and ghosts in *Outside scope*. Both lanes come last.
     - Epic keys are site-qualified, so the same key on two sites is two lanes.
 
+## Timeline view
+
+**Graph / Timeline** in the top bar switches between the dependency graph and a projected-vs-actual timeline of the same loaded issues. Sites, query, link filters, Group by, Critical path and What's ready all apply to both views.
+
+| On each row | Meaning |
+|---|---|
+| Dashed outline | **Projected**: the issue's estimate laid out in working days. Started issues begin at their real start. Unstarted issues begin when their blockers are projected to finish, never before *Unstarted from* (default today). |
+| Solid bar | **Actual**: from the first move out of To Do to the resolved date, or to today if still open |
+| Dotted bar | **Forecast**: the remaining work from today. A late blocker pushes its dependents' forecasts. |
+| Badge | Variance in working days between projected and actual/forecast end (`+3d late`, `2d early`, `on track`) |
+| ◆ | Jira due date; red when the forecast misses it |
+| Purple bar | Epic summary spanning its loaded children |
+
+- **Estimates:** story points × *Days / point* (default 1). Unpointed issues use *Unpointed* days (default 2). Weekends are skipped.
+- **Arrows:** go from a blocker's projected end to the blocked issue's projected start. They're red when work started before its blocker finished, or when they're part of a cycle.
+- **Data:** `resolutiondate` and `duedate` come with the normal search. Status history comes from `POST /rest/api/3/changelog/bulkfetch` (up to 1,000 issues per request) plus `GET /rest/api/3/status`, fetched only while the Timeline view is open.
+- **Missing history:** issues that are in progress or done without status history show "start unknown" rather than invented dates.
+- **Remembered per machine:** scale, estimates and *Unstarted from*.
+
+Scheduling lives in `src/graph/schedule.ts` (pure, unit-tested). The UI lives in `src/ui/timeline/`.
+
 ## Project layout
 
 ```

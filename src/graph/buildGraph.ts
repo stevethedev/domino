@@ -4,6 +4,7 @@ import { findCycles } from "./cycles";
 import { DEFAULT_LINK_TYPES, kindOf, resolveRelationship } from "./linkTypes";
 import { matchRemoteUrl } from "./remoteUrl";
 import type { EpicRef, Graph, GraphEdge, GraphNode, StatusCategory } from "./types";
+import { toDay } from "./schedule";
 import { uidOf } from "./types";
 
 export type BuildInput = {
@@ -66,6 +67,11 @@ function nodeFromIssue(issue: RawIssue, site: SiteConfig): GraphNode {
     storyPoints: typeof f.customfield_10016 === "number" ? f.customfield_10016 : undefined,
     url: browseUrl(site.baseUrl, issue.key),
     ghost: false,
+    jiraId: issue.id,
+    dates: {
+      resolved: f.resolutiondate ? toDay(f.resolutiondate) : undefined,
+      due: f.duedate ? f.duedate.slice(0, 10) : undefined,
+    },
   };
 }
 

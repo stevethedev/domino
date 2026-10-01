@@ -253,6 +253,19 @@ impl JiraBackend for MockBackend {
     async fn health(&self, site: &SiteConfig) -> JiraResult<()> {
         self.site_data(site).map(|_| ())
     }
+
+    async fn status_history(&self, site: &SiteConfig, issue_ids: &[String]) -> JiraResult<Value> {
+        let logs = &self.site_data(site)?["changelogs"];
+        let found: Vec<Value> = issue_ids
+            .iter()
+            .filter_map(|id| logs.get(id).map(|h| json!({ "issueId": id, "changeHistories": h })))
+            .collect();
+        Ok(json!({ "issueChangeLogs": found }))
+    }
+
+    async fn statuses(&self, site: &SiteConfig) -> JiraResult<Value> {
+        Ok(self.site_data(site)?["statuses"].clone())
+    }
 }
 
 #[cfg(test)]
@@ -311,6 +324,21 @@ mod tests {
         assert_eq!(filtered["children"].as_array().unwrap().len(), 2);
         assert_eq!(b.remote_links(partner, "PAY-3").await.unwrap().len(), 1);
         assert_eq!(b.search(acme, "key in (CORE-7, WEB-1)", Some(1)).await.unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn serves_status_history_and_statuses() {
+        let b = MockBackend::new(HashSet::new());
+        let c = cfg();
+        let partner = c.site("partner").unwrap();
+        let pay1 = b.issue(partner, "PAY-1").await.unwrap();
+        let id = pay1["id"].as_str().unwrap().to_string();
+        let v = b.status_history(partner, &[id.clone(), "999".into()]).await.unwrap();
+        let logs = v["issueChangeLogs"].as_array().unwrap();
+        assert_eq!(logs.len(), 1);
+        assert_eq!(logs[0]["issueId"], id.as_str());
+        assert!(pay1["fields"]["resolutiondate"].is_string());
+        assert!(!b.statuses(partner).await.unwrap().as_array().unwrap().is_empty());
     }
 
     #[tokio::test]

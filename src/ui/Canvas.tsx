@@ -9,7 +9,8 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { blockingChain, criticalPath, openBlockerCounts, readyIssues } from "../graph/analysis";
 import { CARD_HEIGHT, CARD_WIDTH, computeLayout, laneByEpic, laneBySite, type Layout } from "../graph/layout";
-import type { Graph, GraphEdge, GraphNode, LinkKind } from "../graph/types";
+import type { Graph, LinkKind } from "../graph/types";
+import { visibleSubgraph } from "../graph/visible";
 import { openExternal } from "../platform";
 import { LinkEdge, type LinkFlowEdge } from "./edges/LinkEdge";
 import { IssueCard, SiteGroup, type IssueFlowNode, type SiteGroupNode } from "./IssueCard";
@@ -29,14 +30,6 @@ const edgeTypes = { link: LinkEdge };
 const CSS_VAR = (name: string) =>
   typeof window === "undefined" ? "#555" : getComputedStyle(document.documentElement).getPropertyValue(name).trim() || "#555";
 
-/** Edges that pass the filter panel, plus the nodes worth showing (ghosts only when still connected). */
-function visibleSubgraph(graph: Graph, filters: Filters): { nodes: GraphNode[]; edges: GraphEdge[] } {
-  const edges = graph.edges.filter((e) => filters[e.kind] && (filters.crossSite || !e.crossSite));
-  const touched = new Set(edges.flatMap((e) => [e.source, e.target]));
-  const nodes = graph.nodes.filter((n) => !n.ghost || touched.has(n.uid));
-  const uids = new Set(nodes.map((n) => n.uid));
-  return { nodes, edges: edges.filter((e) => uids.has(e.source) && uids.has(e.target)) };
-}
 
 export function Canvas({
   graph,

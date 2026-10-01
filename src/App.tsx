@@ -1,17 +1,37 @@
 import { ReactFlowProvider } from "@xyflow/react";
 import { useState } from "react";
-import { configStore, jiraSource } from "./platform";
+import { configStore, jiraSource, openExternal } from "./platform";
 import { useDomino } from "./state/useDomino";
+import { useStatusHistory } from "./state/useStatusHistory";
 import { Canvas, useFocusNode, type Filters, type ViewOptions } from "./ui/Canvas";
 import { ErrorBanner } from "./ui/ErrorBanner";
 import { FilterPanel } from "./ui/FilterPanel";
 import { ScopeInputs } from "./ui/ScopeInputs";
 import { SettingsDialog } from "./ui/Settings/SettingsDialog";
 import { SiteSelector } from "./ui/SiteSelector";
+import { Timeline } from "./ui/timeline/Timeline";
+import { isViewMode, ViewToggle, type ViewMode } from "./ui/ViewToggle";
 import { WarningsPanel } from "./ui/WarningsPanel";
 
 const DEFAULT_FILTERS: Filters = { blocks: true, relates: false, duplicates: false, crossSite: true };
 const DEFAULT_VIEW: ViewOptions = { groupBy: "none", criticalPath: false, ready: false };
+const VIEW_MODE_KEY = "domino.view";
+
+function loadViewMode(): ViewMode {
+  try {
+    const v = localStorage.getItem(VIEW_MODE_KEY);
+    return v && isViewMode(v) ? v : "graph";
+  } catch {
+    return "graph";
+  }
+}
+
+/** Focus a timeline row by uid (the graph view uses React Flow's viewport instead). */
+function focusTimelineRow(uid: string) {
+  const el = document.querySelector<HTMLElement>(`[data-tl-uid="${CSS.escape(uid)}"]`);
+  el?.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
+  el?.focus({ preventScroll: true });
+}
 
 export function App() {
   return (
@@ -26,8 +46,18 @@ function Shell() {
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [view, setView] = useState(DEFAULT_VIEW);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const focusNode = useFocusNode();
+  const [viewMode, setViewModeState] = useState(loadViewMode);
+  const setViewMode = (m: ViewMode) => {
+    setViewModeState(m);
+    try {
+      localStorage.setItem(VIEW_MODE_KEY, m);
+    } catch {
+      /* ignore */
+    }
+  };
+  const focusGraphNode = useFocusNode();
   const { config, load, graph } = domino;
+  const history = useStatusHistory(jiraSource, graph, viewMode === "timeline");
 
   const errors = load.status === "done" ? load.result.errors : [];
   const full = graph.nodes.filter((n) => !n.ghost).length;
@@ -44,6 +74,7 @@ function Shell() {
             <ScopeInputs sites={domino.selectedSites} scope={domino.scope} onApply={domino.setScope} />
           </>
         )}
+        <ViewToggle value={viewMode} onChange={setViewMode} />
         <span className="status-text" aria-live="polite">
           {load.status === "loading"
             ? "Loading…"
@@ -69,11 +100,15 @@ function Shell() {
       <main className="workspace">
         <aside className="sidebar" aria-label="Filters and warnings">
           <FilterPanel filters={filters} onFilters={setFilters} view={view} onView={setView} />
-          <WarningsPanel graph={graph} onFocusNode={focusNode} />
+          <WarningsPanel graph={graph} onFocusNode={viewMode === "graph" ? focusGraphNode : focusTimelineRow} />
           <Legend />
         </aside>
-        <section className="canvas" aria-label="Dependency graph">
-          <Canvas graph={graph} filters={filters} view={view} showSiteBadges={domino.loadedSiteCount > 1} />
+        <section className="canvas" aria-label={viewMode === "graph" ? "Dependency graph" : "Timeline"}>
+          {viewMode === "graph" ? (
+            <Canvas graph={graph} filters={filters} view={view} showSiteBadges={domino.loadedSiteCount > 1} />
+          ) : (
+            <Timeline graph={graph} filters={filters} view={view} history={history} onOpen={openExternal} />
+          )}
           <CanvasMessage domino={domino} />
         </section>
       </main>

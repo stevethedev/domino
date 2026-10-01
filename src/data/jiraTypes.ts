@@ -42,6 +42,10 @@ export type RawIssue = {
     customfield_10016?: number | null;
     /** Legacy "Epic Link" (older company-managed projects): the epic's key. */
     customfield_10014?: string | null;
+    /** ISO datetime the issue was resolved, or null. */
+    resolutiondate?: string | null;
+    /** "YYYY-MM-DD", or null. */
+    duedate?: string | null;
     parent?: RawLinkedIssue;
     issuelinks?: RawIssueLink[];
   };
@@ -63,3 +67,22 @@ export type RawSiteData = {
   remoteLinks: Record<string, RawRemoteLink[]>;
   linkTypes: RawLinkType[];
 };
+
+/** One field change inside a changelog entry. Status changes carry status ids in from/to. */
+export type RawChangeItem = {
+  field?: string;
+  fieldId?: string;
+  from?: string | null;
+  fromString?: string | null;
+  to?: string | null;
+  toString?: string | null;
+};
+
+/** `created` is an ISO datetime (or epoch ms from some endpoints). */
+export type RawChangeHistory = { id?: string; created: string | number; items: RawChangeItem[] };
+
+/** One issue's entry in `POST /rest/api/3/changelog/bulkfetch` → `issueChangeLogs`. */
+export type RawIssueChangeLog = { issueId: string; changeHistories: RawChangeHistory[] };
+
+/** `GET /rest/api/3/status` item. */
+export type RawStatusDef = { id: string; name: string; statusCategory: { key: RawStatusCategoryKey; name?: string } };

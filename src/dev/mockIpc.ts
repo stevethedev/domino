@@ -78,6 +78,12 @@ export async function installMockIpc() {
         return wrap(() => source.fetchRemoteLinks(site(siteId).id, key));
       case "fetch_link_types":
         return wrap(async () => ({ issueLinkTypes: await source.fetchLinkTypes(site(siteId).id) }));
+      case "fetch_status_history": {
+        const ids = Array.isArray(args.issueIds) ? args.issueIds.filter((x): x is string => typeof x === "string") : [];
+        return wrap(async () => ({ issueChangeLogs: await source.fetchStatusHistory(site(siteId).id, ids) }));
+      }
+      case "fetch_statuses":
+        return wrap(() => source.fetchStatuses(site(siteId).id));
       case "set_secret":
         secrets.add(str("secretRef"));
         return null;

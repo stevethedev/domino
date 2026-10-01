@@ -97,6 +97,22 @@ pub async fn fetch_link_types(state: State<'_, AppState>, site_id: String) -> Re
     state.backend().link_types(&site).await
 }
 
+#[tauri::command]
+pub async fn fetch_status_history(
+    state: State<'_, AppState>,
+    site_id: String,
+    issue_ids: Vec<String>,
+) -> Result<Value, String> {
+    let site = state.site(&site_id, true)?;
+    state.backend().status_history(&site, &issue_ids).await
+}
+
+#[tauri::command]
+pub async fn fetch_statuses(state: State<'_, AppState>, site_id: String) -> Result<Value, String> {
+    let site = state.site(&site_id, true)?;
+    state.backend().statuses(&site).await
+}
+
 /// Write-only: stores a secret in the OS keychain. An empty value clears it.
 #[tauri::command]
 pub fn set_secret(state: State<'_, AppState>, secret_ref: String, value: String) -> Result<(), String> {

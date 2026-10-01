@@ -23,6 +23,10 @@ pub trait JiraBackend: Send + Sync {
     async fn link_types(&self, site: &SiteConfig) -> JiraResult<Value>;
     /// Ok when the site is reachable and credentials work.
     async fn health(&self, site: &SiteConfig) -> JiraResult<()>;
+    /// `{ "issueChangeLogs": [...] }` with status changes for these issue ids, all pages merged.
+    async fn status_history(&self, site: &SiteConfig, issue_ids: &[String]) -> JiraResult<Value>;
+    /// `GET /rest/api/3/status`: every status with its category.
+    async fn statuses(&self, site: &SiteConfig) -> JiraResult<Value>;
 }
 
 /// The JQL before any `ORDER BY` (any whitespace around the keywords, like the TS `combineJql`).
@@ -57,6 +61,10 @@ pub fn and_filter(clause: &str, filter: Option<&str>) -> String {
     }
 }
 
+
+pub fn is_issue_id(s: &str) -> bool {
+    !s.is_empty() && s.len() <= 20 && s.bytes().all(|b| b.is_ascii_digit())
+}
 
 pub fn is_issue_key(s: &str) -> bool {
     let Some((proj, num)) = s.split_once('-') else { return false };

@@ -1,4 +1,4 @@
-import type { RawIssue, RawLinkType, RawRemoteLink } from "./jiraTypes";
+import type { RawIssue, RawIssueChangeLog, RawLinkType, RawRemoteLink, RawStatusDef } from "./jiraTypes";
 
 /** Raw, Jira-shaped data access for one site at a time. */
 export interface JiraSource {
@@ -9,4 +9,7 @@ export interface JiraSource {
   fetchIssue(siteId: string, key: string): Promise<RawIssue>;
   fetchRemoteLinks(siteId: string, key: string): Promise<RawRemoteLink[]>;
   fetchLinkTypes(siteId: string): Promise<RawLinkType[]>;
+  /** Status changes for these issues (Jira ids), all pages merged. */
+  fetchStatusHistory(siteId: string, issueIds: readonly string[]): Promise<RawIssueChangeLog[]>;
+  fetchStatuses(siteId: string): Promise<RawStatusDef[]>;
 }

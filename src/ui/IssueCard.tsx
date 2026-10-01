@@ -22,6 +22,14 @@ const STATUS_LABEL: Record<StatusCategory, string> = {
 
 const TYPE_GLYPH: Record<string, string> = { Epic: "E", Story: "S", Task: "T", Bug: "B", "Sub-task": "s", Subtask: "s" };
 
+export function TypeIcon({ type }: { type: string }) {
+  return (
+    <span className={`type-icon type-${type.toLowerCase()}`} title={type} aria-hidden="true">
+      {TYPE_GLYPH[type] ?? type[0]?.toUpperCase() ?? "?"}
+    </span>
+  );
+}
+
 function firstName(name?: string) {
   return name?.split(/\s+/)[0] ?? "Unassigned";
 }
@@ -47,7 +55,6 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
   ]
     .filter(Boolean)
     .join(", ");
-  const glyph = TYPE_GLYPH[n.issueType] ?? n.issueType[0]?.toUpperCase() ?? "?";
 
   return (
     <div
@@ -70,9 +77,7 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
     >
       <Handle type="target" position={Position.Left} isConnectable={false} />
       <div className="card-row1">
-        <span className={`type-icon type-${n.issueType.toLowerCase()}`} title={n.issueType} aria-hidden="true">
-          {glyph}
-        </span>
+        <TypeIcon type={n.issueType} />
         <span className="card-key">{n.key}</span>
         <span className={`pill pill-${status}`}>{n.ghost && status === "unknown" ? "Unknown" : n.statusName || STATUS_LABEL[status]}</span>
         {(showSite || n.ghost) && (

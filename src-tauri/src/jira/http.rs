@@ -8,7 +8,7 @@
 //! - Error messages never include credentials or request headers.
 
 use super::oauth::{cloud_id_for, truncate, OAuth};
-use super::{and_filter, is_issue_key, JiraBackend, JiraResult};
+use super::{and_filter, is_issue_id, is_issue_key, JiraBackend, JiraResult};
 use crate::config::{ConfigHandle, SiteAuth, SiteConfig};
 use crate::secrets::SecretStore;
 use async_trait::async_trait;
@@ -19,8 +19,20 @@ use std::sync::Arc;
 use std::time::Duration;
 
 /// `customfield_10014` is the legacy "Epic Link" field, a fallback for epics on older company-managed projects.
-pub const FIELDS: &[&str] =
-    &["summary", "issuetype", "status", "assignee", "customfield_10016", "customfield_10014", "parent", "issuelinks"];
+pub const FIELDS: &[&str] = &[
+    "summary",
+    "issuetype",
+    "status",
+    "assignee",
+    "customfield_10016",
+    "customfield_10014",
+    "parent",
+    "issuelinks",
+    "resolutiondate",
+    "duedate",
+];
+/// `changelog/bulkfetch` accepts up to 1000 issues per request.
+const CHANGELOG_BATCH: usize = 1000;
 const PAGE_SIZE: usize = 100;
 const MAX_RETRIES: u32 = 3;
 const MAX_RETRY_WAIT: Duration = Duration::from_secs(30);
@@ -185,6 +197,24 @@ fn describe_error(site: &SiteConfig, status: StatusCode, detail: &Value) -> Stri
     format!("{} returned {}{hint}{jira}", site.label, status.as_u16())
 }
 
+/// Pages can split one issue's history; join entries for the same issue id.
+fn merge_changelogs(logs: Vec<Value>) -> Vec<Value> {
+    let mut order: Vec<String> = Vec::new();
+    let mut by_id: std::collections::HashMap<String, Vec<Value>> = std::collections::HashMap::new();
+    for log in logs {
+        let id = match &log["issueId"] {
+            Value::String(s) => s.clone(),
+            other => other.to_string(),
+        };
+        let histories = log["changeHistories"].as_array().cloned().unwrap_or_default();
+        if !by_id.contains_key(&id) {
+            order.push(id.clone());
+        }
+        by_id.entry(id).or_default().extend(histories);
+    }
+    order.into_iter().map(|id| json!({ "issueId": id, "changeHistories": by_id.remove(&id).unwrap_or_default() })).collect()
+}
+
 fn check_key(key: &str) -> JiraResult<()> {
     if is_issue_key(key) {
         Ok(())
@@ -223,6 +253,36 @@ impl JiraBackend for HttpBackend {
 
     async fn health(&self, site: &SiteConfig) -> JiraResult<()> {
         self.send(site, Method::GET, "/rest/api/3/myself", None).await.map(|_| ())
+    }
+
+    async fn status_history(&self, site: &SiteConfig, issue_ids: &[String]) -> JiraResult<Value> {
+        if let Some(bad) = issue_ids.iter().find(|id| !is_issue_id(id)) {
+            return Err(format!("\"{bad}\" is not a valid issue id"));
+        }
+        let mut logs = Vec::new();
+        for batch in issue_ids.chunks(CHANGELOG_BATCH) {
+            let mut next: Option<String> = None;
+            loop {
+                let mut body = json!({ "issueIdsOrKeys": batch, "fieldIds": ["status"], "maxResults": CHANGELOG_BATCH });
+                if let Some(tok) = &next {
+                    body["nextPageToken"] = json!(tok);
+                }
+                let page = self.send(site, Method::POST, "/rest/api/3/changelog/bulkfetch", Some(&body)).await?;
+                let items = page["issueChangeLogs"].as_array().cloned().unwrap_or_default();
+                let empty = items.is_empty();
+                logs.extend(items);
+                let prev = next.take();
+                next = page["nextPageToken"].as_str().map(String::from);
+                if empty || next.is_none() || next == prev {
+                    break;
+                }
+            }
+        }
+        Ok(json!({ "issueChangeLogs": merge_changelogs(logs) }))
+    }
+
+    async fn statuses(&self, site: &SiteConfig) -> JiraResult<Value> {
+        self.send(site, Method::GET, "/rest/api/3/status", None).await
     }
 }
 
@@ -408,6 +468,31 @@ mod tests {
         f.backend.health(&partner).await.unwrap();
         assert_eq!(f.config.site("partner").unwrap().cloud_id.as_deref(), Some("cloud-9"));
         f.backend.health(&partner).await.unwrap(); // second call: cached cloudId, no discovery
+    }
+
+    #[tokio::test]
+    async fn status_history_pages_merges_and_validates_ids() {
+        let f = fixture().await;
+        let entry = |id: &str, h: &str| json!({ "issueId": id, "changeHistories": [{ "id": h, "created": "2026-09-01T10:00:00.000+0000", "items": [] }] });
+        Mock::given(method("POST"))
+            .and(path("/rest/api/3/changelog/bulkfetch"))
+            .and(body_partial_json(json!({ "nextPageToken": "p2" })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "issueChangeLogs": [entry("2", "c"), entry("1", "b")] })))
+            .mount(&f.server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/rest/api/3/changelog/bulkfetch"))
+            .and(body_partial_json(json!({ "issueIdsOrKeys": ["1", "2"], "fieldIds": ["status"] })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "issueChangeLogs": [entry("1", "a")], "nextPageToken": "p2" })))
+            .mount(&f.server)
+            .await;
+        let v = f.backend.status_history(&acme(&f), &["1".into(), "2".into()]).await.unwrap();
+        let logs = v["issueChangeLogs"].as_array().unwrap();
+        assert_eq!(logs.len(), 2, "issue 1's history split across pages is merged");
+        assert_eq!(logs[0]["issueId"], "1");
+        assert_eq!(logs[0]["changeHistories"].as_array().unwrap().len(), 2);
+
+        assert!(f.backend.status_history(&acme(&f), &["1; DROP".into()]).await.is_err());
     }
 
     #[tokio::test]

@@ -22,6 +22,10 @@ export type GraphNode = {
   ghost: boolean;
   /** The epic this issue rolls up to (an epic points at itself). Unknown for ghosts. */
   epic?: EpicRef;
+  /** Jira's numeric issue id, needed to match changelog entries. Unknown for ghosts. */
+  jiraId?: string;
+  /** Calendar days ("YYYY-MM-DD") from Jira fields. */
+  dates?: { resolved?: string; due?: string };
 };
 
 export type EpicRef = { uid: string; key: string; summary?: string; url: string };

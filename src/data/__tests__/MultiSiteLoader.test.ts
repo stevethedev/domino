@@ -25,12 +25,13 @@ describe("MultiSiteLoader", () => {
     const seen: string[] = [];
     const inner = new FixtureSource(mockSites, mockLinkTypes);
     const spy: JiraSource = {
-      ...inner,
       fetchByJql: (s, j, m) => (seen.push(`${s}: ${j}`), inner.fetchByJql(s, j, m)),
       fetchEpic: (s, k, f) => inner.fetchEpic(s, k, f),
       fetchIssue: (s, k) => inner.fetchIssue(s, k),
       fetchRemoteLinks: (s, k) => inner.fetchRemoteLinks(s, k),
       fetchLinkTypes: (s) => inner.fetchLinkTypes(s),
+      fetchStatusHistory: (s, ids) => inner.fetchStatusHistory(s, ids),
+      fetchStatuses: (s) => inner.fetchStatuses(s),
     };
     await new MultiSiteLoader(spy).load({ mode: "jql", jql: "statusCategory != Done" }, selected, sites);
     expect(seen.sort()).toEqual([
@@ -126,6 +127,8 @@ describe("MultiSiteLoader", () => {
       fetchIssue: (s, k) => slow(s, () => inner.fetchIssue(s, k))(),
       fetchRemoteLinks: (s, k) => slow(s, () => inner.fetchRemoteLinks(s, k))(),
       fetchLinkTypes: (s) => slow(s, () => inner.fetchLinkTypes(s))(),
+      fetchStatusHistory: (s, ids) => slow(s, () => inner.fetchStatusHistory(s, ids))(),
+      fetchStatuses: (s) => slow(s, () => inner.fetchStatuses(s))(),
     };
     await new MultiSiteLoader(src).load({ mode: "jql", jql: "" }, selected, sites);
     expect(peak).toBeLessThanOrEqual(4);

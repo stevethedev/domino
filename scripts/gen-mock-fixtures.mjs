@@ -114,6 +114,39 @@ const REMOTE = [
   ["partner", "CORE-7", "20004", "discussed with", `${SITES.acme}/browse/CORE-7`, "CORE-7"],
 ];
 
+// Timeline data, in calendar days relative to the day the fixtures are generated (negative = past).
+// start: moved to In Progress; review: moved to In Review; done: resolved; due: Jira due date.
+const TIMES = {
+  acme: {
+    "CORE-1": { start: -26 },
+    "CORE-7": { start: -4 },
+    "CORE-10": { due: 4 },
+    "CORE-12": { start: -32, done: -27 },
+    "CORE-14": { start: -14, done: -12 },
+    "CORE-15": { start: -6, review: -2 },
+    "CORE-16": { start: -2 },
+    "CORE-20": { start: -9 },
+    "WEB-1": { due: 18 },
+    "WEB-2": { due: 21 },
+    "WEB-4": { start: -20, done: -18 },
+    "OPS-3": { start: -5 },
+  },
+  partner: {
+    "PAY-20": { start: -24 },
+    "PAY-1": { start: -24, done: -19 },
+    "PAY-2": { start: -17 }, // 8 points, still open: overrunning
+    "PAY-3": { due: 6 },
+    "PAY-4": { start: -7 },
+    "PAY-5": { start: -30, done: -29 },
+    "PAY-8": { start: -3 },
+    "PAY-10": { start: -8, review: -3 },
+  },
+};
+
+const GENERATED_ON = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate()));
+const at = (offsetDays, hour = 15) => new Date(GENERATED_ON.getTime() + offsetDays * 86_400_000 + hour * 3_600_000);
+const jiraDateTime = (d) => d.toISOString().replace("Z", "+0000");
+
 const ISSUE_TYPES = {
   Epic: "10000", Story: "10001", Task: "10002", Bug: "10003", "Sub-task": "10004",
 };
@@ -160,6 +193,8 @@ function build(site) {
           ? { accountId: `acc-${assignee.toLowerCase().replace(/\W+/g, "-")}`, displayName: assignee, avatarUrls: {} }
           : null,
         customfield_10016: points,
+        resolutiondate: TIMES[site][key]?.done !== undefined ? jiraDateTime(at(TIMES[site][key].done)) : null,
+        duedate: TIMES[site][key]?.due !== undefined ? at(TIMES[site][key].due).toISOString().slice(0, 10) : null,
         parent: parent ? linkedIssueRef(site, rows.get(parent)) : undefined,
         issuelinks: [],
       },
@@ -187,13 +222,33 @@ function build(site) {
       object: { url, title, icon: {} },
     });
   }
-  return { issues, remoteLinks };
+  // Status changelogs, keyed by Jira issue id, in the bulkfetch `changeHistories` shape.
+  const statusId = (name) => statusObj(name).id;
+  const changelogs = {};
+  for (const issue of issues) {
+    const t = TIMES[site][issue.key];
+    if (!t?.start && t?.start !== 0) continue;
+    const histories = [];
+    const change = (offset, from, to) =>
+      histories.push({
+        id: String(histories.length + 1),
+        created: jiraDateTime(at(offset, 10)),
+        items: [{ field: "status", fieldtype: "jira", fieldId: "status", from: statusId(from), fromString: from, to: statusId(to), toString: to }],
+      });
+    change(t.start, "To Do", "In Progress");
+    if (t.review !== undefined) change(t.review, "In Progress", "In Review");
+    if (t.done !== undefined) change(t.done, t.review !== undefined ? "In Review" : "In Progress", issue.fields.status.name);
+    changelogs[issue.id] = histories;
+  }
+  return { issues, remoteLinks, changelogs };
 }
 
 const linkTypes = { issueLinkTypes: Object.values(LINK_TYPES) };
+// `GET /rest/api/3/status` shape; the same workflow on both mock sites.
+const statuses = Object.keys(STATUS).map((name) => ({ ...statusObj(name), statusCategory: CATS[STATUS[name]] }));
 
 for (const site of Object.keys(SITES)) {
-  writeFileSync(join(out, `${site}.json`), JSON.stringify(build(site), null, 2) + "\n");
+  writeFileSync(join(out, `${site}.json`), JSON.stringify({ generatedOn: GENERATED_ON.toISOString().slice(0, 10), ...build(site), statuses }, null, 2) + "\n");
 }
 writeFileSync(join(out, "linkTypes.json"), JSON.stringify(linkTypes, null, 2) + "\n");
 console.log("wrote", Object.keys(SITES).map((s) => `${s}.json`).join(", "), "linkTypes.json");

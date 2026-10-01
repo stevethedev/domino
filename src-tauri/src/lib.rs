@@ -39,6 +39,8 @@ pub fn run() {
             commands::fetch_issue,
             commands::fetch_remote_links,
             commands::fetch_link_types,
+            commands::fetch_status_history,
+            commands::fetch_statuses,
             commands::set_secret,
             commands::secret_status,
             commands::oauth_status,

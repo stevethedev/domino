@@ -1,5 +1,5 @@
 import type { JiraSource } from "./JiraSource";
-import type { RawIssue, RawLinkType, RawRemoteLink } from "./jiraTypes";
+import type { RawIssue, RawIssueChangeLog, RawLinkType, RawRemoteLink, RawStatusDef } from "./jiraTypes";
 import type { MockSite } from "./mockData";
 import { combineJql } from "./jqlPresets";
 import { matchesMockJql, parseMockJql } from "./mockJql";
@@ -41,6 +41,15 @@ export class FixtureSource implements JiraSource {
 
   async fetchRemoteLinks(siteId: string, key: string): Promise<RawRemoteLink[]> {
     return this.site(siteId).remoteLinks[key] ?? [];
+  }
+
+  async fetchStatusHistory(siteId: string, issueIds: readonly string[]): Promise<RawIssueChangeLog[]> {
+    const logs = this.site(siteId).changelogs ?? {};
+    return issueIds.filter((id) => logs[id]).map((id) => ({ issueId: id, changeHistories: logs[id] }));
+  }
+
+  async fetchStatuses(siteId: string): Promise<RawStatusDef[]> {
+    return this.site(siteId).statuses ?? [];
   }
 
   async fetchLinkTypes(siteId: string): Promise<RawLinkType[]> {

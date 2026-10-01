@@ -1,4 +1,5 @@
 {
+  "generatedOn": "2026-10-01",
   "issues": [
     {
       "id": "208020",
@@ -28,6 +29,8 @@
           "avatarUrls": {}
         },
         "customfield_10016": null,
+        "resolutiondate": null,
+        "duedate": null,
         "issuelinks": []
       }
     },
@@ -59,6 +62,8 @@
           "avatarUrls": {}
         },
         "customfield_10016": 3,
+        "resolutiondate": "2026-09-12T15:00:00.000+0000",
+        "duedate": null,
         "parent": {
           "id": "208020",
           "key": "PAY-20",
@@ -150,6 +155,8 @@
           "avatarUrls": {}
         },
         "customfield_10016": 8,
+        "resolutiondate": null,
+        "duedate": null,
         "parent": {
           "id": "208020",
           "key": "PAY-20",
@@ -276,6 +283,8 @@
           "avatarUrls": {}
         },
         "customfield_10016": 5,
+        "resolutiondate": null,
+        "duedate": "2026-10-07",
         "parent": {
           "id": "208020",
           "key": "PAY-20",
@@ -367,6 +376,8 @@
           "avatarUrls": {}
         },
         "customfield_10016": 2,
+        "resolutiondate": null,
+        "duedate": null,
         "issuelinks": [
           {
             "id": "10003",
@@ -434,6 +445,8 @@
           "avatarUrls": {}
         },
         "customfield_10016": 5,
+        "resolutiondate": null,
+        "duedate": null,
         "issuelinks": [
           {
             "id": "10003",
@@ -536,6 +549,8 @@
           "avatarUrls": {}
         },
         "customfield_10016": 1,
+        "resolutiondate": "2026-09-02T15:00:00.000+0000",
+        "duedate": null,
         "issuelinks": [
           {
             "id": "10004",
@@ -599,6 +614,8 @@
         },
         "assignee": null,
         "customfield_10016": 1,
+        "resolutiondate": null,
+        "duedate": null,
         "issuelinks": [
           {
             "id": "10004",
@@ -666,6 +683,8 @@
           "avatarUrls": {}
         },
         "customfield_10016": 2,
+        "resolutiondate": null,
+        "duedate": null,
         "issuelinks": [
           {
             "id": "10005",
@@ -733,6 +752,8 @@
           "avatarUrls": {}
         },
         "customfield_10016": 2,
+        "resolutiondate": null,
+        "duedate": null,
         "issuelinks": [
           {
             "id": "10005",
@@ -800,6 +821,8 @@
           "avatarUrls": {}
         },
         "customfield_10016": 3,
+        "resolutiondate": null,
+        "duedate": null,
         "issuelinks": [
           {
             "id": "10006",
@@ -909,5 +932,233 @@
         }
       }
     ]
-  }
+  },
+  "changelogs": {
+    "208001": [
+      {
+        "id": "1",
+        "created": "2026-09-07T10:00:00.000+0000",
+        "items": [
+          {
+            "field": "status",
+            "fieldtype": "jira",
+            "fieldId": "status",
+            "from": "1001",
+            "fromString": "To Do",
+            "to": "1002",
+            "toString": "In Progress"
+          }
+        ]
+      },
+      {
+        "id": "2",
+        "created": "2026-09-12T10:00:00.000+0000",
+        "items": [
+          {
+            "field": "status",
+            "fieldtype": "jira",
+            "fieldId": "status",
+            "from": "1002",
+            "fromString": "In Progress",
+            "to": "1004",
+            "toString": "Done"
+          }
+        ]
+      }
+    ],
+    "208002": [
+      {
+        "id": "1",
+        "created": "2026-09-14T10:00:00.000+0000",
+        "items": [
+          {
+            "field": "status",
+            "fieldtype": "jira",
+            "fieldId": "status",
+            "from": "1001",
+            "fromString": "To Do",
+            "to": "1002",
+            "toString": "In Progress"
+          }
+        ]
+      }
+    ],
+    "208004": [
+      {
+        "id": "1",
+        "created": "2026-09-24T10:00:00.000+0000",
+        "items": [
+          {
+            "field": "status",
+            "fieldtype": "jira",
+            "fieldId": "status",
+            "from": "1001",
+            "fromString": "To Do",
+            "to": "1002",
+            "toString": "In Progress"
+          }
+        ]
+      }
+    ],
+    "208005": [
+      {
+        "id": "1",
+        "created": "2026-09-01T10:00:00.000+0000",
+        "items": [
+          {
+            "field": "status",
+            "fieldtype": "jira",
+            "fieldId": "status",
+            "from": "1001",
+            "fromString": "To Do",
+            "to": "1002",
+            "toString": "In Progress"
+          }
+        ]
+      },
+      {
+        "id": "2",
+        "created": "2026-09-02T10:00:00.000+0000",
+        "items": [
+          {
+            "field": "status",
+            "fieldtype": "jira",
+            "fieldId": "status",
+            "from": "1002",
+            "fromString": "In Progress",
+            "to": "1004",
+            "toString": "Done"
+          }
+        ]
+      }
+    ],
+    "208008": [
+      {
+        "id": "1",
+        "created": "2026-09-28T10:00:00.000+0000",
+        "items": [
+          {
+            "field": "status",
+            "fieldtype": "jira",
+            "fieldId": "status",
+            "from": "1001",
+            "fromString": "To Do",
+            "to": "1002",
+            "toString": "In Progress"
+          }
+        ]
+      }
+    ],
+    "208010": [
+      {
+        "id": "1",
+        "created": "2026-09-23T10:00:00.000+0000",
+        "items": [
+          {
+            "field": "status",
+            "fieldtype": "jira",
+            "fieldId": "status",
+            "from": "1001",
+            "fromString": "To Do",
+            "to": "1002",
+            "toString": "In Progress"
+          }
+        ]
+      },
+      {
+        "id": "2",
+        "created": "2026-09-28T10:00:00.000+0000",
+        "items": [
+          {
+            "field": "status",
+            "fieldtype": "jira",
+            "fieldId": "status",
+            "from": "1002",
+            "fromString": "In Progress",
+            "to": "1003",
+            "toString": "In Review"
+          }
+        ]
+      }
+    ],
+    "208020": [
+      {
+        "id": "1",
+        "created": "2026-09-07T10:00:00.000+0000",
+        "items": [
+          {
+            "field": "status",
+            "fieldtype": "jira",
+            "fieldId": "status",
+            "from": "1001",
+            "fromString": "To Do",
+            "to": "1002",
+            "toString": "In Progress"
+          }
+        ]
+      }
+    ]
+  },
+  "statuses": [
+    {
+      "name": "Backlog",
+      "id": "1000",
+      "statusCategory": {
+        "id": 2,
+        "key": "new",
+        "name": "To Do",
+        "colorName": "blue-gray"
+      }
+    },
+    {
+      "name": "To Do",
+      "id": "1001",
+      "statusCategory": {
+        "id": 2,
+        "key": "new",
+        "name": "To Do",
+        "colorName": "blue-gray"
+      }
+    },
+    {
+      "name": "In Progress",
+      "id": "1002",
+      "statusCategory": {
+        "id": 4,
+        "key": "indeterminate",
+        "name": "In Progress",
+        "colorName": "yellow"
+      }
+    },
+    {
+      "name": "In Review",
+      "id": "1003",
+      "statusCategory": {
+        "id": 4,
+        "key": "indeterminate",
+        "name": "In Progress",
+        "colorName": "yellow"
+      }
+    },
+    {
+      "name": "Done",
+      "id": "1004",
+      "statusCategory": {
+        "id": 3,
+        "key": "done",
+        "name": "Done",
+        "colorName": "green"
+      }
+    },
+    {
+      "name": "Closed",
+      "id": "1005",
+      "statusCategory": {
+        "id": 3,
+        "key": "done",
+        "name": "Done",
+        "colorName": "green"
+      }
+    }
+  ]
 }
