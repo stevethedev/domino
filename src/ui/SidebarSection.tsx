@@ -1,11 +1,13 @@
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import { usePersistentState } from "../state/storage";
 
 const asBool = (raw: unknown) => (typeof raw === "boolean" ? raw : undefined);
 
 /**
- * One collapsible sidebar section: a full-strength title with an optional count badge, and a body.
- * Open/closed is remembered per section. Sub-headings inside a body use `.subhead`.
+ * One collapsible sidebar section, using the disclosure pattern: a real <h2> wrapping a toggle
+ * button (aria-expanded / aria-controls), so the heading stays in screen readers' heading
+ * navigation. Open/closed is remembered per section; the body stays mounted while collapsed.
+ * Sub-headings inside a body use `.subhead`.
  */
 export function SidebarSection({
   id,
@@ -25,20 +27,31 @@ export function SidebarSection({
   children: ReactNode;
 }) {
   const [open, setOpen] = usePersistentState(`domino.sidebar.${id}`, asBool, defaultOpen);
+  const bodyId = useId();
   return (
-    <details
-      className={`sb-section${tone ? ` tone-${tone}` : ""}`}
-      open={open}
-      onToggle={(e) => {
-        if (e.currentTarget.open !== open) setOpen(e.currentTarget.open);
-      }}
-    >
-      <summary>
-        <span className="sb-chevron" aria-hidden="true" />
-        <h2 className="sb-title">{title}</h2>
-        {badge !== undefined && <span className="sb-badge">{badge}</span>}
-      </summary>
-      <div className="sb-body">{children}</div>
-    </details>
+    <section className={`sb-section${tone ? ` tone-${tone}` : ""}`} data-open={open}>
+      <h2 className="sb-heading">
+        <button
+          type="button"
+          className="sb-toggle"
+          aria-expanded={open}
+          aria-controls={bodyId}
+          // Starts with the visible title, so voice control ("click Warnings") still matches.
+          aria-label={badge !== undefined ? `${title}, ${badge}` : undefined}
+          onClick={() => setOpen(!open)}
+        >
+          <span className="sb-chevron" aria-hidden="true" />
+          <span className="sb-title">{title}</span>
+          {badge !== undefined && (
+            <span className="sb-badge" aria-hidden="true">
+              {badge}
+            </span>
+          )}
+        </button>
+      </h2>
+      <div id={bodyId} className="sb-body" hidden={!open}>
+        {children}
+      </div>
+    </section>
   );
 }
