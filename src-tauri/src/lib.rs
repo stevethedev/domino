@@ -8,7 +8,7 @@ use config::{ConfigFile, ConfigHandle};
 use jira::http::{http_client, HttpBackend};
 use jira::mock::MockBackend;
 use jira::oauth::OAuth;
-use secrets::{Keychain, SecretStore};
+use secrets::{CachedSecrets, Keychain, SecretStore};
 use std::sync::Arc;
 use tauri::Manager;
 
@@ -23,7 +23,7 @@ pub fn run() {
             let dir = app.path().app_config_dir()?;
             let config = Arc::new(ConfigHandle::load(ConfigFile::new(&dir)).map_err(|e| -> Box<dyn std::error::Error> { e.into() })?);
             log::info!("config: {}", dir.join("domino.config.json").display());
-            let secrets: Arc<dyn SecretStore> = Arc::new(Keychain);
+            let secrets: Arc<dyn SecretStore> = Arc::new(CachedSecrets::new(Keychain));
             let http = http_client();
             let oauth = Arc::new(OAuth::new(http.clone(), secrets.clone()));
             let http_backend = Arc::new(HttpBackend::new(http, secrets.clone(), oauth.clone(), config.clone()));
