@@ -94,10 +94,17 @@ export async function computeLayout(
   const out = await elk.layout(root);
   const flat = new Map((out.children ?? []).map((c) => [c.id, { x: c.x ?? 0, y: c.y ?? 0 }]));
   if (!laneOf) return { positions: flat, groups: [] };
-  return swimlanes(sorted, flat, laneOf);
+  // Edges drawn straight between cards; cycle-breaking back edges loop around the row instead.
+  const links = edges.filter((e) => !brokenEdgeIds.has(e.id) && visible.has(e.source) && visible.has(e.target) && e.source !== e.target);
+  return swimlanes(sorted, links, flat, laneOf);
 }
 
-function swimlanes(nodes: readonly GraphNode[], flat: Map<string, { x: number; y: number }>, laneOf: LaneFn): Layout {
+function swimlanes(
+  nodes: readonly GraphNode[],
+  links: readonly GraphEdge[],
+  flat: Map<string, { x: number; y: number }>,
+  laneOf: LaneFn,
+): Layout {
   const byLane = new Map<string, { lane: Lane; members: GraphNode[] }>();
   for (const n of nodes) {
     const lane = laneOf(n);
@@ -117,20 +124,18 @@ function swimlanes(nodes: readonly GraphNode[], flat: Map<string, { x: number; y
   for (const { lane, members } of lanes) {
     // Rows come from the flat layout and move as whole units, so cards ELK put on one row stay on
     // one lane row (straight chains stay straight). Flat rows are then packed greedily, top to
-    // bottom, into the first lane row where none of their cards would collide horizontally.
-    const byFlatRow = new Map<number, number[]>(); // flat y -> card x positions
+    // bottom, into the first lane row they fit (see `fitsRow`).
+    const byFlatRow = new Map<number, string[]>(); // flat y -> uids
     for (const n of members) {
-      const { x, y } = flat.get(n.uid)!;
-      byFlatRow.set(y, [...(byFlatRow.get(y) ?? []), x]);
+      const { y } = flat.get(n.uid)!;
+      byFlatRow.set(y, [...(byFlatRow.get(y) ?? []), n.uid]);
     }
-    const collides = (xs: readonly number[], ys: readonly number[]) =>
-      xs.some((a) => ys.some((b) => Math.abs(a - b) < CARD_WIDTH + LANE_GAP / 2));
-    const rows: number[][] = []; // lane row -> card x positions already placed
+    const rows: string[][] = []; // lane row -> uids
     const rowOfY = new Map<number, number>();
-    for (const [y, xs] of [...byFlatRow].sort(([a], [b]) => a - b)) {
-      let r = rows.findIndex((placed) => !collides(placed, xs));
+    for (const [y, uids] of [...byFlatRow].sort(([a], [b]) => a - b)) {
+      let r = rows.findIndex((placed) => fitsRow(placed, uids, links, flat));
       if (r === -1) r = rows.push([]) - 1;
-      rows[r].push(...xs);
+      rows[r].push(...uids);
       rowOfY.set(y, r);
     }
     const rowOf = new Map(members.map((n) => [n.uid, rowOfY.get(flat.get(n.uid)!.y)!]));
@@ -150,4 +155,26 @@ function swimlanes(nodes: readonly GraphNode[], flat: Map<string, { x: number; y
     top += height + LANE_SPACING;
   }
   return { positions, groups };
+}
+
+/**
+ * Whether `incoming` cards can share a lane row with `placed` ones: no two cards collide
+ * horizontally, and no link between two cards on the row runs straight over a third card
+ * (which would read as part of the chain).
+ */
+function fitsRow(
+  placed: readonly string[],
+  incoming: readonly string[],
+  links: readonly GraphEdge[],
+  flat: ReadonlyMap<string, { x: number; y: number }>,
+): boolean {
+  const x = (uid: string) => flat.get(uid)!.x;
+  if (incoming.some((a) => placed.some((b) => Math.abs(x(a) - x(b)) < CARD_WIDTH + LANE_GAP / 2))) return false;
+  const row = [...placed, ...incoming];
+  const onRow = new Set(row);
+  return links.every(({ source, target }) => {
+    if (!onRow.has(source) || !onRow.has(target)) return true;
+    const [lo, hi] = [x(source), x(target)].sort((a, b) => a - b);
+    return row.every((uid) => uid === source || uid === target || x(uid) <= lo || x(uid) >= hi);
+  });
 }

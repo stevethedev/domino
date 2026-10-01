@@ -28,15 +28,14 @@ export type ArrowModel = {
 export function arrowAnchors(
   blocker: TimelineEntry,
   blocked: TimelineEntry,
-  blockerGhost: boolean,
-  blockedGhost: boolean,
+  /** Which end has no drawn position (an arrow between two such ends isn't drawn at all). */
+  ghostEnd: "blocker" | "blocked" | null,
 ): { from: Day; to: Day; stub: "from" | "to" | null } {
-  if (blockerGhost && blockedGhost) return { from: blocker.projected.end, to: blocked.projected.start, stub: null };
-  if (blockerGhost) {
+  if (ghostEnd === "blocker") {
     const to = workSpan(blocked).start;
     return { from: to, to, stub: "from" };
   }
-  if (blockedGhost) {
+  if (ghostEnd === "blocked") {
     const from = workSpan(blocker).end;
     return { from, to: from, stub: "to" };
   }

@@ -91,18 +91,19 @@ export function Timeline({
   };
   const arrows: ArrowModel[] = edges
     .filter((e) => e.kind === "blocks" && !graph.brokenEdgeIds.has(e.id) && rowY.has(e.source) && rowY.has(e.target))
-    .filter((e) => !(drawn(e.source).positionless && drawn(e.target).positionless)) // nothing real to connect
-    .map((e) => ({
-      edge: e,
-      ...(() => {
-        const [from, to] = [drawn(e.source), drawn(e.target)];
-        return arrowAnchors(from.entry, to.entry, from.positionless, to.positionless);
-      })(),
-      violated: isViolated(timeline.get(e.source)!, timeline.get(e.target)!),
-      inCycle: graph.cycleEdgeIds.has(e.id),
-      critical: criticalEdges.has(e.id),
-      dimmed: chain ? !chain.edges.has(e.id) : emphasized ? !criticalEdges.has(e.id) : false,
-    }));
+    .flatMap((e) => {
+      const [from, to] = [drawn(e.source), drawn(e.target)];
+      if (from.positionless && to.positionless) return []; // nothing real to connect
+      const ghostEnd = from.positionless ? "blocker" : to.positionless ? "blocked" : null;
+      return [{
+        edge: e,
+        ...arrowAnchors(from.entry, to.entry, ghostEnd),
+        violated: isViolated(timeline.get(e.source)!, timeline.get(e.target)!),
+        inCycle: graph.cycleEdgeIds.has(e.id),
+        critical: criticalEdges.has(e.id),
+        dimmed: chain ? !chain.edges.has(e.id) : emphasized ? !criticalEdges.has(e.id) : false,
+      }];
+    });
 
   const late = rows.filter((r) => !r.node.ghost && !isEpicNode(r.node) && r.entry.varianceDays > 0).length;
   const chartWidth = range ? xOf(range.start, range.end, settings.scale) + PX_PER_DAY[settings.scale] : 0;

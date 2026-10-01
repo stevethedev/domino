@@ -175,8 +175,8 @@ kbd {
   border: none; border-radius: 0; background: none; font: inherit; color: inherit; cursor: pointer; user-select: none;
 }
 .sb-toggle:hover:not(:disabled) { background: none; }
-.sb-toggle:hover .sb-toggle:focus-visible { outline-offset: -3px; }
-.sb-title { color: var(--accent); }
+.sb-toggle:hover .sb-title { color: var(--accent); }
+.sb-toggle:focus-visible { outline-offset: -3px; }
 .sb-title { font-size: 14px; font-weight: 700; color: var(--text); letter-spacing: -0.1px; flex: 1; min-width: 0; }
 .sb-chevron {
   width: 0; height: 0; flex: none; border-left: 5px solid var(--muted); border-top: 4px solid transparent; border-bottom: 4px solid transparent;

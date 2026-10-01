@@ -26,19 +26,19 @@ describe("arrowAnchors", () => {
     const blocker: TimelineEntry = { projected, progress: { state: "started", actualStart: "2026-09-07", forecast: { start: "2026-10-01", end: "2026-10-03" } }, varianceDays: 15 };
     const blocked: TimelineEntry = { projected: { start: "2026-09-10", end: "2026-09-12" }, progress: { state: "not-started", forecast: { start: "2026-10-03", end: "2026-10-06" } }, varianceDays: 15 };
     // Finish-to-start: the dependent's forecast starts exactly where the blocker's forecast ends.
-    expect(arrowAnchors(blocker, blocked, false, false)).toEqual({ from: "2026-10-03", to: "2026-10-03", stub: null });
+    expect(arrowAnchors(blocker, blocked, null)).toEqual({ from: "2026-10-03", to: "2026-10-03", stub: null });
   });
 
   it("uses actual dates for done and started work", () => {
     const done: TimelineEntry = { projected, progress: { state: "done", actual: { start: "2026-09-08", end: "2026-09-15" } }, varianceDays: 3 };
     const started: TimelineEntry = { projected, progress: { state: "started", actualStart: "2026-09-16", forecast: { start: "2026-10-01", end: "2026-10-02" } }, varianceDays: 0 };
-    expect(arrowAnchors(done, started, false, false)).toEqual({ from: "2026-09-15", to: "2026-09-16", stub: null });
+    expect(arrowAnchors(done, started, null)).toEqual({ from: "2026-09-15", to: "2026-09-16", stub: null });
   });
 
   it("uses a short stub at the known end when one side is a ghost (its dates aren't loaded)", () => {
     const ghost: TimelineEntry = { projected, progress: { state: "unknown", forecast: { start: "2026-10-01", end: "2026-10-03" } }, varianceDays: 0 };
     const started: TimelineEntry = { projected, progress: { state: "started", actualStart: "2026-09-16", forecast: { start: "2026-10-01", end: "2026-10-02" } }, varianceDays: 0 };
-    expect(arrowAnchors(ghost, started, true, false)).toEqual({ from: "2026-09-16", to: "2026-09-16", stub: "from" });
-    expect(arrowAnchors(started, ghost, false, true)).toEqual({ from: "2026-10-02", to: "2026-10-02", stub: "to" });
+    expect(arrowAnchors(ghost, started, "blocker")).toEqual({ from: "2026-09-16", to: "2026-09-16", stub: "from" });
+    expect(arrowAnchors(started, ghost, "blocked")).toEqual({ from: "2026-10-02", to: "2026-10-02", stub: "to" });
   });
 });

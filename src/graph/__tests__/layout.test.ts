@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { buildGraph } from "../buildGraph";
-import { CARD_HEIGHT, CARD_WIDTH, computeLayout, laneByEpic, laneBySite, type LaneFn } from "../layout";
+import { CARD_HEIGHT, CARD_WIDTH, computeLayout, laneByEpic, laneBySite, type LaneFn, type Layout } from "../layout";
 import { mockConfig, mockLinkTypes, mockSites } from "../../data/mockData";
+import type { GraphEdge, GraphNode } from "../types";
 
 const g = buildGraph({
   sites: mockConfig.sites,
@@ -77,5 +78,38 @@ describe("swimlanes stay compact", () => {
       return new Set(members.map((u) => lanes.positions.get(u)!.y)).size < new Set(members.map((u) => flat.positions.get(u)!.y)).size;
     });
     expect(denser).toBe(true);
+  });
+
+  // A link between two cards on one lane row is drawn straight along it; a third card in between would read as part of the chain.
+  const expectNoLinkOverCards = (layout: Layout, nodes: readonly GraphNode[], edges: readonly GraphEdge[], broken: ReadonlySet<string> = new Set()) => {
+    const rowKey = (uid: string) => `${layout.positions.get(uid)!.parent}|${layout.positions.get(uid)!.y}`;
+    for (const e of edges) {
+      if (broken.has(e.id) || e.source === e.target || !layout.positions.has(e.source) || !layout.positions.has(e.target)) continue;
+      if (rowKey(e.source) !== rowKey(e.target)) continue;
+      const [lo, hi] = [layout.positions.get(e.source)!.x, layout.positions.get(e.target)!.x].sort((p, q) => p - q);
+      for (const n of nodes) {
+        if (n.uid === e.source || n.uid === e.target || rowKey(n.uid) !== rowKey(e.source)) continue;
+        const x = layout.positions.get(n.uid)!.x;
+        expect(x > lo && x < hi, `${n.uid} sits on ${e.source} -> ${e.target}`).toBe(false);
+      }
+    }
+  };
+
+  it("never packs a card onto a skip-layer link", async () => {
+    // A->C skips a layer; packing X (its own flat row) beside A and C would put it on that line.
+    const node = (key: string): GraphNode => ({
+      uid: `s:${key}`, siteId: "s", siteLabel: "S", key, summary: key, issueType: "Story",
+      statusName: "To Do", statusCategory: "todo", url: "", ghost: false,
+    });
+    const edge = (s: string, t: string): GraphEdge => ({
+      id: `${s}>${t}`, source: `s:${s}`, target: `s:${t}`, kind: "blocks", linkType: "blocks", linkId: `${s}>${t}`, crossSite: false,
+    });
+    const nodes = ["A", "X", "C", "P", "Q", "R"].map(node);
+    const edges = [["A", "X"], ["X", "C"], ["A", "C"], ["P", "Q"], ["Q", "R"], ["P", "R"], ["A", "R"]].map(([s, t]) => edge(s, t));
+    expectNoLinkOverCards(await computeLayout(nodes, edges, new Set(), laneBySite), nodes, edges);
+  });
+
+  it.each(MODES.filter(([, laneOf]) => laneOf))("never packs a card onto a link in the mock data (%s)", async (_, laneOf) => {
+    expectNoLinkOverCards(await computeLayout(g.nodes, g.edges, g.brokenEdgeIds, laneOf), g.nodes, g.edges, g.brokenEdgeIds);
   });
 });
