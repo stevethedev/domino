@@ -148,7 +148,7 @@ h3 {
   border-radius: var(--radius-md);
   transition: border-color var(--duration-fast) var(--ease);
 }
-:where(input, select):hover:not(:disabled, [readonly]) {
+:where(input:hover:not(:disabled, [readonly]), select:hover:not(:disabled)) {
   border-color: color-mix(in srgb, var(--border) 60%, var(--text));
 }
 /* Selects drop the native look (its own caret, and a popup-button shape in WebKit that ignores

@@ -25,10 +25,10 @@ Not every change needs one. Skip it for internal refactors, test-only changes, o
 If you need to do it locally instead:
 
 ```sh
-npm run release:version   # changeset version, then sync Cargo.toml / tauri.conf.json
+GITHUB_TOKEN="$(gh auth token)" npm run release:version   # changeset version, then sync Cargo.toml / tauri.conf.json
 git add -A && git commit -m "chore: version packages"
 git tag "v$(node -p "require('./package.json').version")"
 git push && git push --tags
 ```
 
-The script is `release:version` rather than `version` because npm runs a script named `version` as a hook of its own `npm version` command.
+The changelog plugin looks up each change's commit and author on GitHub, so it needs a token (CI provides one; locally `gh auth token` does). The script is `release:version` rather than `version` because npm runs a script named `version` as a hook of its own `npm version` command.

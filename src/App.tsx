@@ -152,6 +152,8 @@ function Shell(): ReactElement {
     domino.setScope(v.scope);
     setFilters(v.filters);
     setView(v.view);
+    // Show the tile group the view's highlight belongs to, so its tile is pressed and can clear it.
+    if (v.view.highlight !== "none" && v.view.highlight !== "changed") setGlanceScope(v.view.highlightScope);
     setViewMode(v.mode);
   };
   const nodesByUid = useMemo(() => new Map(graph.nodes.map((n) => [n.uid, n])), [graph]);
@@ -264,6 +266,7 @@ function Shell(): ReactElement {
           <SidebarSection id="glance" title="At a glance">
             <Glance
               scope={glanceScope}
+              loaded={loaded}
               onScope={(scope) => {
                 setGlanceScope(scope);
                 // An active tile highlight follows the switch (Blocked stays Blocked, for the new scope),

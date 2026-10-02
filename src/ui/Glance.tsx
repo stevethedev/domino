@@ -18,6 +18,7 @@ const SCOPES: readonly { id: HighlightScope; label: string; title: string; none:
 export function Glance({
   scope,
   onScope,
+  loaded,
   everyoneSummary,
   insights,
   nodes,
@@ -28,6 +29,8 @@ export function Glance({
 }: {
   scope: HighlightScope;
   onScope: (s: HighlightScope) => void;
+  /** Whether a load has finished; until then every scope shows the load status. */
+  loaded: boolean;
   /** The load summary shown for everyone ("12 issues · 6 outside scope · updated …"). */
   everyoneSummary: ReactNode;
   insights: Insights;
@@ -45,8 +48,9 @@ export function Glance({
   let summary: ReactNode = everyoneSummary;
   if (only) {
     const open = [...only].filter((uid) => nodes.get(uid)?.statusCategory !== "done").length;
-    summary =
-      myself.loading && only.size === 0
+    summary = !loaded
+      ? everyoneSummary
+      : myself.loading && only.size === 0
         ? "Finding you on each site…"
         : only.size === 0
           ? current.none

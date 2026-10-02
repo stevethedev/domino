@@ -263,6 +263,9 @@
   --xy-controls-button-background-color: var(--surface);
   --xy-controls-button-color: var(--text);
   --xy-controls-button-border-color: var(--border);
+  /* Our zero-specificity button hover no longer overrides React Flow's (light) hover colours. */
+  --xy-controls-button-background-color-hover: var(--surface-2);
+  --xy-controls-button-color-hover: var(--text);
 }
 .react-flow__node-siteGroup {
   pointer-events: none !important;
