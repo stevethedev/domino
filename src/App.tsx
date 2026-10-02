@@ -20,6 +20,7 @@ import { saveQuery, scopeKeyOf } from "./state/useDomino";
 import { useChanges } from "./state/useChanges";
 import { useStatusHistory } from "./state/useStatusHistory";
 import { useForecast } from "./state/useForecast";
+import { epicLaneId, foldedEpicUids } from "./graph/layout";
 import { Canvas, lanesFor, useFocusNode, type Filters, type ViewOptions } from "./ui/Canvas";
 import { ChangesPanel } from "./ui/ChangesPanel";
 import { ErrorBanner } from "./ui/ErrorBanner";
@@ -53,7 +54,8 @@ const DEFAULT_FILTERS: Filters = {
   issues: NO_ISSUE_FILTERS,
   hideImplied: true,
 };
-const DEFAULT_VIEW: ViewOptions = { groupBy: "none", highlight: "none", highlightScope: "all", collapseEpics: false };
+const DEFAULT_VIEW: ViewOptions = { groupBy: "none", highlight: "none", highlightScope: "all" };
+const NO_FOLDED_EPICS: ReadonlySet<string> = new Set();
 const parseViewMode = oneOf(isViewMode);
 const GLANCE_SCOPE_KEY = "domino.glanceScope";
 const NOTIFY_UNBLOCKED_KEY = "domino.notifyUnblocked";
@@ -201,22 +203,42 @@ function Shell(): ReactElement {
     () => loadedIssues.filter((n) => !passesIssueFilters(n, filters.issues)).length,
     [loadedIssues, filters.issues],
   );
-  const [expandedEpics, setExpandedEpics] = useState<ReadonlySet<string>>(new Set());
+  // Grouped by epic, a collapsed epic lane folds into the epic's summary card in the Graph (the
+  // Timeline folds the same lanes to their header), so both views share one set of folds.
+  const foldedEpics = useMemo(
+    () => (view.groupBy === "epic" ? foldedEpicUids(collapsedLanes) : NO_FOLDED_EPICS),
+    [view.groupBy, collapsedLanes],
+  );
+  const epicLaneIds = useMemo(
+    () => new Set(graph.nodes.flatMap((n) => (!n.ghost && n.epic ? [epicLaneId(n.epic.uid)] : []))),
+    [graph.nodes],
+  );
+  const toggleLane = (laneId: string): void => {
+    const next = new Set(collapsedLanes);
+    if (!next.delete(laneId)) next.add(laneId);
+    setCollapsedLanes(next);
+  };
+  // Cards and lane headers are memoized: hand them a stable function that calls the latest toggle.
+  const latestToggleLane = useRef(toggleLane);
+  latestToggleLane.current = toggleLane;
   const toggleEpic = useCallback((epicUid: string) => {
-    setExpandedEpics((cur) => {
-      const next = new Set(cur);
-      if (!next.delete(epicUid)) next.add(epicUid);
-      return next;
-    });
+    latestToggleLane.current(epicLaneId(epicUid));
   }, []);
-  /** In the epic map, an issue inside a collapsed epic is revealed by expanding that epic first. */
+  const foldAllEpics = (fold: boolean): void => {
+    const next = new Set(collapsedLanes);
+    for (const id of epicLaneIds) {
+      if (fold) next.add(id);
+      else next.delete(id);
+    }
+    setCollapsedLanes(next);
+  };
+  /** In the Graph, an issue inside a folded epic is revealed by unfolding that epic first. */
   const focusInGraph = (uid: string, moveFocus = true, follow = false): void => {
-    // A ghost epic with loaded children is drawn as its summary in the epic map.
-    const isFoldedGhostEpic =
-      view.collapseEpics && nodesByUid.get(uid)?.ghost && !expandedEpics.has(uid) && graph.nodes.some((n) => n.epic?.uid === uid);
+    // A ghost epic with loaded children is drawn as its summary while folded.
+    const isFoldedGhostEpic = foldedEpics.has(uid) && nodesByUid.get(uid)?.ghost && graph.nodes.some((n) => n.epic?.uid === uid);
     if (isFoldedGhostEpic) return void focusGraphNode(summaryUid(uid), moveFocus, follow);
     const epicUid = nodesByUid.get(uid)?.epic?.uid;
-    const hidden = view.collapseEpics && !nodesByUid.get(uid)?.ghost && epicUid && !expandedEpics.has(epicUid);
+    const hidden = !nodesByUid.get(uid)?.ghost && epicUid && foldedEpics.has(epicUid);
     if (!hidden) return void focusGraphNode(uid, moveFocus, follow);
     if (epicUid === uid) return void focusGraphNode(summaryUid(epicUid), moveFocus, follow);
     toggleEpic(epicUid);
@@ -279,10 +301,10 @@ function Shell(): ReactElement {
     if (uid) document.querySelector<HTMLElement>(`[data-uid="${CSS.escape(uid)}"], [data-tl-uid="${CSS.escape(uid)}"]`)?.focus();
   };
   // How many links "Hide implied links" removes from what's drawn (counted even while it's off),
-  // on the graph actually drawn: the epic map has its own, combined links.
+  // on the graph actually drawn: folded epics have their own, combined links.
   const drawnGraph = useMemo(
-    () => (viewMode === "graph" && view.collapseEpics ? collapseEpics(graph, insights, expandedEpics).graph : graph),
-    [viewMode, view.collapseEpics, graph, insights, expandedEpics],
+    () => (viewMode === "graph" && foldedEpics.size > 0 ? collapseEpics(graph, insights, foldedEpics).graph : graph),
+    [viewMode, foldedEpics, graph, insights],
   );
   const impliedLinkCount = useMemo(() => visibleSubgraph(drawnGraph, { ...filters, hideImplied: true }).implied, [drawnGraph, filters]);
   /** Arrow keys on a card or row follow the drawn blocking links (see `step`); an open details panel follows along. */
@@ -324,7 +346,7 @@ function Shell(): ReactElement {
       document.removeEventListener("focusout", onFocusOut);
     };
   }, []);
-  // A new picture (filters, epic map, view) moves the cards: drop the preview until focus moves.
+  // A new picture (filters, folded epics, view) moves the cards: drop the preview until focus moves.
   useEffect(() => {
     setPreview(null);
   }, [drawnGraph, filters, viewMode]);
@@ -495,7 +517,15 @@ function Shell(): ReactElement {
               onFilters={setFilters}
               view={view}
               onView={setView}
-              epicMapAvailable={viewMode === "graph"}
+              epicFolds={
+                view.groupBy === "epic" && epicLaneIds.size > 0
+                  ? {
+                      total: epicLaneIds.size,
+                      folded: [...epicLaneIds].filter((id) => collapsedLanes.has(id)).length,
+                      onFoldAll: foldAllEpics,
+                    }
+                  : undefined
+              }
               issues={loadedIssues}
               impliedLinks={impliedLinkCount}
             />
@@ -512,7 +542,7 @@ function Shell(): ReactElement {
               filters={filters}
               view={view}
               showSiteBadges={domino.loadedSiteCount > 1}
-              expandedEpics={expandedEpics}
+              foldedEpics={foldedEpics}
               onToggleEpic={toggleEpic}
               selectedUid={selectedUid}
               onSelect={selectIssue}

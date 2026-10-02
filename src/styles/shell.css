@@ -1104,3 +1104,13 @@ kbd {
   white-space: nowrap;
   min-width: 0;
 }
+
+/* Display → Layout, while grouped by epic: fold state and Collapse/Expand all. */
+.epic-folds {
+  display: grid;
+  gap: var(--space-1);
+  justify-items: start;
+}
+.epic-folds .hint {
+  margin: 0;
+}

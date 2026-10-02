@@ -353,7 +353,14 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
   );
 });
 
-export type SiteGroupData = { label: string; color?: string; url?: string; onOpen: (url: string) => void; onCollapse?: () => void };
+export type SiteGroupData = {
+  label: string;
+  color?: string;
+  url?: string;
+  onOpen: (url: string) => void;
+  /** Set on epic lanes: whether the epic is folded into its summary card, and how to switch. */
+  fold?: Readonly<{ folded: boolean; onToggle: () => void }>;
+};
 export type SiteGroupNode = Node<SiteGroupData, "siteGroup">;
 
 export const SiteGroup = memo(function SiteGroup({ data }: NodeProps<SiteGroupNode>) {
@@ -375,9 +382,16 @@ export const SiteGroup = memo(function SiteGroup({ data }: NodeProps<SiteGroupNo
       ) : (
         <div className="site-group-label">{data.label}</div>
       )}
-      {data.onCollapse && (
-        <button type="button" className="lane-collapse" onClick={data.onCollapse} aria-label={`Collapse ${data.label}`}>
-          ⊖ Collapse
+      {data.fold && (
+        <button
+          type="button"
+          className="lane-collapse"
+          onClick={data.fold.onToggle}
+          aria-expanded={!data.fold.folded}
+          aria-label={`${data.fold.folded ? "Expand" : "Collapse"} ${data.label}`}
+          title={data.fold.folded ? "Show the epic's issues" : "Fold the epic into one summary card"}
+        >
+          {data.fold.folded ? "⊕ Expand" : "⊖ Collapse"}
         </button>
       )}
     </div>

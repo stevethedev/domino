@@ -34,10 +34,13 @@ function sample(): { g: Graph; insights: Insights } {
   return { g, insights: computeInsights(g) };
 }
 
+/** Every epic in the graph, i.e. all of them folded. */
+const everyEpic = (g: Graph): Set<string> => new Set(g.nodes.flatMap((n) => (!n.ghost && n.epic ? [n.epic.uid] : [])));
+
 describe("collapseEpics", () => {
   it("replaces each epic and its issues with one summary node, keeping loose issues", () => {
     const { g, insights } = sample();
-    const c = collapseEpics(g, insights, new Set());
+    const c = collapseEpics(g, insights, everyEpic(g));
     expect(c.graph.nodes.map((n) => n.uid).sort()).toEqual(["a:L-1", summaryUid("a:E-1"), summaryUid("a:E-2")].sort());
     const e1 = defined(
       c.graph.nodes.find((n) => n.uid === summaryUid("a:E-1")),
@@ -50,7 +53,7 @@ describe("collapseEpics", () => {
 
   it("combines links between epics with total and open counts, and drops links inside an epic", () => {
     const { g, insights } = sample();
-    const c = collapseEpics(g, insights, new Set());
+    const c = collapseEpics(g, insights, everyEpic(g));
     const e1e2 = defined(
       c.graph.edges.find((e) => e.source === summaryUid("a:E-1") && e.target === summaryUid("a:E-2")),
       "edge",
@@ -65,11 +68,24 @@ describe("collapseEpics", () => {
     expect(c.graph.edges).toHaveLength(2);
   });
 
-  it("shows an expanded epic's issues individually again", () => {
+  it("folds only the listed epics, leaving the others issue by issue", () => {
     const { g, insights } = sample();
-    const c = collapseEpics(g, insights, new Set(["a:E-1"]));
+    const c = collapseEpics(g, insights, new Set(["a:E-2"]));
     expect(c.graph.nodes.map((n) => n.uid)).toEqual(expect.arrayContaining(["a:A-1", "a:A-2", "a:E-1", summaryUid("a:E-2")]));
     expect(c.graph.edges.some((e) => e.id === "a:link:1")).toBe(true); // original edge, untouched
+  });
+
+  it("keeps a folded epic in its own lane: the summary carries the epic", () => {
+    const { g, insights } = sample();
+    const summary = collapseEpics(g, insights, new Set(["a:E-2"])).graph.nodes.find((n) => n.uid === summaryUid("a:E-2"));
+    expect(summary?.epic?.uid).toBe("a:E-2");
+  });
+
+  it("changes nothing when no epic is folded", () => {
+    const { g, insights } = sample();
+    const c = collapseEpics(g, insights, new Set());
+    expect(c.graph.nodes.map((n) => n.uid).sort()).toEqual(g.nodes.map((n) => n.uid).sort());
+    expect(c.graph.edges).toHaveLength(g.edges.length);
   });
 
   it("detects cycles between epics", () => {
@@ -80,7 +96,7 @@ describe("collapseEpics", () => {
     link("1", BLOCKS, x, y);
     link("2", BLOCKS, y, x);
     const g = buildGraph({ sites: [A], data: [data("a", [e1, e2, x, y])] });
-    expect(collapseEpics(g, computeInsights(g), new Set()).graph.cycles).toHaveLength(1);
+    expect(collapseEpics(g, computeInsights(g), everyEpic(g)).graph.cycles).toHaveLength(1);
   });
 });
 
@@ -93,7 +109,7 @@ describe("collapseEpics edge cases", () => {
     link("1", BLOCKS, other, epic, { out: true, in: false }); // E-1 appears only as a ghost of X-1's link
     const g = buildGraph({ sites: [A], data: [data("a", [child, other])] });
     expect(g.nodes.find((n) => n.uid === "a:E-1")?.ghost).toBe(true);
-    const c = collapseEpics(g, computeInsights(g), new Set());
+    const c = collapseEpics(g, computeInsights(g), everyEpic(g));
     const summary = defined(
       c.graph.nodes.find((n) => n.uid === summaryUid("a:E-1")),
       "node",
@@ -112,7 +128,7 @@ describe("collapseEpics edge cases", () => {
     const epic = issue("E-1", "done");
     epic.fields.issuetype = { name: "Epic", hierarchyLevel: 1 };
     const g = buildGraph({ sites: [A], data: [data("a", [epic])] });
-    const summary = collapseEpics(g, computeInsights(g), new Set()).graph.nodes[0];
+    const summary = collapseEpics(g, computeInsights(g), everyEpic(g)).graph.nodes[0];
     expect(summary).toMatchObject({ statusCategory: "done", statusName: "Done" });
   });
 });

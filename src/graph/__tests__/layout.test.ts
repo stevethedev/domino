@@ -1,7 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { getOrThrow } from "../../lib/guards";
 import { buildGraph } from "../buildGraph";
-import { CARD_HEIGHT, CARD_WIDTH, computeLayout, laneByEpic, laneBySite, type LaneFn, type Layout } from "../layout";
+import {
+  CARD_HEIGHT,
+  CARD_WIDTH,
+  computeLayout,
+  laneByEpic,
+  laneBySite,
+  type LaneFn,
+  type Layout,
+  epicLaneId,
+  foldedEpicUids,
+} from "../layout";
 import { mockConfig, mockLinkTypes, mockSites } from "../../data/mockData";
 import type { GraphEdge, GraphNode } from "../types";
 
@@ -151,5 +161,13 @@ describe("swimlanes stay compact", () => {
 
   it.each(MODES.filter(([, laneOf]) => laneOf))("never packs a card onto a link in the mock data (%s)", async (_, laneOf) => {
     expectNoLinkOverCards(await computeLayout(g.nodes, g.edges, g.brokenEdgeIds, laneOf), g.nodes, g.edges, g.brokenEdgeIds);
+  });
+});
+
+describe("epic lane ids", () => {
+  it("names an epic's lane, and reads folded epics back out of collapsed lanes", () => {
+    expect(epicLaneId("a:E-1")).toBe("epic:a:E-1");
+    // Other lanes (sites, assignees, the catch-all epic lanes) aren't epics.
+    expect(foldedEpicUids(["epic:a:E-1", "site:a", "assignee:Noor", "epic:b:E-2"])).toEqual(new Set(["a:E-1", "b:E-2"]));
   });
 });

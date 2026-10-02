@@ -23,7 +23,7 @@ const GROUP_BY = ["none", "site", "epic", "assignee"] as const;
 export type GroupBy = (typeof GROUP_BY)[number];
 export const isGroupBy = isOneOf(GROUP_BY);
 /** `highlightScope` narrows the highlight to the signed-in user's issues ("At a glance" for me). */
-export type ViewOptions = { groupBy: GroupBy; highlight: Highlight; highlightScope: HighlightScope; collapseEpics: boolean };
+export type ViewOptions = { groupBy: GroupBy; highlight: Highlight; highlightScope: HighlightScope };
 
 /** The lane function for a Group by choice; assignee lanes need the insights for their labels. */
 export function lanesFor(groupBy: GroupBy, insights: Insights): LaneFn | undefined {
@@ -71,31 +71,13 @@ function ArrowMarkers(): ReactElement {
   );
 }
 
-/** Lanes for the epic map: one per expanded epic (with a collapse action), the rest together. */
-function epicMapLanes(expanded: ReadonlySet<string>): LaneFn | undefined {
-  if (expanded.size === 0) return undefined;
-  return (n) => {
-    const epic = n.epic;
-    if (!n.rollup && epic && expanded.has(epic.uid)) {
-      return {
-        id: `expanded:${epic.uid}`,
-        label: epic.summary ? `${epic.key} · ${epic.summary}` : epic.key,
-        url: epic.url,
-        color: n.siteColor,
-        collapseEpic: epic.uid,
-      };
-    }
-    return { id: "epic-map", label: "Epics and other issues", last: true };
-  };
-}
-
 export function Canvas({
   graph: loaded,
   insights,
   filters,
   view,
   showSiteBadges,
-  expandedEpics,
+  foldedEpics,
   onToggleEpic,
   selectedUid,
   onSelect,
@@ -107,8 +89,9 @@ export function Canvas({
   filters: Filters;
   view: ViewOptions;
   showSiteBadges: boolean;
-  /** Epics shown issue-by-issue while the epic map is on. */
-  expandedEpics: ReadonlySet<string>;
+  /** Epics folded into one summary card each (their lanes are collapsed while grouped by epic). */
+  foldedEpics: ReadonlySet<string>;
+  /** Folds or unfolds an epic's lane. */
   onToggleEpic: (epicUid: string) => void;
   /** The issue open in the details panel, if any. */
   selectedUid: string | null;
@@ -122,16 +105,13 @@ export function Canvas({
   const [layout, setLayout] = useState<Layout | null>(null);
   const fittedShape = useRef<string | null>(null);
 
-  // The epic map swaps in a collapsed graph; everything below draws whichever graph is shown.
+  // Folded epics swap in a collapsed graph; everything below draws whichever graph is shown.
   const collapsed = useMemo(
-    () => (view.collapseEpics ? collapseEpics(loaded, insights, expandedEpics) : null),
-    [view.collapseEpics, loaded, insights, expandedEpics],
+    () => (foldedEpics.size > 0 ? collapseEpics(loaded, insights, foldedEpics) : null),
+    [foldedEpics, loaded, insights],
   );
   const graph = collapsed?.graph ?? loaded;
-  const laneOf = useMemo(
-    () => (view.collapseEpics ? epicMapLanes(expandedEpics) : lanesFor(view.groupBy, insights)),
-    [view.collapseEpics, expandedEpics, view.groupBy, insights],
-  );
+  const laneOf = useMemo(() => lanesFor(view.groupBy, insights), [view.groupBy, insights]);
 
   const { nodes: vNodes, edges: vEdges } = useMemo(() => visibleSubgraph(graph, filters), [graph, filters]);
 
@@ -161,7 +141,7 @@ export function Canvas({
     };
   }, [vNodes, vEdges, graph.brokenEdgeIds, laneOf, rf]);
 
-  // Highlights are computed on loaded issues; in the epic map they light up the node each issue is shown as.
+  // Highlights are computed on loaded issues; folded epics light up the summary each issue is shown as.
   const emphasized = useMemo(() => {
     const e = emphasis(view.highlight, insights, view.highlightScope);
     if (!e || !collapsed) return e;
@@ -186,7 +166,7 @@ export function Canvas({
         color: g.color,
         url: g.url,
         onOpen: openExternal,
-        onCollapse: g.collapseEpic ? toggleEpic(g.collapseEpic) : undefined,
+        fold: g.epicUid ? { folded: foldedEpics.has(g.epicUid), onToggle: toggleEpic(g.epicUid) } : undefined,
       },
       width: g.width,
       height: g.height,
@@ -237,6 +217,7 @@ export function Canvas({
     chain,
     emphasized,
     view.highlight,
+    foldedEpics,
     onToggleEpic,
     selectedUid,
     onSelect,

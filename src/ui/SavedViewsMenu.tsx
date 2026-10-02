@@ -47,7 +47,7 @@ export function SavedViewsMenu({
                 >
                   <span className="saved-view-name">{v.name}</span>
                   <span className="muted small">
-                    {v.mode === "timeline" ? "Timeline" : v.view.collapseEpics ? "Epic map" : "Graph"} · {describeScope(v)}
+                    {v.mode === "timeline" ? "Timeline" : "Graph"} · {describeScope(v)}
                   </span>
                 </button>
                 <button

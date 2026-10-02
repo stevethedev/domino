@@ -404,7 +404,7 @@
   box-shadow: 0 0 0 3px var(--cycle);
 }
 
-/* Epic map */
+/* Folded epics: summary cards */
 .rollup-bar {
   flex: 1 1 auto;
   height: 6px;

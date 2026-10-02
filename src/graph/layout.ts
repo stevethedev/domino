@@ -17,8 +17,8 @@ export type Lane = {
   color?: string;
   url?: string;
   last?: boolean;
-  /** Set on an expanded epic's lane in the epic map: the epic to collapse again. */
-  collapseEpic?: string;
+  /** Set on an epic's lane (Group by epic): the epic it holds, so the lane can fold into its summary. */
+  epicUid?: string;
 };
 export type LaneFn = (n: GraphNode) => Lane;
 
@@ -42,13 +42,23 @@ const ROOT_OPTIONS: Record<string, string> = {
 
 export const laneBySite: LaneFn = (n) => ({ id: `site:${n.siteId}`, label: n.siteLabel, color: n.siteColor });
 
+const EPIC_LANE = "epic:";
+
+/** The lane id an epic's issues share when grouped by epic (the Graph and Timeline fold the same ids). */
+export const epicLaneId = (epicUid: string): string => `${EPIC_LANE}${epicUid}`;
+
+/** The epics whose lanes are among `collapsedLanes`. */
+export const foldedEpicUids = (collapsedLanes: Iterable<string>): Set<string> =>
+  new Set([...collapsedLanes].flatMap((id) => (id.startsWith(EPIC_LANE) ? [id.slice(EPIC_LANE.length)] : [])));
+
 export const laneByEpic: LaneFn = (n) => {
   if (n.epic) {
     return {
-      id: `epic:${n.epic.uid}`,
+      id: epicLaneId(n.epic.uid),
       label: n.epic.summary ? `${n.epic.key} · ${n.epic.summary}` : n.epic.key,
       color: n.siteColor,
       url: n.epic.url,
+      epicUid: n.epic.uid,
     };
   }
   return n.ghost ? { id: "epic:~ghost", label: "Outside scope", last: true } : { id: "epic:~none", label: "No epic", last: true };

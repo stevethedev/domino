@@ -70,7 +70,7 @@ export function FilterPanel({
   onFilters,
   view,
   onView,
-  epicMapAvailable,
+  epicFolds,
   issues,
   impliedLinks,
 }: {
@@ -78,8 +78,8 @@ export function FilterPanel({
   onFilters: (f: Filters) => void;
   view: ViewOptions;
   onView: (v: ViewOptions) => void;
-  /** The epic map is a graph-view mode. */
-  epicMapAvailable: boolean;
+  /** While grouped by epic: how many epic lanes there are and are folded, and folding them all. */
+  epicFolds?: Readonly<{ total: number; folded: number; onFoldAll: (fold: boolean) => void }>;
   /** Loaded (non-ghost) issues: the filter options and counts come from these. */
   issues: readonly GraphNode[];
   /** How many drawn blocking links a longer chain implies (hidden when the switch is on). */
@@ -173,8 +173,6 @@ export function FilterPanel({
         <span>Group by</span>
         <select
           value={view.groupBy}
-          disabled={view.collapseEpics && epicMapAvailable}
-          title={view.collapseEpics && epicMapAvailable ? "The epic map groups by epic" : undefined}
           onChange={(e) => {
             if (isGroupBy(e.target.value)) onView({ ...view, groupBy: e.target.value });
           }}
@@ -185,21 +183,23 @@ export function FilterPanel({
           <option value="assignee">Assignee</option>
         </select>
       </label>
-      <label
-        className="check"
-        title={epicMapAvailable ? "One card per epic, with links between epics combined" : "Available in the Graph view"}
-      >
-        <input
-          type="checkbox"
-          role="switch"
-          checked={view.collapseEpics}
-          disabled={!epicMapAvailable}
-          onChange={(e) => {
-            onView({ ...view, collapseEpics: e.target.checked });
-          }}
-        />
-        Epic map (collapse epics)
-      </label>
+      {epicFolds && (
+        <div className="epic-folds">
+          <p className="hint">
+            Collapse an epic&apos;s lane to fold it into one summary card, with its links combined. {epicFolds.folded} of {epicFolds.total}{" "}
+            folded.
+          </p>
+          <button
+            type="button"
+            className="link-btn"
+            onClick={() => {
+              epicFolds.onFoldAll(epicFolds.folded < epicFolds.total);
+            }}
+          >
+            {epicFolds.folded < epicFolds.total ? "Collapse all epics" : "Expand all epics"}
+          </button>
+        </div>
+      )}
     </>
   );
 }

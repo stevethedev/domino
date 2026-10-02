@@ -14,7 +14,7 @@ const view = (name: string): SavedView => ({
     issues: { hiddenCategories: ["done"], hiddenTypes: [], hiddenAssignees: [""] },
     hideImplied: false,
   },
-  view: { groupBy: "assignee", highlight: "blocked", highlightScope: "assigned", collapseEpics: false },
+  view: { groupBy: "assignee", highlight: "blocked", highlightScope: "assigned" },
   mode: "timeline",
 });
 
@@ -36,9 +36,12 @@ describe("saved views", () => {
     expect(parseSavedViews("nope")).toBeUndefined();
   });
 
-  it("defaults collapseEpics for views saved before the epic map existed", () => {
-    const old = { ...view("Old"), view: { groupBy: "none", highlight: "none" } };
-    expect(defined(parseSavedViews([old]), "parsed views")[0].view.collapseEpics).toBe(false);
+  it("opens views saved with the old epic map grouped by epic, and drops the setting", () => {
+    const epicMap = { ...view("Epic map"), view: { groupBy: "site", highlight: "none", collapseEpics: true } };
+    const plain = { ...view("Plain"), view: { groupBy: "site", highlight: "none", collapseEpics: false } };
+    const [a, b] = defined(parseSavedViews([epicMap, plain]), "parsed views");
+    expect(a.view).toEqual({ groupBy: "epic", highlight: "none", highlightScope: "all" });
+    expect(b.view.groupBy).toBe("site");
   });
 
   it("shows every issue for views saved before issue filters existed", () => {

@@ -18,19 +18,19 @@ function rollupCategory(members: readonly GraphNode[]): StatusCategory {
 }
 
 /**
- * The epic-level map: every epic not in `expanded` becomes one summary node standing for its
- * loaded issues (and the epic itself). Links between different nodes are combined into one edge
- * per direction and kind, counting the links and how many are still open (blocker not Done);
- * links inside an epic disappear. Issues without an epic, ghosts and expanded epics' issues stay
- * as they are, so nothing is hidden. Cycles are recomputed at the epic level.
+ * Folds the epics in `collapsed`: each becomes one summary node standing for its loaded issues
+ * (and the epic itself), carrying the epic as its own `epic` so it stays in the epic's lane.
+ * Links between different nodes are combined into one edge per direction and kind, counting the
+ * links and how many are still open (blocker not Done); links inside a folded epic disappear.
+ * Every other issue stays as it is, so nothing is hidden. Cycles are recomputed on the result.
  */
-export function collapseEpics(graph: Graph, insights: Insights, expanded: ReadonlySet<string>): CollapsedGraph {
+export function collapseEpics(graph: Graph, insights: Insights, collapsed: ReadonlySet<string>): CollapsedGraph {
   const byUid = new Map(graph.nodes.map((n) => [n.uid, n]));
   const shownAs = new Map<string, string>();
   const members = new Map<string, GraphNode[]>();
   for (const n of graph.nodes) {
     const epicUid = n.ghost ? undefined : n.epic?.uid;
-    if (!epicUid || expanded.has(epicUid)) {
+    if (!epicUid || !collapsed.has(epicUid)) {
       shownAs.set(n.uid, n.uid);
       continue;
     }
@@ -71,6 +71,7 @@ export function collapseEpics(graph: Graph, insights: Insights, expanded: Readon
       statusCategory: category,
       url: ref.url,
       ghost: false,
+      epic: ref,
       rollup,
     };
   });

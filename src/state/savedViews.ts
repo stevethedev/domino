@@ -71,11 +71,11 @@ function parseView(raw: unknown): SavedView | undefined {
       hideImplied: bool(f.hideImplied) ? f.hideImplied : true,
     },
     view: {
-      groupBy: v.groupBy,
+      // Views saved with the old epic map open now group by epic, where lanes fold into epics.
+      groupBy: v.collapseEpics === true ? "epic" : v.groupBy,
       highlight: v.highlight,
       // Views saved before scoped highlights existed highlight everyone's issues.
       highlightScope: str(v.highlightScope) && isHighlightScope(v.highlightScope) ? v.highlightScope : "all",
-      collapseEpics: bool(v.collapseEpics) ? v.collapseEpics : false,
     },
     mode: r.mode,
   };
