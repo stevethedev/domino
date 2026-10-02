@@ -5,7 +5,8 @@
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
   padding: 8px 14px; background: var(--surface); border-bottom: 1px solid var(--border);
 }
-.brand { font-size: 16px; font-weight: 700; letter-spacing: 0.2px; white-space: nowrap; }
+.brand { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; letter-spacing: 0.2px; white-space: nowrap; }
+.brand-mark { flex: none; }
 .status-text { margin-left: auto; color: var(--muted); font-size: 12px; white-space: nowrap; }
 .workspace { flex: 1; display: flex; min-height: 0; }
 .sidebar {

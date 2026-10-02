@@ -20,6 +20,7 @@ import { ChangesPanel } from "./ui/ChangesPanel";
 import { ErrorBanner } from "./ui/ErrorBanner";
 import { FilterPanel } from "./ui/FilterPanel";
 import { FinishFirst, InsightTiles } from "./ui/InsightsBar";
+import { BrandMark } from "./ui/BrandMark";
 import { MyGlance } from "./ui/MyGlance";
 import { SidebarSection } from "./ui/SidebarSection";
 import { QuickFind } from "./ui/QuickFind";
@@ -186,7 +187,7 @@ function Shell(): ReactElement {
     <div className="app">
       <header className="topbar">
         <h1 className="brand">
-          <span aria-hidden="true">▣▣</span> Domino
+          <BrandMark /> Domino
         </h1>
         {config && (
           <>

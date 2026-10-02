@@ -177,6 +177,16 @@ What `HttpBackend` does:
 
 Scheduling lives in `src/graph/schedule.ts` (pure, unit-tested). The UI lives in `src/ui/timeline/`.
 
+## App icon
+
+The mark is three dominoes in a cascade: the amber tile (the critical-path colour) tips first and falls onto the next, the chain reaction Domino makes visible, and "finish this first". Sources live in `assets/brand/`:
+
+- `icon.svg`: the full app icon, used from 48px up.
+- `icon-small.svg`: a pip-less version that stays legible at 16–32px.
+- `mark.svg`: the tiles alone. In the app it's `src/ui/BrandMark.tsx`, whose blue follows the theme's `--accent`.
+
+To change it, edit and run `python3 assets/brand/build-icons.py`, which also writes `public/favicon.svg`. Then run `npx tauri icon assets/brand/icon.svg` and delete the `android/` and `ios/` folders it adds. Last, re-render the small art over `src-tauri/icons/32x32.png`, `Square30x30Logo.png` and `Square44x44Logo.png`, the 16–32px entries of `icon.ico`, and the 16/32pt entries of `icon.icns` (build an `.iconset` and run `iconutil -c icns`).
+
 ## Project layout
 
 ```

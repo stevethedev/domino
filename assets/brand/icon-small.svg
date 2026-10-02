@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><defs>
+<linearGradient id="bg" x1="0.15" y1="0" x2="0.85" y2="1"><stop offset="0" stop-color="#4176f7"/><stop offset="1" stop-color="#1b39a8"/></linearGradient>
+<linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.10"/><stop offset="0.5" stop-color="#fff" stop-opacity="0"/></linearGradient>
+<filter id="drop" x="-10%" y="-10%" width="120%" height="125%"><feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#0b1440" flood-opacity="0.28"/></filter>
+</defs>
+<rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)"/>
+<rect x="100" y="100" width="824" height="824" rx="185" fill="url(#gloss)"/><g transform="translate(860.9 725.0)"><g transform="rotate(34 -556.8 0)"><rect x="-726.8" y="-380" width="170" height="380" rx="44" fill="#f59e0b"/></g><g transform="rotate(13 -255.5 0)"><rect x="-425.5" y="-380" width="170" height="380" rx="44" fill="#ffffff"/></g><g transform="rotate(0 0.0 0)"><rect x="-170.0" y="-380" width="170" height="380" rx="44" fill="#ffffff"/></g></g></svg>

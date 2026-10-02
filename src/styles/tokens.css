@@ -28,6 +28,8 @@
   --edge: #5b6475;
   --cycle: #d62d2d;
   --critical: #b45309;
+  /* The amber tile of the Domino mark (assets/brand); the same in both themes. */
+  --brand-amber: #f59e0b;
   --ready: #1f9d55;
   --warn-bg: #fff4d6;
   --warn-fg: #7a4b00;
