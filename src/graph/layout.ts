@@ -43,13 +43,20 @@ const ROOT_OPTIONS: Record<string, string> = {
 export const laneBySite: LaneFn = (n) => ({ id: `site:${n.siteId}`, label: n.siteLabel, color: n.siteColor });
 
 const EPIC_LANE = "epic:";
+/** Catch-all lanes ("No epic", "Outside scope") use this marker instead of an epic uid. */
+const CATCH_ALL = "~";
 
 /** The lane id an epic's issues share when grouped by epic (the Graph and Timeline fold the same ids). */
 export const epicLaneId = (epicUid: string): string => `${EPIC_LANE}${epicUid}`;
 
 /** The epics whose lanes are among `collapsedLanes`. */
 export const foldedEpicUids = (collapsedLanes: Iterable<string>): Set<string> =>
-  new Set([...collapsedLanes].flatMap((id) => (id.startsWith(EPIC_LANE) ? [id.slice(EPIC_LANE.length)] : [])));
+  new Set(
+    [...collapsedLanes].flatMap((id) => {
+      const epicUid = id.startsWith(EPIC_LANE) ? id.slice(EPIC_LANE.length) : "";
+      return epicUid && !epicUid.startsWith(CATCH_ALL) ? [epicUid] : [];
+    }),
+  );
 
 export const laneByEpic: LaneFn = (n) => {
   if (n.epic) {
@@ -61,7 +68,9 @@ export const laneByEpic: LaneFn = (n) => {
       epicUid: n.epic.uid,
     };
   }
-  return n.ghost ? { id: "epic:~ghost", label: "Outside scope", last: true } : { id: "epic:~none", label: "No epic", last: true };
+  return n.ghost
+    ? { id: `${EPIC_LANE}${CATCH_ALL}ghost`, label: "Outside scope", last: true }
+    : { id: `${EPIC_LANE}${CATCH_ALL}none`, label: "No epic", last: true };
 };
 
 /**

@@ -168,6 +168,8 @@ describe("epic lane ids", () => {
   it("names an epic's lane, and reads folded epics back out of collapsed lanes", () => {
     expect(epicLaneId("a:E-1")).toBe("epic:a:E-1");
     // Other lanes (sites, assignees, the catch-all epic lanes) aren't epics.
-    expect(foldedEpicUids(["epic:a:E-1", "site:a", "assignee:Noor", "epic:b:E-2"])).toEqual(new Set(["a:E-1", "b:E-2"]));
+    expect(foldedEpicUids(["epic:a:E-1", "site:a", "assignee:Noor", "epic:~none", "epic:~ghost", "epic:b:E-2"])).toEqual(
+      new Set(["a:E-1", "b:E-2"]),
+    );
   });
 });
