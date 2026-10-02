@@ -255,6 +255,7 @@ function Shell(): ReactElement {
   }, []);
   const downstream = useMemo(() => downstreamOpen(graph), [graph]);
   const selectedNode = selectedUid ? nodesByUid.get(selectedUid) : undefined;
+  const selectedEntry = selectedNode && selectedNode.statusCategory !== "done" ? forecast.timeline.get(selectedNode.uid) : undefined;
   const detail: IssueDetailData | null = selectedNode
     ? {
         node: selectedNode,
@@ -268,10 +269,7 @@ function Shell(): ReactElement {
           release,
           misses: releases.some((s) => s.release.uid === release.uid && s.atRisk.includes(selectedNode.uid)),
         })),
-        forecastDone: (() => {
-          const entry = forecast.timeline.get(selectedNode.uid);
-          return entry && selectedNode.statusCategory !== "done" ? lastDayOf(entry) : undefined;
-        })(),
+        forecastDone: selectedEntry && lastDayOf(selectedEntry),
       }
     : null;
   /** Closing returns focus to the card or row the panel was showing, so keyboard users aren't lost. */
