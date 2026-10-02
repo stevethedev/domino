@@ -1,0 +1,5 @@
+# One toolchain for local builds and CI, so the strict clippy lints flag the same things everywhere.
+# Bump deliberately (and update the `toolchain:` in .github/workflows/*.yml to match).
+[toolchain]
+channel = "1.93.1"
+components = ["clippy", "rustfmt"]

@@ -389,7 +389,7 @@ mod tests {
             .expect(1)
             .mount(&f.server)
             .await;
-        assert!(f.backend.search(&acme(&f), "project = A", None).await.unwrap().is_empty());
+        assert_eq!(f.backend.search(&acme(&f), "project = A", None).await.unwrap(), Vec::<Value>::new());
     }
 
     struct RateLimitOnce(std::sync::atomic::AtomicBool);

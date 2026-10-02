@@ -348,7 +348,8 @@ mod tests {
         assert_eq!(logs.len(), 1);
         assert_eq!(logs[0]["issueId"], id.as_str());
         assert!(pay1["fields"]["resolutiondate"].is_string());
-        assert!(!b.statuses(partner).await.unwrap().as_array().unwrap().is_empty());
+        let statuses = b.statuses(partner).await.unwrap();
+        assert_ne!(statuses.as_array().map(Vec::len), Some(0), "the fixture lists statuses");
     }
 
     #[tokio::test]

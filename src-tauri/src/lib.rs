@@ -25,10 +25,10 @@ pub fn run() {
 /// # Errors
 ///
 /// When Tauri fails to start or run the app.
-#[expect(
+#[allow(
     clippy::large_stack_frames,
     clippy::exit,
-    reason = "tauri::generate_context! embeds the app's assets and config, and Tauri's event loop exits the process"
+    reason = "tauri::generate_context! embeds the app's assets and config, and Tauri's event loop exits the process; both vary by platform"
 )]
 pub fn try_run() -> tauri::Result<()> {
     tauri::Builder::default()

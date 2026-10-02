@@ -1,9 +1,9 @@
 //! Tauri commands: the webview's only door to config, secrets and Jira.
 //! Every error is a plain message; none of them contain secret values.
-#![expect(
+#![allow(
     clippy::unreachable,
     clippy::let_underscore_must_use,
-    reason = "#[tauri::command] on async commands expands to code using unreachable! and `let _ =`"
+    reason = "#[tauri::command] expands async commands to code using unreachable! and `let _ =`; which of them appears varies by Tauri version and platform"
 )]
 #![expect(clippy::needless_pass_by_value, reason = "Tauri deserializes command arguments, and injects State, by value")]
 

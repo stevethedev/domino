@@ -22,8 +22,9 @@ jobs:
             patchelf
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: 1.93.1 # keep in step with src-tauri/rust-toolchain.toml
           components: clippy, rustfmt
 
       - name: Cache cargo registry and build artifacts
