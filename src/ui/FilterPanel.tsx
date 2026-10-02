@@ -72,6 +72,7 @@ export function FilterPanel({
   onView,
   epicMapAvailable,
   issues,
+  impliedLinks,
 }: {
   filters: Filters;
   onFilters: (f: Filters) => void;
@@ -81,6 +82,8 @@ export function FilterPanel({
   epicMapAvailable: boolean;
   /** Loaded (non-ghost) issues: the filter options and counts come from these. */
   issues: readonly GraphNode[];
+  /** How many drawn blocking links a longer chain implies (hidden when the switch is on). */
+  impliedLinks: number;
 }): ReactElement {
   const f = filters.issues;
   const setIssues = (patch: Partial<IssueFilters>): void => {
@@ -153,6 +156,18 @@ export function FilterPanel({
           {r.label}
         </label>
       ))}
+      <label className="check" title="A→C is implied when A→B→C is drawn; it shows again if B is hidden">
+        <input
+          type="checkbox"
+          role="switch"
+          checked={filters.hideImplied}
+          onChange={(e) => {
+            onFilters({ ...filters, hideImplied: e.target.checked });
+          }}
+        />
+        Hide implied links
+        {impliedLinks > 0 && <span className="muted small"> · {impliedLinks}</span>}
+      </label>
       <h3 className="subhead">Layout</h3>
       <label className="field group-by">
         <span>Group by</span>

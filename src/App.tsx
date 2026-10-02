@@ -4,7 +4,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type ReactEl
 import { summaryUid } from "./graph/collapse";
 import { computeInsights, downstreamOpen, isHighlightScope, type Highlight, type HighlightScope, type Insights } from "./graph/insights";
 import { myIssues } from "./graph/mine";
-import { NO_ISSUE_FILTERS, passesIssueFilters } from "./graph/visible";
+import { NO_ISSUE_FILTERS, passesIssueFilters, visibleSubgraph } from "./graph/visible";
 import { configStore, jiraSource, openExternal } from "./platform";
 import { DEFAULT_REFRESH_MINUTES, parseRefreshMinutes, REFRESH_MINUTES_KEY } from "./state/refresh";
 import { useAutoRefresh } from "./state/useAutoRefresh";
@@ -39,7 +39,14 @@ import { Icon } from "./ui/Icon";
 const Timeline = lazy(() => import("./ui/timeline/Timeline").then((m) => ({ default: m.Timeline })));
 const SettingsDialog = lazy(() => import("./ui/Settings/SettingsDialog").then((m) => ({ default: m.SettingsDialog })));
 
-const DEFAULT_FILTERS: Filters = { blocks: true, relates: false, duplicates: false, crossSite: true, issues: NO_ISSUE_FILTERS };
+const DEFAULT_FILTERS: Filters = {
+  blocks: true,
+  relates: false,
+  duplicates: false,
+  crossSite: true,
+  issues: NO_ISSUE_FILTERS,
+  hideImplied: true,
+};
 const DEFAULT_VIEW: ViewOptions = { groupBy: "none", highlight: "none", highlightScope: "all", collapseEpics: false };
 const parseViewMode = oneOf(isViewMode);
 const GLANCE_SCOPE_KEY = "domino.glanceScope";
@@ -163,6 +170,8 @@ function Shell(): ReactElement {
   };
   const nodesByUid = useMemo(() => new Map(graph.nodes.map((n) => [n.uid, n])), [graph]);
   const loadedIssues = useMemo(() => graph.nodes.filter((n) => !n.ghost), [graph]);
+  // How many links "Hide implied links" removes from what's drawn (counted even while it's off).
+  const impliedLinkCount = useMemo(() => visibleSubgraph(graph, { ...filters, hideImplied: true }).implied, [graph, filters]);
   const hiddenIssueCount = useMemo(
     () => loadedIssues.filter((n) => !passesIssueFilters(n, filters.issues)).length,
     [loadedIssues, filters.issues],
@@ -379,6 +388,7 @@ function Shell(): ReactElement {
               onView={setView}
               epicMapAvailable={viewMode === "graph"}
               issues={loadedIssues}
+              impliedLinks={impliedLinkCount}
             />
           </SidebarSection>
           <SidebarSection id="legend" title="Legend" defaultOpen={false}>

@@ -67,6 +67,8 @@ function parseView(raw: unknown): SavedView | undefined {
       duplicates: f.duplicates,
       crossSite: f.crossSite,
       issues: parseIssueFilters(f.issues),
+      // Views saved before implied links were simplified get the new default.
+      hideImplied: bool(f.hideImplied) ? f.hideImplied : true,
     },
     view: {
       groupBy: v.groupBy,

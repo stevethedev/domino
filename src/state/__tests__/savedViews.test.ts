@@ -12,6 +12,7 @@ const view = (name: string): SavedView => ({
     duplicates: false,
     crossSite: true,
     issues: { hiddenCategories: ["done"], hiddenTypes: [], hiddenAssignees: [""] },
+    hideImplied: false,
   },
   view: { groupBy: "assignee", highlight: "blocked", highlightScope: "assigned", collapseEpics: false },
   mode: "timeline",

@@ -320,6 +320,41 @@
                 }
               }
             }
+          },
+          {
+            "id": "10090",
+            "self": "https://acme.atlassian.net/rest/api/3/issueLink/10090",
+            "type": {
+              "id": "10000",
+              "name": "Blocks",
+              "inward": "is blocked by",
+              "outward": "blocks",
+              "self": "https://acme.atlassian.net/rest/api/3/issueLinkType/10000"
+            },
+            "outwardIssue": {
+              "id": "108701",
+              "key": "WEB-1",
+              "self": "https://acme.atlassian.net/rest/api/3/issue/108701",
+              "fields": {
+                "summary": "Checkout v2 order confirmation page",
+                "status": {
+                  "name": "To Do",
+                  "id": "1001",
+                  "statusCategory": {
+                    "id": 2,
+                    "key": "new",
+                    "name": "To Do",
+                    "colorName": "blue-gray"
+                  }
+                },
+                "issuetype": {
+                  "id": "10001",
+                  "name": "Story",
+                  "subtask": false,
+                  "hierarchyLevel": 0
+                }
+              }
+            }
           }
         ]
       }
@@ -1079,6 +1114,41 @@
               "self": "https://acme.atlassian.net/rest/api/3/issue/106711",
               "fields": {
                 "summary": "Persist tokenized cards on the order",
+                "status": {
+                  "name": "To Do",
+                  "id": "1001",
+                  "statusCategory": {
+                    "id": 2,
+                    "key": "new",
+                    "name": "To Do",
+                    "colorName": "blue-gray"
+                  }
+                },
+                "issuetype": {
+                  "id": "10001",
+                  "name": "Story",
+                  "subtask": false,
+                  "hierarchyLevel": 0
+                }
+              }
+            }
+          },
+          {
+            "id": "10090",
+            "self": "https://acme.atlassian.net/rest/api/3/issueLink/10090",
+            "type": {
+              "id": "10000",
+              "name": "Blocks",
+              "inward": "is blocked by",
+              "outward": "blocks",
+              "self": "https://acme.atlassian.net/rest/api/3/issueLinkType/10000"
+            },
+            "inwardIssue": {
+              "id": "106710",
+              "key": "CORE-10",
+              "self": "https://acme.atlassian.net/rest/api/3/issue/106710",
+              "fields": {
+                "summary": "Accept partner payment tokens in checkout",
                 "status": {
                   "name": "To Do",
                   "id": "1001",

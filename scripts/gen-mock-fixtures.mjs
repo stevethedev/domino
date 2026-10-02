@@ -102,6 +102,8 @@ const LINKS = [
   ["partner", "10002", "Blocks", "PAY-2", "PAY-3"],
   ["acme", "10001", "Blocks", "CORE-10", "CORE-11"],
   ["acme", "10002", "Blocks", "CORE-11", "WEB-1"],
+  // Redundant on purpose: CORE-10 -> CORE-11 -> WEB-1 already implies it ("Hide implied links").
+  ["acme", "10090", "Blocks", "CORE-10", "WEB-1"],
   // WEB-2 has 4 blockers: CORE-11, CORE-8, OPS-3 (ghost), LEG-4 (remote ghost)
   ["acme", "10003", "Blocks", "CORE-11", "WEB-2"],
   ["acme", "10004", "Blocks", "CORE-8", "WEB-2"],
