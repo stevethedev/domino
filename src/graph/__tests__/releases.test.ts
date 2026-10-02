@@ -58,9 +58,18 @@ describe("releases from fix versions", () => {
   it("ignores malformed versions and dates", () => {
     const odd = buildGraph({
       sites: [site("a")],
-      data: [data("a", [planned(issue("A-1"), { id: "9", name: "x", releaseDate: "soon" }, { name: "no id" } as unknown as RawVersion)])],
+      data: [
+        data("a", [
+          planned(issue("A-1"), { id: "9", name: "x", releaseDate: "soon" }, { id: "8", name: "y", releaseDate: "2026-10-12garbage" }, {
+            name: "no id",
+          } as unknown as RawVersion),
+        ]),
+      ],
     });
-    expect(odd.nodes[0]?.releases).toEqual([{ uid: "a:version:9", siteId: "a", name: "x", date: undefined, released: false }]);
+    expect(odd.nodes[0]?.releases).toEqual([
+      { uid: "a:version:9", siteId: "a", name: "x", date: undefined, released: false },
+      { uid: "a:version:8", siteId: "a", name: "y", date: undefined, released: false },
+    ]);
   });
 });
 

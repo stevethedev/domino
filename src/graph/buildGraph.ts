@@ -50,14 +50,14 @@ function directEpic(issue: RawIssue, site: SiteConfig): EpicRef | { viaParent: s
   return undefined;
 }
 
-const DAY = /^\d{4}-\d{2}-\d{2}/;
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 /** One fix version, if it's well-formed and not archived (the JSON arrives unvalidated). */
 function releaseOf(raw: unknown, site: SiteConfig): Release[] {
   if (!raw || typeof raw !== "object") return [];
   const v: Partial<Record<keyof RawVersion, unknown>> = raw;
   if (typeof v.id !== "string" || typeof v.name !== "string" || v.archived === true) return [];
-  const date = typeof v.releaseDate === "string" && DAY.test(v.releaseDate) ? v.releaseDate.slice(0, 10) : undefined;
+  const date = typeof v.releaseDate === "string" && DAY.test(v.releaseDate) ? v.releaseDate : undefined;
   return [{ uid: `${site.id}:version:${v.id}`, siteId: site.id, name: v.name, date, released: v.released === true }];
 }
 
