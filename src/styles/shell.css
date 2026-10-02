@@ -212,7 +212,10 @@ kbd {
 
 /* Refresh-now (freshness shows in the At a glance summary; the interval is in Settings). */
 .freshness.warn { color: var(--warn-fg); }
-.icon-btn.spinning { animation: refresh-spin 900ms linear infinite; }
+.refresh-btn { display: inline-grid; place-items: center; padding: 5px 6px; } /* the icon is wider than the ⚙ glyph */
+/* 18px matches the other icon buttons' glyph size, so the button keeps their height. */
+.refresh-icon { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.refresh-icon.spinning { animation: refresh-spin 800ms linear infinite; }
 @keyframes refresh-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .icon-btn.spinning { animation: none; opacity: 0.6; } }
+@media (prefers-reduced-motion: reduce) { .refresh-icon.spinning { animation: none; opacity: 0.5; } }
 .auto-refresh-select { max-width: 240px; }

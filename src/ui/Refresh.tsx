@@ -33,12 +33,30 @@ export function Freshness({ background }: { background: BackgroundRefresh }): Re
 /** Refresh-now. The auto-refresh interval lives in Settings (see `AutoRefreshField`). */
 export function RefreshButton({ refreshing, lastUpdated, onRefresh }: { refreshing: boolean; lastUpdated: number | null; onRefresh: () => void }): ReactElement {
   const label = lastUpdated === null ? "Refresh now" : `Refresh now (last updated ${new Date(lastUpdated).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })})`;
+  // Spinning starts with the refresh but stops only at the end of a turn, so a quick refresh
+  // still reads as one full rotation and the icon never snaps back from a tilted angle.
+  const [spinning, setSpinning] = useState(false);
+  useEffect(() => {
+    if (refreshing) setSpinning(true);
+    else if (prefersReducedMotion()) setSpinning(false); // no animation, so no turn ends to wait for
+  }, [refreshing]);
   return (
-    <button type="button" className={`icon-btn${refreshing ? " spinning" : ""}`} onClick={onRefresh} aria-label={label} aria-busy={refreshing} title={label}>
-      ↻
+    <button type="button" className="icon-btn refresh-btn" onClick={onRefresh} aria-label={label} aria-busy={refreshing} title={label}>
+      <svg
+        className={spinning ? "refresh-icon spinning" : "refresh-icon"}
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+        onAnimationIteration={() => { if (!refreshing) setSpinning(false); }}
+      >
+        {/* Drawn around (12, 12), the rotation centre. */}
+        <path d="M20 12a8 8 0 1 1-2.34-5.66" />
+        <path d="M20 4v4.5h-4.5" />
+      </svg>
     </button>
   );
 }
+
+const prefersReducedMotion = (): boolean => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /** The auto-refresh interval, a per-viewer preference shown in Settings. */
 export function AutoRefreshField({ minutes, onMinutes }: { minutes: RefreshMinutes; onMinutes: (m: RefreshMinutes) => void }): ReactElement {
