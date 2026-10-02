@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { defined } from "../../lib/guards";
-import { parseSavedViews, upsertView, type SavedView } from "../savedViews";
+import { mergeViews, parseSavedViews, readViewsFile, upsertView, viewsFile, type SavedView } from "../savedViews";
 
 const view = (name: string): SavedView => ({
   name,
@@ -60,6 +60,33 @@ describe("saved views", () => {
     expect(next.map((v) => [v.name, v.mode])).toEqual([
       ["standup", "graph"],
       ["Partner", "timeline"],
+    ]);
+  });
+});
+
+describe("sharing saved views", () => {
+  it("round-trips through a views file", () => {
+    const views = [view("Standup"), view("Partner")];
+    expect(readViewsFile(viewsFile(views))).toEqual(views);
+  });
+
+  it("accepts a bare list too, and drops invalid entries", () => {
+    const text = JSON.stringify([view("Good"), { name: "Broken" }]);
+    expect(readViewsFile(text).map((v) => v.name)).toEqual(["Good"]);
+  });
+
+  it("explains files that aren't saved views", () => {
+    expect(() => readViewsFile("not json")).toThrow("isn't JSON");
+    expect(() => readViewsFile(JSON.stringify({ format: "something else", views: [] }))).toThrow("doesn't contain Domino saved views");
+    expect(() => readViewsFile(JSON.stringify([{ bogus: true }]))).toThrow("doesn't contain Domino saved views");
+  });
+
+  it("merges imported views, replacing same-named ones and keeping import order first", () => {
+    const merged = mergeViews([view("Standup"), view("Mine")], [{ ...view("standup"), mode: "graph" }, view("Partner")]);
+    expect(merged.map((v) => [v.name, v.mode])).toEqual([
+      ["standup", "graph"],
+      ["Partner", "timeline"],
+      ["Mine", "timeline"],
     ]);
   });
 });

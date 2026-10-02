@@ -28,6 +28,8 @@ import {
   summarizeEpics,
   xOf,
 } from "./timelineLayout";
+import { captureElement } from "../capture";
+import { ExportMenu } from "../ExportMenu";
 import { TimelineLane } from "./TimelineLane";
 import { TimelineRow } from "./TimelineRow";
 
@@ -170,6 +172,16 @@ export function Timeline({
     ? Math.max(0, ...all.filter((r) => !r.node.ghost).map((r) => xOf(range.start, entryEnd(r.entry), settings.scale)))
     : 0;
 
+  // Exports render the whole chart (labels, axis, bars, arrows) at full size, including what's
+  // scrolled out of view.
+  const exportTimeline = captureElement(
+    () => document.querySelector<HTMLElement>(".timeline .tl-inner"),
+    () => {
+      const inner = document.querySelector<HTMLElement>(".timeline .tl-inner");
+      return { width: inner?.scrollWidth ?? 0, height: inner?.scrollHeight ?? 0 };
+    },
+  );
+
   return (
     <div className="timeline">
       <div className="tl-toolbar" role="toolbar" aria-label="Timeline settings">
@@ -263,6 +275,7 @@ export function Timeline({
             {allCollapsed ? "Expand all" : "Collapse all"}
           </button>
         )}
+        {range && <ExportMenu name="timeline" capture={exportTimeline} />}
         <span className="status-text" aria-live="polite">
           {history.status === "loading" ? "Loading status history…" : `${late} late`}
         </span>

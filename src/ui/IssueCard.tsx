@@ -31,7 +31,7 @@ export type IssueFlowNode = Node<IssueNodeData, "issue">;
 export const ISSUE_DETAIL_ID = "issue-detail";
 
 /** Below this zoom, card text is too small to read, so cards switch to a compact, high-contrast form. */
-const COMPACT_BELOW_ZOOM = 0.6;
+export const COMPACT_BELOW_ZOOM = 0.6;
 
 const STATUS_LABEL: Record<StatusCategory, string> = {
   todo: "To Do",

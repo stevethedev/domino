@@ -1,19 +1,25 @@
 import { useEffect, useRef, useState, type ReactElement } from "react";
-import type { SavedView } from "../state/savedViews";
+import { saveFile } from "../platform";
+import { readViewsFile, viewsFile, type SavedView } from "../state/savedViews";
 import { Icon } from "./Icon";
 
-/** "Views" menu: apply, save (overwrites a same-named view) and delete named views. */
+/** "Views" menu: apply, save (overwrites a same-named view), delete, and share named views as a file. */
 export function SavedViewsMenu({
   views,
   onApply,
   onSave,
   onDelete,
+  onImport,
 }: {
   views: readonly SavedView[];
   onApply: (v: SavedView) => void;
   onSave: (name: string) => void;
   onDelete: (name: string) => void;
+  /** Views read from a shared file (validated); the caller merges them in. */
+  onImport: (views: SavedView[]) => void;
 }): ReactElement {
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [shareStatus, setShareStatus] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const ref = useRef<HTMLDetailsElement>(null);
   const [name, setName] = useState("");
   const close = (): void => {
@@ -105,6 +111,59 @@ export function SavedViewsMenu({
             {exists ? "Update" : "Save"}
           </button>
         </form>
+        <div className="saved-views-share">
+          <button
+            type="button"
+            className="link-btn"
+            disabled={views.length === 0}
+            onClick={() => {
+              saveFile("domino-views.json", viewsFile(views), { name: "Domino views", extensions: ["json"] })
+                .then((saved) => {
+                  if (saved) setShareStatus({ kind: "ok", text: `Exported ${views.length} ${views.length === 1 ? "view" : "views"}.` });
+                })
+                .catch((e: unknown) => {
+                  setShareStatus({ kind: "error", text: `Export failed: ${e instanceof Error ? e.message : String(e)}` });
+                });
+            }}
+          >
+            Export views…
+          </button>
+          <button
+            type="button"
+            className="link-btn"
+            onClick={() => {
+              fileInput.current?.click();
+            }}
+          >
+            Import views…
+          </button>
+          <input
+            ref={fileInput}
+            type="file"
+            accept=".json,application/json"
+            hidden
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = ""; // picking the same file again still fires
+              if (!file) return;
+              file
+                .text()
+                .then((text) => {
+                  const imported = readViewsFile(text);
+                  onImport(imported);
+                  setShareStatus({ kind: "ok", text: `Imported ${imported.length} ${imported.length === 1 ? "view" : "views"}.` });
+                })
+                .catch((err: unknown) => {
+                  setShareStatus({ kind: "error", text: err instanceof Error ? err.message : String(err) });
+                });
+            }}
+          />
+        </div>
+        {shareStatus && (
+          <p className={shareStatus.kind === "error" ? "field-error" : "hint"} role="status">
+            {shareStatus.text}
+          </p>
+        )}
       </div>
     </details>
   );

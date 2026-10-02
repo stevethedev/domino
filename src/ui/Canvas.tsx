@@ -1,4 +1,4 @@
-import { Background, Controls, MiniMap, ReactFlow, useReactFlow } from "@xyflow/react";
+import { Background, Controls, getNodesBounds, MiniMap, Panel, ReactFlow, useReactFlow } from "@xyflow/react";
 import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { blockingChain } from "../graph/analysis";
 import { collapseEpics, shownEdgeId } from "../graph/collapse";
@@ -8,7 +8,9 @@ import type { Graph } from "../graph/types";
 import { visibleSubgraph, type ViewFilters } from "../graph/visible";
 import { openExternal } from "../platform";
 import { LinkEdge, type LinkFlowEdge } from "./edges/LinkEdge";
-import { IssueCard, SiteGroup, type IssueFlowNode, type SiteGroupNode } from "./IssueCard";
+import { captureElement } from "./capture";
+import { ExportMenu } from "./ExportMenu";
+import { COMPACT_BELOW_ZOOM, IssueCard, SiteGroup, type IssueFlowNode, type SiteGroupNode } from "./IssueCard";
 import { isOneOf } from "../lib/guards";
 
 /** Link and issue filters (display only; see visibleSubgraph). */
@@ -243,6 +245,53 @@ export function Canvas({
     });
   }, [vEdges, graph.cycleEdgeIds, graph.brokenEdgeIds, byUid, chain, emphasized, view.highlight]);
 
+  // Exports render React Flow's viewport (cards, lanes, edges; not the minimap or controls) framed to
+  // the whole graph at real size, whatever the current pan and zoom.
+  const EXPORT_PADDING = 40;
+  const graphBounds = (): { x: number; y: number; width: number; height: number } => getNodesBounds(rf.getNodes());
+  const exportGraph = captureElement(
+    () => document.querySelector<HTMLElement>(".canvas .react-flow__viewport"),
+    () => {
+      const b = graphBounds();
+      const width = Math.ceil(b.width + 2 * EXPORT_PADDING);
+      const height = Math.ceil(b.height + 2 * EXPORT_PADDING);
+      const transform = `translate(${EXPORT_PADDING - b.x}px, ${EXPORT_PADDING - b.y}px) scale(1)`;
+      return { width, height, style: { width: `${width}px`, height: `${height}px`, transform } };
+    },
+    async () => {
+      // The capture copies the live page, so the page is adjusted for the moment it takes.
+      // 1. Zoomed out, cards render their compact form (different markup). Show them at real size,
+      //    which is how the export frames them, and restore the user's pan and zoom afterwards.
+      const before = rf.getViewport();
+      if (before.zoom < COMPACT_BELOW_ZOOM) {
+        await rf.setViewport({ ...before, zoom: 1 });
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      }
+      const viewport = document.querySelector(".canvas .react-flow__viewport");
+      // 2. Edges reference the shared arrowhead <defs> outside the viewport: carry a copy into it.
+      const defs = document.querySelector(".arrow-defs")?.cloneNode(true);
+      if (defs && viewport) viewport.appendChild(defs);
+      // 3. Edge layers are 0×0 SVGs that rely on overflow; give them the graph's size so nothing clips.
+      const b = graphBounds();
+      const edgeLayers = viewport ? [...viewport.querySelectorAll<SVGSVGElement>(".react-flow__edges svg")] : [];
+      const previous = edgeLayers.map((svg) => svg.getAttribute("style"));
+      for (const svg of edgeLayers) {
+        svg.style.width = `${Math.ceil(b.x + b.width + EXPORT_PADDING)}px`;
+        svg.style.height = `${Math.ceil(b.y + b.height + EXPORT_PADDING)}px`;
+        svg.style.overflow = "visible";
+      }
+      return (): void => {
+        if (defs instanceof Element) defs.remove();
+        edgeLayers.forEach((svg, i) => {
+          const style = previous[i];
+          if (style === null) svg.removeAttribute("style");
+          else svg.setAttribute("style", style);
+        });
+        if (before.zoom < COMPACT_BELOW_ZOOM) void rf.setViewport(before);
+      };
+    },
+  );
+
   return (
     <>
       <ArrowMarkers />
@@ -261,6 +310,9 @@ export function Canvas({
         fitView
       >
         <Background gap={24} size={1} />
+        <Panel position="top-right">
+          <ExportMenu name="graph" capture={exportGraph} />
+        </Panel>
         <Controls showInteractive={false} position="bottom-left" />
         <MiniMap<FlowNode>
           pannable

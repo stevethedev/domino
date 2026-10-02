@@ -92,3 +92,30 @@ export function upsertView(views: readonly SavedView[], view: SavedView): SavedV
   const key = view.name.trim().toLowerCase();
   return [view, ...views.filter((v) => v.name.toLowerCase() !== key)].slice(0, MAX_SAVED_VIEWS);
 }
+
+/** The shareable file: a small envelope so other JSON isn't mistaken for views. */
+const FILE_FORMAT = "domino.savedViews";
+
+export const viewsFile = (views: readonly SavedView[]): string => JSON.stringify({ format: FILE_FORMAT, version: 1, views }, null, 2);
+
+/**
+ * Views from a shared file (the envelope above, or a bare list), each validated like stored views;
+ * invalid entries are dropped. Throws a readable error when the file holds no usable views.
+ */
+export function readViewsFile(text: string): SavedView[] {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(text);
+  } catch {
+    throw new Error("That file isn't JSON.");
+  }
+  const r = record(raw);
+  const list = Array.isArray(raw) ? raw : r?.format === FILE_FORMAT ? r.views : undefined;
+  const views = parseSavedViews(list);
+  if (!views || views.length === 0) throw new Error("That file doesn't contain Domino saved views.");
+  return views;
+}
+
+/** Adds imported views to the current ones; an imported view replaces one with the same name. */
+export const mergeViews = (current: readonly SavedView[], imported: readonly SavedView[]): SavedView[] =>
+  [...imported].reverse().reduce<SavedView[]>((acc, v) => upsertView(acc, v), [...current]);

@@ -13,7 +13,7 @@ import { useMyself } from "./state/useMyself";
 import { useUnblockedNotifications } from "./state/useUnblockedNotifications";
 import { DEFAULT_ESTIMATE_SETTINGS, ESTIMATE_SETTINGS_KEY, parseEstimateSettings } from "./state/estimateSettings";
 import { oneOf, usePersistentState } from "./state/storage";
-import { parseSavedViews, SAVED_VIEWS_KEY, upsertView, type SavedView } from "./state/savedViews";
+import { mergeViews, parseSavedViews, SAVED_VIEWS_KEY, upsertView, type SavedView } from "./state/savedViews";
 import { saveQuery, scopeKeyOf } from "./state/useDomino";
 import { useChanges } from "./state/useChanges";
 import { useStatusHistory } from "./state/useStatusHistory";
@@ -310,6 +310,9 @@ function Shell(): ReactElement {
               }}
               onDelete={(name) => {
                 setSavedViews(savedViews.filter((v) => v.name !== name));
+              }}
+              onImport={(imported) => {
+                setSavedViews(mergeViews(savedViews, imported));
               }}
             />
             <SiteSelector sites={config.sites} selected={domino.selected} onChange={domino.setSelected} />
