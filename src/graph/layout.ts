@@ -1,4 +1,5 @@
-import ELK, { type ElkExtendedEdge, type ElkNode } from "elkjs/lib/elk.bundled.js";
+import type { ElkExtendedEdge, ElkNode } from "elkjs/lib/elk-api.js";
+import { getElk } from "./elk";
 import { getOrThrow } from "../lib/guards";
 import type { GraphEdge, GraphNode } from "./types";
 
@@ -27,8 +28,6 @@ export type Layout = {
   positions: Map<string, { x: number; y: number; parent?: string }>;
   groups: LayoutGroup[];
 };
-
-const elk = new ELK();
 
 const ROOT_OPTIONS: Record<string, string> = {
   "elk.algorithm": "layered",
@@ -99,7 +98,7 @@ export async function computeLayout(
     children: sorted.map((n) => ({ id: n.uid, width: CARD_WIDTH, height: CARD_HEIGHT })),
     edges: layoutEdges,
   };
-  const out = await elk.layout(root);
+  const out = await (await getElk()).layout(root);
   const flat = new Map((out.children ?? []).map((c) => [c.id, { x: c.x ?? 0, y: c.y ?? 0 }]));
   if (!laneOf) return { positions: flat, groups: [] };
   // Edges drawn straight between cards; cycle-breaking back edges loop around the row instead.

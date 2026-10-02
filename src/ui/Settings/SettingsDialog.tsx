@@ -7,6 +7,7 @@ import { AutoRefreshField } from "../Refresh";
 import { BackendSection } from "./BackendSection";
 import { blankSite, SiteForm, type SiteFormResult } from "./SiteForm";
 import { SiteRow } from "./SiteRow";
+import { Icon } from "../Icon";
 
 type Editing = { kind: "new" } | { kind: "edit"; id: string } | null;
 
@@ -96,9 +97,9 @@ export function SettingsDialog({
       }}
     >
       <header>
-        <h2 id="settings-title">Settings: Jira sites</h2>
+        <h2 id="settings-title">Settings</h2>
         <button type="button" className="icon-btn" onClick={onClose} aria-label="Close settings">
-          ✕
+          <Icon name="close" />
         </button>
       </header>
       {error && (

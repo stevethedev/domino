@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactElement } from "react";
 import type { SavedView } from "../state/savedViews";
+import { Icon } from "./Icon";
 
 /** "Views" menu: apply, save (overwrites a same-named view) and delete named views. */
 export function SavedViewsMenu({
@@ -42,7 +43,7 @@ export function SavedViewsMenu({
       }}
     >
       <summary aria-label={`Saved views (${views.length})`}>
-        <span className="field-label">Views</span> <span aria-hidden="true">▾</span>
+        <span className="field-label">Views</span> <Icon name="chevron-down" className="disclosure-caret" />
       </summary>
       <div className="popover saved-views-popover">
         {views.length === 0 ? (
@@ -73,7 +74,7 @@ export function SavedViewsMenu({
                   aria-label={`Delete view ${v.name}`}
                   title="Delete"
                 >
-                  ×
+                  <Icon name="close" />
                 </button>
               </li>
             ))}

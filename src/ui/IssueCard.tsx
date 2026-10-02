@@ -4,6 +4,7 @@ import { agingLabel, type Aging } from "../graph/aging";
 import { CHANGE_LABEL, type ChangeKind } from "../graph/changes";
 import type { Highlight } from "../graph/insights";
 import type { EpicRollup, GraphNode, StatusCategory } from "../graph/types";
+import { Icon } from "./Icon";
 
 export type IssueNodeData = {
   node: GraphNode;
@@ -79,8 +80,16 @@ function RollupBody({ node, rollup: r, compact }: { node: GraphNode; rollup: Epi
         <span className="rollup-bar" aria-hidden="true">
           <span style={{ width: `${total ? (100 * r.done) / total : 0}%` }} />
         </span>
-        {r.blocked > 0 && <span className="blockers">⚠ {r.blocked} blocked</span>}
-        {r.aging > 0 && <span className="age age-waiting">⏳ {r.aging}</span>}
+        {r.blocked > 0 && (
+          <span className="blockers">
+            <Icon name="alert" /> {r.blocked} blocked
+          </span>
+        )}
+        {r.aging > 0 && (
+          <span className="age age-waiting">
+            <Icon name="clock" /> {r.aging}
+          </span>
+        )}
         <span className="rollup-expand" aria-hidden="true">
           ⊕ {total}
         </span>
@@ -124,7 +133,7 @@ export function ChangeTag({ change }: { change: ChangeKind }): ReactElement {
 export function AgingBadge({ aging }: { aging: Aging }): ReactElement {
   return (
     <span className={`age age-${aging.kind}`} title={agingDescription(aging)}>
-      ⏳ {agingLabel(aging)}
+      <Icon name="clock" /> {agingLabel(aging)}
     </span>
   );
 }
@@ -134,7 +143,15 @@ export const agingDescription = (a: Aging): string =>
     ? `stuck: in progress ${a.days} working days against a ${a.estimateDays}-day estimate`
     : `waiting: blocked with no status change for ${a.days} working days`;
 
-const blockerText = (count: number): string => `⚠ ${count} blocker${count === 1 ? "" : "s"}`;
+const blockerText = (count: number): string => `${count} blocker${count === 1 ? "" : "s"}`;
+
+function BlockersBadge({ count }: { count: number }): ReactElement {
+  return (
+    <span className="blockers" title={`${count} open blocker${count === 1 ? "" : "s"}`}>
+      <Icon name="alert" /> {blockerText(count)}
+    </span>
+  );
+}
 
 /** Zoomed-out card: key, status and blockers only, large enough to read at a glance. */
 function CompactBody({
@@ -160,7 +177,7 @@ function CompactBody({
       </div>
       <div className="card-row3">
         <span className={`pill pill-${node.statusCategory}`}>{statusText}</span>
-        {openBlockers > 0 && <span className="blockers">{blockerText(openBlockers)}</span>}
+        {openBlockers > 0 && <BlockersBadge count={openBlockers} />}
         {ready && <span className="tag-ready">Ready</span>}
         {aging && <AgingBadge aging={aging} />}
         {change && <ChangeTag change={change} />}
@@ -272,11 +289,7 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
                 openBlockers > 0 && {
                   key: "blockers",
                   label: blockerText(openBlockers),
-                  el: (
-                    <span className="blockers" title={`${openBlockers} open blocker${openBlockers === 1 ? "" : "s"}`}>
-                      {blockerText(openBlockers)}
-                    </span>
-                  ),
+                  el: <BlockersBadge count={openBlockers} />,
                 },
                 highlight === "ready" && { key: "ready", label: "Ready", el: <span className="tag-ready">Ready</span> },
                 aging && { key: "aging", label: agingDescription(aging), el: <AgingBadge aging={aging} /> },
@@ -308,7 +321,7 @@ export const SiteGroup = memo(function SiteGroup({ data }: NodeProps<SiteGroupNo
           title="Open epic in Jira"
           aria-label={`Epic ${data.label}. Opens in browser.`}
         >
-          {data.label} ↗
+          {data.label} <Icon name="external" />
         </button>
       ) : (
         <div className="site-group-label">{data.label}</div>

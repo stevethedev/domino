@@ -194,6 +194,33 @@ Versioning and releases use [Changesets](https://github.com/changesets/changeset
 
 CI (`.github/workflows/typescript.yml` and `rust.yml`) runs `npm run check`, the Vitest suite, `cargo clippy -D warnings` and `cargo test` on every push to `main` and on every PR.
 
+## Styling
+
+All visual values live in `src/styles/tokens.css`:
+
+- **Type:** a size scale from `--text-2xs` to `--text-4xl`, and two weights.
+- **Space:** a 4px grid with half steps, `--space-0_5` to `--space-6`.
+- **Shape:** radii from `--radius-xs` to `--radius-pill`.
+- **Elevation:** `--shadow-xs` to `--shadow-lg`, stronger in dark mode.
+- **Motion:** `--duration-*` tokens.
+- **Layers:** named z-index tokens (`--z-*`).
+- **Controls:** one `--control-h` for every button, input and select.
+- **Colour:** every theme colour, with dark-mode overrides.
+
+Components use the tokens, never literals. The only literals left are 1px hairlines and two one-off offsets.
+
+`src/styles/base.css` defines the control primitives with `:where()`, so they carry no specificity and any component class overrides them without counter-rules:
+
+- **Buttons:** plain, `.primary`, `.danger`, `.icon-btn` and `.link-btn`.
+- **Inputs and selects:** share the button height.
+
+Icons come from `src/ui/Icon.tsx`: one 24px grid, 2px strokes, `currentColor`.
+
+Performance:
+
+- **Layout:** the ELK engine runs in a Web Worker (`src/graph/elk.ts`), off the main thread and out of the main bundle.
+- **Code splitting:** the Timeline and Settings are lazy-loaded.
+
 ## App icon
 
 The mark is three dominoes in a cascade: the amber tile (the critical-path colour) tips first and falls onto the next, the chain reaction Domino makes visible, and "finish this first". Sources live in `assets/brand/`:

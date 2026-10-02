@@ -1,5 +1,6 @@
 import { useEffect, useRef, type ReactElement } from "react";
 import type { SiteConfig } from "../config/types";
+import { Icon } from "./Icon";
 
 export function SiteSelector({
   sites,
@@ -47,7 +48,7 @@ export function SiteSelector({
             </span>
           ))
         )}
-        <span aria-hidden="true">▾</span>
+        <Icon name="chevron-down" className="disclosure-caret" />
       </summary>
       <fieldset className="popover">
         <legend className="sr-only">Sites to load</legend>

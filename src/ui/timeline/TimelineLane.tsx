@@ -1,5 +1,6 @@
 import type { ReactElement } from "react";
 import { LANE_HEIGHT, type TimelineLaneModel } from "./timelineLayout";
+import { Icon } from "../Icon";
 
 /** A swimlane header: a disclosure toggle for the lane's rows, its title (epic lanes link to Jira) and counts. */
 export function TimelineLane({
@@ -37,7 +38,7 @@ export function TimelineLane({
             }}
             aria-label={`Epic ${lane.label}. Opens in browser.`}
           >
-            {lane.label} ↗
+            {lane.label} <Icon name="external" />
           </button>
         )}
         <span className="muted small" aria-hidden="true">

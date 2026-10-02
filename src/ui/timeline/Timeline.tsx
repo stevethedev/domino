@@ -15,6 +15,7 @@ import { arrowAnchors, isViolated, TimelineArrows, type ArrowModel } from "./Tim
 import {
   dayRange,
   drawnBar,
+  FOLD_MS,
   entryEnd,
   isEpicNode,
   isLate,
@@ -29,9 +30,6 @@ import {
 } from "./timelineLayout";
 import { TimelineLane } from "./TimelineLane";
 import { TimelineRow } from "./TimelineRow";
-
-/** How long a lane takes to fold or unfold; matches `--fold-ms` in timeline.css. */
-export const FOLD_MS = 200;
 
 export function Timeline({
   graph,

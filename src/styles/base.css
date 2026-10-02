@@ -1,4 +1,8 @@
-/* Element defaults and form controls. */
+/*
+ * Element defaults and the control primitives (buttons, inputs, selects). Defaults use :where()
+ * so they carry no specificity: any component class overrides them without !important or
+ * hover/disabled counter-rules.
+ */
 
 * {
   box-sizing: border-box;
@@ -10,23 +14,18 @@ body,
   margin: 0;
 }
 body {
-  font:
-    14px/1.4 -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    Roboto,
-    sans-serif;
+  font: var(--text-base) / var(--leading) var(--font-sans);
   background: var(--bg);
   color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 h1,
 h2,
 h3 {
   margin: 0;
 }
-button,
-input,
-select {
+:where(button, input, select) {
   font: inherit;
   color: inherit;
 }
@@ -34,7 +33,7 @@ select {
   font-family: var(--mono);
 }
 .small {
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .muted {
   color: var(--muted);
@@ -49,64 +48,120 @@ select {
 }
 
 :focus-visible {
-  outline: 3px solid var(--focus);
+  outline: var(--ring-width) solid var(--focus);
   outline-offset: 2px;
 }
 
-button {
+/* Every button starts from this neutral look; component buttons (tiles, list rows, toggles)
+   restyle it with their own class. */
+:where(button) {
+  padding: var(--space-1_5) var(--space-2_5);
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 5px 10px;
+  border-radius: var(--radius-md);
   cursor: pointer;
+  transition:
+    background var(--duration-fast) var(--ease),
+    border-color var(--duration-fast) var(--ease),
+    filter var(--duration-fast) var(--ease);
 }
-button:hover:not(:disabled) {
+/* Standard action buttons: plain, .primary (the main action), .danger (destructive) and
+   .icon-btn (glyph only) share the control height and type. .link-btn is inline text. */
+:where(button:not([class]), button.primary, button.danger, .icon-btn) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1_5);
+  min-height: var(--control-h);
+  padding: 0 var(--space-3);
+  font-weight: var(--weight-semibold);
+}
+:where(button:hover:not(:disabled)) {
   background: var(--surface-2);
 }
-button:disabled {
-  opacity: 0.6;
+:where(button:active:not(:disabled)) {
+  filter: brightness(0.96);
+}
+:where(button:disabled) {
+  opacity: 0.55;
   cursor: default;
 }
-button.primary {
+:where(button.primary) {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--accent-text);
 }
-button.primary:hover:not(:disabled) {
-  filter: brightness(1.08);
+:where(button.primary:hover:not(:disabled)) {
   background: var(--accent);
+  filter: brightness(1.08);
 }
-button.danger {
+:where(button.danger) {
   border-color: var(--cycle);
   color: var(--cycle);
 }
-.icon-btn {
-  font-size: 18px;
+:where(.icon-btn) {
+  min-width: var(--control-h);
+  padding: 0 var(--space-1_5);
+  font-size: var(--text-xl);
   line-height: 1;
-  padding: 5px 9px;
 }
-.link-btn {
+:where(.link-btn) {
+  padding: 0 var(--space-0_5);
   background: none;
   border: none;
-  padding: 0 2px;
   color: var(--accent);
+  font-weight: inherit;
   text-decoration: underline;
 }
+:where(.link-btn:hover:not(:disabled)) {
+  background: none;
+}
 
-input[type="text"],
-input[type="search"],
-input[type="date"],
-input[type="url"],
-input[type="email"],
-input[type="password"],
-input[type="number"],
-input:not([type]),
-select {
+/* Icons (src/ui/Icon.tsx) scale with the text and sit on its baseline. */
+.icon {
+  flex: none;
+  vertical-align: -0.125em;
+}
+.disclosure-caret {
+  width: 0.85em;
+  height: 0.85em;
+  color: var(--muted);
+}
+
+/* Text inputs and selects share the button height so mixed rows line up. */
+:where(
+  input[type="text"],
+  input[type="search"],
+  input[type="date"],
+  input[type="url"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input:not([type]),
+  select
+) {
+  min-height: var(--control-h);
+  min-width: 0;
+  padding: 0 var(--space-2);
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 5px 8px;
-  min-width: 0;
+  border-radius: var(--radius-md);
+  transition: border-color var(--duration-fast) var(--ease);
+}
+:where(input, select):hover:not(:disabled, [readonly]) {
+  border-color: color-mix(in srgb, var(--border) 60%, var(--text));
+}
+/* Selects drop the native look (its own caret, and a popup-button shape in WebKit that ignores
+   height and radius) for the same chevron and box as the menu triggers. */
+:where(select) {
+  appearance: none;
+  padding-right: calc(var(--space-2) + 0.85em + var(--space-1_5));
+  background-image: var(--select-caret);
+  background-repeat: no-repeat;
+  background-position: right var(--space-2) center;
+  background-size: 0.85em;
+  cursor: pointer;
+  text-overflow: ellipsis;
 }
 input[aria-invalid="true"] {
   border-color: var(--cycle);
@@ -114,4 +169,14 @@ input[aria-invalid="true"] {
 input[readonly] {
   background: var(--surface-2);
   color: var(--muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0ms !important;
+    animation-duration: 0ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }

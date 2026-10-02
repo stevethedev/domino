@@ -1,6 +1,6 @@
 import { ReactFlowProvider } from "@xyflow/react";
 import { prefersReducedMotion } from "./lib/motion";
-import { useCallback, useEffect, useMemo, useState, type ReactElement } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type ReactElement } from "react";
 import { summaryUid } from "./graph/collapse";
 import { computeInsights, type Highlight, type HighlightScope } from "./graph/insights";
 import { myIssues } from "./graph/mine";
@@ -26,13 +26,16 @@ import { SidebarSection } from "./ui/SidebarSection";
 import { QuickFind } from "./ui/QuickFind";
 import { Freshness, RefreshButton } from "./ui/Refresh";
 import { ScopeInputs } from "./ui/ScopeInputs";
-import { SettingsDialog } from "./ui/Settings/SettingsDialog";
 import { SavedViewsMenu } from "./ui/SavedViewsMenu";
 import { SiteSelector } from "./ui/SiteSelector";
-import { FOLD_MS, Timeline } from "./ui/timeline/Timeline";
-import { localToday } from "./ui/timeline/timelineLayout";
+import { FOLD_MS, localToday } from "./ui/timeline/timelineLayout";
 import { isViewMode, ViewToggle, type ViewMode } from "./ui/ViewToggle";
 import { WarningsPanel } from "./ui/WarningsPanel";
+import { Icon } from "./ui/Icon";
+
+// Split out of the startup bundle: the timeline loads on first switch to it, Settings on first open.
+const Timeline = lazy(() => import("./ui/timeline/Timeline").then((m) => ({ default: m.Timeline })));
+const SettingsDialog = lazy(() => import("./ui/Settings/SettingsDialog").then((m) => ({ default: m.SettingsDialog })));
 
 const DEFAULT_FILTERS: Filters = { blocks: true, relates: false, duplicates: false, crossSite: true };
 const DEFAULT_VIEW: ViewOptions = { groupBy: "none", highlight: "none", highlightScope: "all", collapseEpics: false };
@@ -81,6 +84,11 @@ function Shell(): ReactElement {
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [view, setView] = useState(DEFAULT_VIEW);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Settings is code-split: mount it on first open, then keep it mounted like before.
+  const [settingsEverOpened, setSettingsEverOpened] = useState(false);
+  useEffect(() => {
+    if (settingsOpen) setSettingsEverOpened(true);
+  }, [settingsOpen]);
   const [viewMode, setViewMode] = usePersistentState<ViewMode>("domino.view", parseViewMode, "graph");
   const focusGraphNode = useFocusNode();
   const [collapsedLaneIds, setCollapsedLaneIds] = usePersistentState(COLLAPSED_LANES_KEY, parseLaneIds, []);
@@ -236,7 +244,7 @@ function Shell(): ReactElement {
           aria-label="Settings"
           title="Settings"
         >
-          ⚙
+          <Icon name="settings" />
         </button>
       </header>
 
@@ -327,32 +335,38 @@ function Shell(): ReactElement {
               onToggleEpic={toggleEpic}
             />
           ) : (
-            <Timeline
-              graph={graph}
-              insights={insights}
-              filters={filters}
-              view={view}
-              history={history}
-              settings={estimates}
-              onSettings={setEstimates}
-              onOpen={openExternal}
-              collapsedLanes={collapsedLanes}
-              onCollapsedLanes={setCollapsedLanes}
-            />
+            <Suspense fallback={<div className="canvas-message">Loading timeline…</div>}>
+              <Timeline
+                graph={graph}
+                insights={insights}
+                filters={filters}
+                view={view}
+                history={history}
+                settings={estimates}
+                onSettings={setEstimates}
+                onOpen={openExternal}
+                collapsedLanes={collapsedLanes}
+                onCollapsedLanes={setCollapsedLanes}
+              />
+            </Suspense>
           )}
           <CanvasMessage domino={domino} />
         </section>
       </main>
 
-      <SettingsDialog
-        domino={domino}
-        open={settingsOpen}
-        onClose={() => {
-          setSettingsOpen(false);
-        }}
-        refreshMinutes={refreshMinutes}
-        onRefreshMinutes={setRefreshMinutes}
-      />
+      {settingsEverOpened && (
+        <Suspense fallback={null}>
+          <SettingsDialog
+            domino={domino}
+            open={settingsOpen}
+            onClose={() => {
+              setSettingsOpen(false);
+            }}
+            refreshMinutes={refreshMinutes}
+            onRefreshMinutes={setRefreshMinutes}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }
@@ -360,7 +374,7 @@ function Shell(): ReactElement {
 function CanvasMessage({ domino }: { domino: ReturnType<typeof useDomino> }): ReactElement | null {
   const { load, selectedSites, graph } = domino;
   let msg: React.ReactNode = null;
-  if (selectedSites.length === 0 && domino.config) msg = "Select at least one site, or add one in Settings (⚙).";
+  if (selectedSites.length === 0 && domino.config) msg = "Select at least one site, or add one in Settings (the gear button, top right).";
   else if (load.status === "failed") msg = `Loading failed: ${load.message}`;
   else if (load.status === "done" && load.result.kind === "overCap")
     msg = (

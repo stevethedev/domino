@@ -11,6 +11,8 @@ export const PX_PER_DAY: Record<Scale, number> = { day: 28, week: 11, month: 4 }
 export const LABEL_WIDTH = 320;
 export const ROW_HEIGHT = 40;
 export const LANE_HEIGHT = 30;
+/** How long a lane takes to fold or unfold; matches `--fold-ms` in timeline.css (via --duration-base). */
+export const FOLD_MS = 200;
 
 /** `folded`: the row's lane is collapsed; it stays mounted at the header's y (hidden) so folding can animate. */
 export type TimelineRowModel = { kind: "row"; node: GraphNode; entry: TimelineEntry; y: number; folded: boolean };

@@ -5,6 +5,7 @@ import { API_TOKEN_URL, applyUrl, parseJiraUrl, suggestedSecretRef } from "../..
 import type { BackendKind, SiteConfig } from "../../config/types";
 import { errorMessage } from "../../data/errors";
 import { openExternal } from "../../platform";
+import { Icon } from "../Icon";
 
 export type SiteFormResult = { site: SiteConfig; isDefault: boolean; token: string; test: boolean };
 
@@ -332,7 +333,7 @@ export function SiteForm({
                     openExternal(API_TOKEN_URL);
                   }}
                 >
-                  Create a token at id.atlassian.com ↗
+                  Create a token at id.atlassian.com <Icon name="external" />
                 </button>{" "}
                 Saved to your OS keychain, never shown again.
               </>,
