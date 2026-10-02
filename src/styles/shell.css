@@ -39,7 +39,8 @@
   border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; background: var(--surface);
 }
 .site-selector summary::-webkit-details-marker { display: none; }
-.site-selector .popover {
+/* A menu panel under its <details> trigger, floating over the page (the trigger is position: relative). */
+.popover {
   position: absolute; top: calc(100% + 4px); left: 0; z-index: 20; min-width: 260px;
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
   padding: 8px; margin: 0; box-shadow: 0 8px 24px rgb(0 0 0 / 0.15); display: grid; gap: 4px;
