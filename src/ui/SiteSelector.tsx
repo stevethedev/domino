@@ -1,6 +1,7 @@
-import { useEffect, useRef, type ReactElement } from "react";
+import type { ReactElement } from "react";
 import type { SiteConfig } from "../config/types";
 import { Icon } from "./Icon";
+import { useDetailsMenu } from "./useDetailsMenu";
 
 export function SiteSelector({
   sites,
@@ -11,31 +12,12 @@ export function SiteSelector({
   selected: string[];
   onChange: (ids: string[]) => void;
 }): ReactElement {
-  const ref = useRef<HTMLDetailsElement>(null);
+  const menu = useDetailsMenu();
   const enabled = sites.filter((s) => s.enabled);
   const chosen = enabled.filter((s) => selected.includes(s.id));
 
-  useEffect(() => {
-    const close = (e: MouseEvent): void => {
-      if (ref.current?.open && e.target instanceof Node && !ref.current.contains(e.target)) ref.current.open = false;
-    };
-    document.addEventListener("mousedown", close);
-    return (): void => {
-      document.removeEventListener("mousedown", close);
-    };
-  }, []);
-
   return (
-    <details
-      className="site-selector"
-      ref={ref}
-      onKeyDown={(e) => {
-        if (e.key === "Escape" && ref.current?.open) {
-          ref.current.open = false;
-          ref.current.querySelector("summary")?.focus();
-        }
-      }}
-    >
+    <details className="site-selector" ref={menu.ref} onKeyDown={menu.onKeyDown}>
       <summary aria-label={`Sites: ${chosen.map((s) => s.label).join(", ") || "none selected"}`}>
         <span className="field-label">Sites</span>
         {chosen.length === 0 ? (

@@ -176,10 +176,7 @@ export function Timeline({
   // scrolled out of view.
   const exportTimeline = captureElement(
     () => document.querySelector<HTMLElement>(".timeline .tl-inner"),
-    () => {
-      const inner = document.querySelector<HTMLElement>(".timeline .tl-inner");
-      return { width: inner?.scrollWidth ?? 0, height: inner?.scrollHeight ?? 0 };
-    },
+    (inner) => ({ width: inner.scrollWidth, height: inner.scrollHeight }),
   );
 
   return (

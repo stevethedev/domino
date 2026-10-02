@@ -1,4 +1,4 @@
-import { Background, Controls, getNodesBounds, MiniMap, Panel, ReactFlow, useReactFlow } from "@xyflow/react";
+import { Background, Controls, getNodesBounds, MiniMap, Panel, ReactFlow, useReactFlow, type Rect } from "@xyflow/react";
 import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { blockingChain } from "../graph/analysis";
 import { collapseEpics, shownEdgeId } from "../graph/collapse";
@@ -12,6 +12,9 @@ import { captureElement } from "./capture";
 import { ExportMenu } from "./ExportMenu";
 import { COMPACT_BELOW_ZOOM, IssueCard, SiteGroup, type IssueFlowNode, type SiteGroupNode } from "./IssueCard";
 import { isOneOf } from "../lib/guards";
+
+/** Margin around the graph in exports, in CSS pixels. */
+const EXPORT_PADDING = 40;
 
 /** Link and issue filters (display only; see visibleSubgraph). */
 export type Filters = ViewFilters;
@@ -247,8 +250,7 @@ export function Canvas({
 
   // Exports render React Flow's viewport (cards, lanes, edges; not the minimap or controls) framed to
   // the whole graph at real size, whatever the current pan and zoom.
-  const EXPORT_PADDING = 40;
-  const graphBounds = (): { x: number; y: number; width: number; height: number } => getNodesBounds(rf.getNodes());
+  const graphBounds = (): Rect => getNodesBounds(rf.getNodes());
   const exportGraph = captureElement(
     () => document.querySelector<HTMLElement>(".canvas .react-flow__viewport"),
     () => {

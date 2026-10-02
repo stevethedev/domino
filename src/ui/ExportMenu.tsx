@@ -1,14 +1,16 @@
 import { useState, type ReactElement } from "react";
 import { copyImage, saveFile } from "../platform";
 import { Icon } from "./Icon";
+import { useDetailsMenu } from "./useDetailsMenu";
 import { localToday } from "./timeline/timelineLayout";
 
-export type Capture = { png: () => Promise<Blob>; svg: () => Promise<string> };
+export type Capture = Readonly<{ png: () => Promise<Blob>; svg: () => Promise<string> }>;
 
 /** "Export" menu for a view: copy it as an image, or save it as PNG or SVG (`name` seeds the file name). */
 export function ExportMenu({ name, capture }: { name: string; capture: Capture }): ReactElement {
   const [status, setStatus] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const menu = useDetailsMenu();
   const file = (ext: string): string => `domino-${name}-${localToday()}.${ext}`;
   const run = async (action: () => Promise<string | null>): Promise<void> => {
     setBusy(true);
@@ -23,7 +25,7 @@ export function ExportMenu({ name, capture }: { name: string; capture: Capture }
     }
   };
   return (
-    <details className="export-menu">
+    <details className="export-menu" ref={menu.ref} onKeyDown={menu.onKeyDown}>
       <summary aria-label={`Export the ${name}`}>
         Export <Icon name="chevron-down" className="disclosure-caret" />
       </summary>
@@ -33,7 +35,7 @@ export function ExportMenu({ name, capture }: { name: string; capture: Capture }
           disabled={busy}
           onClick={() => {
             void run(async () => {
-              await copyImage(await capture.png());
+              await copyImage(capture.png());
               return "Copied: paste it into chat or a document.";
             });
           }}

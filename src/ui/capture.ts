@@ -8,22 +8,25 @@ const PNG_SCALE = 2; // sharp on high-DPI screens
 /** The theme background, so exports aren't transparent (and read right in dark mode). */
 const background = (): string => getComputedStyle(document.body).backgroundColor;
 
+/** The CSS-pixel size to render at, plus styles applied to the copy (not the live page). */
+export type CaptureSize = Readonly<{ width: number; height: number; style?: Partial<CSSStyleDeclaration> }>;
+
 /**
- * A capture of `el` rendered at `width` × `height` CSS pixels. `prepare` runs before each render
+ * A capture of `el` rendered at the size `size` gives for it. `prepare` runs before each render
  * (it may wait for React to re-render) and returns a cleanup for after, for temporary changes the
  * export needs.
  */
 export function captureElement(
   el: () => HTMLElement | null,
-  size: () => { width: number; height: number; style?: Partial<CSSStyleDeclaration> },
+  size: (node: HTMLElement) => CaptureSize,
   prepare: () => Promise<() => void> | (() => void) = () => () => undefined,
 ): Capture {
   const render = async <T>(draw: (node: HTMLElement, options: Options) => Promise<T>, scale: number): Promise<T> => {
     const node = el();
     if (!node) throw new Error("Nothing to export yet");
     const cleanup = await prepare();
-    const { width, height, style } = size();
     try {
+      const { width, height, style } = size(node);
       const fit = Math.min(scale, Math.sqrt(MAX_CANVAS_PIXELS / Math.max(1, width * height)));
       return await draw(node, { width, height, style, scale: fit, backgroundColor: background() });
     } finally {

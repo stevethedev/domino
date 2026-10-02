@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState, type ReactElement } from "react";
+import { useRef, useState, type ReactElement } from "react";
 import { saveFile } from "../platform";
 import { readViewsFile, viewsFile, type SavedView } from "../state/savedViews";
 import { Icon } from "./Icon";
+import { useDetailsMenu } from "./useDetailsMenu";
 
 /** "Views" menu: apply, save (overwrites a same-named view), delete, and share named views as a file. */
 export function SavedViewsMenu({
@@ -20,34 +21,12 @@ export function SavedViewsMenu({
 }): ReactElement {
   const fileInput = useRef<HTMLInputElement>(null);
   const [shareStatus, setShareStatus] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
-  const ref = useRef<HTMLDetailsElement>(null);
+  const { ref, close, onKeyDown } = useDetailsMenu();
   const [name, setName] = useState("");
-  const close = (): void => {
-    if (ref.current) ref.current.open = false;
-  };
-
-  useEffect(() => {
-    const onDown = (e: MouseEvent): void => {
-      if (ref.current?.open && e.target instanceof Node && !ref.current.contains(e.target)) close();
-    };
-    document.addEventListener("mousedown", onDown);
-    return (): void => {
-      document.removeEventListener("mousedown", onDown);
-    };
-  }, []);
 
   const exists = views.some((v) => v.name.toLowerCase() === name.trim().toLowerCase());
   return (
-    <details
-      className="saved-views"
-      ref={ref}
-      onKeyDown={(e) => {
-        if (e.key === "Escape") {
-          close();
-          ref.current?.querySelector("summary")?.focus();
-        }
-      }}
-    >
+    <details className="saved-views" ref={ref} onKeyDown={onKeyDown}>
       <summary aria-label={`Saved views (${views.length})`}>
         <span className="field-label">Views</span> <Icon name="chevron-down" className="disclosure-caret" />
       </summary>

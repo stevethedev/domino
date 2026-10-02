@@ -39,7 +39,7 @@ export async function notify(title: string, body: string): Promise<void> {
   if (await isPermissionGranted()) sendNotification({ title, body });
 }
 
-export type SaveFilter = { name: string; extensions: string[] };
+export type SaveFilter = Readonly<{ name: string; extensions: readonly string[] }>;
 
 /**
  * Saves `data` to a file the user picks: a native save dialog in the app (the dialog grants write
@@ -52,7 +52,9 @@ export async function saveFile(suggestedName: string, data: Blob | string, filte
     const a = document.createElement("a");
     a.href = url;
     a.download = suggestedName;
+    document.body.append(a);
     a.click();
+    a.remove();
     setTimeout(() => {
       URL.revokeObjectURL(url);
     }, 1000);
@@ -62,14 +64,17 @@ export async function saveFile(suggestedName: string, data: Blob | string, filte
     import("@tauri-apps/plugin-dialog"),
     import("@tauri-apps/plugin-fs"),
   ]);
-  const path = await save({ defaultPath: suggestedName, filters: [filter] });
+  const path = await save({ defaultPath: suggestedName, filters: [{ name: filter.name, extensions: [...filter.extensions] }] });
   if (!path) return false;
   if (typeof data === "string") await writeTextFile(path, data);
   else await writeFile(path, new Uint8Array(await data.arrayBuffer()));
   return true;
 }
 
-/** Puts a PNG on the clipboard, ready to paste into chat or a document. */
-export async function copyImage(png: Blob): Promise<void> {
-  await navigator.clipboard.write([new ClipboardItem({ "image/png": png })]);
+/**
+ * Puts a PNG on the clipboard, ready to paste into chat or a document. Takes the image still being
+ * rendered: WebKit only allows the write during the click, so it starts now and fills in later.
+ */
+export function copyImage(png: Promise<Blob>): Promise<void> {
+  return navigator.clipboard.write([new ClipboardItem({ "image/png": png })]);
 }
