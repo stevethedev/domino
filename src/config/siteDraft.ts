@@ -38,12 +38,15 @@ export function uniqueId(base: string, taken: readonly string[]): string {
   }
 }
 
-export const suggestedSecretRef = (id: string) => `DOMINO_${(id || "SITE").toUpperCase().replace(/[^A-Z0-9]+/g, "_")}_TOKEN`;
+export const suggestedSecretRef = (id: string): string => `DOMINO_${(id || "SITE").toUpperCase().replace(/[^A-Z0-9]+/g, "_")}_TOKEN`;
 
 export const API_TOKEN_URL = "https://id.atlassian.com/manage-profile/security/api-tokens";
 
+/** The id and label last derived from the URL, so later edits can tell whether the user customized them. */
+export type AutoFields = { id: string; label: string };
+
 /** Fills id / label / secretRef from the URL unless the user already customized them. */
-export function applyUrl(draft: SiteConfig, input: string, taken: readonly string[], prevAuto: { id: string; label: string }) {
+export function applyUrl(draft: SiteConfig, input: string, taken: readonly string[], prevAuto: AutoFields): { draft: SiteConfig; auto: AutoFields } {
   const parsed = parseJiraUrl(input);
   const next: SiteConfig = { ...draft, baseUrl: input };
   if (!parsed) return { draft: next, auto: prevAuto };

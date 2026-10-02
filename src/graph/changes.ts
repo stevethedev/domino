@@ -34,7 +34,7 @@ export type Changes = {
   since: string;
 };
 
-const pairOf = (source: string, target: string) => `${source}>${target}`;
+const pairOf = (source: string, target: string): string => `${source}>${target}`;
 
 export function takeSnapshot(graph: Graph, insights: Insights, hasAging: boolean, now: Date = new Date()): Snapshot {
   const issues: Snapshot["issues"] = {};
@@ -53,7 +53,7 @@ export function diffSnapshot(prev: Snapshot, graph: Graph, insights: Insights, h
   const byIssue = new Map<string, ChangeKind[]>();
   const counts: Record<ChangeKind, number> = { new: 0, blocked: 0, unblocked: 0, done: 0, aging: 0, moved: 0 };
   for (const [uid, cur] of Object.entries(now.issues)) {
-    const before = prev.issues[uid];
+    const before = Object.hasOwn(prev.issues, uid) ? prev.issues[uid] : undefined;
     const kinds: ChangeKind[] = [];
     if (!before) kinds.push("new");
     else {
@@ -71,9 +71,9 @@ export function diffSnapshot(prev: Snapshot, graph: Graph, insights: Insights, h
   const before = new Set(prev.blocks);
   const newLinks = now.blocks.filter((p) => {
     const [s, t] = p.split(">");
-    return !before.has(p) && prev.issues[s] && prev.issues[t];
+    return !before.has(p) && Object.hasOwn(prev.issues, s) && Object.hasOwn(prev.issues, t);
   }).length;
-  const leftScope = Object.keys(prev.issues).filter((uid) => !now.issues[uid]).length;
+  const leftScope = Object.keys(prev.issues).filter((uid) => !Object.hasOwn(now.issues, uid)).length;
   return { byIssue, counts, leftScope, newLinks, since: prev.takenAt };
 }
 
@@ -86,8 +86,9 @@ export function parseSnapshot(raw: unknown): Snapshot | undefined {
   const r: Record<string, unknown> = { ...raw };
   if (typeof r.takenAt !== "string" || typeof r.hasAging !== "boolean" || !Array.isArray(r.blocks)) return undefined;
   if (!r.issues || typeof r.issues !== "object") return undefined;
+  const rawIssues: Record<string, unknown> = { ...r.issues };
   const issues: Snapshot["issues"] = {};
-  for (const [uid, v] of Object.entries(r.issues)) {
+  for (const [uid, v] of Object.entries(rawIssues)) {
     if (!v || typeof v !== "object") continue;
     const e: Record<string, unknown> = { ...v };
     if (!isCategory(e.c) || typeof e.b !== "boolean") continue;

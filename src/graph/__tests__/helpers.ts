@@ -1,5 +1,5 @@
 import type { SiteConfig } from "../../config/types";
-import type { RawIssue, RawLinkType, RawRemoteLink, RawSiteData, RawStatusCategoryKey } from "../../data/jiraTypes";
+import type { RawIssue, RawLinkedIssue, RawLinkType, RawRemoteLink, RawSiteData, RawStatusCategoryKey } from "../../data/jiraTypes";
 
 export const BLOCKS: RawLinkType = { id: "1", name: "Blocks", inward: "is blocked by", outward: "blocks" };
 export const RELATES: RawLinkType = { id: "2", name: "Relates", inward: "relates to", outward: "relates to" };
@@ -36,14 +36,14 @@ export function issue(key: string, cat: RawStatusCategoryKey = "new", summary = 
 }
 
 /** Adds a native link on both issues exactly as Jira returns it. Pass `null` for an issue that isn't loaded. */
-export function link(id: string, type: RawLinkType, outward: RawIssue, inward: RawIssue, loaded: { out: boolean; in: boolean } = { out: true, in: true }) {
-  const ref = (i: RawIssue) => ({
+export function link(id: string, type: RawLinkType, outward: RawIssue, inward: RawIssue, loaded: { out: boolean; in: boolean } = { out: true, in: true }): void {
+  const ref = (i: RawIssue): RawLinkedIssue => ({
     id: i.id,
     key: i.key,
     fields: { summary: i.fields.summary, status: i.fields.status, issuetype: i.fields.issuetype },
   });
-  if (loaded.out) outward.fields.issuelinks!.push({ id, type, outwardIssue: ref(inward) });
-  if (loaded.in) inward.fields.issuelinks!.push({ id, type, inwardIssue: ref(outward) });
+  if (loaded.out) (outward.fields.issuelinks ??= []).push({ id, type, outwardIssue: ref(inward) });
+  if (loaded.in) (inward.fields.issuelinks ??= []).push({ id, type, inwardIssue: ref(outward) });
 }
 
 export function remote(id: number, relationship: string, url: string, title?: string): RawRemoteLink {

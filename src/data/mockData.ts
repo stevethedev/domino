@@ -12,7 +12,7 @@ export type MockSite = {
   issues: RawIssue[];
   remoteLinks: Record<string, RawRemoteLink[]>;
   /** Status changelogs keyed by Jira issue id. */
-  changelogs?: Record<string, RawChangeHistory[]>;
+  changelogs?: Partial<Record<string, RawChangeHistory[]>>;
   statuses?: RawStatusDef[];
 };
 

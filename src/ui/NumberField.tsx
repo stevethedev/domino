@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactElement } from "react";
 
 /**
  * A number input that keeps what you type (e.g. "0." on the way to "0.5") and only commits
@@ -18,9 +18,9 @@ export function NumberField({
   min: number;
   step: number;
   integer?: boolean;
-} & Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "min" | "step" | "type">) {
+} & Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "min" | "step" | "type">): ReactElement {
   const [draft, setDraft] = useState(String(value));
-  useEffect(() => setDraft(String(value)), [value]);
+  useEffect(() => { setDraft(String(value)); }, [value]);
   return (
     <input
       {...rest}
@@ -33,7 +33,7 @@ export function NumberField({
         const n = Number(e.target.value);
         if (e.target.value.trim() !== "" && Number.isFinite(n) && n >= min && (!integer || Number.isInteger(n))) onCommit(n);
       }}
-      onBlur={() => setDraft(String(value))}
+      onBlur={() => { setDraft(String(value)); }}
     />
   );
 }

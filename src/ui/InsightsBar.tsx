@@ -1,3 +1,4 @@
+import type { ReactElement } from "react";
 import type { Highlight, Insights } from "../graph/insights";
 import type { GraphNode } from "../graph/types";
 
@@ -20,7 +21,7 @@ export function InsightTiles({
   highlight: Highlight;
   onHighlight: (h: Highlight) => void;
   onShowCycle: () => void;
-}) {
+}): ReactElement {
   const tiles: Tile[] = [
     { id: "blocked", label: "Blocked", count: insights.blocked.size, hint: "open issues waiting on an open blocker" },
     { id: "ready", label: "Ready", count: insights.ready.size, hint: "open issues with nothing in the way" },
@@ -40,7 +41,7 @@ export function InsightTiles({
             type="button"
             className={`insight insight-${t.id}`}
             aria-pressed={highlight === t.id}
-            onClick={() => onHighlight(highlight === t.id ? "none" : t.id)}
+            onClick={() => { onHighlight(highlight === t.id ? "none" : t.id); }}
             title={`Highlight ${t.count} ${t.hint}`}
           >
             <span className="insight-count">{t.count}</span>
@@ -75,7 +76,7 @@ export function FinishFirst({
   nodes: ReadonlyMap<string, GraphNode>;
   /** Focus an issue in the current view (which also traces its blocking chain). */
   onPick: (uid: string) => void;
-}) {
+}): ReactElement {
   if (insights.unblockers.length === 0) return <p className="hint">Nothing open is blocking other open work.</p>;
   return (
     <ol className="finish-first" aria-label="Issues that unblock the most work">
@@ -87,7 +88,7 @@ export function FinishFirst({
           <li key={u.uid}>
             <button
               type="button"
-              onClick={() => onPick(u.uid)}
+              onClick={() => { onPick(u.uid); }}
               title={`${n.key}: ${n.summary}`}
               aria-label={`${n.key}, ${n.summary}, ${reach}, ${n.assigneeName ?? "unassigned"}. Shows it in the current view.`}
             >

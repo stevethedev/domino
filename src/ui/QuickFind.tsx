@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ReactElement } from "react";
 import type { GraphNode } from "../graph/types";
 
 const MAX_RESULTS = 8;
@@ -7,7 +7,7 @@ const MAX_RESULTS = 8;
 export function findIssues(nodes: readonly GraphNode[], query: string): GraphNode[] {
   const q = query.trim().toLowerCase();
   if (!q) return [];
-  const rank = (n: GraphNode) => {
+  const rank = (n: GraphNode): number => {
     const key = n.key.toLowerCase();
     if (key === q) return 0;
     if (key.startsWith(q)) return 1;
@@ -24,7 +24,7 @@ export function findIssues(nodes: readonly GraphNode[], query: string): GraphNod
 }
 
 /** Jump to an issue by key or summary. `/` or ⌘K/Ctrl+K focuses it from anywhere. */
-export function QuickFind({ nodes, showSite, onPick }: { nodes: readonly GraphNode[]; showSite: boolean; onPick: (uid: string) => void }) {
+export function QuickFind({ nodes, showSite, onPick }: { nodes: readonly GraphNode[]; showSite: boolean; onPick: (uid: string) => void }): ReactElement {
   const id = useId();
   const input = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
@@ -33,7 +33,7 @@ export function QuickFind({ nodes, showSite, onPick }: { nodes: readonly GraphNo
   const results = useMemo(() => findIssues(nodes, query), [nodes, query]);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
+    const onKey = (e: KeyboardEvent): void => {
       const typing = e.target instanceof HTMLElement && e.target.matches("input, textarea, select, [contenteditable]");
       if ((e.key === "k" && (e.metaKey || e.ctrlKey)) || (e.key === "/" && !typing)) {
         e.preventDefault();
@@ -42,10 +42,10 @@ export function QuickFind({ nodes, showSite, onPick }: { nodes: readonly GraphNo
       }
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return (): void => { window.removeEventListener("keydown", onKey); };
   }, []);
 
-  const pick = (n: GraphNode) => {
+  const pick = (n: GraphNode): void => {
     setQuery("");
     setOpen(false);
     onPick(n.uid);
@@ -70,8 +70,8 @@ export function QuickFind({ nodes, showSite, onPick }: { nodes: readonly GraphNo
           setActive(0);
           setOpen(true);
         }}
-        onFocus={() => setOpen(true)}
-        onBlur={() => setTimeout(() => setOpen(false), 120)}
+        onFocus={() => { setOpen(true); }}
+        onBlur={() => setTimeout(() => { setOpen(false); }, 120)}
         onKeyDown={(e) => {
           if (e.key === "ArrowDown") {
             e.preventDefault();
@@ -103,9 +103,9 @@ export function QuickFind({ nodes, showSite, onPick }: { nodes: readonly GraphNo
               role="option"
               aria-selected={i === active}
               className={i === active ? "active" : undefined}
-              onMouseDown={(e) => e.preventDefault()} // keep focus in the input until the pick
-              onClick={() => pick(n)}
-              onMouseEnter={() => setActive(i)}
+              onMouseDown={(e) => { e.preventDefault(); }} // keep focus in the input until the pick
+              onClick={() => { pick(n); }}
+              onMouseEnter={() => { setActive(i); }}
             >
               <span className="card-key">{n.key}</span>
               <span className="quick-find-summary">{n.summary}</span>

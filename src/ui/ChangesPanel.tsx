@@ -1,3 +1,4 @@
+import type { ReactElement } from "react";
 import { CHANGE_LABEL, type ChangeKind, type Changes } from "../graph/changes";
 import type { Highlight } from "../graph/insights";
 import type { GraphNode } from "../graph/types";
@@ -30,7 +31,7 @@ export function ChangesPanel({
   onHighlight: (h: Highlight) => void;
   onPick: (uid: string) => void;
   onMarkSeen: () => void;
-}) {
+}): ReactElement | null {
   if (!changes) return null;
   const total = changes.byIssue.size;
   // Most actionable first: newly blocked, then unblocked, done, aging, new, moved.
@@ -50,7 +51,7 @@ export function ChangesPanel({
             type="button"
             className="change-summary"
             aria-pressed={highlight === "changed"}
-            onClick={() => onHighlight(highlight === "changed" ? "none" : "changed")}
+            onClick={() => { onHighlight(highlight === "changed" ? "none" : "changed"); }}
             title="Highlight changed issues"
           >
             {ORDER.filter((k) => changes.counts[k] > 0).map((k) => (
@@ -68,7 +69,7 @@ export function ChangesPanel({
                 if (!n) return null;
                 return (
                   <li key={uid}>
-                    <button type="button" onClick={() => onPick(uid)} aria-label={`${n.key}, ${n.summary}: ${kinds.map((k) => CHANGE_LABEL[k]).join(", ")}`}>
+                    <button type="button" onClick={() => { onPick(uid); }} aria-label={`${n.key}, ${n.summary}: ${kinds.map((k) => CHANGE_LABEL[k]).join(", ")}`}>
                       <span className="card-key">{n.key}</span>
                       <span className={`chg chg-${kinds[0]}`}>{CHANGE_LABEL[kinds[0]]}</span>
                       <span className="change-summary-text">{n.summary}</span>

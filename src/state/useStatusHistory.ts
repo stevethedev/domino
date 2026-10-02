@@ -13,8 +13,8 @@ export function useStatusHistory(source: JiraSource, graph: Graph, enabled: bool
   useEffect(() => {
     if (!enabled || graph.nodes.length === 0 || loaded?.graph === graph) return;
     let cancelled = false;
-    loadStatusHistory(source, graph).then((result) => !cancelled && setLoaded({ graph, result }));
-    return () => {
+    void loadStatusHistory(source, graph).then((result) => { if (!cancelled) setLoaded({ graph, result }); });
+    return (): void => {
       cancelled = true;
     };
   }, [source, graph, enabled, loaded]);

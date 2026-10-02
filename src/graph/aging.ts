@@ -57,4 +57,4 @@ export function computeAging(
 }
 
 /** "stuck 12d" / "waiting 8d". */
-export const agingLabel = (a: Aging) => `${a.kind} ${a.days}d`;
+export const agingLabel = (a: Aging): string => `${a.kind} ${a.days}d`;

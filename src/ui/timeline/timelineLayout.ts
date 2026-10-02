@@ -38,17 +38,20 @@ export function layoutRows(
   timeline: ReadonlyMap<string, TimelineEntry>,
   laneOf: LaneFn | undefined,
 ): { items: TimelineItem[]; height: number } {
-  const lanes = new Map<string, { lane: Lane; rows: GraphNode[] }>();
-  for (const n of nodes) {
-    if (!timeline.has(n.uid)) continue;
-    const lane = laneOf?.(n) ?? { id: "all", label: "" };
-    const entry = lanes.get(lane.id) ?? lanes.set(lane.id, { lane, rows: [] }).get(lane.id)!;
-    entry.rows.push(n);
+  type Row = { node: GraphNode; entry: TimelineEntry };
+  const lanes = new Map<string, { lane: Lane; rows: Row[] }>();
+  for (const node of nodes) {
+    const entry = timeline.get(node.uid);
+    if (!entry) continue;
+    const lane = laneOf?.(node) ?? { id: "all", label: "" };
+    const group = lanes.get(lane.id);
+    if (group) group.rows.push({ node, entry });
+    else lanes.set(lane.id, { lane, rows: [{ node, entry }] });
   }
-  const startOf = (n: GraphNode) => timeline.get(n.uid)!.projected.start;
+  const startOf = (r: Row): Day => r.entry.projected.start;
   // Ghosts have no loaded dates, so they go last instead of sorting by an invented start.
-  const byStart = (a: GraphNode, b: GraphNode) =>
-    Number(a.ghost) - Number(b.ghost) || startOf(a).localeCompare(startOf(b)) || a.uid.localeCompare(b.uid);
+  const byStart = (a: Row, b: Row): number =>
+    Number(a.node.ghost) - Number(b.node.ghost) || startOf(a).localeCompare(startOf(b)) || a.node.uid.localeCompare(b.node.uid);
   const ordered = [...lanes.values()]
     .map((l) => ({ ...l, rows: [...l.rows].sort(byStart) }))
     .sort((a, b) => Number(!!a.lane.last) - Number(!!b.lane.last) || startOf(a.rows[0]).localeCompare(startOf(b.rows[0])) || a.lane.id.localeCompare(b.lane.id));
@@ -60,8 +63,8 @@ export function layoutRows(
       items.push({ kind: "lane", lane, y, count: rows.length });
       y += LANE_HEIGHT;
     }
-    for (const node of rows) {
-      items.push({ kind: "row", node, entry: timeline.get(node.uid)!, y });
+    for (const { node, entry } of rows) {
+      items.push({ kind: "row", node, entry, y });
       y += ROW_HEIGHT;
     }
   }
@@ -94,7 +97,7 @@ export function ticks(range: { start: Day; end: Day }, scale: Scale): Tick[] {
   return out;
 }
 
-export const xOf = (rangeStart: Day, day: Day, scale: Scale) => daysBetween(rangeStart, day) * PX_PER_DAY[scale];
+export const xOf = (rangeStart: Day, day: Day, scale: Scale): number => daysBetween(rangeStart, day) * PX_PER_DAY[scale];
 
 /** "+3d late", "2d early", "on track". */
 export function varianceLabel(days: number): string {
@@ -129,7 +132,7 @@ export function summarizeEpics(nodes: readonly GraphNode[], timeline: ReadonlyMa
   );
 }
 
-export const isEpicNode = (n: GraphNode) => n.epic?.uid === n.uid;
+export const isEpicNode = (n: GraphNode): boolean => n.epic?.uid === n.uid;
 
 /**
  * What a row actually draws, for anchoring arrows: an epic with loaded children draws its

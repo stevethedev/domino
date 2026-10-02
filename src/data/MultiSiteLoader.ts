@@ -3,6 +3,7 @@ import type { SiteConfig } from "../config/types";
 import { DEFAULT_LINK_TYPES } from "../graph/linkTypes";
 import { matchRemoteUrl } from "../graph/remoteUrl";
 import { uidOf } from "../graph/types";
+import { getOrThrow } from "../lib/guards";
 import { errorMessage } from "./errors";
 import { combineJql } from "./jqlPresets";
 import type { JiraSource } from "./JiraSource";
@@ -106,11 +107,11 @@ class LoadRun {
 
   // ---- modes ---------------------------------------------------------------
 
-  private async jql(jql: string) {
+  private async jql(jql: string): Promise<void> {
     await Promise.all(
       [...this.states.values()].map(async ({ site }) => {
         const q = combineJql(site.baseJql ?? "", jql);
-        if (!q) return this.fail(site.id, "Nothing to load: type a query above, or set this site's \"Always filter by\" JQL in Settings");
+        if (!q) {  this.fail(site.id, "Nothing to load: type a query above, or set this site's \"Always filter by\" JQL in Settings");; return; }
         await this.guard(site.id, async () => {
           const issues = await this.call(site.id, () => this.source.fetchByJql(site.id, q, this.maxNodes + 1));
           this.checkCap(issues.length);
@@ -120,19 +121,19 @@ class LoadRun {
     );
   }
 
-  private async epic(siteId: string, key: string) {
+  private async epic(siteId: string, key: string): Promise<void> {
     const ok = await this.guard(siteId, async () => {
-      const filter = this.states.get(siteId)!.site.baseJql?.trim() || undefined;
+      const filter = getOrThrow(this.states, siteId).site.baseJql?.trim() || undefined;
       const { children } = await this.call(siteId, () => this.source.fetchEpic(siteId, key, filter));
       await this.addFull(siteId, children);
     });
     if (!ok) return;
     // One hop: whatever the children link to (in selected sites) also becomes a full node.
-    const children = [...this.states.get(siteId)!.issues.values()].map((i) => ({ siteId, key: i.key }));
+    const children = [...getOrThrow(this.states, siteId).issues.values()].map((i) => ({ siteId, key: i.key }));
     await this.expand(children);
   }
 
-  private async seed(siteId: string, key: string, depth: number) {
+  private async seed(siteId: string, key: string, depth: number): Promise<void> {
     const ok = await this.guard(siteId, async () => {
       const issue = await this.call(siteId, () => this.source.fetchIssue(siteId, key));
       await this.addFull(siteId, [issue]);
@@ -149,7 +150,8 @@ class LoadRun {
       for (const n of this.neighbours(ref)) {
         const st = this.states.get(n.siteId);
         if (!st || st.issues.has(n.key) || this.errors.has(n.siteId)) continue;
-        (wanted.get(n.siteId) ?? wanted.set(n.siteId, new Set()).get(n.siteId)!).add(n.key);
+        const keys = wanted.get(n.siteId) ?? new Set<string>();
+        wanted.set(n.siteId, keys.add(n.key));
       }
     }
     const added: Ref[] = [];
@@ -184,7 +186,7 @@ class LoadRun {
   }
 
   private async fetchKeys(siteId: string, keys: string[]): Promise<RawIssue[]> {
-    const base = this.states.get(siteId)!.site.baseJql ?? "";
+    const base = getOrThrow(this.states, siteId).site.baseJql ?? "";
     const safe = keys.filter((k) => ISSUE_KEY_RE.test(k));
     const chunks: string[][] = [];
     for (let i = 0; i < safe.length; i += this.batch) chunks.push(safe.slice(i, i + this.batch));
@@ -195,8 +197,8 @@ class LoadRun {
     return results.flat();
   }
 
-  private async addFull(siteId: string, issues: readonly RawIssue[]) {
-    const st = this.states.get(siteId)!;
+  private async addFull(siteId: string, issues: readonly RawIssue[]): Promise<void> {
+    const st = getOrThrow(this.states, siteId);
     await this.ensureLinkTypes(siteId);
     const fresh = issues.filter((i) => !st.issues.has(i.key));
     for (const i of fresh) st.issues.set(i.key, i);
@@ -214,7 +216,7 @@ class LoadRun {
     if (!p) {
       p = this.call(siteId, () => this.source.fetchLinkTypes(siteId)).then(
         (types) => {
-          if (types.length) this.states.get(siteId)!.linkTypes = types;
+          if (types.length) getOrThrow(this.states, siteId).linkTypes = types;
         },
         () => undefined, // fall back to Jira's defaults
       );
@@ -242,13 +244,13 @@ class LoadRun {
     return uids.size;
   }
 
-  private checkCap(extra = 0) {
+  private checkCap(extra = 0): void {
     const count = extra > this.maxNodes ? extra : this.nodeCount();
     if (count > this.maxNodes) throw new OverCap(count);
   }
 
   private call<T>(siteId: string, fn: () => Promise<T>): Promise<T> {
-    return this.limits.get(siteId)!(fn);
+    return getOrThrow(this.limits, siteId)(fn);
   }
 
   /** Runs `fn`; records a site error on failure. OverCap always propagates. Returns success. */
@@ -263,7 +265,7 @@ class LoadRun {
     }
   }
 
-  private fail(siteId: string, message: string) {
+  private fail(siteId: string, message: string): void {
     if (!this.errors.has(siteId)) this.errors.set(siteId, message);
   }
 }

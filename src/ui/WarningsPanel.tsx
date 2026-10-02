@@ -1,10 +1,11 @@
+import type { ReactElement } from "react";
 import type { Graph } from "../graph/types";
 
-export function WarningsPanel({ graph, onFocusNode }: { graph: Graph; onFocusNode: (uid: string) => void }) {
+export function WarningsPanel({ graph, onFocusNode }: { graph: Graph; onFocusNode: (uid: string) => void }): ReactElement | null {
   if (graph.cycles.length === 0) return null;
   const byUid = new Map(graph.nodes.map((n) => [n.uid, n]));
   const multiSite = new Set(graph.nodes.map((n) => n.siteId)).size > 1;
-  const label = (uid: string) => {
+  const label = (uid: string): string => {
     const n = byUid.get(uid);
     if (!n) return uid;
     return multiSite ? `${n.siteLabel}:${n.key}` : n.key;
@@ -16,7 +17,7 @@ export function WarningsPanel({ graph, onFocusNode }: { graph: Graph; onFocusNod
             <span className="muted">Blocking cycle: </span>
             {cycle.map((uid) => (
               <span key={uid}>
-                <button type="button" className="link-btn mono" onClick={() => onFocusNode(uid)}>
+                <button type="button" className="link-btn mono" onClick={() => { onFocusNode(uid); }}>
                   {label(uid)}
                 </button>
                 {" → "}

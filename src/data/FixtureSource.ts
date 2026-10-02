@@ -4,10 +4,13 @@ import type { MockSite } from "./mockData";
 import { combineJql } from "./jqlPresets";
 import { matchesMockJql, parseMockJql } from "./mockJql";
 
+/** Runs `fn` as an async method body would: a throw becomes a rejection, never a synchronous exception. */
+const settle = <T,>(fn: () => T): Promise<T> => new Promise((resolve) => { resolve(fn()); });
+
 /** In-memory JiraSource over fixture data. `failSites` simulate a site that is down. */
 export class FixtureSource implements JiraSource {
   constructor(
-    private readonly sites: Record<string, MockSite>,
+    private readonly sites: Readonly<Partial<Record<string, MockSite>>>,
     private readonly linkTypes: RawLinkType[],
     private readonly failSites: ReadonlySet<string> = new Set(),
   ) {}
@@ -19,41 +22,52 @@ export class FixtureSource implements JiraSource {
     return s;
   }
 
-  async fetchByJql(siteId: string, jql: string, maxResults?: number): Promise<RawIssue[]> {
-    const clauses = parseMockJql(jql);
-    const hits = this.site(siteId).issues.filter((i) => matchesMockJql(i, clauses));
-    return maxResults === undefined ? hits : hits.slice(0, maxResults);
+  fetchByJql(siteId: string, jql: string, maxResults?: number): Promise<RawIssue[]> {
+    return settle(() => {
+      const clauses = parseMockJql(jql);
+      const hits = this.site(siteId).issues.filter((i) => matchesMockJql(i, clauses));
+      return maxResults === undefined ? hits : hits.slice(0, maxResults);
+    });
   }
 
-  async fetchEpic(siteId: string, key: string, filter?: string) {
+  async fetchEpic(siteId: string, key: string, filter?: string): Promise<{ epic: RawIssue; children: RawIssue[] }> {
     const s = this.site(siteId);
     const epic = s.issues.find((i) => i.key === key);
     if (!epic) throw new Error(`Issue ${key} does not exist`);
-    if (epic.fields.issuetype.name !== "Epic") throw new Error(`${key} is not an epic`);
+    if (epic.fields.issuetype?.name !== "Epic") throw new Error(`${key} is not an epic`);
     return { epic, children: await this.fetchByJql(siteId, combineJql(filter ?? "", `parent = ${key}`)) };
   }
 
-  async fetchIssue(siteId: string, key: string): Promise<RawIssue> {
-    const hit = this.site(siteId).issues.find((i) => i.key === key);
-    if (!hit) throw new Error(`Issue ${key} does not exist`);
-    return hit;
+  fetchIssue(siteId: string, key: string): Promise<RawIssue> {
+    return settle(() => {
+      const hit = this.site(siteId).issues.find((i) => i.key === key);
+      if (!hit) throw new Error(`Issue ${key} does not exist`);
+      return hit;
+    });
   }
 
-  async fetchRemoteLinks(siteId: string, key: string): Promise<RawRemoteLink[]> {
-    return this.site(siteId).remoteLinks[key] ?? [];
+  fetchRemoteLinks(siteId: string, key: string): Promise<RawRemoteLink[]> {
+    return settle(() => this.site(siteId).remoteLinks[key] ?? []);
   }
 
-  async fetchStatusHistory(siteId: string, issueIds: readonly string[]): Promise<RawIssueChangeLog[]> {
-    const logs = this.site(siteId).changelogs ?? {};
-    return issueIds.filter((id) => logs[id]).map((id) => ({ issueId: id, changeHistories: logs[id] }));
+  fetchStatusHistory(siteId: string, issueIds: readonly string[]): Promise<RawIssueChangeLog[]> {
+    return settle(() => {
+      const logs = this.site(siteId).changelogs ?? {};
+      return issueIds.flatMap((id) => {
+        const changeHistories = logs[id];
+        return changeHistories ? [{ issueId: id, changeHistories }] : [];
+      });
+    });
   }
 
-  async fetchStatuses(siteId: string): Promise<RawStatusDef[]> {
-    return this.site(siteId).statuses ?? [];
+  fetchStatuses(siteId: string): Promise<RawStatusDef[]> {
+    return settle(() => this.site(siteId).statuses ?? []);
   }
 
-  async fetchLinkTypes(siteId: string): Promise<RawLinkType[]> {
-    this.site(siteId);
-    return this.linkTypes;
+  fetchLinkTypes(siteId: string): Promise<RawLinkType[]> {
+    return settle(() => {
+      this.site(siteId);
+      return this.linkTypes;
+    });
   }
 }

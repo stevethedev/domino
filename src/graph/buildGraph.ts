@@ -1,5 +1,6 @@
 import type { SiteConfig } from "../config/types";
 import type { RawIssue, RawLinkedIssue, RawSiteData, RawStatus } from "../data/jiraTypes";
+import { getOrThrow } from "../lib/guards";
 import { findCycles } from "./cycles";
 import { DEFAULT_LINK_TYPES, kindOf, resolveRelationship } from "./linkTypes";
 import { matchRemoteUrl } from "./remoteUrl";
@@ -15,7 +16,7 @@ export type BuildInput = {
 };
 
 function statusCategoryOf(status: RawStatus | undefined): StatusCategory {
-  switch (status?.statusCategory?.key) {
+  switch (status?.statusCategory.key) {
     case "new":
       return "todo";
     case "indeterminate":
@@ -27,9 +28,9 @@ function statusCategoryOf(status: RawStatus | undefined): StatusCategory {
   }
 }
 
-const browseUrl = (baseUrl: string, key: string) => `${baseUrl.replace(/\/+$/, "")}/browse/${key}`;
+const browseUrl = (baseUrl: string, key: string): string => `${baseUrl.replace(/\/+$/, "")}/browse/${key}`;
 
-const isEpicType = (t: { name?: string; hierarchyLevel?: number } | undefined) =>
+const isEpicType = (t: { name?: string; hierarchyLevel?: number } | undefined): boolean =>
   !!t && (t.hierarchyLevel !== undefined ? t.hierarchyLevel === 1 : t.name?.toLowerCase() === "epic");
 
 /**
@@ -137,17 +138,17 @@ export function buildGraph({ sites, data }: BuildInput): Graph {
   // Sub-tasks inherit the epic of their (loaded) parent story; a missing story leaves them epic-less.
   for (const [uid, parentUid] of pendingEpic) {
     const epic = nodes.get(parentUid)?.epic;
-    if (epic) nodes.get(uid)!.epic = epic;
+    if (epic) getOrThrow(nodes, uid).epic = epic;
   }
   // Fill in summaries for Epic Link references when the epic itself is loaded.
   for (const n of nodes.values()) {
     if (n.epic && !n.epic.summary) n.epic = { ...n.epic, summary: nodes.get(n.epic.uid)?.summary };
   }
 
-  const addGhost = (g: GraphNode) => {
+  const addGhost = (g: GraphNode): void => {
     if (!nodes.has(g.uid) && !ghosts.has(g.uid)) ghosts.set(g.uid, g);
   };
-  const siteOf = (uid: string) => (nodes.get(uid) ?? ghosts.get(uid))?.siteId;
+  const siteOf = (uid: string): string | undefined => (nodes.get(uid) ?? ghosts.get(uid))?.siteId;
 
   for (const d of data) {
     const site = siteById.get(d.siteId);
@@ -183,7 +184,7 @@ export function buildGraph({ sites, data }: BuildInput): Graph {
         let otherUid: string;
         if (match.kind === "site") {
           otherUid = uidOf(match.siteId, match.key);
-          const s = siteById.get(match.siteId)!;
+          const s = getOrThrow(siteById, match.siteId);
           addGhost(ghostUnknown(otherUid, s.id, s.label, match.key, browseUrl(s.baseUrl, match.key), rl.object.title, s.color));
         } else {
           otherUid = uidOf(match.host, match.key);

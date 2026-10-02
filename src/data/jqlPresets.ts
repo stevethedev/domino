@@ -15,7 +15,7 @@ export const JQL_PRESETS: readonly JqlPreset[] = [
 
 export const DEFAULT_PRESET_ID = "open-blockers";
 
-export const presetById = (id: string | undefined) => JQL_PRESETS.find((p) => p.id === id) ?? JQL_PRESETS[0];
+export const presetById = (id: string | undefined): JqlPreset => JQL_PRESETS.find((p) => p.id === id) ?? JQL_PRESETS[0];
 
 const ORDER_BY = /(?:^|\s+)order\s+by\s+[\s\S]*$/i;
 

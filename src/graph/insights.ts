@@ -3,7 +3,7 @@ import { criticalPath, openBlockerCounts, readyIssues, type Chain } from "./anal
 import type { ChangeKind } from "./changes";
 import type { Day, StatusHistory } from "./schedule";
 import type { Graph, GraphNode } from "./types";
-import { isOneOf } from "../lib/guards";
+import { getOrThrow, isOneOf } from "../lib/guards";
 
 /** What the user asked to emphasize; everything else dims. */
 export type Highlight = "none" | "blocked" | "ready" | "critical" | "aging" | "changed";
@@ -58,8 +58,8 @@ export function downstreamOpen(graph: Graph): Map<string, Set<string>> {
     const seen = new Set<string>([n.uid]);
     const queue = [n.uid];
     const reached = new Set<string>();
-    while (queue.length) {
-      for (const t of next.get(queue.shift()!) ?? []) {
+    for (let v = queue.shift(); v !== undefined; v = queue.shift()) {
+      for (const t of next.get(v) ?? []) {
         if (seen.has(t)) continue; // also terminates cycles
         seen.add(t);
         queue.push(t);
@@ -75,7 +75,7 @@ function rankUnblockers(graph: Graph, downstream: Map<string, Set<string>>): Unb
   const byUid = new Map(graph.nodes.map((n) => [n.uid, n]));
   return [...downstream]
     .filter(([, d]) => d.size > 0)
-    .map(([uid, d]) => ({ uid, downstream: d.size, sites: new Set([...d].map((u) => byUid.get(u)!.siteId)).size }))
+    .map(([uid, d]) => ({ uid, downstream: d.size, sites: new Set([...d].map((u) => getOrThrow(byUid, u).siteId)).size }))
     .sort((a, b) => b.downstream - a.downstream || b.sites - a.sites || a.uid.localeCompare(b.uid))
     .slice(0, TOP_UNBLOCKERS);
 }
@@ -85,10 +85,11 @@ function holdingUp(graph: Graph, downstream: Map<string, Set<string>>): Map<stri
   const byUid = new Map(graph.nodes.map((n) => [n.uid, n]));
   const waiting = new Map<string, Set<string>>();
   for (const [uid, reached] of downstream) {
-    const owner = byUid.get(uid)!.assigneeName;
+    const owner = getOrThrow(byUid, uid).assigneeName;
     if (!owner) continue;
-    const set = waiting.get(owner) ?? waiting.set(owner, new Set()).get(owner)!;
-    for (const r of reached) if (byUid.get(r)!.assigneeName !== owner) set.add(r);
+    let set = waiting.get(owner);
+    if (!set) waiting.set(owner, (set = new Set()));
+    for (const r of reached) if (getOrThrow(byUid, r).assigneeName !== owner) set.add(r);
   }
   return new Map([...waiting].filter(([, s]) => s.size > 0).map(([name, s]) => [name, s.size]));
 }

@@ -1,9 +1,9 @@
 import { Handle, Position, useStore, type Node, type NodeProps } from "@xyflow/react";
-import { memo } from "react";
+import { memo, type ReactElement } from "react";
 import { agingLabel, type Aging } from "../graph/aging";
 import { CHANGE_LABEL, type ChangeKind } from "../graph/changes";
 import type { Highlight } from "../graph/insights";
-import type { GraphNode, StatusCategory } from "../graph/types";
+import type { EpicRollup, GraphNode, StatusCategory } from "../graph/types";
 
 export type IssueNodeData = {
   node: GraphNode;
@@ -31,28 +31,27 @@ const STATUS_LABEL: Record<StatusCategory, string> = {
   unknown: "Unknown",
 };
 
-const TYPE_GLYPH: Record<string, string> = { Epic: "E", Story: "S", Task: "T", Bug: "B", "Sub-task": "s", Subtask: "s" };
+const TYPE_GLYPH: Partial<Record<string, string>> = { Epic: "E", Story: "S", Task: "T", Bug: "B", "Sub-task": "s", Subtask: "s" };
 
-export function TypeIcon({ type }: { type: string }) {
+export function TypeIcon({ type }: { type: string }): ReactElement {
   return (
     <span className={`type-icon type-${type.toLowerCase()}`} title={type} aria-hidden="true">
-      {TYPE_GLYPH[type] ?? type[0]?.toUpperCase() ?? "?"}
+      {TYPE_GLYPH[type] ?? (type.charAt(0).toUpperCase() || "?")}
     </span>
   );
 }
 
-function firstName(name?: string) {
+function firstName(name?: string): string {
   return name?.split(/\s+/)[0] ?? "Unassigned";
 }
 
-function initials(name?: string) {
+function initials(name?: string): string {
   if (!name) return "?";
   const parts = name.split(/\s+/).filter(Boolean);
   return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase();
 }
 
-function rollupLabel(n: GraphNode): string {
-  const r = n.rollup!;
+function rollupLabel(n: GraphNode, r: EpicRollup): string {
   const parts = [`Epic ${n.key}, ${n.summary}`, `${r.members.length} issues`, `${r.done} done`];
   if (r.blocked) parts.push(`${r.blocked} blocked`);
   if (r.aging) parts.push(`${r.aging} aging`);
@@ -60,8 +59,7 @@ function rollupLabel(n: GraphNode): string {
 }
 
 /** Epic-map summary card: progress across the epic's loaded issues. */
-function RollupBody({ node, compact }: { node: GraphNode; compact: boolean }) {
-  const r = node.rollup!;
+function RollupBody({ node, rollup: r, compact }: { node: GraphNode; rollup: EpicRollup; compact: boolean }): ReactElement {
   const total = r.members.length;
   return (
     <>
@@ -99,7 +97,7 @@ type Badge = { key: string; label: string; el: React.ReactNode };
  * covers every badge.
  */
 const ROW_BADGE_SLOTS = 2;
-function CappedBadges({ badges }: { badges: readonly (Badge | false | undefined)[] }) {
+function CappedBadges({ badges }: { badges: readonly (Badge | false | undefined)[] }): ReactElement {
   const all = badges.filter((b): b is Badge => !!b);
   const visible = all.length > ROW_BADGE_SLOTS ? ROW_BADGE_SLOTS - 1 : all.length;
   const extra = all.slice(visible);
@@ -119,11 +117,11 @@ function CappedBadges({ badges }: { badges: readonly (Badge | false | undefined)
   );
 }
 
-export function ChangeTag({ change }: { change: ChangeKind }) {
+export function ChangeTag({ change }: { change: ChangeKind }): ReactElement {
   return <span className={`chg chg-${change}`}>{CHANGE_LABEL[change]}</span>;
 }
 
-export function AgingBadge({ aging }: { aging: Aging }) {
+export function AgingBadge({ aging }: { aging: Aging }): ReactElement {
   return (
     <span className={`age age-${aging.kind}`} title={agingDescription(aging)}>
       ⏳ {agingLabel(aging)}
@@ -131,12 +129,12 @@ export function AgingBadge({ aging }: { aging: Aging }) {
   );
 }
 
-export const agingDescription = (a: Aging) =>
+export const agingDescription = (a: Aging): string =>
   a.kind === "stuck"
     ? `stuck: in progress ${a.days} working days against a ${a.estimateDays}-day estimate`
     : `waiting: blocked with no status change for ${a.days} working days`;
 
-const blockerText = (count: number) => `⚠ ${count} blocker${count === 1 ? "" : "s"}`;
+const blockerText = (count: number): string => `⚠ ${count} blocker${count === 1 ? "" : "s"}`;
 
 /** Zoomed-out card: key, status and blockers only, large enough to read at a glance. */
 function CompactBody({
@@ -153,7 +151,7 @@ function CompactBody({
   ready: boolean;
   aging?: Aging;
   change?: ChangeKind;
-}) {
+}): ReactElement {
   return (
     <>
       <div className="card-row1">
@@ -171,9 +169,9 @@ function CompactBody({
   );
 }
 
-export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNode>) {
+export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNode>): ReactElement {
   const { node: n, openBlockers, showSite, dimmed, highlight, aging, change, onOpen, onHover, onExpand } = data;
-  const activate = onExpand ?? (() => onOpen(n.url));
+  const activate = onExpand ?? ((): void => { onOpen(n.url); });
   // Selecting a boolean means cards re-render only when crossing the threshold, not on every zoom step.
   const compact = useStore((s) => s.transform[2] < COMPACT_BELOW_ZOOM);
   const status = n.statusCategory;
@@ -198,7 +196,7 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
       className={`card status-${status}${n.ghost ? " ghost" : ""}${dimmed ? " dimmed" : ""}${highlight ? ` hl-${highlight}` : ""}${compact ? " compact" : ""}`}
       role={onExpand ? "button" : "link"}
       tabIndex={0}
-      aria-label={n.rollup ? rollupLabel(n) : `${label}. Opens in browser.`}
+      aria-label={n.rollup ? rollupLabel(n, n.rollup) : `${label}. Opens in browser.`}
       data-uid={n.uid}
       onClick={activate}
       onKeyDown={(e) => {
@@ -207,14 +205,14 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
           activate();
         }
       }}
-      onMouseEnter={() => onHover(n.uid)}
-      onMouseLeave={() => onHover(null)}
-      onFocus={() => onHover(n.uid)}
-      onBlur={() => onHover(null)}
+      onMouseEnter={() => { onHover(n.uid); }}
+      onMouseLeave={() => { onHover(null); }}
+      onFocus={() => { onHover(n.uid); }}
+      onBlur={() => { onHover(null); }}
     >
       <Handle type="target" position={Position.Left} isConnectable={false} />
       {n.rollup ? (
-        <RollupBody node={n} compact={compact} />
+        <RollupBody node={n} rollup={n.rollup} compact={compact} />
       ) : compact ? <CompactBody node={n} statusText={statusText} openBlockers={openBlockers} ready={highlight === "ready"} aging={aging} change={change} /> : (
         <>
       <div className="card-row1">
@@ -268,13 +266,14 @@ export type SiteGroupData = { label: string; color?: string; url?: string; onOpe
 export type SiteGroupNode = Node<SiteGroupData, "siteGroup">;
 
 export const SiteGroup = memo(function SiteGroup({ data }: NodeProps<SiteGroupNode>) {
+  const { url } = data;
   return (
     <div className="site-group" style={{ "--site": data.color ?? "#6b7280" }}>
-      {data.url ? (
+      {url ? (
         <button
           type="button"
           className="site-group-label lane-link"
-          onClick={() => data.onOpen(data.url!)}
+          onClick={() => { data.onOpen(url); }}
           title="Open epic in Jira"
           aria-label={`Epic ${data.label}. Opens in browser.`}
         >

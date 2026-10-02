@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { defined, getOrThrow } from "../../lib/guards";
 import { buildGraph } from "../buildGraph";
 import {
   addWorkdays,
@@ -10,7 +11,8 @@ import {
   type StatusChange,
 } from "../schedule";
 import { BLOCKS, data, issue, link, site } from "./helpers";
-import type { RawIssue, RawStatusCategoryKey } from "../../data/jiraTypes";
+import type { RawIssue, RawIssueChangeLog, RawStatusCategoryKey } from "../../data/jiraTypes";
+import type { Graph } from "../types";
 
 const A = site("a");
 // 2026-10-05 is a Monday.
@@ -30,12 +32,12 @@ function pointed(key: string, points: number | null, cat: RawStatusCategoryKey =
 }
 
 /** A blocks B blocks C ... built from issues in order. */
-function chainGraph(issues: RawIssue[]) {
+function chainGraph(issues: RawIssue[]): Graph {
   for (let i = 0; i < issues.length - 1; i++) link(`c${i}`, BLOCKS, issues[i], issues[i + 1]);
   return buildGraph({ sites: [A], data: [data("a", issues)] });
 }
 
-const history = (entries: Record<string, StatusChange[]>) => new Map(Object.entries(entries));
+const history = (entries: Record<string, StatusChange[]>): Map<string, StatusChange[]> => new Map(Object.entries(entries));
 
 describe("working-day calendar", () => {
   it("skips weekends; a span ends the day after its last workday", () => {
@@ -49,7 +51,7 @@ describe("working-day calendar", () => {
 
   it("uses points x days/point, or the default for unpointed issues, minimum 1", () => {
     const g = buildGraph({ sites: [A], data: [data("a", [pointed("P-1", 3), pointed("P-2", null), pointed("P-3", 0.2)])] });
-    const d = (k: string) => durationDays(g.nodes.find((n) => n.key === k)!, opts({ daysPerPoint: 0.5 }));
+    const d = (k: string): number => durationDays(defined(g.nodes.find((n) => n.key === k), "node"), opts({ daysPerPoint: 0.5 }));
     expect([d("P-1"), d("P-2"), d("P-3")]).toEqual([2, 2, 1]);
   });
 });
@@ -68,7 +70,7 @@ describe("projectSchedule", () => {
     link("1", BLOCKS, x, t);
     link("2", BLOCKS, y, t);
     const s = projectSchedule(buildGraph({ sites: [A], data: [data("a", [x, y, t])] }), opts());
-    expect(s.get("a:T-1")!.start).toBe(s.get("a:X-2")!.end);
+    expect(getOrThrow(s, "a:T-1").start).toBe(getOrThrow(s, "a:X-2").end);
   });
 
   it("schedules cycles using the cycle-broken edges", () => {
@@ -94,46 +96,46 @@ describe("computeTimeline", () => {
     const g = chainGraph([pointed("S-1", 5), pointed("S-2", 2)]);
     const t = computeTimeline(g, history({ "a:S-1": [{ at: "2026-10-05", toCategory: "inprogress" }] }), opts({ today: "2026-10-14" }));
     // 7 workdays elapsed of a 5-day estimate -> 1 more day from today.
-    expect(t.get("a:S-1")!.progress).toEqual({ state: "started", actualStart: "2026-10-05", forecast: { start: "2026-10-14", end: "2026-10-15" } });
-    expect(t.get("a:S-1")!.varianceDays).toBe(3); // projected end 10-12, forecast 10-15
+    expect(getOrThrow(t, "a:S-1").progress).toEqual({ state: "started", actualStart: "2026-10-05", forecast: { start: "2026-10-14", end: "2026-10-15" } });
+    expect(getOrThrow(t, "a:S-1").varianceDays).toBe(3); // projected end 10-12, forecast 10-15
     // The late blocker pushes the dependent's forecast.
-    expect(t.get("a:S-2")!.progress).toEqual({ state: "not-started", forecast: { start: "2026-10-15", end: "2026-10-17" } });
-    expect(t.get("a:S-2")!.varianceDays).toBeGreaterThan(0);
+    expect(getOrThrow(t, "a:S-2").progress).toEqual({ state: "not-started", forecast: { start: "2026-10-15", end: "2026-10-17" } });
+    expect(getOrThrow(t, "a:S-2").varianceDays).toBeGreaterThan(0);
   });
 
   it("not started: never forecast before today", () => {
     const g = chainGraph([pointed("N-1", 1)]);
     const t = computeTimeline(g, new Map(), opts({ today: "2026-10-21" }));
-    expect(t.get("a:N-1")!.progress).toEqual({ state: "not-started", forecast: { start: "2026-10-21", end: "2026-10-22" } });
+    expect(getOrThrow(t, "a:N-1").progress).toEqual({ state: "not-started", forecast: { start: "2026-10-21", end: "2026-10-22" } });
   });
 
   it("measures a started issue from its own start, not the plan start", () => {
     // Unrelated work that began two weeks after the plan start and took exactly its estimate.
     const g = chainGraph([pointed("L-1", 3, "done", "2026-10-21")]);
     const t = computeTimeline(g, history({ "a:L-1": [{ at: "2026-10-19", toCategory: "inprogress" }] }), opts({ today: "2026-10-26" }));
-    expect(t.get("a:L-1")!.projected).toEqual({ start: "2026-10-19", end: "2026-10-22" });
-    expect(t.get("a:L-1")!.varianceDays).toBe(0);
+    expect(getOrThrow(t, "a:L-1").projected).toEqual({ start: "2026-10-19", end: "2026-10-22" });
+    expect(getOrThrow(t, "a:L-1").varianceDays).toBe(0);
   });
 
   it("unstarted work inherits slip from a late blocker", () => {
     const g = chainGraph([pointed("I-1", 2), pointed("I-2", 1)]);
     // I-1 started on time but is still open well past its 2-day estimate.
     const t = computeTimeline(g, history({ "a:I-1": [{ at: "2026-10-05", toCategory: "inprogress" }] }), opts({ today: "2026-10-12", planStart: "2026-10-12" }));
-    expect(t.get("a:I-2")!.projected.start).toBe("2026-10-12"); // blocker's projected end is past: from planStart
-    expect(t.get("a:I-2")!.varianceDays).toBe(1); // forecast waits for I-1's forecast finish (10-13)
+    expect(getOrThrow(t, "a:I-2").projected.start).toBe("2026-10-12"); // blocker's projected end is past: from planStart
+    expect(getOrThrow(t, "a:I-2").varianceDays).toBe(1); // forecast waits for I-1's forecast finish (10-13)
   });
 
   it("on track is zero variance, early is negative", () => {
     const g = chainGraph([pointed("O-1", 3, "done", "2026-10-06")]);
     const t = computeTimeline(g, history({ "a:O-1": [{ at: "2026-10-05", toCategory: "inprogress" }] }), opts({ today: "2026-10-20" }));
-    expect(t.get("a:O-1")!.varianceDays).toBe(-1); // projected end 10-08, actual 10-07
+    expect(getOrThrow(t, "a:O-1").varianceDays).toBe(-1); // projected end 10-08, actual 10-07
   });
 
   it("in progress or done without history is 'unknown', not invented", () => {
     const g = chainGraph([pointed("U-1", 1, "indeterminate"), pointed("U-2", 1, "done")]);
     const t = computeTimeline(g, new Map(), opts());
-    expect(t.get("a:U-1")!.progress.state).toBe("unknown");
-    expect(t.get("a:U-2")!.progress.state).toBe("unknown");
+    expect(getOrThrow(t, "a:U-1").progress.state).toBe("unknown");
+    expect(getOrThrow(t, "a:U-2").progress.state).toBe("unknown");
   });
 });
 
@@ -143,7 +145,8 @@ describe("toStatusHistory", () => {
   it("doesn't trip over items without toString (an inherited Object.prototype member)", () => {
     const g = chainGraph([pointed("H-1", 1)]);
     // Parsed from JSON like real payloads: the item has no own `toString`, only the inherited method.
-    const logs = JSON.parse('[{ "issueId": "H-1", "changeHistories": [{ "created": "2026-10-05T10:00:00.000+0000", "items": [{ "fieldId": "status", "to": "999" }] }] }]');
+    // oxlint-disable-next-line typescript/no-unsafe-assignment -- no typed literal can omit `toString`: RawChangeItem's string field clashes with Object#toString.
+    const logs: RawIssueChangeLog[] = JSON.parse('[{ "issueId": "H-1", "changeHistories": [{ "created": "2026-10-05T10:00:00.000+0000", "items": [{ "fieldId": "status", "to": "999" }] }] }]');
     expect(() => toStatusHistory(logs, [], g.nodes, "a")).not.toThrow();
     expect(toStatusHistory(logs, [], g.nodes, "a").size).toBe(0); // unknown status: dropped
   });

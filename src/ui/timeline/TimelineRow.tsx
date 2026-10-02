@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, type ReactElement } from "react";
 import { addDays, maxDay, type Day, type Span } from "../../graph/schedule";
 import type { GraphNode } from "../../graph/types";
 import type { Aging } from "../../graph/aging";
@@ -6,9 +6,9 @@ import type { ChangeKind } from "../../graph/changes";
 import { AgingBadge, agingDescription, ChangeTag, TypeIcon } from "../IssueCard";
 import { entryEnd, PX_PER_DAY, varianceLabel, xOf, type EpicSummary, type Scale, type TimelineRowModel } from "./timelineLayout";
 
-const fmt = (d: Day) => new Date(`${d}T00:00:00Z`).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
+const fmt = (d: Day): string => new Date(`${d}T00:00:00Z`).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
 /** Spans are half-open; people read the last day inclusively. */
-const spanText = (s: Span) => `${fmt(s.start)} – ${fmt(addDays(s.end, -1))}`;
+const spanText = (s: Span): string => `${fmt(s.start)} – ${fmt(addDays(s.end, -1))}`;
 
 export type RowFlags = { dimmed: boolean; critical: boolean; ready: boolean; aging?: Aging; change?: ChangeKind };
 
@@ -30,7 +30,7 @@ function describeEpic(node: GraphNode, epic: EpicSummary | "empty"): string {
   return `Epic ${node.key}, ${node.summary}, ${epic.children} issues, projected ${spanText(epic.projected)}, work ${spanText(epic.work)}. Opens in browser.`;
 }
 
-function Bar({ span, start, scale, className }: { span: Span; start: Day; scale: Scale; className: string }) {
+function Bar({ span, start, scale, className }: { span: Span; start: Day; scale: Scale; className: string }): ReactElement {
   const left = xOf(start, span.start, scale);
   const width = Math.max(xOf(start, span.end, scale) - left, PX_PER_DAY[scale] / 2);
   return <div className={className} style={{ left, width }} />;
@@ -72,17 +72,17 @@ export const TimelineRow = memo(function TimelineRow({
       tabIndex={0}
       aria-label={epic ? describeEpic(node, epic) : `${describe(node, row)}${flags.aging ? ` ${agingDescription(flags.aging)}.` : ""}`}
       data-tl-uid={node.uid}
-      onClick={() => onOpen(node.url)}
+      onClick={() => { onOpen(node.url); }}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           onOpen(node.url);
         }
       }}
-      onMouseEnter={() => onHover(node.uid)}
-      onMouseLeave={() => onHover(null)}
-      onFocus={() => onHover(node.uid)}
-      onBlur={() => onHover(null)}
+      onMouseEnter={() => { onHover(node.uid); }}
+      onMouseLeave={() => { onHover(null); }}
+      onFocus={() => { onHover(node.uid); }}
+      onBlur={() => { onHover(null); }}
     >
       <div className="tl-label">
         <TypeIcon type={node.issueType} />
@@ -154,4 +154,4 @@ export const TimelineRow = memo(function TimelineRow({
 });
 
 /** The actual bar for a started issue runs through today (at least one day). */
-const maxEnd = (start: Day, today: Day) => (addDays(today, 1) > start ? addDays(today, 1) : addDays(start, 1));
+const maxEnd = (start: Day, today: Day): Day => (addDays(today, 1) > start ? addDays(today, 1) : addDays(start, 1));

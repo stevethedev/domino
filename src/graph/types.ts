@@ -65,4 +65,4 @@ export type Graph = {
   brokenEdgeIds: ReadonlySet<string>;
 };
 
-export const uidOf = (siteId: string, key: string) => `${siteId}:${key}`;
+export const uidOf = (siteId: string, key: string): string => `${siteId}:${key}`;

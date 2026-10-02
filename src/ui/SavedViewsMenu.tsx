@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactElement } from "react";
 import type { SavedView } from "../state/savedViews";
 
 /** "Views" menu: apply, save (overwrites a same-named view) and delete named views. */
@@ -12,19 +12,19 @@ export function SavedViewsMenu({
   onApply: (v: SavedView) => void;
   onSave: (name: string) => void;
   onDelete: (name: string) => void;
-}) {
+}): ReactElement {
   const ref = useRef<HTMLDetailsElement>(null);
   const [name, setName] = useState("");
-  const close = () => {
+  const close = (): void => {
     if (ref.current) ref.current.open = false;
   };
 
   useEffect(() => {
-    const onDown = (e: MouseEvent) => {
+    const onDown = (e: MouseEvent): void => {
       if (ref.current?.open && e.target instanceof Node && !ref.current.contains(e.target)) close();
     };
     document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
+    return (): void => { document.removeEventListener("mousedown", onDown); };
   }, []);
 
   const exists = views.some((v) => v.name.toLowerCase() === name.trim().toLowerCase());
@@ -62,7 +62,7 @@ export function SavedViewsMenu({
                     {v.mode === "timeline" ? "Timeline" : v.view.collapseEpics ? "Epic map" : "Graph"} · {describeScope(v)}
                   </span>
                 </button>
-                <button type="button" className="icon-btn saved-view-delete" onClick={() => onDelete(v.name)} aria-label={`Delete view ${v.name}`} title="Delete">
+                <button type="button" className="icon-btn saved-view-delete" onClick={() => { onDelete(v.name); }} aria-label={`Delete view ${v.name}`} title="Delete">
                   ×
                 </button>
               </li>
@@ -81,7 +81,7 @@ export function SavedViewsMenu({
           <label className="sr-only" htmlFor="saved-view-name">
             View name
           </label>
-          <input id="saved-view-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Name this view…" maxLength={60} />
+          <input id="saved-view-name" value={name} onChange={(e) => { setName(e.target.value); }} placeholder="Name this view…" maxLength={60} />
           <button type="submit" className="primary" disabled={!name.trim()}>
             {exists ? "Update" : "Save"}
           </button>

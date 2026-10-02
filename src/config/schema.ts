@@ -22,7 +22,7 @@ const httpsUrl = z
 const authSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("apiToken"),
-    email: z.string().min(1, "Required").email("Must be an email address"),
+    email: z.string().min(1, "Required").pipe(z.email("Must be an email address")),
     secretRef: z
       .string()
       .min(1, "Required")
@@ -32,7 +32,7 @@ const authSchema = z.discriminatedUnion("type", [
 ]);
 
 /** Older configs called the site filter `defaultJql`. */
-const migrateSite = (raw: unknown) => {
+const migrateSite = (raw: unknown): unknown => {
   if (raw && typeof raw === "object" && "defaultJql" in raw && !("baseJql" in raw)) {
     const { defaultJql, ...rest } = raw;
     return { ...rest, baseJql: defaultJql };

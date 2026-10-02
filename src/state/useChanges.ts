@@ -20,7 +20,7 @@ const parseStore = (raw: unknown): Store | undefined => {
   return out;
 };
 
-function saveSnapshot(scopeKey: string, snap: Snapshot) {
+function saveSnapshot(scopeKey: string, snap: Snapshot): void {
   const store = readStored(SNAPSHOTS_KEY, parseStore, {});
   const kept = Object.entries({ ...store, [scopeKey]: snap })
     .sort(([, a], [, b]) => b.takenAt.localeCompare(a.takenAt))
@@ -32,13 +32,16 @@ function saveSnapshot(scopeKey: string, snap: Snapshot) {
  * Changes in this scope since the user last marked it seen. The first visit to a scope records
  * a baseline (once aging is known, so it isn't reported as new later) and reports nothing.
  */
-export function useChanges(scopeKey: string | null, graph: Graph, insights: Insights, ready: boolean, hasAging: boolean) {
+export type ChangesState = { changes: Changes | null; markSeen: () => void };
+
+export function useChanges(scopeKey: string | null, graph: Graph, insights: Insights, ready: boolean, hasAging: boolean): ChangesState {
   // Tagged with its scope so switching scopes never compares against another scope's baseline.
   const [baseline, setBaseline] = useState<{ scopeKey: string; snap: Snapshot } | null>(null);
 
   useEffect(() => {
     if (!scopeKey || !ready) return;
-    const stored = readStored(SNAPSHOTS_KEY, parseStore, {})[scopeKey];
+    const store = readStored(SNAPSHOTS_KEY, parseStore, {});
+    const stored = Object.hasOwn(store, scopeKey) ? store[scopeKey] : undefined;
     if (stored) {
       setBaseline({ scopeKey, snap: stored });
     } else if (hasAging) {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { blockingChain, criticalPath, openBlockerCounts, readyIssues } from "../analysis";
 import { buildGraph } from "../buildGraph";
+import type { RawIssue } from "../../data/jiraTypes";
 import { BLOCKS, RELATES, data, issue, link, remote, site } from "./helpers";
 
 const A = site("a");
@@ -32,7 +33,7 @@ describe("cycle detection", () => {
   });
 });
 
-function chain(keysAndCats: [string, "new" | "indeterminate" | "done"][]) {
+function chain(keysAndCats: [string, "new" | "indeterminate" | "done"][]): RawIssue[] {
   const issues = keysAndCats.map(([k, c]) => issue(k, c));
   for (let i = 0; i < issues.length - 1; i++) link(`${keysAndCats[0][0]}-${i}`, BLOCKS, issues[i], issues[i + 1]);
   return issues;
@@ -93,7 +94,7 @@ describe("what's ready and open blockers", () => {
   it("counts distinct open blockers", () => {
     const target = issue("T-1");
     const bs = ["B-1", "B-2", "B-3"].map((k) => issue(k));
-    bs.forEach((b, i) => link(String(i), BLOCKS, b, target));
+    bs.forEach((b, i) => { link(String(i), BLOCKS, b, target); });
     const g = buildGraph({ sites: [A], data: [data("a", [target, ...bs])] });
     expect(openBlockerCounts(g).get("a:T-1")).toBe(3);
   });

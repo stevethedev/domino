@@ -10,7 +10,7 @@ export const DEFAULT_ESTIMATE_SETTINGS: EstimateSettings = { scale: "week", days
 export function parseEstimateSettings(raw: unknown): EstimateSettings | undefined {
   if (!raw || typeof raw !== "object") return undefined;
   const r: Record<string, unknown> = { ...raw };
-  const positive = (v: unknown, d: number) => (typeof v === "number" && v > 0 ? v : d);
+  const positive = (v: unknown, d: number): number => (typeof v === "number" && v > 0 ? v : d);
   const d = DEFAULT_ESTIMATE_SETTINGS;
   return {
     scale: typeof r.scale === "string" && isScale(r.scale) ? r.scale : d.scale,

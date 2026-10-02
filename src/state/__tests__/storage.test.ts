@@ -1,11 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { oneOf, readStored, writeStored } from "../storage";
 
-function fakeStorage(initial: Record<string, string> = {}) {
+type FakeStorage = Pick<Storage, "getItem" | "setItem"> & { data: Map<string, string> };
+
+function fakeStorage(initial: Record<string, string> = {}): FakeStorage {
   const data = new Map(Object.entries(initial));
   return {
-    getItem: (k: string) => data.get(k) ?? null,
-    setItem: (k: string, v: string) => void data.set(k, v),
+    getItem: (k: string): string | null => data.get(k) ?? null,
+    setItem: (k: string, v: string): void => void data.set(k, v),
     data,
   };
 }
@@ -40,6 +42,6 @@ describe("storage", () => {
       },
     });
     expect(readStored("k", oneOf(isColor), "red")).toBe("red");
-    expect(() => writeStored("k", "blue")).not.toThrow();
+    expect(() => { writeStored("k", "blue"); }).not.toThrow();
   });
 });

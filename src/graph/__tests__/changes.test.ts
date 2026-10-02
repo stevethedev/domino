@@ -2,17 +2,18 @@ import { describe, expect, it } from "vitest";
 import type { RawIssue, RawStatusCategoryKey } from "../../data/jiraTypes";
 import { buildGraph } from "../buildGraph";
 import { diffSnapshot, parseSnapshot, takeSnapshot } from "../changes";
-import { computeInsights } from "../insights";
+import { computeInsights, type Insights } from "../insights";
+import type { Graph } from "../types";
 import { BLOCKS, data, issue, link, site } from "./helpers";
 
 const A = site("a");
 
-function graphOf(build: () => RawIssue[]) {
+function graphOf(build: () => RawIssue[]): { g: Graph; insights: Insights } {
   const g = buildGraph({ sites: [A], data: [data("a", build())] });
   return { g, insights: computeInsights(g) };
 }
 
-const make = (key: string, cat: RawStatusCategoryKey = "new") => issue(key, cat);
+const make = (key: string, cat: RawStatusCategoryKey = "new"): RawIssue => issue(key, cat);
 
 describe("snapshot diff", () => {
   it("reports new, newly blocked, unblocked, done and moved issues, and new links", () => {
@@ -65,7 +66,7 @@ describe("snapshot diff", () => {
   it("round-trips through JSON and drops malformed entries", () => {
     const g = graphOf(() => [make("A-1")]);
     const snap = takeSnapshot(g.g, g.insights, true);
-    const stored = JSON.parse(JSON.stringify({ ...snap, issues: { ...snap.issues, "a:BAD": { c: "weird", b: 1 } } }));
+    const stored: unknown = JSON.parse(JSON.stringify({ ...snap, issues: { ...snap.issues, "a:BAD": { c: "weird", b: 1 } } }));
     expect(parseSnapshot(stored)).toEqual(snap);
     expect(parseSnapshot({ nope: true })).toBeUndefined();
   });

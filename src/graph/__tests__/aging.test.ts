@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RawIssue, RawStatusCategoryKey } from "../../data/jiraTypes";
-import { AGING_DEFAULTS, computeAging, type AgingOptions } from "../aging";
+import { AGING_DEFAULTS, computeAging, type Aging, type AgingOptions } from "../aging";
 import { openBlockerCounts } from "../analysis";
 import { buildGraph } from "../buildGraph";
 import type { StatusChange } from "../schedule";
@@ -17,7 +17,7 @@ function make(key: string, cat: RawStatusCategoryKey, points: number | null, cre
   return i;
 }
 
-function run(issues: RawIssue[], history: Record<string, StatusChange[]> = {}) {
+function run(issues: RawIssue[], history: Record<string, StatusChange[]> = {}): Map<string, Aging> {
   const g = buildGraph({ sites: [A], data: [data("a", issues)] });
   return computeAging(g, new Map(Object.entries(history)), openBlockerCounts(g), opts);
 }

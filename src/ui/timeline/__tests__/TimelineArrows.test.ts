@@ -20,6 +20,7 @@ describe("isViolated", () => {
 import type { GraphNode } from "../../../graph/types";
 import { arrowAnchors } from "../TimelineArrows";
 import { drawnBar, summarizeEpics } from "../timelineLayout";
+import { getOrThrow } from "../../../lib/guards";
 
 describe("arrowAnchors", () => {
   const projected = { start: "2026-09-07", end: "2026-09-10" };
@@ -67,7 +68,7 @@ describe("arrow anchors on epic rows", () => {
     ["B", { projected: { start: "2026-09-14", end: "2026-09-16" }, progress: { state: "not-started", forecast: { start: "2026-10-02", end: "2026-10-05" } }, varianceDays: 13 }],
   ]);
   const epics = summarizeEpics(nodes, timeline);
-  const drawn = (n: GraphNode) => drawnBar(n, timeline.get(n.uid)!, epics.get(n.uid));
+  const drawn = (n: GraphNode): ReturnType<typeof drawnBar> => drawnBar(n, getOrThrow(timeline, n.uid), epics.get(n.uid));
   const [b, empty] = [nodes[3], nodes[4]];
 
   it("leaves an epic from the end of its children's work, not the epic's own schedule", () => {

@@ -2,7 +2,7 @@
 // Never bundled into the Tauri app. Config persists to localStorage (best effort).
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { configSchema } from "../config/schema";
-import type { DominoConfig } from "../config/types";
+import type { DominoConfig, SiteConfig } from "../config/types";
 import { FixtureSource } from "../data/FixtureSource";
 import { mockConfig, mockLinkTypes, mockSites } from "../data/mockData";
 
@@ -18,7 +18,7 @@ function readConfig(): DominoConfig {
   return structuredClone(mockConfig);
 }
 
-function writeConfig(c: DominoConfig) {
+function writeConfig(c: DominoConfig): void {
   try {
     localStorage.setItem(KEY, JSON.stringify(c));
   } catch {
@@ -26,32 +26,43 @@ function writeConfig(c: DominoConfig) {
   }
 }
 
-export async function installMockIpc() {
+/** Tauri rejects `invoke` with plain strings (not Errors), so the mock does too. */
+// oxlint-disable-next-line typescript/prefer-promise-reject-errors -- matching Tauri's string rejections is the point
+const rejectLikeTauri = (reason: unknown): Promise<never> => Promise.reject(reason);
+
+/** Thrown by the mock's own checks; `wrap` turns it (like any Error) into its message. */
+class MockIpcError extends Error {}
+
+export function installMockIpc(): Promise<void> {
   const failSites = new Set(new URLSearchParams(location.search).getAll("failSite"));
   const source = new FixtureSource(mockSites, mockLinkTypes, failSites);
   const secrets = new Set<string>();
   let config = readConfig();
 
-  const site = (id: string, requireEnabled = true) => {
+  const site = (id: string, requireEnabled = true): SiteConfig => {
     const s = config.sites.find((x) => x.id === id);
-    if (!s) throw `Unknown site "${id}"`;
-    if (requireEnabled && !s.enabled) throw `${s.label} is disabled`;
+    if (!s) throw new MockIpcError(`Unknown site "${id}"`);
+    if (requireEnabled && !s.enabled) throw new MockIpcError(`${s.label} is disabled`);
     return s;
   };
   const wrap = async <T,>(fn: () => Promise<T>): Promise<T> => {
-    if (config.backend === "jira") throw "Live Jira needs the desktop app (npm run dev)";
+    if (config.backend === "jira") return rejectLikeTauri("Live Jira needs the desktop app (npm run dev)");
     try {
       return await fn();
     } catch (e) {
-      throw e instanceof Error ? e.message : e; // Tauri rejects with strings
+      return rejectLikeTauri(e instanceof Error ? e.message : e); // Tauri rejects with strings
     }
   };
 
   mockWindows("main");
   mockIPC(async (cmd, payload) => {
-    const args: Record<string, unknown> = payload && typeof payload === "object" ? { ...payload } : {};
-    const str = (name: string) => (typeof args[name] === "string" ? args[name] : "");
-    const optStr = (name: string) => (typeof args[name] === "string" ? args[name] : undefined);
+    // Every command takes named arguments; the binary payload forms are never used.
+    const args: Readonly<Record<string, unknown>> = payload === undefined || Array.isArray(payload) || payload instanceof ArrayBuffer || ArrayBuffer.isView(payload) ? {} : payload;
+    const str = (name: string): string => optStr(name) ?? "";
+    const optStr = (name: string): string | undefined => {
+      const v = args[name];
+      return typeof v === "string" ? v : undefined;
+    };
     const siteId = str("siteId");
     const key = str("key");
     // small latency so loading states are visible
@@ -61,7 +72,7 @@ export async function installMockIpc() {
         return config;
       case "save_config": {
         const parsed = configSchema.safeParse(args.config);
-        if (!parsed.success) throw parsed.error.issues[0]?.message ?? "Invalid config";
+        if (!parsed.success) return rejectLikeTauri(parsed.error.issues[0]?.message ?? "Invalid config");
         config = parsed.data;
         writeConfig(config);
         return config;
@@ -92,14 +103,15 @@ export async function installMockIpc() {
       case "oauth_status":
         return { appConfigured: secrets.has("DOMINO_OAUTH_CLIENT_ID") && secrets.has("DOMINO_OAUTH_CLIENT_SECRET"), connected: false };
       case "oauth_connect":
-        throw "Atlassian sign-in needs the desktop app (npm run dev)";
+        return rejectLikeTauri("Atlassian sign-in needs the desktop app (npm run dev)");
       case "oauth_disconnect":
         return null;
       case "plugin:opener|open_url":
         window.open(str("url"), "_blank", "noopener,noreferrer");
         return null;
       default:
-        throw `mockIpc: unhandled command ${cmd}`;
+        return rejectLikeTauri(`mockIpc: unhandled command ${cmd}`);
     }
   });
+  return Promise.resolve();
 }

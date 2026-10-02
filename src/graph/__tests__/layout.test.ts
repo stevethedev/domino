@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { getOrThrow } from "../../lib/guards";
 import { buildGraph } from "../buildGraph";
 import { CARD_HEIGHT, CARD_WIDTH, computeLayout, laneByEpic, laneBySite, type LaneFn, type Layout } from "../layout";
 import { mockConfig, mockLinkTypes, mockSites } from "../../data/mockData";
@@ -15,9 +16,9 @@ describe.each(MODES)("computeLayout (group by %s)", (mode, laneOf) => {
   it("places every blocker left of what it blocks and never overlaps cards", async () => {
     const layout = await computeLayout(g.nodes, g.edges, g.brokenEdgeIds, laneOf);
     const groupPos = new Map(layout.groups.map((gr) => [gr.id, gr]));
-    const abs = (uid: string) => {
-      const p = layout.positions.get(uid)!;
-      const parent = p.parent ? groupPos.get(p.parent)! : { x: 0, y: 0 };
+    const abs = (uid: string): { x: number; y: number } => {
+      const p = getOrThrow(layout.positions, uid);
+      const parent = p.parent ? getOrThrow(groupPos, p.parent) : { x: 0, y: 0 };
       return { x: p.x + parent.x, y: p.y + parent.y };
     };
     expect(layout.positions.size).toBe(g.nodes.length);
@@ -41,7 +42,7 @@ describe.each(MODES)("computeLayout (group by %s)", (mode, laneOf) => {
       expect(labels).toContain("CORE-1 · Checkout v2");
       expect(labels).toContain("PAY-20 · Tokenized payments for Acme");
       expect(labels.slice(-2)).toEqual(["No epic", "Outside scope"]); // catch-alls last
-      const lane = (uid: string) => layout.positions.get(uid)!.parent;
+      const lane = (uid: string): string | undefined => getOrThrow(layout.positions, uid).parent;
       expect(lane("acme:CORE-16")).toBe(lane("acme:CORE-11")); // sub-task joins its story's epic
       expect(lane("acme:CORE-1")).toBe(lane("acme:CORE-10")); // the epic sits in its own lane
     }
@@ -53,12 +54,12 @@ describe("swimlanes keep the layout's rows", () => {
     const flat = await computeLayout(g.nodes, g.edges, g.brokenEdgeIds, undefined);
     const lanes = await computeLayout(g.nodes, g.edges, g.brokenEdgeIds, laneBySite);
     // Same lane and same flat row => same lane row.
-    const lane = (uid: string) => lanes.positions.get(uid)!.parent;
+    const lane = (uid: string): string | undefined => getOrThrow(lanes.positions, uid).parent;
     const pairs: [string, string][] = [];
     const uids = [...flat.positions.keys()];
-    for (const a of uids) for (const b of uids) if (a < b && lane(a) === lane(b) && flat.positions.get(a)!.y === flat.positions.get(b)!.y) pairs.push([a, b]);
+    for (const a of uids) for (const b of uids) if (a < b && lane(a) === lane(b) && getOrThrow(flat.positions, a).y === getOrThrow(flat.positions, b).y) pairs.push([a, b]);
     expect(pairs.length).toBeGreaterThan(0);
-    for (const [a, b] of pairs) expect(lanes.positions.get(a)!.y, `${a} vs ${b}`).toBe(lanes.positions.get(b)!.y);
+    for (const [a, b] of pairs) expect(getOrThrow(lanes.positions, a).y, `${a} vs ${b}`).toBe(getOrThrow(lanes.positions, b).y);
   });
 });
 
@@ -68,28 +69,31 @@ describe("swimlanes stay compact", () => {
     const lanes = await computeLayout(g.nodes, g.edges, g.brokenEdgeIds, laneBySite);
     for (const group of lanes.groups) {
       const members = [...lanes.positions].filter(([, p]) => p.parent === group.id).map(([uid]) => uid);
-      const flatRows = new Set(members.map((u) => flat.positions.get(u)!.y)).size;
-      const laneRows = new Set(members.map((u) => lanes.positions.get(u)!.y)).size;
+      const flatRows = new Set(members.map((u) => getOrThrow(flat.positions, u).y)).size;
+      const laneRows = new Set(members.map((u) => getOrThrow(lanes.positions, u).y)).size;
       expect(laneRows, group.label).toBeLessThanOrEqual(flatRows);
     }
     // At least one lane got denser than one-row-per-flat-row.
     const denser = lanes.groups.some((group) => {
       const members = [...lanes.positions].filter(([, p]) => p.parent === group.id).map(([uid]) => uid);
-      return new Set(members.map((u) => lanes.positions.get(u)!.y)).size < new Set(members.map((u) => flat.positions.get(u)!.y)).size;
+      return new Set(members.map((u) => getOrThrow(lanes.positions, u).y)).size < new Set(members.map((u) => getOrThrow(flat.positions, u).y)).size;
     });
     expect(denser).toBe(true);
   });
 
   // A link between two cards on one lane row is drawn straight along it; a third card in between would read as part of the chain.
-  const expectNoLinkOverCards = (layout: Layout, nodes: readonly GraphNode[], edges: readonly GraphEdge[], broken: ReadonlySet<string> = new Set()) => {
-    const rowKey = (uid: string) => `${layout.positions.get(uid)!.parent}|${layout.positions.get(uid)!.y}`;
+  const expectNoLinkOverCards = (layout: Layout, nodes: readonly GraphNode[], edges: readonly GraphEdge[], broken: ReadonlySet<string> = new Set()): void => {
+    const rowKey = (uid: string): string => {
+      const p = getOrThrow(layout.positions, uid);
+      return `${p.parent ?? ""}|${p.y}`;
+    };
     for (const e of edges) {
       if (broken.has(e.id) || e.source === e.target || !layout.positions.has(e.source) || !layout.positions.has(e.target)) continue;
       if (rowKey(e.source) !== rowKey(e.target)) continue;
-      const [lo, hi] = [layout.positions.get(e.source)!.x, layout.positions.get(e.target)!.x].sort((p, q) => p - q);
+      const [lo, hi] = [getOrThrow(layout.positions, e.source).x, getOrThrow(layout.positions, e.target).x].sort((p, q) => p - q);
       for (const n of nodes) {
         if (n.uid === e.source || n.uid === e.target || rowKey(n.uid) !== rowKey(e.source)) continue;
-        const x = layout.positions.get(n.uid)!.x;
+        const x = getOrThrow(layout.positions, n.uid).x;
         expect(x > lo && x < hi, `${n.uid} sits on ${e.source} -> ${e.target}`).toBe(false);
       }
     }

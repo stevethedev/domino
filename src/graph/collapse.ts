@@ -1,8 +1,9 @@
+import { defined, getOrThrow } from "../lib/guards";
 import { findCycles } from "./cycles";
 import type { Insights } from "./insights";
 import type { EpicRollup, Graph, GraphEdge, GraphNode, StatusCategory } from "./types";
 
-export const summaryUid = (epicUid: string) => `epic-summary:${epicUid}`;
+export const summaryUid = (epicUid: string): string => `epic-summary:${epicUid}`;
 
 export type CollapsedGraph = {
   graph: Graph;
@@ -45,7 +46,7 @@ export function collapseEpics(graph: Graph, insights: Insights, expanded: Readon
   const summaries: GraphNode[] = [...members].map(([epicUid, ms]) => {
     const node = byUid.get(epicUid);
     const epic = node && !node.ghost ? node : undefined; // ghosts carry no epic ref
-    const ref = (epic ?? ms.find((m) => m.epic))!.epic!;
+    const ref = defined(epic?.epic ?? ms.find((m) => m.epic)?.epic, `epic ref for ${epicUid}`);
     const site = epic ?? ms[0];
     const rollup: EpicRollup = {
       epicUid,
@@ -76,7 +77,7 @@ export function collapseEpics(graph: Graph, insights: Insights, expanded: Readon
   const kept: GraphEdge[] = [];
   const combined = new Map<string, GraphEdge>();
   for (const e of graph.edges) {
-    const [s, t] = [shownAs.get(e.source)!, shownAs.get(e.target)!];
+    const [s, t] = [getOrThrow(shownAs, e.source), getOrThrow(shownAs, e.target)];
     if (s === t) continue; // inside one epic
     if (s === e.source && t === e.target) {
       kept.push(e);

@@ -17,7 +17,7 @@ export function kindOf(type: Pick<RawLinkType, "name" | "outward">): LinkKind {
 }
 
 /** Symmetric kinds have no meaningful direction, so dedup ignores it. */
-const isSymmetric = (t: Pick<RawLinkType, "inward" | "outward">) =>
+const isSymmetric = (t: Pick<RawLinkType, "inward" | "outward">): boolean =>
   t.inward.trim().toLowerCase() === t.outward.trim().toLowerCase();
 
 export type ResolvedRelationship = {

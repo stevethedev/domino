@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type { ConfigStore } from "../config/ConfigStore";
 import type { DominoConfig, HealthStatus, SiteConfig } from "../config/types";
 import { errorMessage } from "../data/errors";
@@ -17,20 +17,40 @@ export type LoadState =
   | { status: "failed"; message: string };
 
 const QUERY_KEY = "domino.query";
-const asString = (raw: unknown) => (typeof raw === "string" ? raw : undefined);
+const asString = (raw: unknown): string | undefined => (typeof raw === "string" ? raw : undefined);
 
 /** The last-run top-bar query, remembered per viewer. */
-const loadQuery = () => readStored(QUERY_KEY, asString, presetById(DEFAULT_PRESET_ID).jql);
-export const saveQuery = (q: string) => writeStored(QUERY_KEY, q);
+const loadQuery = (): string => readStored(QUERY_KEY, asString, presetById(DEFAULT_PRESET_ID).jql);
+export const saveQuery = (q: string): void => { writeStored(QUERY_KEY, q); };
 
 /** Stable identity of a scope: the selected sites plus the query or mode. */
-export const scopeKeyOf = (sites: readonly SiteConfig[], scope: Scope) =>
+export const scopeKeyOf = (sites: readonly SiteConfig[], scope: Scope): string =>
   JSON.stringify({ sites: sites.map((s) => s.id).sort(), scope });
 
 const EMPTY_GRAPH: Graph = { nodes: [], edges: [], cycles: [], cycleEdgeIds: new Set(), brokenEdgeIds: new Set() };
 
+export type Domino = {
+  config: DominoConfig | null;
+  configError: string | null;
+  selected: string[];
+  setSelected: Dispatch<SetStateAction<string[]>>;
+  selectedSites: SiteConfig[];
+  scope: Scope;
+  setScope: Dispatch<SetStateAction<Scope>>;
+  load: LoadState;
+  graph: Graph;
+  loadedSiteCount: number;
+  reload: () => void;
+  saveConfig: (next: DominoConfig) => Promise<DominoConfig>;
+  /** Re-reads config the backend may have changed on its own (e.g. discovered cloudIds). */
+  refreshConfig: () => Promise<void>;
+  health: Record<string, HealthStatus>;
+  testConnection: (siteId: string) => Promise<void>;
+  store: ConfigStore;
+};
+
 /** App state: config, site selection, scope -> load -> graph. UI components get Graph, never raw data. */
-export function useDomino(store: ConfigStore, source: JiraSource) {
+export function useDomino(store: ConfigStore, source: JiraSource): Domino {
   const [config, setConfig] = useState<DominoConfig | null>(null);
   const [configError, setConfigError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
@@ -42,7 +62,7 @@ export function useDomino(store: ConfigStore, source: JiraSource) {
   const prevEnabled = useRef<Set<string> | null>(null);
 
   useEffect(() => {
-    store.load().then(setConfig, (e) => setConfigError(errorMessage(e)));
+    store.load().then(setConfig, (e: unknown) => { setConfigError(errorMessage(e)); });
   }, [store]);
 
   // Keep the selection in sync with config: drop disabled/removed sites, select newly enabled ones.
@@ -73,10 +93,10 @@ export function useDomino(store: ConfigStore, source: JiraSource) {
     setLoad({ status: "loading" });
     const scopeKey = scopeKeyOf(selectedSites, scope);
     loader.load(scope, selectedSites, config.sites).then(
-      (result) => !cancelled && setLoad({ status: "done", result, scopeKey }),
-      (e) => !cancelled && setLoad({ status: "failed", message: errorMessage(e) }),
+      (result) => { if (!cancelled) setLoad({ status: "done", result, scopeKey }); },
+      (e: unknown) => { if (!cancelled) setLoad({ status: "failed", message: errorMessage(e) }); },
     );
-    return () => {
+    return (): void => {
       cancelled = true;
     };
   }, [config, selectedSites, scope, loader, reloadTick]);
@@ -98,7 +118,7 @@ export function useDomino(store: ConfigStore, source: JiraSource) {
   );
 
   /** Re-reads config the backend may have changed on its own (e.g. discovered cloudIds). */
-  const refreshConfig = useCallback(async () => setConfig(await store.load()), [store]);
+  const refreshConfig = useCallback(async () => { setConfig(await store.load()); }, [store]);
 
   const testConnection = useCallback(
     async (siteId: string) => {
@@ -120,7 +140,7 @@ export function useDomino(store: ConfigStore, source: JiraSource) {
     load,
     graph,
     loadedSiteCount,
-    reload: () => setReloadTick((t) => t + 1),
+    reload: () => { setReloadTick((t) => t + 1); },
     saveConfig,
     refreshConfig,
     health,
@@ -128,5 +148,3 @@ export function useDomino(store: ConfigStore, source: JiraSource) {
     store,
   };
 }
-
-export type Domino = ReturnType<typeof useDomino>;

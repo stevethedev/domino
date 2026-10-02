@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { defined } from "../../lib/guards";
 import type { RawIssue } from "../../data/jiraTypes";
 import { buildGraph } from "../buildGraph";
 import { BLOCKS, data, issue, link, site } from "./helpers";
@@ -21,7 +22,7 @@ function withParent(child: RawIssue, parent: RawIssue): RawIssue {
   return child;
 }
 
-const epicOf = (g: ReturnType<typeof buildGraph>, uid: string) => g.nodes.find((n) => n.uid === uid)?.epic?.uid;
+const epicOf = (g: ReturnType<typeof buildGraph>, uid: string): string | undefined => g.nodes.find((n) => n.uid === uid)?.epic?.uid;
 
 describe("epic assignment", () => {
   it("uses the parent when it is an epic, and an epic points at itself", () => {
@@ -30,7 +31,7 @@ describe("epic assignment", () => {
     const g = buildGraph({ sites: [A], data: [data("a", [epic, story])] });
     expect(epicOf(g, "a:S-1")).toBe("a:E-1");
     expect(epicOf(g, "a:E-1")).toBe("a:E-1");
-    expect(g.nodes.find((n) => n.uid === "a:S-1")!.epic).toMatchObject({ key: "E-1", summary: "Summary of E-1", url: "https://a.atlassian.net/browse/E-1" });
+    expect(defined(g.nodes.find((n) => n.uid === "a:S-1"), "node").epic).toMatchObject({ key: "E-1", summary: "Summary of E-1", url: "https://a.atlassian.net/browse/E-1" });
   });
 
   it("recognizes epics by name when hierarchyLevel is missing", () => {
@@ -55,7 +56,7 @@ describe("epic assignment", () => {
     const epic = typed("E-7", "Epic", 1);
     epic.fields.summary = "Legacy epic";
     const g = buildGraph({ sites: [A], data: [data("a", [story, epic])] });
-    expect(g.nodes.find((n) => n.uid === "a:S-1")!.epic).toMatchObject({ uid: "a:E-7", summary: "Legacy epic" });
+    expect(defined(g.nodes.find((n) => n.uid === "a:S-1"), "node").epic).toMatchObject({ uid: "a:E-7", summary: "Legacy epic" });
   });
 
   it("keeps same-key epics on two sites apart", () => {
@@ -74,6 +75,6 @@ describe("epic assignment", () => {
     const [x, y] = [issue("X-1"), issue("X-2")];
     link("1", BLOCKS, x, y, { out: false, in: true });
     const g = buildGraph({ sites: [A], data: [data("a", [y])] });
-    expect(g.nodes.find((n) => n.ghost)!.epic).toBeUndefined();
+    expect(defined(g.nodes.find((n) => n.ghost), "node").epic).toBeUndefined();
   });
 });

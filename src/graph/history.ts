@@ -20,12 +20,12 @@ export function toStatusHistory(
   nodes: readonly GraphNode[],
   siteId: string,
 ): Map<string, StatusChange[]> {
-  const uidById = new Map(nodes.filter((n) => n.siteId === siteId && n.jiraId).map((n) => [n.jiraId!, n.uid]));
+  const uidById = new Map(nodes.flatMap((n): [string, string][] => (n.siteId === siteId && n.jiraId ? [[n.jiraId, n.uid]] : [])));
   const byId = new Map(statuses.map((s) => [s.id, CATEGORY[s.statusCategory.key]]));
   const byName = new Map(statuses.map((s) => [s.name.toLowerCase(), CATEGORY[s.statusCategory.key]]));
   const out = new Map<string, StatusChange[]>();
   for (const log of logs) {
-    const uid = uidById.get(String(log.issueId));
+    const uid = uidById.get(log.issueId);
     if (!uid) continue;
     const changes = log.changeHistories
       .flatMap((h) =>

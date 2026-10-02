@@ -1,5 +1,5 @@
 import { Background, Controls, MiniMap, ReactFlow, useReactFlow } from "@xyflow/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { blockingChain } from "../graph/analysis";
 import { collapseEpics, shownEdgeId } from "../graph/collapse";
 import { emphasis, type Highlight, type Insights } from "../graph/insights";
@@ -37,10 +37,10 @@ const edgeTypes = { link: LinkEdge };
 
 type MarkerKind = "edge" | "cycle" | "critical";
 const MARKER_KINDS: readonly MarkerKind[] = ["edge", "cycle", "critical"];
-const markerId = (k: MarkerKind) => `domino-arrow-${k}`;
+const markerId = (k: MarkerKind): string => `domino-arrow-${k}`;
 
 /** Arrowheads styled by CSS classes, so they follow the theme (React Flow's built-in markers take a fixed color). */
-function ArrowMarkers() {
+function ArrowMarkers(): ReactElement {
   return (
     <svg className="arrow-defs" aria-hidden="true">
       <defs>
@@ -83,7 +83,7 @@ export function Canvas({
   /** Epics shown issue-by-issue while the epic map is on. */
   expandedEpics: ReadonlySet<string>;
   onToggleEpic: (epicUid: string) => void;
-}) {
+}): ReactElement {
   const rf = useReactFlow();
   const [hovered, setHovered] = useState<string | null>(null);
   const [layout, setLayout] = useState<Layout | null>(null);
@@ -104,18 +104,22 @@ export function Canvas({
 
   useEffect(() => {
     let cancelled = false;
-    computeLayout(vNodes, vEdges, graph.brokenEdgeIds, laneOf).then((l) => {
-      if (cancelled) return;
-      setLayout(l);
-      // Re-fit only when the set of cards changes; re-layouts for new insights (e.g. status history
-      // arriving) keep the user's viewport. Never zoom past 100%: small graphs stay card-sized.
-      const shape = `${[...l.positions.keys()].sort().join("|")}#${l.groups.map((g) => g.id).join("|")}`;
-      if (shape !== fittedShape.current) {
-        fittedShape.current = shape;
-        requestAnimationFrame(() => rf.fitView({ padding: 0.2, maxZoom: 1, duration: 250 }));
-      }
-    });
-    return () => {
+    computeLayout(vNodes, vEdges, graph.brokenEdgeIds, laneOf).then(
+      (l) => {
+        if (cancelled) return;
+        setLayout(l);
+        // Re-fit only when the set of cards changes; re-layouts for new insights (e.g. status history
+        // arriving) keep the user's viewport. Never zoom past 100%: small graphs stay card-sized.
+        const shape = `${[...l.positions.keys()].sort().join("|")}#${l.groups.map((g) => g.id).join("|")}`;
+        if (shape !== fittedShape.current) {
+          fittedShape.current = shape;
+          requestAnimationFrame(() => { void rf.fitView({ padding: 0.2, maxZoom: 1, duration: 250 }); });
+        }
+      },
+      // A failed layout keeps the previous one on screen; there is no layout error UI, so log it.
+      (e: unknown) => { if (!cancelled) console.error("Graph layout failed", e); },
+    );
+    return (): void => {
       cancelled = true;
     };
   }, [vNodes, vEdges, graph.brokenEdgeIds, laneOf, rf]);
@@ -133,6 +137,7 @@ export function Canvas({
 
   const flowNodes = useMemo<FlowNode[]>(() => {
     if (!layout) return [];
+    const toggleEpic = (epicUid: string) => (): void => { onToggleEpic(epicUid); };
     const groups: SiteGroupNode[] = layout.groups.map((g) => ({
       id: g.id,
       type: "siteGroup",
@@ -142,7 +147,7 @@ export function Canvas({
         color: g.color,
         url: g.url,
         onOpen: openExternal,
-        onCollapse: g.collapseEpic ? () => onToggleEpic(g.collapseEpic!) : undefined,
+        onCollapse: g.collapseEpic ? toggleEpic(g.collapseEpic) : undefined,
       },
       width: g.width,
       height: g.height,
@@ -173,7 +178,7 @@ export function Canvas({
             highlight: isEmphasized && view.highlight !== "none" ? view.highlight : null,
             onOpen: openExternal,
             onHover: setHovered,
-            onExpand: n.rollup ? () => onToggleEpic(n.rollup!.epicUid) : undefined,
+            onExpand: n.rollup ? toggleEpic(n.rollup.epicUid) : undefined,
           },
           draggable: false,
           focusable: false, // the card itself is the tab stop
@@ -241,14 +246,14 @@ export function Canvas({
 }
 
 /** Centers the viewport on a card and focuses it (used by the Warnings panel). */
-export function useFocusNode() {
+export function useFocusNode(): (uid: string) => boolean {
   const rf = useReactFlow();
   /** Returns false when the node isn't rendered (yet). */
   return (uid: string): boolean => {
     const n = rf.getInternalNode(uid);
     if (!n) return false;
     const { x, y } = n.internals.positionAbsolute;
-    rf.setCenter(x + (n.measured.width ?? CARD_WIDTH) / 2, y + (n.measured.height ?? CARD_HEIGHT) / 2, { zoom: 1.1, duration: 300 });
+    void rf.setCenter(x + (n.measured.width ?? CARD_WIDTH) / 2, y + (n.measured.height ?? CARD_HEIGHT) / 2, { zoom: 1.1, duration: 300 });
     const el = document.querySelector<HTMLElement>(`[data-uid="${CSS.escape(uid)}"]`);
     el?.focus({ preventScroll: true });
     return true;

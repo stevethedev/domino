@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactElement } from "react";
 import type { HealthStatus, SiteConfig } from "../../config/types";
 
 export function SiteRow({
@@ -17,7 +17,7 @@ export function SiteRow({
   onTest: () => void;
   onEdit: () => void;
   onRemove: () => void;
-}) {
+}): ReactElement {
   const [confirming, setConfirming] = useState(false);
   const confirmRef = useRef<HTMLButtonElement>(null);
   const rowRef = useRef<HTMLTableRowElement>(null);
@@ -41,7 +41,7 @@ export function SiteRow({
       <td>{site.auth.type === "apiToken" ? "API token" : "OAuth 3LO"}</td>
       <td>
         <label className="check">
-          <input type="checkbox" role="switch" checked={site.enabled} onChange={(e) => onToggle(e.target.checked)} aria-label={`Enable ${site.label}`} />
+          <input type="checkbox" role="switch" checked={site.enabled} onChange={(e) => { onToggle(e.target.checked); }} aria-label={`Enable ${site.label}`} />
           <span className="small">{site.enabled ? "On" : "Off"}</span>
         </label>
       </td>
@@ -60,12 +60,12 @@ export function SiteRow({
             <button ref={confirmRef} type="button" className="danger" onClick={onRemove} aria-label={`Confirm removing ${site.label}`}>
               Confirm remove
             </button>
-            <button type="button" onClick={() => setConfirming(false)}>
+            <button type="button" onClick={() => { setConfirming(false); }}>
               Keep
             </button>
           </>
         ) : (
-          <button type="button" onClick={() => setConfirming(true)} aria-label={`Remove ${site.label}`}>
+          <button type="button" onClick={() => { setConfirming(true); }} aria-label={`Remove ${site.label}`}>
             Remove
           </button>
         )}
@@ -74,7 +74,7 @@ export function SiteRow({
   );
 }
 
-function HealthBadge({ health }: { health: HealthStatus }) {
+function HealthBadge({ health }: { health: HealthStatus }): ReactElement {
   switch (health.state) {
     case "unknown":
       return <span className="health health-unknown">Unknown</span>;

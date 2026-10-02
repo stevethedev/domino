@@ -2,6 +2,7 @@
 //
 // Days are ISO calendar dates ("YYYY-MM-DD", UTC). Spans are half-open: a task occupying
 // Mon..Wed has { start: Mon, end: Thu }. Durations count working days (Mon–Fri).
+import { getOrThrow } from "../lib/guards";
 import type { Graph, GraphNode, StatusCategory } from "./types";
 
 export type Day = string;
@@ -34,9 +35,9 @@ export type TimelineEntry = {
 
 const DAY_MS = 86_400_000;
 
-const parse = (d: Day) => Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10));
+const parse = (d: Day): number => Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10));
 const format = (ms: number): Day => new Date(ms).toISOString().slice(0, 10);
-const isWeekend = (ms: number) => [0, 6].includes(new Date(ms).getUTCDay());
+const isWeekend = (ms: number): boolean => [0, 6].includes(new Date(ms).getUTCDay());
 
 /**
  * The viewer's local calendar day for an instant (Jira datetimes, epoch ms), so it lines up with
@@ -49,7 +50,7 @@ export function toDay(value: string | number | Date): Day {
 }
 
 export const addDays = (d: Day, n: number): Day => format(parse(d) + n * DAY_MS);
-export const daysBetween = (a: Day, b: Day) => Math.round((parse(b) - parse(a)) / DAY_MS);
+export const daysBetween = (a: Day, b: Day): number => Math.round((parse(b) - parse(a)) / DAY_MS);
 export const maxDay = (...days: Day[]): Day => days.reduce((a, b) => (b > a ? b : a));
 export const minDay = (...days: Day[]): Day => days.reduce((a, b) => (b < a ? b : a));
 
@@ -97,11 +98,10 @@ function topoOrder(graph: Graph, blockers: Map<string, string[]>): string[] {
   for (const [target, sources] of blockers) for (const s of sources) dependents.set(s, [...(dependents.get(s) ?? []), target]);
   const queue = graph.nodes.filter((n) => indeg.get(n.uid) === 0).map((n) => n.uid).sort();
   const order: string[] = [];
-  while (queue.length) {
-    const v = queue.shift()!;
+  for (let v = queue.shift(); v !== undefined; v = queue.shift()) {
     order.push(v);
     for (const t of dependents.get(v) ?? []) {
-      indeg.set(t, indeg.get(t)! - 1);
+      indeg.set(t, getOrThrow(indeg, t) - 1);
       if (indeg.get(t) === 0) queue.push(t);
     }
     queue.sort();
@@ -122,9 +122,9 @@ export function projectSchedule(graph: Graph, opts: ScheduleOptions, history: St
   const spans = new Map<string, Span>();
   for (const uid of topoOrder(graph, blockers)) {
     const started = actualStart(history.get(uid));
-    const after = (blockers.get(uid) ?? []).map((b) => spans.get(b)!.end);
+    const after = (blockers.get(uid) ?? []).map((b) => getOrThrow(spans, b).end);
     const start = started ?? nextWorkday(maxDay(opts.planStart, ...after));
-    spans.set(uid, { start, end: addWorkdays(start, durationDays(byUid.get(uid)!, opts)) });
+    spans.set(uid, { start, end: addWorkdays(start, durationDays(getOrThrow(byUid, uid), opts)) });
   }
   return spans;
 }
@@ -147,10 +147,11 @@ export function computeTimeline(graph: Graph, history: StatusHistory, opts: Sche
   const out = new Map<string, TimelineEntry>();
 
   for (const uid of topoOrder(graph, blockers)) {
-    const node = byUid.get(uid)!;
+    const node = getOrThrow(byUid, uid);
+    const planned = getOrThrow(projected, uid);
     const duration = durationDays(node, opts);
     const started = actualStart(history.get(uid));
-    const blockersDone = maxDay(opts.today, ...(blockers.get(uid) ?? []).map((b) => finish.get(b)!));
+    const blockersDone = maxDay(opts.today, ...(blockers.get(uid) ?? []).map((b) => getOrThrow(finish, b)));
     let progress: Progress;
 
     if (node.statusCategory === "done") {
@@ -158,7 +159,7 @@ export function computeTimeline(graph: Graph, history: StatusHistory, opts: Sche
       progress =
         started && end
           ? { state: "done", actual: { start: started, end: maxDay(end, addDays(started, 1)) } }
-          : { state: "unknown", forecast: projected.get(uid)! };
+          : { state: "unknown", forecast: planned };
     } else if (started) {
       const remaining = Math.max(1, duration - workdaysBetween(started, opts.today));
       progress = { state: "started", actualStart: started, forecast: { start: opts.today, end: addWorkdays(opts.today, remaining) } };
@@ -172,7 +173,7 @@ export function computeTimeline(graph: Graph, history: StatusHistory, opts: Sche
 
     const end = progress.state === "done" ? progress.actual.end : progress.forecast.end;
     finish.set(uid, end);
-    out.set(uid, { projected: projected.get(uid)!, progress, varianceDays: workdaysBetween(projected.get(uid)!.end, end) });
+    out.set(uid, { projected: planned, progress, varianceDays: workdaysBetween(planned.end, end) });
   }
   return out;
 }

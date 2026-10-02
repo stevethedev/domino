@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { defined } from "../../lib/guards";
 import type { RawIssue } from "../../data/jiraTypes";
 import { buildGraph } from "../buildGraph";
 import { collapseEpics, summaryUid } from "../collapse";
-import { computeInsights } from "../insights";
+import { computeInsights, type Insights } from "../insights";
+import type { Graph } from "../types";
 import { BLOCKS, data, issue, link, site } from "./helpers";
 
 const A = site("a");
@@ -14,7 +16,7 @@ function inEpic(key: string, epic: RawIssue | null, cat: "new" | "indeterminate"
 }
 
 /** Epic E1 {a1 (done), a2} blocks epic E2 {b1}; a1 -> a2 inside E1; loose L-1 blocks b1. */
-function sample() {
+function sample(): { g: Graph; insights: Insights } {
   const [e1, e2] = [issue("E-1"), issue("E-2")];
   e1.fields.issuetype = { name: "Epic", hierarchyLevel: 1 };
   e2.fields.issuetype = { name: "Epic", hierarchyLevel: 1 };
@@ -32,7 +34,7 @@ describe("collapseEpics", () => {
     const { g, insights } = sample();
     const c = collapseEpics(g, insights, new Set());
     expect(c.graph.nodes.map((n) => n.uid).sort()).toEqual(["a:L-1", summaryUid("a:E-1"), summaryUid("a:E-2")].sort());
-    const e1 = c.graph.nodes.find((n) => n.uid === summaryUid("a:E-1"))!;
+    const e1 = defined(c.graph.nodes.find((n) => n.uid === summaryUid("a:E-1")), "node");
     expect(e1.rollup).toMatchObject({ members: ["a:A-1", "a:A-2"], done: 1, blocked: 0 });
     expect(e1.statusCategory).toBe("inprogress");
     expect(c.shownAs.get("a:A-2")).toBe(summaryUid("a:E-1"));
@@ -41,9 +43,9 @@ describe("collapseEpics", () => {
   it("combines links between epics with total and open counts, and drops links inside an epic", () => {
     const { g, insights } = sample();
     const c = collapseEpics(g, insights, new Set());
-    const e1e2 = c.graph.edges.find((e) => e.source === summaryUid("a:E-1") && e.target === summaryUid("a:E-2"))!;
+    const e1e2 = defined(c.graph.edges.find((e) => e.source === summaryUid("a:E-1") && e.target === summaryUid("a:E-2")), "edge");
     expect(e1e2.aggregate).toEqual({ links: 2, open: 1 });
-    expect(c.graph.edges.find((e) => e.source === "a:L-1")!.aggregate).toEqual({ links: 1, open: 1 });
+    expect(defined(c.graph.edges.find((e) => e.source === "a:L-1"), "edge").aggregate).toEqual({ links: 1, open: 1 });
     expect(c.graph.edges).toHaveLength(2);
   });
 
@@ -76,10 +78,10 @@ describe("collapseEpics edge cases", () => {
     const g = buildGraph({ sites: [A], data: [data("a", [child, other])] });
     expect(g.nodes.find((n) => n.uid === "a:E-1")?.ghost).toBe(true);
     const c = collapseEpics(g, computeInsights(g), new Set());
-    const summary = c.graph.nodes.find((n) => n.uid === summaryUid("a:E-1"))!;
+    const summary = defined(c.graph.nodes.find((n) => n.uid === summaryUid("a:E-1")), "node");
     expect(summary).toMatchObject({ key: "E-1", ghost: false });
     expect(c.graph.nodes.some((n) => n.uid === "a:E-1")).toBe(false); // the ghost folds into its summary
-    expect(c.graph.edges.find((e) => e.source === "a:X-1")!.target).toBe(summaryUid("a:E-1"));
+    expect(defined(c.graph.edges.find((e) => e.source === "a:X-1"), "edge").target).toBe(summaryUid("a:E-1"));
   });
 
   it("an epic with no loaded children keeps the epic's own status", () => {

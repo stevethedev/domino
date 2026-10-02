@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactElement } from "react";
 import type { SiteConfig } from "../../config/types";
 import { errorMessage } from "../../data/errors";
 import type { Domino } from "../../state/useDomino";
@@ -8,7 +8,7 @@ import { SiteRow } from "./SiteRow";
 
 type Editing = { kind: "new" } | { kind: "edit"; id: string } | null;
 
-export function SettingsDialog({ domino, open, onClose }: { domino: Domino; open: boolean; onClose: () => void }) {
+export function SettingsDialog({ domino, open, onClose }: { domino: Domino; open: boolean; onClose: () => void }): ReactElement | null {
   const ref = useRef<HTMLDialogElement>(null);
   const [editing, setEditing] = useState<Editing>(null);
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +26,8 @@ export function SettingsDialog({ domino, open, onClose }: { domino: Domino; open
 
   const editingSite = editing?.kind === "edit" ? config.sites.find((s) => s.id === editing.id) : undefined;
 
-  const persist = async (sites: SiteConfig[], defaultSiteIds = config.defaultSiteIds) => {
+  /** Shows a failed save in the error banner, then rethrows so callers can stay open on failure. */
+  const persist = async (sites: SiteConfig[], defaultSiteIds = config.defaultSiteIds): Promise<void> => {
     setError(null);
     try {
       await domino.saveConfig({ ...config, sites, defaultSiteIds: defaultSiteIds.filter((id) => sites.some((s) => s.id === id)) });
@@ -36,7 +37,7 @@ export function SettingsDialog({ domino, open, onClose }: { domino: Domino; open
     }
   };
 
-  const submit = async ({ site, isDefault, token, test }: SiteFormResult) => {
+  const submit = async ({ site, isDefault, token, test }: SiteFormResult): Promise<void> => {
     const exists = config.sites.some((s) => s.id === site.id);
     const sites = exists ? config.sites.map((s) => (s.id === site.id ? { ...site, cloudId: s.cloudId } : s)) : [...config.sites, site];
     const defaults = isDefault
@@ -46,10 +47,12 @@ export function SettingsDialog({ domino, open, onClose }: { domino: Domino; open
     if (token && site.auth.type === "apiToken") await domino.store.setSecret(site.auth.secretRef, token);
     setEditing(null);
     setJustSaved(site.id);
-    if (test) domino.testConnection(site.id);
+    if (test) void domino.testConnection(site.id); // health failures land in domino.health, never a rejection
   };
 
-  const switchToLive = () => domino.saveConfig({ ...config, backend: "jira" }).catch((e) => setError(errorMessage(e)));
+  const switchToLive = (): void => {
+    domino.saveConfig({ ...config, backend: "jira" }).catch((e: unknown) => { setError(errorMessage(e)); });
+  };
 
   const form = editing && (
     <SiteForm
@@ -62,7 +65,7 @@ export function SettingsDialog({ domino, open, onClose }: { domino: Domino; open
       backend={config.backend}
       onSwitchToLive={switchToLive}
       onSubmit={submit}
-      onCancel={() => setEditing(null)}
+      onCancel={() => { setEditing(null); }}
     />
   );
 
@@ -88,11 +91,11 @@ export function SettingsDialog({ domino, open, onClose }: { domino: Domino; open
           {error}
         </p>
       )}
-      <BackendSection domino={domino} />
+      <BackendSection domino={domino} config={config} />
       <div className="section-row">
         <h3 className="section-h">Sites</h3>
         {editing?.kind !== "new" && (
-          <button type="button" className="primary" onClick={() => setEditing({ kind: "new" })}>
+          <button type="button" className="primary" onClick={() => { setEditing({ kind: "new" }); }}>
             + Add site
           </button>
         )}
@@ -118,10 +121,10 @@ export function SettingsDialog({ domino, open, onClose }: { domino: Domino; open
               site={s}
               highlight={justSaved === s.id}
               health={domino.health[s.id] ?? { state: "unknown" }}
-              onToggle={(enabled) => persist(config.sites.map((x) => (x.id === s.id ? { ...x, enabled } : x))).catch(() => {})}
-              onTest={() => domino.testConnection(s.id)}
-              onEdit={() => setEditing({ kind: "edit", id: s.id })}
-              onRemove={() => persist(config.sites.filter((x) => x.id !== s.id)).catch(() => {})}
+              onToggle={(enabled) => { persist(config.sites.map((x) => (x.id === s.id ? { ...x, enabled } : x))).catch(() => {}); }}
+              onTest={() => { void domino.testConnection(s.id); }}
+              onEdit={() => { setEditing({ kind: "edit", id: s.id }); }}
+              onRemove={() => { persist(config.sites.filter((x) => x.id !== s.id)).catch(() => {}); }}
             />
           ))}
           {config.sites.length === 0 && (

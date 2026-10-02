@@ -1,6 +1,7 @@
+import { getOrThrow } from "../lib/guards";
 import type { Graph, GraphNode } from "./types";
 
-const isOpen = (n: GraphNode | undefined) => !n || n.statusCategory !== "done";
+const isOpen = (n: GraphNode | undefined): boolean => !n || n.statusCategory !== "done";
 
 /** A chain of issues and the blocks edges between consecutive ones. */
 export type Chain = { nodes: string[]; edges: string[] };
@@ -52,24 +53,25 @@ export function criticalPath(graph: Graph): Chain {
   const indeg = new Map([...eligible].map((u) => [u, 0]));
   const out = new Map<string, { to: string; id: string }[]>();
   for (const e of edges) {
-    indeg.set(e.target, indeg.get(e.target)! + 1);
-    (out.get(e.source) ?? out.set(e.source, []).get(e.source)!).push({ to: e.target, id: e.id });
+    indeg.set(e.target, getOrThrow(indeg, e.target) + 1);
+    let list = out.get(e.source);
+    if (!list) out.set(e.source, (list = []));
+    list.push({ to: e.target, id: e.id });
   }
   // best[v] = best path ending at v
   const best = new Map<string, Chain>(
     [...eligible].map((u) => [u, { nodes: [u], edges: [] }]),
   );
   const queue = [...eligible].filter((u) => indeg.get(u) === 0).sort();
-  while (queue.length) {
-    const v = queue.shift()!;
-    const bv = best.get(v)!;
+  for (let v = queue.shift(); v !== undefined; v = queue.shift()) {
+    const bv = getOrThrow(best, v);
     for (const { to, id } of out.get(v) ?? []) {
       const cand = { nodes: [...bv.nodes, to], edges: [...bv.edges, id] };
-      const cur = best.get(to)!;
+      const cur = getOrThrow(best, to);
       if (cand.nodes.length > cur.nodes.length || (cand.nodes.length === cur.nodes.length && compareUids(cand.nodes, cur.nodes) < 0)) {
         best.set(to, cand);
       }
-      indeg.set(to, indeg.get(to)! - 1);
+      indeg.set(to, getOrThrow(indeg, to) - 1);
       if (indeg.get(to) === 0) queue.push(to);
     }
     queue.sort();
@@ -89,11 +91,10 @@ export function blockingChain(graph: Graph, uid: string): { nodes: Set<string>; 
   const nodes = new Set([uid]);
   const edges = new Set<string>();
   const blocks = graph.edges.filter((e) => e.kind === "blocks");
-  const walk = (dir: "down" | "up") => {
+  const walk = (dir: "down" | "up"): void => {
     const seen = new Set([uid]);
     const queue = [uid];
-    while (queue.length) {
-      const v = queue.shift()!;
+    for (let v = queue.shift(); v !== undefined; v = queue.shift()) {
       for (const e of blocks) {
         const from = dir === "down" ? e.source : e.target;
         const to = dir === "down" ? e.target : e.source;

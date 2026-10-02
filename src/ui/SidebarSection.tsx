@@ -1,7 +1,7 @@
-import { useId, type ReactNode } from "react";
+import { useId, type ReactElement, type ReactNode } from "react";
 import { usePersistentState } from "../state/storage";
 
-const asBool = (raw: unknown) => (typeof raw === "boolean" ? raw : undefined);
+const asBool = (raw: unknown): boolean | undefined => (typeof raw === "boolean" ? raw : undefined);
 
 /**
  * One collapsible sidebar section, using the disclosure pattern: a real <h2> wrapping a toggle
@@ -25,7 +25,7 @@ export function SidebarSection({
   tone?: "warn";
   defaultOpen?: boolean;
   children: ReactNode;
-}) {
+}): ReactElement {
   const [open, setOpen] = usePersistentState(`domino.sidebar.${id}`, asBool, defaultOpen);
   const bodyId = useId();
   return (
@@ -38,7 +38,7 @@ export function SidebarSection({
           aria-controls={bodyId}
           // Starts with the visible title, so voice control ("click Warnings") still matches.
           aria-label={badge !== undefined ? `${title}, ${badge}` : undefined}
-          onClick={() => setOpen(!open)}
+          onClick={() => { setOpen(!open); }}
         >
           <span className="sb-chevron" aria-hidden="true" />
           <span className="sb-title">{title}</span>

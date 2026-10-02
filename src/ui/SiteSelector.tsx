@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactElement } from "react";
 import type { SiteConfig } from "../config/types";
 
 export function SiteSelector({
@@ -9,17 +9,17 @@ export function SiteSelector({
   sites: SiteConfig[];
   selected: string[];
   onChange: (ids: string[]) => void;
-}) {
+}): ReactElement {
   const ref = useRef<HTMLDetailsElement>(null);
   const enabled = sites.filter((s) => s.enabled);
   const chosen = enabled.filter((s) => selected.includes(s.id));
 
   useEffect(() => {
-    const close = (e: MouseEvent) => {
+    const close = (e: MouseEvent): void => {
       if (ref.current?.open && e.target instanceof Node && !ref.current.contains(e.target)) ref.current.open = false;
     };
     document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
+    return (): void => { document.removeEventListener("mousedown", close); };
   }, []);
 
   return (
@@ -55,7 +55,7 @@ export function SiteSelector({
             <input
               type="checkbox"
               checked={selected.includes(s.id)}
-              onChange={(e) => onChange(e.target.checked ? [...selected, s.id] : selected.filter((id) => id !== s.id))}
+              onChange={(e) => { onChange(e.target.checked ? [...selected, s.id] : selected.filter((id) => id !== s.id)); }}
             />
             <span className="dot" style={{ "--site": s.color }} aria-hidden="true" />
             {s.label} <span className="muted">{new URL(s.baseUrl).host}</span>

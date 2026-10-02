@@ -1,5 +1,5 @@
 import { ReactFlowProvider } from "@xyflow/react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactElement } from "react";
 import { summaryUid } from "./graph/collapse";
 import { computeInsights } from "./graph/insights";
 import { configStore, jiraSource, openExternal } from "./platform";
@@ -31,27 +31,27 @@ const DEFAULT_VIEW: ViewOptions = { groupBy: "none", highlight: "none", collapse
 const parseViewMode = oneOf(isViewMode);
 
 /** Focus a timeline row by uid (the graph view uses React Flow's viewport instead). */
-function focusTimelineRow(uid: string) {
+function focusTimelineRow(uid: string): void {
   const el = document.querySelector<HTMLElement>(`[data-tl-uid="${CSS.escape(uid)}"]`);
   el?.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
   el?.focus({ preventScroll: true });
 }
 
 /** `g` / `t` switch between Graph and Timeline when focus isn't in a text field. */
-function useViewHotkeys(setViewMode: (m: ViewMode) => void) {
+function useViewHotkeys(setViewMode: (m: ViewMode) => void): void {
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
+    const onKey = (e: KeyboardEvent): void => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.target instanceof HTMLElement && e.target.matches("input, textarea, select, [contenteditable]")) return;
       if (e.key === "g") setViewMode("graph");
       if (e.key === "t") setViewMode("timeline");
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return (): void => { window.removeEventListener("keydown", onKey); };
   }, [setViewMode]);
 }
 
-export function App() {
+export function App(): ReactElement {
   return (
     <ReactFlowProvider>
       <Shell />
@@ -59,7 +59,7 @@ export function App() {
   );
 }
 
-function Shell() {
+function Shell(): ReactElement {
   const domino = useDomino(configStore, jiraSource);
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [view, setView] = useState(DEFAULT_VIEW);
@@ -100,7 +100,7 @@ function Shell() {
     view,
     mode: viewMode,
   });
-  const applyView = (v: SavedView) => {
+  const applyView = (v: SavedView): void => {
     domino.setSelected(v.siteIds);
     if (v.scope.mode === "jql") saveQuery(v.scope.jql);
     domino.setScope(v.scope);
@@ -111,16 +111,17 @@ function Shell() {
   const nodesByUid = useMemo(() => new Map(graph.nodes.map((n) => [n.uid, n])), [graph]);
   const [expandedEpics, setExpandedEpics] = useState<ReadonlySet<string>>(new Set());
   const toggleEpic = useCallback(
-    (epicUid: string) =>
+    (epicUid: string) => {
       setExpandedEpics((cur) => {
         const next = new Set(cur);
         if (!next.delete(epicUid)) next.add(epicUid);
         return next;
-      }),
+      });
+    },
     [],
   );
   /** In the epic map, an issue inside a collapsed epic is revealed by expanding that epic first. */
-  const focusInGraph = (uid: string) => {
+  const focusInGraph = (uid: string): void => {
     // A ghost epic with loaded children is drawn as its summary in the epic map.
     const isFoldedGhostEpic =
       view.collapseEpics && nodesByUid.get(uid)?.ghost && !expandedEpics.has(uid) && graph.nodes.some((n) => n.epic?.uid === uid);
@@ -132,7 +133,9 @@ function Shell() {
     toggleEpic(epicUid);
     // Wait for the re-layout to render the issue, then focus it.
     let tries = 0;
-    const retry = () => !focusGraphNode(uid) && ++tries < 10 && setTimeout(retry, 120);
+    const retry = (): void => {
+      if (!focusGraphNode(uid) && ++tries < 10) setTimeout(retry, 120);
+    };
     setTimeout(retry, 120);
   };
   const focusIssue = viewMode === "graph" ? focusInGraph : focusTimelineRow;
@@ -152,8 +155,8 @@ function Shell() {
             <SavedViewsMenu
               views={savedViews}
               onApply={applyView}
-              onSave={(name) => setSavedViews(upsertView(savedViews, currentView(name)))}
-              onDelete={(name) => setSavedViews(savedViews.filter((v) => v.name !== name))}
+              onSave={(name) => { setSavedViews(upsertView(savedViews, currentView(name))); }}
+              onDelete={(name) => { setSavedViews(savedViews.filter((v) => v.name !== name)); }}
             />
             <SiteSelector sites={config.sites} selected={domino.selected} onChange={domino.setSelected} />
             {/* Remount when a saved view swaps the scope, so the inputs show it. */}
@@ -166,7 +169,7 @@ function Shell() {
         <button type="button" className="icon-btn" onClick={domino.reload} aria-label="Reload" title="Reload">
           ↻
         </button>
-        <button type="button" className="icon-btn" onClick={() => setSettingsOpen(true)} aria-label="Settings" title="Settings">
+        <button type="button" className="icon-btn" onClick={() => { setSettingsOpen(true); }} aria-label="Settings" title="Settings">
           ⚙
         </button>
       </header>
@@ -191,8 +194,11 @@ function Shell() {
               }
               insights={insights}
               highlight={view.highlight}
-              onHighlight={(highlight) => setView({ ...view, highlight })}
-              onShowCycle={() => graph.cycles[0] && focusIssue(graph.cycles[0][0])}
+              onHighlight={(highlight) => { setView({ ...view, highlight }); }}
+              onShowCycle={() => {
+                const first = graph.cycles.at(0);
+                if (first) focusIssue(first[0]);
+              }}
             />
           </SidebarSection>
           {changes && (
@@ -201,7 +207,7 @@ function Shell() {
                 changes={changes}
                 nodes={nodesByUid}
                 highlight={view.highlight}
-                onHighlight={(highlight) => setView({ ...view, highlight })}
+                onHighlight={(highlight) => { setView({ ...view, highlight }); }}
                 onPick={focusIssue}
                 onMarkSeen={() => {
                   markSeen();
@@ -252,12 +258,12 @@ function Shell() {
         </section>
       </main>
 
-      <SettingsDialog domino={domino} open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <SettingsDialog domino={domino} open={settingsOpen} onClose={() => { setSettingsOpen(false); }} />
     </div>
   );
 }
 
-function CanvasMessage({ domino }: { domino: ReturnType<typeof useDomino> }) {
+function CanvasMessage({ domino }: { domino: ReturnType<typeof useDomino> }): ReactElement | null {
   const { load, selectedSites, graph } = domino;
   let msg: React.ReactNode = null;
   if (selectedSites.length === 0 && domino.config) msg = "Select at least one site, or add one in Settings (⚙).";
@@ -278,7 +284,7 @@ function CanvasMessage({ domino }: { domino: ReturnType<typeof useDomino> }) {
   );
 }
 
-function Legend() {
+function Legend(): ReactElement {
   return (
     <>
       <ul className="legend-list">

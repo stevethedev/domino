@@ -4,7 +4,7 @@ import { buildGraph } from "../buildGraph";
 import { mockConfig, mockLinkTypes, mockSites } from "../../data/mockData";
 
 // Mirrors the default JQL scope ("project in (...)") to check that the fixtures cover the spec's scenarios.
-const inProjects = (keys: string[]) => (k: string) => keys.includes(k.split("-")[0]);
+const inProjects = (keys: string[]) => (k: string): boolean => keys.includes(k.split("-")[0]);
 const g = buildGraph({
   sites: mockConfig.sites,
   data: [

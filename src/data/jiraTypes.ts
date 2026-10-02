@@ -18,7 +18,9 @@ export type RawLinkedIssue = {
   id: string;
   key: string;
   self?: string;
-  fields: { summary: string; status: RawStatus; issuetype: RawIssueType };
+  // Optional: these arrive unvalidated from Jira (the Rust side passes JSON through), and
+  // restricted or partially returned issues can omit them.
+  fields: { summary: string; status?: RawStatus; issuetype?: RawIssueType };
 };
 
 export type RawIssueLink = {
@@ -35,8 +37,9 @@ export type RawIssue = {
   self?: string;
   fields: {
     summary: string;
-    issuetype: RawIssueType;
-    status: RawStatus;
+    /** Optional for the same reason as on RawLinkedIssue. */
+    issuetype?: RawIssueType;
+    status?: RawStatus;
     assignee: { accountId?: string; displayName: string; avatarUrls?: Record<string, string> } | null;
     /** "Story point estimate" on Jira Cloud. */
     customfield_10016?: number | null;

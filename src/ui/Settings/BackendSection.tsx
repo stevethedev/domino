@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useId, useState } from "react";
-import type { BackendKind, OAuthStatus } from "../../config/types";
+import { useCallback, useEffect, useId, useState, type ReactElement } from "react";
+import type { BackendKind, DominoConfig, OAuthStatus } from "../../config/types";
 import { errorMessage } from "../../data/errors";
 import type { Domino } from "../../state/useDomino";
 
@@ -7,9 +7,8 @@ const CLIENT_ID_REF = "DOMINO_OAUTH_CLIENT_ID";
 const CLIENT_SECRET_REF = "DOMINO_OAUTH_CLIENT_SECRET";
 
 /** Data source switch plus the (write-only) OAuth app credentials and Connect flow. */
-export function BackendSection({ domino }: { domino: Domino }) {
+export function BackendSection({ domino, config }: { domino: Domino; config: DominoConfig }): ReactElement {
   const uid = useId();
-  const config = domino.config!;
   const store = domino.store;
   const [status, setStatus] = useState<OAuthStatus | null>(null);
   const [clientId, setClientId] = useState("");
@@ -19,11 +18,12 @@ export function BackendSection({ domino }: { domino: Domino }) {
   const hasOAuthSites = config.sites.some((s) => s.auth.type === "oauth3lo");
 
   const refresh = useCallback(() => {
-    store.oauthStatus().then(setStatus, () => setStatus(null));
+    store.oauthStatus().then(setStatus, () => { setStatus(null); });
   }, [store]);
   useEffect(refresh, [refresh]);
 
-  const run = async (kind: NonNullable<typeof busy>, fn: () => Promise<string | void>) => {
+  /** Runs a backend action; its failure is shown in `message`, so callers need not handle the promise. */
+  const run = async (kind: NonNullable<typeof busy>, fn: () => Promise<string | undefined>): Promise<void> => {
     setBusy(kind);
     setMessage(null);
     try {
@@ -37,26 +37,29 @@ export function BackendSection({ domino }: { domino: Domino }) {
     }
   };
 
-  const setBackend = (backend: BackendKind) =>
-    run("backend", async () => {
+  const setBackend = (backend: BackendKind): void => {
+    void run("backend", async () => {
       await domino.saveConfig({ ...config, backend });
     });
+  };
 
-  const saveApp = () =>
-    run("save", async () => {
+  const saveApp = (): void => {
+    void run("save", async () => {
       if (clientId.trim()) await store.setSecret(CLIENT_ID_REF, clientId.trim());
       if (clientSecret) await store.setSecret(CLIENT_SECRET_REF, clientSecret);
       setClientId("");
       setClientSecret("");
       return "OAuth app credentials stored in the keychain.";
     });
+  };
 
-  const connect = () =>
-    run("connect", async () => {
+  const connect = (): void => {
+    void run("connect", async () => {
       const sites = await store.oauthConnect();
       await domino.refreshConfig(); // pick up discovered cloudIds
       return `Connected. Your account can access ${sites.length} site${sites.length === 1 ? "" : "s"}: ${sites.join(", ") || "none"}.`;
     });
+  };
 
   return (
     <section className="backend-section" aria-labelledby={`${uid}-h`}>
@@ -64,11 +67,11 @@ export function BackendSection({ domino }: { domino: Domino }) {
       <fieldset className="radio-row">
         <legend className="sr-only">Data source</legend>
         <label className="check">
-          <input type="radio" name={`${uid}-backend`} checked={config.backend === "mock"} onChange={() => setBackend("mock")} disabled={busy === "backend"} />
+          <input type="radio" name={`${uid}-backend`} checked={config.backend === "mock"} onChange={() => { setBackend("mock"); }} disabled={busy === "backend"} />
           Mock data <span className="muted small">(bundled fixtures)</span>
         </label>
         <label className="check">
-          <input type="radio" name={`${uid}-backend`} checked={config.backend === "jira"} onChange={() => setBackend("jira")} disabled={busy === "backend"} />
+          <input type="radio" name={`${uid}-backend`} checked={config.backend === "jira"} onChange={() => { setBackend("jira"); }} disabled={busy === "backend"} />
           Live Jira <span className="muted small">(REST API v3)</span>
         </label>
       </fieldset>
@@ -93,12 +96,12 @@ export function BackendSection({ domino }: { domino: Domino }) {
         <div className="form-grid">
           <div className="form-field">
             <label htmlFor={`${uid}-cid`}>Client ID</label>
-            <input id={`${uid}-cid`} value={clientId} onChange={(e) => setClientId(e.target.value)} autoComplete="off" spellCheck={false}
+            <input id={`${uid}-cid`} value={clientId} onChange={(e) => { setClientId(e.target.value); }} autoComplete="off" spellCheck={false}
               placeholder={status?.appConfigured ? "Stored. Type to replace." : ""} />
           </div>
           <div className="form-field">
             <label htmlFor={`${uid}-csec`}>Client secret</label>
-            <input id={`${uid}-csec`} type="password" value={clientSecret} onChange={(e) => setClientSecret(e.target.value)} autoComplete="off"
+            <input id={`${uid}-csec`} type="password" value={clientSecret} onChange={(e) => { setClientSecret(e.target.value); }} autoComplete="off"
               placeholder={status?.appConfigured ? "Stored. Type to replace." : ""} />
           </div>
         </div>
@@ -107,7 +110,7 @@ export function BackendSection({ domino }: { domino: Domino }) {
             {busy === "save" ? "Saving…" : "Save app credentials"}
           </button>
           {status?.connected ? (
-            <button type="button" onClick={() => run("disconnect", async () => (await store.oauthDisconnect(), "Disconnected."))} disabled={busy !== null}>
+            <button type="button" onClick={() => { void run("disconnect", async () => { await store.oauthDisconnect(); return "Disconnected."; }); }} disabled={busy !== null}>
               {busy === "disconnect" ? "Disconnecting…" : "Disconnect"}
             </button>
           ) : null}

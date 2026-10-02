@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ReactElement } from "react";
 import type { ConfigStore } from "../../config/ConfigStore";
 import { validateSite } from "../../config/schema";
 import { API_TOKEN_URL, applyUrl, parseJiraUrl, suggestedSecretRef } from "../../config/siteDraft";
@@ -50,7 +50,7 @@ export function SiteForm({
   onSwitchToLive: () => void;
   onSubmit: (r: SiteFormResult) => Promise<void>;
   onCancel: () => void;
-}) {
+}): ReactElement {
   const uid = useId();
   const formRef = useRef<HTMLFormElement>(null);
   const [draft, setDraft] = useState<SiteConfig>(initial);
@@ -74,8 +74,8 @@ export function SiteForm({
     return e;
   }, [draft, others, token, secretSet]);
   const hasErrors = Object.keys(errors).length > 0;
-  const show = (field: string) => (submitted || touched.has(field) ? errors[field] : undefined);
-  const touch = (field: string) => setTouched((t) => (t.has(field) ? t : new Set(t).add(field)));
+  const show = (field: string): string | undefined => (submitted || touched.has(field) ? errors[field] : undefined);
+  const touch = (field: string): void => { setTouched((t) => (t.has(field) ? t : new Set(t).add(field))); };
 
   useEffect(() => {
     formRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
@@ -83,24 +83,26 @@ export function SiteForm({
   }, []);
 
   useEffect(() => {
-    if (!/^[A-Z][A-Z0-9_]*$/.test(secretRef)) return setSecretSet(false);
+    if (!/^[A-Z][A-Z0-9_]*$/.test(secretRef)) { setSecretSet(false); return; }
     let live = true;
-    store.secretStatus(secretRef).then((v) => live && setSecretSet(v), () => live && setSecretSet(null));
-    return () => {
+    store.secretStatus(secretRef).then((v) => { if (live) setSecretSet(v); }, () => { if (live) setSecretSet(null); });
+    return (): void => {
       live = false;
     };
   }, [secretRef, store]);
 
   useEffect(() => {
     if (draft.auth.type !== "oauth3lo") return;
-    store.oauthStatus().then((s) => setOauthConnected(s.connected), () => setOauthConnected(null));
+    store.oauthStatus().then((s) => { setOauthConnected(s.connected); }, () => { setOauthConnected(null); });
   }, [draft.auth.type, store]);
 
-  const update = (patch: Partial<SiteConfig>) => setDraft((d) => ({ ...d, ...patch }));
-  const updateAuth = (patch: { email?: string; secretRef?: string }) =>
+  const update = (patch: Partial<SiteConfig>): void => { setDraft((d) => ({ ...d, ...patch })); };
+  const updateAuth = (patch: { email?: string; secretRef?: string }): void => {
     setDraft((d) => (d.auth.type === "apiToken" ? { ...d, auth: { ...d.auth, ...patch } } : d));
+  };
 
-  const submit = async (test: boolean) => {
+  /** Save failures are shown in `saveError`, so callers need not handle the promise. */
+  const submit = async (test: boolean): Promise<void> => {
     setSubmitted(true);
     if (hasErrors) {
       const first = Object.keys(errors)[0];
@@ -118,15 +120,15 @@ export function SiteForm({
     }
   };
 
-  const errId = (name: string) => `${uid}-${name}-err`;
-  const hintId = (name: string) => `${uid}-${name}-hint`;
-  const aria = (name: string, hint = false) => ({
+  const errId = (name: string): string => `${uid}-${name}-err`;
+  const hintId = (name: string): string => `${uid}-${name}-hint`;
+  const aria = (name: string, hint = false): { id: string; "aria-invalid": boolean; "aria-describedby": string | undefined; onBlur: () => void } => ({
     id: `${uid}-${name}`,
     "aria-invalid": !!show(name),
     "aria-describedby": show(name) ? errId(name) : hint ? hintId(name) : undefined,
-    onBlur: () => touch(name),
+    onBlur: () => { touch(name); },
   });
-  const field = (name: string, label: React.ReactNode, input: React.ReactNode, hint?: React.ReactNode, wide = false) => {
+  const field = (name: string, label: React.ReactNode, input: React.ReactNode, hint?: React.ReactNode, wide = false): ReactElement => {
     const err = show(name);
     return (
       <div className={`form-field${wide ? " form-span" : ""}`}>
@@ -163,7 +165,7 @@ export function SiteForm({
       className="site-form"
       onSubmit={(e) => {
         e.preventDefault();
-        submit(true);
+        void submit(true);
       }}
       noValidate
       aria-labelledby={`${uid}-title`}
@@ -203,7 +205,7 @@ export function SiteForm({
               setDraft(isNew ? res.draft : { ...draft, baseUrl: e.target.value });
               if (isNew) setAuto(res.auto);
             }}
-            onPaste={() => touch("baseUrl")}
+            onPaste={() => { touch("baseUrl"); }}
             spellCheck={false}
             required
           />,
@@ -213,7 +215,7 @@ export function SiteForm({
         {field(
           "label",
           "Name",
-          <input {...aria("label", true)} value={draft.label} onChange={(e) => update({ label: e.target.value })} placeholder="Shown on cards and badges" />,
+          <input {...aria("label", true)} value={draft.label} onChange={(e) => { update({ label: e.target.value }); }} placeholder="Shown on cards and badges" />,
         )}
         {field(
           "baseJql",
@@ -221,7 +223,7 @@ export function SiteForm({
           <input
             {...aria("baseJql", true)}
             value={draft.baseJql ?? ""}
-            onChange={(e) => update({ baseJql: e.target.value })}
+            onChange={(e) => { update({ baseJql: e.target.value }); }}
             placeholder="project = ABC"
             spellCheck={false}
           />,
@@ -235,12 +237,12 @@ export function SiteForm({
                 type="radio"
                 name={`${uid}-auth`}
                 checked={draft.auth.type === "apiToken"}
-                onChange={() => update({ auth: { type: "apiToken", email: "", secretRef: suggestedSecretRef(draft.id) } })}
+                onChange={() => { update({ auth: { type: "apiToken", email: "", secretRef: suggestedSecretRef(draft.id) } }); }}
               />
               Email + API token
             </label>
             <label className="check">
-              <input type="radio" name={`${uid}-auth`} checked={draft.auth.type === "oauth3lo"} onChange={() => update({ auth: { type: "oauth3lo" } })} />
+              <input type="radio" name={`${uid}-auth`} checked={draft.auth.type === "oauth3lo"} onChange={() => { update({ auth: { type: "oauth3lo" } }); }} />
               Atlassian sign-in (OAuth)
             </label>
           </div>
@@ -253,7 +255,7 @@ export function SiteForm({
               <>
                 Atlassian account email <span aria-hidden="true">*</span>
               </>,
-              <input {...aria("auth.email")} type="email" autoComplete="email" value={draft.auth.email} onChange={(e) => updateAuth({ email: e.target.value })} />,
+              <input {...aria("auth.email")} type="email" autoComplete="email" value={draft.auth.email} onChange={(e) => { updateAuth({ email: e.target.value }); }} />,
             )}
             {field(
               "token",
@@ -265,11 +267,11 @@ export function SiteForm({
                 type="password"
                 autoComplete="off"
                 value={token}
-                onChange={(e) => setToken(e.target.value)}
+                onChange={(e) => { setToken(e.target.value); }}
                 placeholder={secretSet ? "Stored in your keychain. Paste to replace." : "Paste your token"}
               />,
               <>
-                <button type="button" className="link-btn" onClick={() => openExternal(API_TOKEN_URL)}>
+                <button type="button" className="link-btn" onClick={() => { openExternal(API_TOKEN_URL); }}>
                   Create a token at id.atlassian.com ↗
                 </button>{" "}
                 Saved to your OS keychain, never shown again.
@@ -285,32 +287,32 @@ export function SiteForm({
         )}
 
         <label className="check form-span">
-          <input type="checkbox" checked={isDefault} onChange={(e) => setIsDefault(e.target.checked)} />
+          <input type="checkbox" checked={isDefault} onChange={(e) => { setIsDefault(e.target.checked); }} />
           Load this site by default
         </label>
       </div>
 
-      <details className="advanced" open={advancedOpen} onToggle={(e) => setAdvancedOpen(e.currentTarget.open)}>
+      <details className="advanced" open={advancedOpen} onToggle={(e) => { setAdvancedOpen(e.currentTarget.open); }}>
         <summary>Advanced</summary>
         <div className="form-grid">
           {field(
             "id",
             "Site id",
-            <input {...aria("id", true)} value={draft.id} readOnly={!isNew} onChange={(e) => update({ id: e.target.value.toLowerCase() })} spellCheck={false} />,
+            <input {...aria("id", true)} value={draft.id} readOnly={!isNew} onChange={(e) => { update({ id: e.target.value.toLowerCase() }); }} spellCheck={false} />,
             isNew ? "Filled in from the URL. Used internally; can't be changed later." : "Ids can't be changed.",
           )}
           {draft.auth.type === "apiToken" &&
             field(
               "auth.secretRef",
               "Keychain entry name",
-              <input {...aria("auth.secretRef", true)} value={draft.auth.secretRef} onChange={(e) => updateAuth({ secretRef: e.target.value.toUpperCase() })} spellCheck={false} />,
+              <input {...aria("auth.secretRef", true)} value={draft.auth.secretRef} onChange={(e) => { updateAuth({ secretRef: e.target.value.toUpperCase() }); }} spellCheck={false} />,
               "An environment variable with this name overrides the keychain.",
             )}
           {field(
             "color",
             "Badge color",
             <span className="color-row">
-              <input {...aria("color")} type="color" value={draft.color} onChange={(e) => update({ color: e.target.value })} />
+              <input {...aria("color")} type="color" value={draft.color} onChange={(e) => { update({ color: e.target.value }); }} />
               <span className="chip" style={{ "--site": draft.color }}>
                 <span className="dot" aria-hidden="true" />
                 {draft.label || "Preview"}
@@ -318,7 +320,7 @@ export function SiteForm({
             </span>,
           )}
           <label className="check">
-            <input type="checkbox" role="switch" checked={draft.enabled} onChange={(e) => update({ enabled: e.target.checked })} />
+            <input type="checkbox" role="switch" checked={draft.enabled} onChange={(e) => { update({ enabled: e.target.checked }); }} />
             Enabled
           </label>
         </div>
@@ -333,7 +335,7 @@ export function SiteForm({
         <button type="button" onClick={onCancel}>
           Cancel
         </button>
-        <button type="button" onClick={() => submit(false)} disabled={saving}>
+        <button type="button" onClick={() => { void submit(false); }} disabled={saving}>
           {isNew ? "Add without testing" : "Save"}
         </button>
         <button type="submit" className="primary" disabled={saving}>

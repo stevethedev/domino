@@ -1,4 +1,5 @@
-import type { Cycle, GraphEdge, GraphNode } from "./types";
+import { defined, getOrThrow } from "../lib/guards";
+import type { Cycle, Graph, GraphEdge, GraphNode } from "./types";
 
 type Adjacency = Map<string, { to: string; edgeId: string }[]>;
 
@@ -40,20 +41,20 @@ function stronglyConnected(adj: Adjacency): string[][] {
           onStack.add(w);
           work.push({ v: w, i: 0 });
         } else if (onStack.has(w)) {
-          low.set(frame.v, Math.min(low.get(frame.v)!, idx.get(w)!));
+          low.set(frame.v, Math.min(getOrThrow(low, frame.v), getOrThrow(idx, w)));
         }
         continue;
       }
       work.pop();
       if (work.length) {
         const parent = work[work.length - 1].v;
-        low.set(parent, Math.min(low.get(parent)!, low.get(frame.v)!));
+        low.set(parent, Math.min(getOrThrow(low, parent), getOrThrow(low, frame.v)));
       }
       if (low.get(frame.v) === idx.get(frame.v)) {
         const comp: string[] = [];
         let w: string;
         do {
-          w = stack.pop()!;
+          w = defined(stack.pop(), "Tarjan stack entry");
           onStack.delete(w);
           comp.push(w);
         } while (w !== frame.v);
@@ -86,13 +87,13 @@ function cycleOrder(members: string[], adj: Adjacency): Cycle {
  * Finds blocking cycles (any sites). Returns each cycle, the blocks edges inside cycles (for red styling),
  * and a minimal-ish set of DFS back edges whose removal makes the blocks graph acyclic.
  */
-export function findCycles(nodes: readonly GraphNode[], edges: readonly GraphEdge[]) {
+export function findCycles(nodes: readonly GraphNode[], edges: readonly GraphEdge[]): Pick<Graph, "cycles" | "cycleEdgeIds" | "brokenEdgeIds"> {
   const adj = blocksAdjacency(nodes, edges);
   const comps = stronglyConnected(adj).filter(
     (c) => c.length > 1 || (adj.get(c[0]) ?? []).some((s) => s.to === c[0]),
   );
   const compOf = new Map<string, number>();
-  comps.forEach((c, i) => c.forEach((u) => compOf.set(u, i)));
+  comps.forEach((c, i) => { c.forEach((u) => compOf.set(u, i)); });
 
   const cycleEdgeIds = new Set<string>();
   for (const e of edges) {

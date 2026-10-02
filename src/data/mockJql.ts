@@ -85,8 +85,8 @@ export function matchesMockJql(issue: RawIssue, clauses: readonly MockClause[]):
         actual = [issue.fields.parent?.key ?? ""];
         break;
       case "statuscategory": {
-        const cat = issue.fields.status.statusCategory;
-        actual = [cat.name, cat.key];
+        const cat = issue.fields.status?.statusCategory;
+        actual = cat ? [cat.name, cat.key] : [];
         break;
       }
       case "issuelinktype":

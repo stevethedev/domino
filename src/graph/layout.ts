@@ -1,4 +1,5 @@
 import ELK, { type ElkExtendedEdge, type ElkNode } from "elkjs/lib/elk.bundled.js";
+import { getOrThrow } from "../lib/guards";
 import type { GraphEdge, GraphNode } from "./types";
 
 export const CARD_WIDTH = 280;
@@ -108,18 +109,19 @@ function swimlanes(
   const byLane = new Map<string, { lane: Lane; members: GraphNode[] }>();
   for (const n of nodes) {
     const lane = laneOf(n);
-    const entry = byLane.get(lane.id) ?? byLane.set(lane.id, { lane, members: [] }).get(lane.id)!;
+    let entry = byLane.get(lane.id);
+    if (!entry) byLane.set(lane.id, (entry = { lane, members: [] }));
     entry.members.push(n);
   }
   // Lanes in order of their topmost card in the flat layout, so the picture stays familiar;
   // catch-all lanes ("No epic", "Outside scope") go last.
-  const topY = (members: GraphNode[]) => Math.min(...members.map((n) => flat.get(n.uid)!.y));
+  const topY = (members: GraphNode[]): number => Math.min(...members.map((n) => getOrThrow(flat, n.uid).y));
   const lanes = [...byLane.values()].sort(
     (a, b) => Number(!!a.lane.last) - Number(!!b.lane.last) || topY(a.members) - topY(b.members) || a.lane.id.localeCompare(b.lane.id),
   );
   const positions: Layout["positions"] = new Map();
   const groups: LayoutGroup[] = [];
-  const minX = Math.min(...nodes.map((n) => flat.get(n.uid)!.x));
+  const minX = Math.min(...nodes.map((n) => getOrThrow(flat, n.uid).x));
   let top = 0;
   for (const { lane, members } of lanes) {
     // Rows come from the flat layout and move as whole units, so cards ELK put on one row stay on
@@ -127,19 +129,18 @@ function swimlanes(
     // bottom, into the first lane row they fit (see `fitsRow`).
     const byFlatRow = new Map<number, string[]>(); // flat y -> uids
     for (const n of members) {
-      const { y } = flat.get(n.uid)!;
+      const { y } = getOrThrow(flat, n.uid);
       byFlatRow.set(y, [...(byFlatRow.get(y) ?? []), n.uid]);
     }
     const rows: string[][] = []; // lane row -> uids
-    const rowOfY = new Map<number, number>();
-    for (const [y, uids] of [...byFlatRow].sort(([a], [b]) => a - b)) {
+    const rowOf = new Map<string, number>(); // uid -> lane row
+    for (const [, uids] of [...byFlatRow].sort(([a], [b]) => a - b)) {
       let r = rows.findIndex((placed) => fitsRow(placed, uids, links, flat));
       if (r === -1) r = rows.push([]) - 1;
       rows[r].push(...uids);
-      rowOfY.set(y, r);
+      for (const uid of uids) rowOf.set(uid, r);
     }
-    const rowOf = new Map(members.map((n) => [n.uid, rowOfY.get(flat.get(n.uid)!.y)!]));
-    const xs = members.map((n) => flat.get(n.uid)!.x);
+    const xs = members.map((n) => getOrThrow(flat, n.uid).x);
     const left = Math.min(...xs) - minX;
     const width = Math.max(...xs) - Math.min(...xs) + CARD_WIDTH + 2 * LANE_PADDING;
     const height = GROUP_PADDING_TOP + rows.length * (CARD_HEIGHT + LANE_GAP) - LANE_GAP + LANE_PADDING;
@@ -147,8 +148,8 @@ function swimlanes(
     groups.push({ ...lane, id, x: left, y: top, width, height });
     for (const n of members) {
       positions.set(n.uid, {
-        x: flat.get(n.uid)!.x - minX - left + LANE_PADDING,
-        y: GROUP_PADDING_TOP + rowOf.get(n.uid)! * (CARD_HEIGHT + LANE_GAP),
+        x: getOrThrow(flat, n.uid).x - minX - left + LANE_PADDING,
+        y: GROUP_PADDING_TOP + getOrThrow(rowOf, n.uid) * (CARD_HEIGHT + LANE_GAP),
         parent: id,
       });
     }
@@ -168,7 +169,7 @@ function fitsRow(
   links: readonly GraphEdge[],
   flat: ReadonlyMap<string, { x: number; y: number }>,
 ): boolean {
-  const x = (uid: string) => flat.get(uid)!.x;
+  const x = (uid: string): number => getOrThrow(flat, uid).x;
   if (incoming.some((a) => placed.some((b) => Math.abs(x(a) - x(b)) < CARD_WIDTH + LANE_GAP / 2))) return false;
   const row = [...placed, ...incoming];
   const onRow = new Set(row);

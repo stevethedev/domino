@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildGraph } from "../../graph/buildGraph";
+import { getOrThrow } from "../../lib/guards";
 import { FixtureSource } from "../FixtureSource";
 import type { JiraSource } from "../JiraSource";
 import { mockConfig, mockLinkTypes, mockSites } from "../mockData";
@@ -25,7 +26,10 @@ describe("MultiSiteLoader", () => {
     const seen: string[] = [];
     const inner = new FixtureSource(mockSites, mockLinkTypes);
     const spy: JiraSource = {
-      fetchByJql: (s, j, m) => (seen.push(`${s}: ${j}`), inner.fetchByJql(s, j, m)),
+      fetchByJql: (s, j, m) => {
+        seen.push(`${s}: ${j}`);
+        return inner.fetchByJql(s, j, m);
+      },
       fetchEpic: (s, k, f) => inner.fetchEpic(s, k, f),
       fetchIssue: (s, k) => inner.fetchIssue(s, k),
       fetchRemoteLinks: (s, k) => inner.fetchRemoteLinks(s, k),
@@ -69,7 +73,8 @@ describe("MultiSiteLoader", () => {
     const loader = new MultiSiteLoader(new FixtureSource(mockSites, mockLinkTypes, new Set(["partner"])));
     const res = await loader.load({ mode: "jql", jql: "" }, selected, sites);
     if (res.kind !== "ok") throw new Error("expected ok");
-    expect(res.errors).toEqual([{ siteId: "partner", message: expect.stringContaining("Simulated outage") }]);
+    expect(res.errors).toMatchObject([{ siteId: "partner" }]);
+    expect(res.errors[0].message).toContain("Simulated outage");
     expect(res.data.map((d) => d.siteId)).toEqual(["acme"]);
     // The cross-site target on the failed site degrades to a ghost rather than disappearing.
     const g = buildGraph({ sites, data: res.data });
@@ -111,14 +116,14 @@ describe("MultiSiteLoader", () => {
     const inner = new FixtureSource(mockSites, mockLinkTypes);
     const active = new Map<string, number>();
     let peak = 0;
-    const slow = <T,>(siteId: string, fn: () => Promise<T>) => async () => {
+    const slow = <T,>(siteId: string, fn: () => Promise<T>) => async (): Promise<T> => {
       active.set(siteId, (active.get(siteId) ?? 0) + 1);
-      peak = Math.max(peak, active.get(siteId)!);
+      peak = Math.max(peak, getOrThrow(active, siteId));
       await new Promise((r) => setTimeout(r, 2));
       try {
         return await fn();
       } finally {
-        active.set(siteId, active.get(siteId)! - 1);
+        active.set(siteId, getOrThrow(active, siteId) - 1);
       }
     };
     const src: JiraSource = {
