@@ -9,20 +9,20 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-pub const SEED_CONFIG: &str = include_str!("../../fixtures/mock/config.json");
+pub(crate) const SEED_CONFIG: &str = include_str!("../../fixtures/mock/config.json");
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type")]
-pub enum SiteAuth {
+pub(crate) enum SiteAuth {
     #[serde(rename = "apiToken", rename_all = "camelCase")]
     ApiToken { email: String, secret_ref: String },
     #[serde(rename = "oauth3lo")]
     OAuth3lo,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SiteConfig {
+pub(crate) struct SiteConfig {
     pub id: String,
     pub label: String,
     pub base_url: String,
@@ -31,7 +31,7 @@ pub struct SiteConfig {
     pub auth: SiteAuth,
     pub color: String,
     pub enabled: bool,
-    /// Always ANDed onto every search on this site (e.g. `project = CHANGE`).
+    /// Always `ANDed` onto every search on this site (e.g. `project = CHANGE`).
     /// Older configs called this `defaultJql`; it is read under either name.
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "defaultJql")]
     pub base_jql: Option<String>,
@@ -40,15 +40,15 @@ pub struct SiteConfig {
 /// Where Jira data comes from: bundled fixtures, or live Jira REST v3.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum BackendKind {
+pub(crate) enum BackendKind {
     #[default]
     Mock,
     Jira,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DominoConfig {
+pub(crate) struct DominoConfig {
     pub sites: Vec<SiteConfig>,
     #[serde(default)]
     pub default_site_ids: Vec<String>,
@@ -63,7 +63,7 @@ fn is_slug(s: &str) -> bool {
         && s.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
 }
 
-pub fn is_secret_ref(s: &str) -> bool {
+pub(crate) fn is_secret_ref(s: &str) -> bool {
     !s.is_empty()
         && s.len() <= 100
         && s.chars().next().is_some_and(|c| c.is_ascii_uppercase())
@@ -71,12 +71,12 @@ pub fn is_secret_ref(s: &str) -> bool {
 }
 
 fn is_hex_color(s: &str) -> bool {
-    s.len() == 7 && s.starts_with('#') && s[1..].chars().all(|c| c.is_ascii_hexdigit())
+    s.strip_prefix('#').is_some_and(|hex| hex.len() == 6 && hex.chars().all(|c| c.is_ascii_hexdigit()))
 }
 
 /// Canonical origin, e.g. `https://acme.atlassian.net`.
-pub fn normalize_base_url(s: &str) -> Result<String, String> {
-    let u = url::Url::parse(s.trim()).map_err(|_| format!("\"{s}\" is not a valid URL"))?;
+pub(crate) fn normalize_base_url(s: &str) -> Result<String, String> {
+    let u = url::Url::parse(s.trim()).map_err(|e| format!("\"{s}\" is not a valid URL ({e})"))?;
     if u.scheme() != "https" {
         return Err(format!("\"{s}\" must use https"));
     }
@@ -87,15 +87,13 @@ pub fn normalize_base_url(s: &str) -> Result<String, String> {
     if !u.username().is_empty() || u.password().is_some() {
         return Err(format!("\"{s}\" must not include credentials"));
     }
-    Ok(match u.port() {
-        Some(p) => format!("https://{}:{p}", host.to_lowercase()),
-        None => format!("https://{}", host.to_lowercase()),
-    })
+    let host = host.to_lowercase();
+    Ok(u.port().map_or_else(|| format!("https://{host}"), |p| format!("https://{host}:{p}")))
 }
 
 impl DominoConfig {
     /// Validates and normalizes (trims labels, canonicalizes URLs, drops unknown default ids).
-    pub fn validated(mut self) -> Result<Self, String> {
+    pub(crate) fn validated(mut self) -> Result<Self, String> {
         let mut ids = HashSet::new();
         let mut urls = HashSet::new();
         for s in &mut self.sites {
@@ -105,7 +103,7 @@ impl DominoConfig {
             if !ids.insert(s.id.clone()) {
                 return Err(format!("Site id \"{}\" is used more than once", s.id));
             }
-            s.label = s.label.trim().to_string();
+            s.label = s.label.trim().to_owned();
             if s.label.is_empty() || s.label.len() > 40 {
                 return Err(format!("Site \"{}\" needs a label of 1-40 characters", s.id));
             }
@@ -129,42 +127,42 @@ impl DominoConfig {
         Ok(self)
     }
 
-    pub fn site(&self, id: &str) -> Option<&SiteConfig> {
+    pub(crate) fn site(&self, id: &str) -> Option<&SiteConfig> {
         self.sites.iter().find(|s| s.id == id)
     }
 }
 
 /// The live config plus its file, shared by commands and the HTTP backend.
-pub struct ConfigHandle {
+pub(crate) struct ConfigHandle {
     file: ConfigFile,
     current: Mutex<DominoConfig>,
 }
 
 impl ConfigHandle {
-    pub fn load(file: ConfigFile) -> Result<Self, String> {
+    pub(crate) fn load(file: ConfigFile) -> Result<Self, String> {
         let current = Mutex::new(file.load()?);
         Ok(Self { file, current })
     }
 
     /// Test-only: loads without validation (lets sites point at plain-http mock servers).
     #[cfg(test)]
-    pub fn load_unvalidated(file: ConfigFile) -> Result<Self, String> {
+    pub(crate) fn load_unvalidated(file: ConfigFile) -> Result<Self, String> {
         let text = fs::read_to_string(&file.path).map_err(|e| e.to_string())?;
         let cfg = serde_json::from_str(&text).map_err(|e| e.to_string())?;
         Ok(Self { file, current: Mutex::new(cfg) })
     }
 
-    pub fn get(&self) -> DominoConfig {
-        self.current.lock().unwrap_or_else(|p| p.into_inner()).clone()
+    pub(crate) fn get(&self) -> DominoConfig {
+        self.current.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone()
     }
 
-    pub fn site(&self, id: &str) -> Option<SiteConfig> {
+    pub(crate) fn site(&self, id: &str) -> Option<SiteConfig> {
         self.get().site(id).cloned()
     }
 
     /// Validates, persists, then swaps in the new config. Keeps any cloudIds the caller didn't know about.
-    pub fn replace(&self, next: DominoConfig) -> Result<DominoConfig, String> {
-        let mut guard = self.current.lock().unwrap_or_else(|p| p.into_inner());
+    pub(crate) fn replace(&self, next: DominoConfig) -> Result<DominoConfig, String> {
+        let mut guard = self.current.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         let mut next = next.validated()?;
         for s in &mut next.sites {
             if s.cloud_id.is_none() {
@@ -175,17 +173,18 @@ impl ConfigHandle {
         }
         self.file.save(&next)?;
         *guard = next.clone();
+        drop(guard); // held through the save, so the file and memory can't disagree
         Ok(next)
     }
 
     /// Records a discovered cloudId on every site with this base URL.
-    pub fn set_cloud_id(&self, base_url: &str, cloud_id: &str) -> Result<(), String> {
-        let mut guard = self.current.lock().unwrap_or_else(|p| p.into_inner());
+    pub(crate) fn set_cloud_id(&self, base_url: &str, cloud_id: &str) -> Result<(), String> {
+        let mut guard = self.current.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         let mut next = guard.clone();
         let mut changed = false;
         for s in next.sites.iter_mut().filter(|s| s.base_url == base_url) {
             if s.cloud_id.as_deref() != Some(cloud_id) {
-                s.cloud_id = Some(cloud_id.to_string());
+                s.cloud_id = Some(cloud_id.to_owned());
                 changed = true;
             }
         }
@@ -193,21 +192,22 @@ impl ConfigHandle {
             self.file.save(&next)?;
             *guard = next;
         }
+        drop(guard);
         Ok(())
     }
 }
 
-pub struct ConfigFile {
+pub(crate) struct ConfigFile {
     path: PathBuf,
 }
 
 impl ConfigFile {
-    pub fn new(dir: &Path) -> Self {
+    pub(crate) fn new(dir: &Path) -> Self {
         Self { path: dir.join("domino.config.json") }
     }
 
     /// Loads the config, seeding it from the bundled mock config on first run.
-    pub fn load(&self) -> Result<DominoConfig, String> {
+    pub(crate) fn load(&self) -> Result<DominoConfig, String> {
         match fs::read_to_string(&self.path) {
             Ok(text) => serde_json::from_str::<DominoConfig>(&text)
                 .map_err(|e| format!("{} is invalid: {e}", self.path.display()))?
@@ -223,7 +223,7 @@ impl ConfigFile {
     }
 
     /// Writes to a temp file in the same directory, fsyncs, then renames over the target.
-    pub fn save(&self, config: &DominoConfig) -> Result<(), String> {
+    pub(crate) fn save(&self, config: &DominoConfig) -> Result<(), String> {
         let dir = self.path.parent().ok_or("config path has no parent")?;
         fs::create_dir_all(dir).map_err(|e| format!("Could not create {}: {e}", dir.display()))?;
         let tmp = self.path.with_extension("json.tmp");

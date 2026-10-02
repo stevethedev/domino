@@ -19,7 +19,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 /// `customfield_10014` is the legacy "Epic Link" field, a fallback for epics on older company-managed projects.
-pub const FIELDS: &[&str] = &[
+pub(crate) const FIELDS: &[&str] = &[
     "summary",
     "issuetype",
     "status",
@@ -40,7 +40,7 @@ const PAGE_SIZE: usize = 100;
 const MAX_RETRIES: u32 = 3;
 const MAX_RETRY_WAIT: Duration = Duration::from_secs(30);
 
-pub struct HttpBackend {
+pub(crate) struct HttpBackend {
     http: reqwest::Client,
     secrets: Arc<dyn SecretStore>,
     oauth: Arc<OAuth>,
@@ -54,23 +54,23 @@ struct Target {
     auth: String, // full Authorization header value
 }
 
-pub fn http_client() -> reqwest::Client {
+/// The shared HTTPS client. Fails only if the TLS backend can't be set up.
+pub(crate) fn http_client() -> reqwest::Result<reqwest::Client> {
     reqwest::Client::builder()
         .user_agent(concat!("Domino/", env!("CARGO_PKG_VERSION")))
         .connect_timeout(Duration::from_secs(10))
         .timeout(Duration::from_secs(60))
         .https_only(true)
         .build()
-        .expect("HTTP client builds")
 }
 
 impl HttpBackend {
-    pub fn new(http: reqwest::Client, secrets: Arc<dyn SecretStore>, oauth: Arc<OAuth>, config: Arc<ConfigHandle>) -> Self {
+    pub(crate) fn new(http: reqwest::Client, secrets: Arc<dyn SecretStore>, oauth: Arc<OAuth>, config: Arc<ConfigHandle>) -> Self {
         Self { http, secrets, oauth, config, backoff: Duration::from_secs(1) }
     }
 
     #[cfg(test)]
-    fn with_backoff(mut self, d: Duration) -> Self {
+    const fn with_backoff(mut self, d: Duration) -> Self {
         self.backoff = d;
         self
     }
@@ -128,7 +128,10 @@ impl HttpBackend {
                 return if status == StatusCode::NO_CONTENT {
                     Ok(Value::Null)
                 } else {
-                    res.json().await.map_err(|_| format!("{} returned a response Domino couldn't read", site.label))
+                    res.json().await.map_err(|e| {
+                        log::warn!("{}: unreadable response: {e}", site.id);
+                        format!("{} returned a response Domino couldn't read", site.label)
+                    })
                 };
             }
             if (status == StatusCode::TOO_MANY_REQUESTS || status == StatusCode::SERVICE_UNAVAILABLE) && attempt < MAX_RETRIES {
@@ -137,8 +140,7 @@ impl HttpBackend {
                     .get(reqwest::header::RETRY_AFTER)
                     .and_then(|v| v.to_str().ok())
                     .and_then(|v| v.trim().parse::<u64>().ok())
-                    .map(Duration::from_secs)
-                    .unwrap_or(self.backoff * 2u32.pow(attempt))
+                    .map_or_else(|| self.backoff * 2_u32.pow(attempt), Duration::from_secs)
                     .min(MAX_RETRY_WAIT);
                 attempt += 1;
                 log::warn!("{} rate limited ({}), retry {attempt} in {wait:?}", site.id, status.as_u16());
@@ -156,17 +158,14 @@ impl HttpBackend {
         let mut next: Option<String> = None;
         loop {
             let want = PAGE_SIZE.min(limit - out.len());
-            let mut body = json!({ "jql": jql, "fields": FIELDS, "maxResults": want });
-            if let Some(tok) = &next {
-                body["nextPageToken"] = json!(tok);
-            }
+            let body = with_page_token(json!({ "jql": jql, "fields": FIELDS, "maxResults": want }), next.as_deref());
             let page = self.send(site, Method::POST, "/rest/api/3/search/jql", Some(&body)).await?;
-            let issues = page["issues"].as_array().cloned().unwrap_or_default();
+            let issues = page.get("issues").and_then(Value::as_array).cloned().unwrap_or_default();
             let empty = issues.is_empty();
             out.extend(issues);
             let prev = next.take();
-            next = page["nextPageToken"].as_str().map(String::from);
-            let last = page["isLast"].as_bool().unwrap_or(next.is_none());
+            next = page.get("nextPageToken").and_then(Value::as_str).map(String::from);
+            let last = page.get("isLast").and_then(Value::as_bool).unwrap_or_else(|| next.is_none());
             // An empty page or a repeated token would otherwise page forever.
             if last || empty || next.is_none() || next == prev || out.len() >= limit {
                 break;
@@ -177,14 +176,23 @@ impl HttpBackend {
     }
 }
 
+/// `body` with Jira's `nextPageToken` added when there is one (the first page has none).
+fn with_page_token(mut body: Value, token: Option<&str>) -> Value {
+    if let (Some(token), Some(fields)) = (token, body.as_object_mut()) {
+        fields.insert("nextPageToken".to_owned(), json!(token));
+    }
+    body
+}
+
 fn describe_error(site: &SiteConfig, status: StatusCode, detail: &Value) -> String {
-    let mut msgs: Vec<String> = detail["errorMessages"]
-        .as_array()
+    let mut msgs: Vec<String> = detail
+        .get("errorMessages")
+        .and_then(Value::as_array)
         .into_iter()
         .flatten()
         .filter_map(|m| m.as_str().map(String::from))
         .collect();
-    if let Some(errs) = detail["errors"].as_object() {
+    if let Some(errs) = detail.get("errors").and_then(Value::as_object) {
         msgs.extend(errs.iter().filter_map(|(k, v)| v.as_str().map(|v| format!("{k}: {v}"))));
     }
     let jira = if msgs.is_empty() { String::new() } else { format!(": {}", truncate(&msgs.join("; "), 300)) };
@@ -205,11 +213,11 @@ fn merge_changelogs(logs: Vec<Value>) -> Vec<Value> {
     let mut order: Vec<String> = Vec::new();
     let mut by_id: std::collections::HashMap<String, Vec<Value>> = std::collections::HashMap::new();
     for log in logs {
-        let id = match &log["issueId"] {
-            Value::String(s) => s.clone(),
-            other => other.to_string(),
+        let id = match log.get("issueId") {
+            Some(Value::String(s)) => s.clone(),
+            other => other.unwrap_or(&Value::Null).to_string(),
         };
-        let histories = log["changeHistories"].as_array().cloned().unwrap_or_default();
+        let histories = log.get("changeHistories").and_then(Value::as_array).cloned().unwrap_or_default();
         if !by_id.contains_key(&id) {
             order.push(id.clone());
         }
@@ -266,16 +274,16 @@ impl JiraBackend for HttpBackend {
         for batch in issue_ids.chunks(CHANGELOG_BATCH) {
             let mut next: Option<String> = None;
             loop {
-                let mut body = json!({ "issueIdsOrKeys": batch, "fieldIds": ["status"], "maxResults": CHANGELOG_BATCH });
-                if let Some(tok) = &next {
-                    body["nextPageToken"] = json!(tok);
-                }
+                let body = with_page_token(
+                    json!({ "issueIdsOrKeys": batch, "fieldIds": ["status"], "maxResults": CHANGELOG_BATCH }),
+                    next.as_deref(),
+                );
                 let page = self.send(site, Method::POST, "/rest/api/3/changelog/bulkfetch", Some(&body)).await?;
-                let items = page["issueChangeLogs"].as_array().cloned().unwrap_or_default();
+                let items = page.get("issueChangeLogs").and_then(Value::as_array).cloned().unwrap_or_default();
                 let empty = items.is_empty();
                 logs.extend(items);
                 let prev = next.take();
-                next = page["nextPageToken"].as_str().map(String::from);
+                next = page.get("nextPageToken").and_then(Value::as_str).map(String::from);
                 if empty || next.is_none() || next == prev {
                     break;
                 }
@@ -314,14 +322,14 @@ mod tests {
         let file = ConfigFile::new(dir.path());
         file.save(&cfg).unwrap();
         let config = Arc::new(ConfigHandle::load_unvalidated(file).unwrap());
-        let secrets = Arc::new(MemorySecrets::default());
+        let secrets: Arc<dyn SecretStore> = Arc::new(MemorySecrets::default());
         secrets.set("DOMINO_ACME_TOKEN", "tok-123").unwrap();
         secrets.set(CLIENT_ID_REF, "cid").unwrap();
         secrets.set(CLIENT_SECRET_REF, "csecret").unwrap();
         secrets.set(REFRESH_TOKEN_REF, "rt").unwrap();
         let http = reqwest::Client::new();
-        let oauth = Arc::new(OAuth::with_endpoints(http.clone(), secrets.clone(), &server.uri(), &server.uri()));
-        let backend = HttpBackend::new(http, secrets, oauth, config.clone()).with_backoff(Duration::from_millis(1));
+        let oauth = Arc::new(OAuth::with_endpoints(http.clone(), Arc::clone(&secrets), &server.uri(), &server.uri()));
+        let backend = HttpBackend::new(http, secrets, oauth, Arc::clone(&config)).with_backoff(Duration::from_millis(1));
         Fixture { server, backend, config, _dir: dir }
     }
 
@@ -354,7 +362,7 @@ mod tests {
             .mount(&f.server)
             .await;
         let got = f.backend.search(&acme(&f), "project = CORE", None).await.unwrap();
-        let keys: Vec<_> = got.iter().map(|i| i["key"].as_str().unwrap().to_string()).collect();
+        let keys: Vec<_> = got.iter().map(|i| i["key"].as_str().unwrap().to_owned()).collect();
         assert_eq!(keys, ["CORE-1", "CORE-2", "CORE-3"]);
 
         let reqs = f.server.received_requests().await.unwrap();
@@ -429,8 +437,8 @@ mod tests {
     #[tokio::test]
     async fn rejects_invalid_keys_before_any_request() {
         let f = fixture().await;
-        assert!(f.backend.issue(&acme(&f), "../admin").await.is_err());
-        assert!(f.backend.remote_links(&acme(&f), "A-1/../../x").await.is_err());
+        f.backend.issue(&acme(&f), "../admin").await.unwrap_err();
+        f.backend.remote_links(&acme(&f), "A-1/../../x").await.unwrap_err();
         assert!(f.server.received_requests().await.unwrap().is_empty());
     }
 
@@ -495,7 +503,7 @@ mod tests {
         assert_eq!(logs[0]["issueId"], "1");
         assert_eq!(logs[0]["changeHistories"].as_array().unwrap().len(), 2);
 
-        assert!(f.backend.status_history(&acme(&f), &["1; DROP".into()]).await.is_err());
+        f.backend.status_history(&acme(&f), &["1; DROP".into()]).await.unwrap_err();
     }
 
     #[tokio::test]

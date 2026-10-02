@@ -1,5 +1,11 @@
 //! Tauri commands: the webview's only door to config, secrets and Jira.
 //! Every error is a plain message; none of them contain secret values.
+#![expect(
+    clippy::unreachable,
+    clippy::let_underscore_must_use,
+    reason = "#[tauri::command] on async commands expands to code using unreachable! and `let _ =`"
+)]
+#![expect(clippy::needless_pass_by_value, reason = "Tauri deserializes command arguments, and injects State, by value")]
 
 use crate::config::{BackendKind, ConfigHandle, DominoConfig, SiteConfig};
 use crate::jira::http::HttpBackend;
@@ -14,7 +20,7 @@ use std::time::Duration;
 use tauri::{AppHandle, State};
 use tauri_plugin_opener::OpenerExt;
 
-pub struct AppState {
+pub(crate) struct AppState {
     pub config: Arc<ConfigHandle>,
     pub secrets: Arc<dyn SecretStore>,
     pub oauth: Arc<OAuth>,
@@ -25,8 +31,8 @@ pub struct AppState {
 impl AppState {
     fn backend(&self) -> Arc<dyn JiraBackend> {
         match self.config.get().backend {
-            BackendKind::Mock => self.mock.clone(),
-            BackendKind::Jira => self.http.clone(),
+            BackendKind::Mock => Arc::clone(&self.mock) as Arc<dyn JiraBackend>,
+            BackendKind::Jira => Arc::clone(&self.http) as Arc<dyn JiraBackend>,
         }
     }
 
@@ -40,25 +46,25 @@ impl AppState {
 }
 
 #[tauri::command]
-pub fn get_config(state: State<'_, AppState>) -> DominoConfig {
+pub(crate) fn get_config(state: State<'_, AppState>) -> DominoConfig {
     state.config.get()
 }
 
 #[tauri::command]
-pub fn save_config(state: State<'_, AppState>, config: DominoConfig) -> Result<DominoConfig, String> {
+pub(crate) fn save_config(state: State<'_, AppState>, config: DominoConfig) -> Result<DominoConfig, String> {
     let saved = state.config.replace(config)?;
     log::info!("config saved ({} sites, backend {:?})", saved.sites.len(), saved.backend);
     Ok(saved)
 }
 
 #[tauri::command]
-pub async fn site_health(state: State<'_, AppState>, site_id: String) -> Result<(), String> {
+pub(crate) async fn site_health(state: State<'_, AppState>, site_id: String) -> Result<(), String> {
     let site = state.site(&site_id, false)?;
     state.backend().health(&site).await
 }
 
 #[tauri::command]
-pub async fn fetch_by_jql(
+pub(crate) async fn fetch_by_jql(
     state: State<'_, AppState>,
     site_id: String,
     jql: String,
@@ -69,7 +75,7 @@ pub async fn fetch_by_jql(
 }
 
 #[tauri::command]
-pub async fn fetch_epic(
+pub(crate) async fn fetch_epic(
     state: State<'_, AppState>,
     site_id: String,
     key: String,
@@ -80,25 +86,25 @@ pub async fn fetch_epic(
 }
 
 #[tauri::command]
-pub async fn fetch_issue(state: State<'_, AppState>, site_id: String, key: String) -> Result<Value, String> {
+pub(crate) async fn fetch_issue(state: State<'_, AppState>, site_id: String, key: String) -> Result<Value, String> {
     let site = state.site(&site_id, true)?;
     state.backend().issue(&site, &key).await
 }
 
 #[tauri::command]
-pub async fn fetch_remote_links(state: State<'_, AppState>, site_id: String, key: String) -> Result<Vec<Value>, String> {
+pub(crate) async fn fetch_remote_links(state: State<'_, AppState>, site_id: String, key: String) -> Result<Vec<Value>, String> {
     let site = state.site(&site_id, true)?;
     state.backend().remote_links(&site, &key).await
 }
 
 #[tauri::command]
-pub async fn fetch_link_types(state: State<'_, AppState>, site_id: String) -> Result<Value, String> {
+pub(crate) async fn fetch_link_types(state: State<'_, AppState>, site_id: String) -> Result<Value, String> {
     let site = state.site(&site_id, true)?;
     state.backend().link_types(&site).await
 }
 
 #[tauri::command]
-pub async fn fetch_status_history(
+pub(crate) async fn fetch_status_history(
     state: State<'_, AppState>,
     site_id: String,
     issue_ids: Vec<String>,
@@ -108,20 +114,20 @@ pub async fn fetch_status_history(
 }
 
 #[tauri::command]
-pub async fn fetch_myself(state: State<'_, AppState>, site_id: String) -> Result<Value, String> {
+pub(crate) async fn fetch_myself(state: State<'_, AppState>, site_id: String) -> Result<Value, String> {
     let site = state.site(&site_id, true)?;
     state.backend().myself(&site).await
 }
 
 #[tauri::command]
-pub async fn fetch_statuses(state: State<'_, AppState>, site_id: String) -> Result<Value, String> {
+pub(crate) async fn fetch_statuses(state: State<'_, AppState>, site_id: String) -> Result<Value, String> {
     let site = state.site(&site_id, true)?;
     state.backend().statuses(&site).await
 }
 
 /// Write-only: stores a secret in the OS keychain. An empty value clears it.
 #[tauri::command]
-pub fn set_secret(state: State<'_, AppState>, secret_ref: String, value: String) -> Result<(), String> {
+pub(crate) fn set_secret(state: State<'_, AppState>, secret_ref: String, value: String) -> Result<(), String> {
     if secret_ref == oauth::REFRESH_TOKEN_REF {
         return Err("That secret is managed by Connect/Disconnect".into());
     }
@@ -132,19 +138,19 @@ pub fn set_secret(state: State<'_, AppState>, secret_ref: String, value: String)
 
 /// Reports whether a secret exists, never its value.
 #[tauri::command]
-pub fn secret_status(state: State<'_, AppState>, secret_ref: String) -> bool {
+pub(crate) fn secret_status(state: State<'_, AppState>, secret_ref: String) -> bool {
     state.secrets.is_set(&secret_ref)
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct OAuthStatus {
+pub(crate) struct OAuthStatus {
     app_configured: bool,
     connected: bool,
 }
 
 #[tauri::command]
-pub fn oauth_status(state: State<'_, AppState>) -> OAuthStatus {
+pub(crate) fn oauth_status(state: State<'_, AppState>) -> OAuthStatus {
     OAuthStatus {
         app_configured: state.secrets.is_set(oauth::CLIENT_ID_REF) && state.secrets.is_set(oauth::CLIENT_SECRET_REF),
         connected: state.oauth.is_connected(),
@@ -154,7 +160,7 @@ pub fn oauth_status(state: State<'_, AppState>) -> OAuthStatus {
 /// Runs the 3LO sign-in in the system browser, then fills in cloudIds for OAuth sites.
 /// Returns the Atlassian sites the account can access.
 #[tauri::command]
-pub async fn oauth_connect(app: AppHandle, state: State<'_, AppState>) -> Result<Vec<String>, String> {
+pub(crate) async fn oauth_connect(app: AppHandle, state: State<'_, AppState>) -> Result<Vec<String>, String> {
     let st = oauth::random_state()?;
     let url = state.oauth.authorize_url(&st)?;
     let listener = oauth::bind_callback().await?;
@@ -172,6 +178,6 @@ pub async fn oauth_connect(app: AppHandle, state: State<'_, AppState>) -> Result
 }
 
 #[tauri::command]
-pub async fn oauth_disconnect(state: State<'_, AppState>) -> Result<(), String> {
+pub(crate) async fn oauth_disconnect(state: State<'_, AppState>) -> Result<(), String> {
     state.oauth.disconnect().await
 }

@@ -14,15 +14,15 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 use tokio::sync::Mutex;
 
-pub const CLIENT_ID_REF: &str = "DOMINO_OAUTH_CLIENT_ID";
-pub const CLIENT_SECRET_REF: &str = "DOMINO_OAUTH_CLIENT_SECRET";
-pub const REFRESH_TOKEN_REF: &str = "DOMINO_OAUTH_REFRESH_TOKEN";
-pub const CALLBACK_ADDR: &str = "127.0.0.1:53682";
-pub const REDIRECT_URI: &str = "http://127.0.0.1:53682/callback";
+pub(crate) const CLIENT_ID_REF: &str = "DOMINO_OAUTH_CLIENT_ID";
+pub(crate) const CLIENT_SECRET_REF: &str = "DOMINO_OAUTH_CLIENT_SECRET";
+pub(crate) const REFRESH_TOKEN_REF: &str = "DOMINO_OAUTH_REFRESH_TOKEN";
+pub(crate) const CALLBACK_ADDR: &str = "127.0.0.1:53682";
+pub(crate) const REDIRECT_URI: &str = "http://127.0.0.1:53682/callback";
 const SCOPES: &str = "read:jira-work read:jira-user offline_access";
 
-#[derive(Debug, Clone, Deserialize, PartialEq)]
-pub struct AccessibleResource {
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub(crate) struct AccessibleResource {
     pub id: String,
     pub url: String,
     #[serde(default)]
@@ -38,7 +38,7 @@ struct TokenResponse {
     refresh_token: Option<String>,
 }
 
-pub struct OAuth {
+pub(crate) struct OAuth {
     http: reqwest::Client,
     secrets: Arc<dyn SecretStore>,
     auth_base: String, // https://auth.atlassian.com
@@ -47,11 +47,11 @@ pub struct OAuth {
 }
 
 impl OAuth {
-    pub fn new(http: reqwest::Client, secrets: Arc<dyn SecretStore>) -> Self {
+    pub(crate) fn new(http: reqwest::Client, secrets: Arc<dyn SecretStore>) -> Self {
         Self::with_endpoints(http, secrets, "https://auth.atlassian.com", "https://api.atlassian.com")
     }
 
-    pub fn with_endpoints(http: reqwest::Client, secrets: Arc<dyn SecretStore>, auth_base: &str, api_base: &str) -> Self {
+    pub(crate) fn with_endpoints(http: reqwest::Client, secrets: Arc<dyn SecretStore>, auth_base: &str, api_base: &str) -> Self {
         Self {
             http,
             secrets,
@@ -61,22 +61,30 @@ impl OAuth {
         }
     }
 
-    pub fn api_base(&self) -> &str {
+    pub(crate) fn api_base(&self) -> &str {
         &self.api_base
     }
 
-    pub fn is_connected(&self) -> bool {
+    pub(crate) fn is_connected(&self) -> bool {
         self.secrets.is_set(REFRESH_TOKEN_REF)
     }
 
+    /// A stored secret, or `missing` (a hint for the user) when it can't be read. The store's own
+    /// error is logged, not shown; secret store errors never contain secret values.
+    fn required_secret(&self, name: &str, missing: &str) -> Result<String, String> {
+        self.secrets.get(name).map_err(|e| {
+            log::info!("{name} unavailable: {e}");
+            missing.to_owned()
+        })
+    }
+
     fn client_creds(&self) -> Result<(String, String), String> {
-        let id = self.secrets.get(CLIENT_ID_REF).map_err(|_| "OAuth app not configured: add the client ID in Settings".to_string())?;
-        let secret =
-            self.secrets.get(CLIENT_SECRET_REF).map_err(|_| "OAuth app not configured: add the client secret in Settings".to_string())?;
+        let id = self.required_secret(CLIENT_ID_REF, "OAuth app not configured: add the client ID in Settings")?;
+        let secret = self.required_secret(CLIENT_SECRET_REF, "OAuth app not configured: add the client secret in Settings")?;
         Ok((id, secret))
     }
 
-    pub fn authorize_url(&self, state: &str) -> Result<String, String> {
+    pub(crate) fn authorize_url(&self, state: &str) -> Result<String, String> {
         let (client_id, _) = self.client_creds()?;
         let mut u = url::Url::parse(&format!("{}/authorize", self.auth_base)).map_err(|e| e.to_string())?;
         u.query_pairs_mut()
@@ -102,10 +110,14 @@ impl OAuth {
         if !status.is_success() {
             // Atlassian returns { error, error_description }; never echo request bodies (they hold secrets).
             let detail: serde_json::Value = res.json().await.unwrap_or_default();
-            let desc = detail["error_description"].as_str().or(detail["error"].as_str()).unwrap_or("request rejected");
+            let text = |key: &str| detail.get(key).and_then(serde_json::Value::as_str);
+            let desc = text("error_description").or_else(|| text("error")).unwrap_or("request rejected");
             return Err(format!("Atlassian auth failed ({}): {}", status.as_u16(), truncate(desc, 200)));
         }
-        res.json().await.map_err(|_| "Atlassian auth returned an unexpected response".into())
+        res.json().await.map_err(|e| {
+            log::warn!("unreadable token response: {e}");
+            "Atlassian auth returned an unexpected response".into()
+        })
     }
 
     fn remember(&self, t: &TokenResponse) -> Result<(String, Instant), String> {
@@ -117,7 +129,7 @@ impl OAuth {
         Ok((t.access_token.clone(), Instant::now() + Duration::from_secs(ttl)))
     }
 
-    pub async fn exchange_code(&self, code: &str) -> Result<(), String> {
+    pub(crate) async fn exchange_code(&self, code: &str) -> Result<(), String> {
         let (client_id, client_secret) = self.client_creds()?;
         let t = self
             .token_request(serde_json::json!({
@@ -137,14 +149,15 @@ impl OAuth {
     }
 
     /// A valid access token, refreshing (and rotating the refresh token) when needed.
-    pub async fn access_token(&self) -> Result<String, String> {
+    pub(crate) async fn access_token(&self) -> Result<String, String> {
+        // Held through the refresh: refresh tokens rotate, so two concurrent refreshes would race.
         let mut guard = self.token.lock().await;
         if let Some((tok, exp)) = guard.as_ref() {
             if Instant::now() < *exp {
                 return Ok(tok.clone());
             }
         }
-        let refresh = self.secrets.get(REFRESH_TOKEN_REF).map_err(|_| "Not connected to Atlassian: click Connect in Settings".to_string())?;
+        let refresh = self.required_secret(REFRESH_TOKEN_REF, "Not connected to Atlassian: click Connect in Settings")?;
         let (client_id, client_secret) = self.client_creds()?;
         let t = self
             .token_request(serde_json::json!({
@@ -158,10 +171,11 @@ impl OAuth {
         let entry = self.remember(&t)?;
         let tok = entry.0.clone();
         *guard = Some(entry);
+        drop(guard);
         Ok(tok)
     }
 
-    pub async fn accessible_resources(&self) -> Result<Vec<AccessibleResource>, String> {
+    pub(crate) async fn accessible_resources(&self) -> Result<Vec<AccessibleResource>, String> {
         let token = self.access_token().await?;
         let res = self
             .http
@@ -173,45 +187,52 @@ impl OAuth {
         if !res.status().is_success() {
             return Err(format!("Could not list accessible sites ({})", res.status().as_u16()));
         }
-        res.json().await.map_err(|_| "Unexpected accessible-resources response".into())
+        res.json().await.map_err(|e| {
+            log::warn!("unreadable accessible-resources response: {e}");
+            "Unexpected accessible-resources response".into()
+        })
     }
 
-    pub async fn disconnect(&self) -> Result<(), String> {
+    pub(crate) async fn disconnect(&self) -> Result<(), String> {
         *self.token.lock().await = None;
         self.secrets.set(REFRESH_TOKEN_REF, "")
     }
 }
 
 /// Finds the cloudId for a site by matching its base URL against accessible resources.
-pub fn cloud_id_for(base_url: &str, resources: &[AccessibleResource]) -> Option<String> {
+pub(crate) fn cloud_id_for(base_url: &str, resources: &[AccessibleResource]) -> Option<String> {
     let want = base_url.trim_end_matches('/').to_ascii_lowercase();
     resources.iter().find(|r| r.url.trim_end_matches('/').to_ascii_lowercase() == want).map(|r| r.id.clone())
 }
 
-pub fn random_state() -> Result<String, String> {
-    let mut buf = [0u8; 24];
+pub(crate) fn random_state() -> Result<String, String> {
+    let mut buf = [0_u8; 24];
     getrandom::fill(&mut buf).map_err(|e| format!("No randomness available: {e}"))?;
-    Ok(buf.iter().map(|b| format!("{b:02x}")).collect())
+    Ok(lower_hex(&buf))
 }
 
-pub async fn bind_callback() -> Result<TcpListener, String> {
+/// Two lowercase hex digits per byte.
+fn lower_hex(bytes: &[u8]) -> String {
+    bytes.iter().flat_map(|b| [b >> 4, b & 0xf]).filter_map(|nibble| char::from_digit(u32::from(nibble), 16)).collect()
+}
+
+pub(crate) async fn bind_callback() -> Result<TcpListener, String> {
     TcpListener::bind(CALLBACK_ADDR)
         .await
         .map_err(|e| format!("Could not listen on {CALLBACK_ADDR} for the OAuth callback (is another sign-in open?): {e}"))
 }
 
 /// Serves the loopback redirect until a request with the expected `state` arrives. Returns the code.
-pub async fn wait_for_callback(listener: TcpListener, expected_state: &str, timeout: Duration) -> Result<String, String> {
+pub(crate) async fn wait_for_callback(listener: TcpListener, expected_state: &str, timeout: Duration) -> Result<String, String> {
     let fut = async {
         loop {
             let (mut sock, _) = listener.accept().await.map_err(|e| e.to_string())?;
-            let mut buf = vec![0u8; 8192];
+            let mut buf = vec![0_u8; 8192];
             // A connection that never sends must not block the real browser redirect behind it.
-            let n = match tokio::time::timeout(Duration::from_secs(5), sock.read(&mut buf)).await {
-                Ok(Ok(n)) => n,
-                _ => continue,
+            let Ok(Ok(n)) = tokio::time::timeout(Duration::from_secs(5), sock.read(&mut buf)).await else {
+                continue;
             };
-            let req = String::from_utf8_lossy(&buf[..n]);
+            let req = String::from_utf8_lossy(buf.get(..n).unwrap_or_default());
             let target = req.lines().next().and_then(|l| l.split_whitespace().nth(1)).unwrap_or("");
             let parsed = url::Url::parse(&format!("http://localhost{target}")).ok();
             let Some(u) = parsed.filter(|u| u.path() == "/callback") else {
@@ -236,7 +257,7 @@ pub async fn wait_for_callback(listener: TcpListener, expected_state: &str, time
             return Ok(code);
         }
     };
-    tokio::time::timeout(timeout, fut).await.map_err(|_| "Timed out waiting for Atlassian sign-in".to_string())?
+    tokio::time::timeout(timeout, fut).await.map_err(|_elapsed| "Timed out waiting for Atlassian sign-in".to_owned())?
 }
 
 async fn respond(sock: &mut tokio::net::TcpStream, status: &str, text: &str) {
@@ -247,13 +268,18 @@ async fn respond(sock: &mut tokio::net::TcpStream, status: &str, text: &str) {
         "HTTP/1.1 {status}\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\nCache-Control: no-store\r\n\r\n{body}",
         body.len()
     );
-    let _ = sock.write_all(res.as_bytes()).await;
-    let _ = sock.shutdown().await;
+    // Best effort: the browser may already have gone, and the sign-in result doesn't depend on it.
+    if let Err(e) = sock.write_all(res.as_bytes()).await {
+        log::debug!("OAuth callback response not sent: {e}");
+    }
+    if let Err(e) = sock.shutdown().await {
+        log::debug!("OAuth callback socket not shut down cleanly: {e}");
+    }
 }
 
-pub fn truncate(s: &str, max: usize) -> String {
+pub(crate) fn truncate(s: &str, max: usize) -> String {
     if s.chars().count() <= max {
-        s.to_string()
+        s.to_owned()
     } else {
         format!("{}…", s.chars().take(max).collect::<String>())
     }
@@ -300,7 +326,7 @@ mod tests {
             .await;
         let s = secrets();
         s.set(REFRESH_TOKEN_REF, "rt-1").unwrap();
-        let o = OAuth::with_endpoints(reqwest::Client::new(), s.clone(), &server.uri(), &server.uri());
+        let o = OAuth::with_endpoints(reqwest::Client::new(), Arc::clone(&s) as Arc<dyn SecretStore>, &server.uri(), &server.uri());
         assert_eq!(o.access_token().await.unwrap(), "at-1");
         assert_eq!(o.access_token().await.unwrap(), "at-1"); // cached, no second call
         assert_eq!(s.get(REFRESH_TOKEN_REF).unwrap(), "rt-2");
@@ -372,5 +398,11 @@ mod tests {
         let (a, b) = (random_state().unwrap(), random_state().unwrap());
         assert_eq!(a.len(), 48);
         assert_ne!(a, b);
+    }
+
+    #[test]
+    fn lower_hex_writes_two_digits_per_byte() {
+        assert_eq!(lower_hex(&[0x00, 0x0f, 0xa5, 0xff]), "000fa5ff");
+        assert_eq!(lower_hex(&[]), "");
     }
 }

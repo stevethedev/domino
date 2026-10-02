@@ -12,7 +12,7 @@ use std::sync::Mutex;
 
 const SERVICE: &str = "domino";
 
-pub trait SecretStore: Send + Sync {
+pub(crate) trait SecretStore: Send + Sync {
     fn get(&self, name: &str) -> Result<String, String>;
     /// An empty value deletes the secret.
     fn set(&self, name: &str, value: &str) -> Result<(), String>;
@@ -23,7 +23,7 @@ pub trait SecretStore: Send + Sync {
 }
 
 /// Direct access to the OS keychain; no caching.
-pub struct Keychain;
+pub(crate) struct Keychain;
 
 fn entry(secret_ref: &str) -> Result<keyring::Entry, String> {
     if !is_secret_ref(secret_ref) {
@@ -37,28 +37,28 @@ fn env_override(name: &str) -> Option<String> {
 }
 
 impl SecretStore for Keychain {
-    fn get(&self, secret_ref: &str) -> Result<String, String> {
-        if let Some(v) = env_override(secret_ref) {
+    fn get(&self, name: &str) -> Result<String, String> {
+        if let Some(v) = env_override(name) {
             return Ok(v);
         }
-        entry(secret_ref)?.get_password().map_err(|e| match e {
-            keyring::Error::NoEntry => format!("No secret stored for {secret_ref}. Set it in Settings."),
-            other => format!("Could not read {secret_ref} from the keychain: {other}"),
+        entry(name)?.get_password().map_err(|e| match e {
+            keyring::Error::NoEntry => format!("No secret stored for {name}. Set it in Settings."),
+            other => format!("Could not read {name} from the keychain: {other}"),
         })
     }
 
-    fn set(&self, secret_ref: &str, value: &str) -> Result<(), String> {
+    fn set(&self, name: &str, value: &str) -> Result<(), String> {
         if value.is_empty() {
-            return entry(secret_ref)?
+            return entry(name)?
                 .delete_credential()
                 .or_else(|e| if matches!(e, keyring::Error::NoEntry) { Ok(()) } else { Err(e) })
-                .map_err(|e| format!("Could not clear {secret_ref}: {e}"));
+                .map_err(|e| format!("Could not clear {name}: {e}"));
         }
-        entry(secret_ref)?.set_password(value).map_err(|e| format!("Could not store {secret_ref}: {e}"))
+        entry(name)?.set_password(value).map_err(|e| format!("Could not store {name}: {e}"))
     }
 
-    fn is_set(&self, secret_ref: &str) -> bool {
-        env_override(secret_ref).is_some() || (is_secret_ref(secret_ref) && keychain_item_exists(secret_ref))
+    fn is_set(&self, name: &str) -> bool {
+        env_override(name).is_some() || (is_secret_ref(name) && keychain_item_exists(name))
     }
 }
 
@@ -85,7 +85,7 @@ fn keychain_item_exists(account: &str) -> bool {
 
 /// Read-through, write-through cache: each secret is fetched from `inner` at most once per
 /// process. Writes and deletes update the cache, so it never serves a stale value written here.
-pub struct CachedSecrets<S> {
+pub(crate) struct CachedSecrets<S> {
     inner: S,
     state: Mutex<CacheState>,
 }
@@ -98,12 +98,12 @@ struct CacheState {
 }
 
 impl<S: SecretStore> CachedSecrets<S> {
-    pub fn new(inner: S) -> Self {
+    pub(crate) fn new(inner: S) -> Self {
         Self { inner, state: Mutex::new(CacheState::default()) }
     }
 
     fn state(&self) -> std::sync::MutexGuard<'_, CacheState> {
-        self.state.lock().unwrap_or_else(|p| p.into_inner())
+        self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 }
 
@@ -124,19 +124,21 @@ impl<S: SecretStore> SecretStore for CachedSecrets<S> {
             return st.values.get(name).cloned().ok_or_else(|| format!("No secret stored for {name}"));
         }
         let v = read?;
-        st.values.insert(name.to_string(), v.clone());
+        st.values.insert(name.to_owned(), v.clone());
+        drop(st);
         Ok(v)
     }
 
     fn set(&self, name: &str, value: &str) -> Result<(), String> {
         self.inner.set(name, value)?;
         let mut st = self.state();
-        *st.writes.entry(name.to_string()).or_insert(0) += 1;
+        *st.writes.entry(name.to_owned()).or_insert(0) += 1;
         if value.is_empty() {
             st.values.remove(name);
         } else {
-            st.values.insert(name.to_string(), value.to_string());
+            st.values.insert(name.to_owned(), value.to_owned());
         }
+        drop(st);
         Ok(())
     }
 
@@ -148,7 +150,7 @@ impl<S: SecretStore> SecretStore for CachedSecrets<S> {
 /// In-memory store for tests.
 #[cfg(test)]
 #[derive(Default)]
-pub struct MemorySecrets(Mutex<HashMap<String, String>>);
+pub(crate) struct MemorySecrets(Mutex<HashMap<String, String>>);
 
 #[cfg(test)]
 impl SecretStore for MemorySecrets {
@@ -162,6 +164,7 @@ impl SecretStore for MemorySecrets {
         } else {
             m.insert(name.into(), value.into());
         }
+        drop(m);
         Ok(())
     }
 }
@@ -221,7 +224,7 @@ mod tests {
         let s = cached_with("A_TOKEN", "t1");
         s.get("A_TOKEN").unwrap();
         s.set("A_TOKEN", "").unwrap();
-        assert!(s.get("A_TOKEN").is_err());
+        s.get("A_TOKEN").unwrap_err();
         assert!(!s.is_set("A_TOKEN"));
     }
 
@@ -249,8 +252,8 @@ mod tests {
             }
             Ok(snapshot)
         }
-        fn set(&self, _: &str, v: &str) -> Result<(), String> {
-            *self.value.lock().unwrap() = v.to_string();
+        fn set(&self, _: &str, value: &str) -> Result<(), String> {
+            *self.value.lock().unwrap() = value.to_owned();
             Ok(())
         }
     }
@@ -270,7 +273,7 @@ mod tests {
     fn a_clear_during_a_slow_read_stays_cleared() {
         let (cache, entered, release) = gated("old");
         let reader = {
-            let cache = cache.clone();
+            let cache = std::sync::Arc::clone(&cache);
             std::thread::spawn(move || cache.get("A_TOKEN"))
         };
         entered.recv().unwrap(); // the read is in flight with "old"
@@ -284,20 +287,20 @@ mod tests {
     fn a_write_during_a_failing_read_is_returned() {
         let (cache, entered, release) = gated(""); // no token yet: the in-flight read will fail
         let reader = {
-            let cache = cache.clone();
+            let cache = std::sync::Arc::clone(&cache);
             std::thread::spawn(move || cache.get("A_TOKEN"))
         };
         entered.recv().unwrap();
         cache.set("A_TOKEN", "new").unwrap(); // the user pastes a token meanwhile
         release.send(()).unwrap();
-        assert_eq!(reader.join().unwrap(), Ok("new".to_string()));
+        assert_eq!(reader.join().unwrap(), Ok("new".to_owned()));
     }
 
     #[test]
     fn a_write_during_a_slow_read_wins() {
         let (cache, entered, release) = gated("old");
         let reader = {
-            let cache = cache.clone();
+            let cache = std::sync::Arc::clone(&cache);
             std::thread::spawn(move || cache.get("A_TOKEN").unwrap())
         };
         entered.recv().unwrap(); // the read is in flight with "old"
@@ -310,19 +313,19 @@ mod tests {
     #[test]
     fn missing_secrets_are_not_cached_as_missing() {
         let s = CachedSecrets::new(CountingStore::default());
-        assert!(s.get("A_TOKEN").is_err());
+        s.get("A_TOKEN").unwrap_err();
         s.inner.inner.set("A_TOKEN", "late").unwrap(); // e.g. stored by another code path
         assert_eq!(s.get("A_TOKEN").unwrap(), "late");
     }
-}
 
-/// Manual check against the real macOS keychain: `cargo test keychain_probe -- --ignored`
-/// after `security add-generic-password -s domino -a DOMINO_PROBE -w x -T ""` (no trusted apps).
-/// It must return without an "allow access?" prompt.
-#[cfg(all(test, target_os = "macos"))]
-#[test]
-#[ignore]
-fn keychain_probe_exists_without_prompt() {
-    assert!(Keychain.is_set("DOMINO_PROBE"));
-    assert!(!Keychain.is_set("DOMINO_PROBE_MISSING"));
+    /// Manual check against the real macOS keychain: `cargo test keychain_probe -- --ignored`
+    /// after `security add-generic-password -s domino -a DOMINO_PROBE -w x -T ""` (no trusted apps).
+    /// It must return without an "allow access?" prompt.
+    #[cfg(target_os = "macos")]
+    #[test]
+    #[ignore = "needs a real keychain item; see the doc comment"]
+    fn keychain_probe_exists_without_prompt() {
+        assert!(Keychain.is_set("DOMINO_PROBE"));
+        assert!(!Keychain.is_set("DOMINO_PROBE_MISSING"));
+    }
 }

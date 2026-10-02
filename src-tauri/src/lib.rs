@@ -12,8 +12,25 @@ use secrets::{CachedSecrets, Keychain, SecretStore};
 use std::sync::Arc;
 use tauri::Manager;
 
+/// The mobile entry point: runs the app, logging why it stopped if it fails.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    if let Err(e) = try_run() {
+        log::error!("Domino stopped: {e}");
+    }
+}
+
+/// Runs the app until it quits.
+///
+/// # Errors
+///
+/// When Tauri fails to start or run the app.
+#[expect(
+    clippy::large_stack_frames,
+    clippy::exit,
+    reason = "tauri::generate_context! embeds the app's assets and config, and Tauri's event loop exits the process"
+)]
+pub fn try_run() -> tauri::Result<()> {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
@@ -27,10 +44,10 @@ pub fn run() {
             let config = Arc::new(ConfigHandle::load(ConfigFile::new(&dir)).map_err(|e| -> Box<dyn std::error::Error> { e.into() })?);
             log::info!("config: {}", dir.join("domino.config.json").display());
             let secrets: Arc<dyn SecretStore> = Arc::new(CachedSecrets::new(Keychain));
-            let http = http_client();
-            let oauth = Arc::new(OAuth::new(http.clone(), secrets.clone()));
-            let http_backend = Arc::new(HttpBackend::new(http, secrets.clone(), oauth.clone(), config.clone()));
-            app.manage(AppState { config, secrets, oauth, mock: Arc::new(MockBackend::from_env()), http: http_backend });
+            let http = http_client()?;
+            let oauth = Arc::new(OAuth::new(http.clone(), Arc::clone(&secrets)));
+            let http_backend = Arc::new(HttpBackend::new(http, Arc::clone(&secrets), Arc::clone(&oauth), Arc::clone(&config)));
+            app.manage(AppState { config, secrets, oauth, mock: Arc::new(MockBackend::from_env()?), http: http_backend });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -52,5 +69,4 @@ pub fn run() {
             commands::oauth_disconnect,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running Domino");
 }

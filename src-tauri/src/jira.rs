@@ -1,21 +1,21 @@
 //! Raw, Jira-shaped data access. Values are passed through as JSON so the
 //! webview receives exactly what Jira REST v3 returns.
 
-pub mod http;
-pub mod mock;
-pub mod oauth;
+pub(crate) mod http;
+pub(crate) mod mock;
+pub(crate) mod oauth;
 
 use crate::config::SiteConfig;
 use async_trait::async_trait;
 use serde_json::Value;
 
-pub type JiraResult<T> = Result<T, String>;
+pub(crate) type JiraResult<T> = Result<T, String>;
 
 #[async_trait]
-pub trait JiraBackend: Send + Sync {
+pub(crate) trait JiraBackend: Send + Sync {
     /// Issues matching `jql`, paging until done or `max_results` is reached.
     async fn search(&self, site: &SiteConfig, jql: &str, max_results: Option<usize>) -> JiraResult<Vec<Value>>;
-    /// `{ "epic": Issue, "children": [Issue] }`. `filter` (JQL) is ANDed onto `parent = KEY`.
+    /// `{ "epic": Issue, "children": [Issue] }`. `filter` (JQL) is `ANDed` onto `parent = KEY`.
     async fn epic(&self, site: &SiteConfig, key: &str, filter: Option<&str>) -> JiraResult<Value>;
     async fn issue(&self, site: &SiteConfig, key: &str) -> JiraResult<Value>;
     async fn remote_links(&self, site: &SiteConfig, key: &str) -> JiraResult<Vec<Value>>;
@@ -34,23 +34,25 @@ pub trait JiraBackend: Send + Sync {
 }
 
 /// The JQL before any `ORDER BY` (any whitespace around the keywords, like the TS `combineJql`).
-pub fn strip_order_by(jql: &str) -> &str {
+pub(crate) fn strip_order_by(jql: &str) -> &str {
     let bytes = jql.as_bytes();
-    let at_word = |i: usize, word: &[u8]| bytes.len() >= i + word.len() && bytes[i..i + word.len()].eq_ignore_ascii_case(word);
+    let is_ws = |i: usize| bytes.get(i).is_some_and(u8::is_ascii_whitespace);
+    let at_word = |i: usize, word: &[u8]| bytes.get(i..i + word.len()).is_some_and(|w| w.eq_ignore_ascii_case(word));
     let skip_ws = |mut i: usize| {
-        while i < bytes.len() && bytes[i].is_ascii_whitespace() {
+        while is_ws(i) {
             i += 1;
         }
         i
     };
     for i in 0..bytes.len() {
-        let starts_clause = i == 0 || bytes[i - 1].is_ascii_whitespace();
+        let starts_clause = i == 0 || is_ws(i - 1);
         if !starts_clause || !at_word(i, b"order") {
             continue;
         }
         let by = skip_ws(i + 5);
-        if by > i + 5 && at_word(by, b"by") && by + 2 < bytes.len() && bytes[by + 2].is_ascii_whitespace() {
-            return jql[..i].trim_end(); // ASCII keyword boundary, so `i` is a char boundary
+        if by > i + 5 && at_word(by, b"by") && is_ws(by + 2) {
+            // `i` starts an ASCII keyword, so it's a char boundary and `get` succeeds.
+            return jql.get(..i).map_or(jql, str::trim_end);
         }
     }
     jql
@@ -58,19 +60,18 @@ pub fn strip_order_by(jql: &str) -> &str {
 
 /// `clause AND (filter)`, or just `clause` when there's no filter. The filter's ORDER BY is
 /// dropped, since ORDER BY can't appear inside parentheses.
-pub fn and_filter(clause: &str, filter: Option<&str>) -> String {
-    match filter.map(|f| strip_order_by(f).trim()).filter(|f| !f.is_empty()) {
-        Some(f) => format!("{clause} AND ({f})"),
-        None => clause.to_string(),
-    }
+pub(crate) fn and_filter(clause: &str, filter: Option<&str>) -> String {
+    filter
+        .map(|f| strip_order_by(f).trim())
+        .filter(|f| !f.is_empty())
+        .map_or_else(|| clause.to_owned(), |f| format!("{clause} AND ({f})"))
 }
 
-
-pub fn is_issue_id(s: &str) -> bool {
+pub(crate) fn is_issue_id(s: &str) -> bool {
     !s.is_empty() && s.len() <= 20 && s.bytes().all(|b| b.is_ascii_digit())
 }
 
-pub fn is_issue_key(s: &str) -> bool {
+pub(crate) fn is_issue_key(s: &str) -> bool {
     let Some((proj, num)) = s.split_once('-') else { return false };
     proj.chars().next().is_some_and(|c| c.is_ascii_uppercase())
         && proj.chars().all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_')

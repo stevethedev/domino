@@ -14,14 +14,15 @@ React UI  ──invoke()──▶  Rust core (src-tauri)  ──▶  JiraBackend
 
 Requires Node 20+ and a Rust toolchain (`rustup`). On Linux you also need Tauri's system packages (webkit2gtk and friends).
 
-| Command                      | What it does                                                                                                                                      |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm install`                | Installs JS deps                                                                                                                                  |
-| `npm run dev`                | Opens the desktop app (`tauri dev`). Mock data by default; switch to live Jira in Settings                                                        |
-| `npm run dev:web`            | Browser preview at http://localhost:1420. Answers IPC from fixtures via `@tauri-apps/api/mocks`. For UI checks and Playwright only; never shipped |
-| `npm test`                   | Vitest (graph logic, loader, layout)                                                                                                              |
-| `cd src-tauri && cargo test` | Rust tests (config, mock backend, HTTP backend and OAuth against wiremock)                                                                        |
-| `npm run tauri build`        | Release build and installer                                                                                                                       |
+| Command                                      | What it does                                                                                                                                                                                                                                                                               |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `npm install`                                | Installs JS deps                                                                                                                                                                                                                                                                           |
+| `npm run dev`                                | Opens the desktop app (`tauri dev`). Mock data by default; switch to live Jira in Settings                                                                                                                                                                                                 |
+| `npm run dev:web`                            | Browser preview at http://localhost:1420. Answers IPC from fixtures via `@tauri-apps/api/mocks`. For UI checks and Playwright only; never shipped                                                                                                                                          |
+| `npm test`                                   | Vitest (graph logic, loader, layout)                                                                                                                                                                                                                                                       |
+| `cd src-tauri && cargo test`                 | Rust tests (config, mock backend, HTTP backend and OAuth against wiremock)                                                                                                                                                                                                                 |
+| `cd src-tauri && cargo clippy --all-targets` | Rust lints: every clippy group except `restriction`, plus a strict set of restriction lints (no `unwrap`, `expect`, indexing, `print`; suppressions must be `#[expect(..., reason)]`). Configured in `Cargo.toml` `[lints]`; tests get the exceptions in `clippy.toml`. CI denies warnings |
+| `npm run tauri build`                        | Release build and installer                                                                                                                                                                                                                                                                |
 
 ### Simulating a failing site
 

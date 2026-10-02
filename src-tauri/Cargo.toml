@@ -3,7 +3,7 @@ name = "domino"
 version = "0.1.0"
 description = "Jira dependency flowchart"
 edition = "2021"
-rust-version = "1.80"
+rust-version = "1.81"
 
 [lib]
 name = "domino_lib"
@@ -38,3 +38,83 @@ security-framework = "3"
 tempfile = "3"
 wiremock = "0.6"
 tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
+
+# Opinionated lints: every clippy group but `restriction` (pedantic, nursery and cargo on top of the
+# defaults), plus hand-picked restriction lints. CI denies warnings (`cargo clippy -- -D warnings`).
+# Tests may unwrap, expect, panic, index and print (see clippy.toml).
+[lints.rust]
+unsafe_code = "forbid"
+rust_2018_idioms = { level = "warn", priority = -1 }
+unreachable_pub = "warn"
+unused_qualifications = "warn"
+unused_lifetimes = "warn"
+unused_import_braces = "warn"
+let_underscore_drop = "warn"
+missing_debug_implementations = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+cargo = { level = "warn", priority = -1 }
+# cargo group: Tauri's dependency tree has duplicate versions we can't fix, and the crate isn't published.
+multiple_crate_versions = "allow"
+cargo_common_metadata = "allow"
+# nursery: contradicts rustc's `unreachable_pub` above, which we keep (visibility says what it means).
+redundant_pub_crate = "allow"
+
+# restriction: no panicking shortcuts in app code
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+todo = "warn"
+unimplemented = "warn"
+unreachable = "warn"
+indexing_slicing = "warn"
+string_slice = "warn"
+get_unwrap = "warn"
+exit = "warn"
+# restriction: no stray output or debugging
+dbg_macro = "warn"
+print_stdout = "warn"
+print_stderr = "warn"
+# restriction: lint suppressions must be `#[expect]` with a reason
+allow_attributes = "warn"
+allow_attributes_without_reason = "warn"
+# restriction: errors and results
+map_err_ignore = "warn"
+try_err = "warn"
+unused_result_ok = "warn"
+let_underscore_must_use = "warn"
+let_underscore_untyped = "warn"
+assertions_on_result_states = "warn"
+error_impl_error = "warn"
+# restriction: clarity
+clone_on_ref_ptr = "warn"
+str_to_string = "warn"
+format_push_string = "warn"
+if_then_some_else_none = "warn"
+needless_raw_strings = "warn"
+redundant_type_annotations = "warn"
+rest_pat_in_fully_bound_structs = "warn"
+same_name_method = "warn"
+semicolon_inside_block = "warn"
+empty_structs_with_brackets = "warn"
+empty_enum_variants_with_brackets = "warn"
+unneeded_field_pattern = "warn"
+unseparated_literal_suffix = "warn"
+lossy_float_literal = "warn"
+mixed_read_write_in_expression = "warn"
+mutex_atomic = "warn"
+rc_buffer = "warn"
+rc_mutex = "warn"
+mem_forget = "warn"
+verbose_file_reads = "warn"
+filetype_is_file = "warn"
+create_dir = "warn"
+tests_outside_test_module = "warn"
+mod_module_files = "warn"
+infinite_loop = "warn"
+renamed_function_params = "warn"
+pathbuf_init_then_push = "warn"
+string_lit_chars_any = "warn"
