@@ -1,0 +1,13 @@
+# Build output and generated files
+dist/
+coverage/
+src-tauri/target/
+src-tauri/gen/
+src-tauri/icons/
+# Written by scripts/gen-mock-fixtures.mjs (regenerate rather than hand-format)
+fixtures/mock/
+package-lock.json
+# Local tool output
+.playwright-mcp/
+.idea/
+.claude/

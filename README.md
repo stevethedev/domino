@@ -20,6 +20,8 @@ Requires Node 20+ and a Rust toolchain (`rustup`). On Linux you also need Tauri'
 | `npm run dev` | Opens the desktop app (`tauri dev`). Mock data by default; switch to live Jira in Settings |
 | `npm run dev:web` | Browser preview at http://localhost:1420. Answers IPC from fixtures via `@tauri-apps/api/mocks`. For UI checks and Playwright only; never shipped |
 | `npm test` | Vitest (graph logic, loader, layout) |
+| `npm run check` | Everything CI would check: types (`tsc`), lint (oxlint, type-aware, no warnings allowed), formatting (Prettier) and unused files, exports and dependencies (knip) |
+| `npm run fix` | Applies Prettier formatting and oxlint autofixes |
 | `cd src-tauri && cargo test` | Rust tests (config, mock backend, HTTP backend and OAuth against wiremock) |
 | `npm run tauri build` | Release build and installer |
 
