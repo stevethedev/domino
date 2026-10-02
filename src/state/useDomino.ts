@@ -5,6 +5,7 @@ import { errorMessage } from "../data/errors";
 import type { JiraSource } from "../data/JiraSource";
 import { DEFAULT_PRESET_ID, presetById } from "../data/jqlPresets";
 import { MultiSiteLoader, type LoadResult, type Scope } from "../data/MultiSiteLoader";
+import { adoptRefresh } from "./refresh";
 import { readStored, writeStored } from "./storage";
 import { buildGraph } from "../graph/buildGraph";
 import type { Graph } from "../graph/types";
@@ -40,13 +41,25 @@ export type Domino = {
   load: LoadState;
   graph: Graph;
   loadedSiteCount: number;
+  /** Loads the scope again from scratch (shows "Loading…"). */
   reload: () => void;
+  /** Re-fetches the scope in the background, keeping the current graph on screen (see `BackgroundRefresh`). */
+  refresh: () => Promise<void>;
+  background: BackgroundRefresh;
   saveConfig: (next: DominoConfig) => Promise<DominoConfig>;
   /** Re-reads config the backend may have changed on its own (e.g. discovered cloudIds). */
   refreshConfig: () => Promise<void>;
   health: Record<string, HealthStatus>;
   testConnection: (siteId: string) => Promise<void>;
   store: ConfigStore;
+};
+
+export type BackgroundRefresh = {
+  /** When the data on screen was last confirmed current (epoch ms), by any load or refresh. */
+  lastUpdated: number | null;
+  refreshing: boolean;
+  /** Why the last background refresh didn't update the data, if it didn't. */
+  error: string | null;
 };
 
 /** App state: config, site selection, scope -> load -> graph. UI components get Graph, never raw data. */
@@ -60,6 +73,10 @@ export function useDomino(store: ConfigStore, source: JiraSource): Domino {
   const [reloadTick, setReloadTick] = useState(0);
   const loader = useMemo(() => new MultiSiteLoader(source), [source]);
   const prevEnabled = useRef<Set<string> | null>(null);
+  const [background, setBackground] = useState<BackgroundRefresh>({ lastUpdated: null, refreshing: false, error: null });
+  // Bumped by every foreground load, so a background refresh started before it is discarded.
+  const loadGeneration = useRef(0);
+  const refreshInFlight = useRef(false);
 
   useEffect(() => {
     store.load().then(setConfig, (e: unknown) => { setConfigError(errorMessage(e)); });
@@ -90,16 +107,52 @@ export function useDomino(store: ConfigStore, source: JiraSource): Domino {
       return;
     }
     let cancelled = false;
+    loadGeneration.current++;
     setLoad({ status: "loading" });
     const scopeKey = scopeKeyOf(selectedSites, scope);
     loader.load(scope, selectedSites, config.sites).then(
-      (result) => { if (!cancelled) setLoad({ status: "done", result, scopeKey }); },
+      (result) => {
+        if (cancelled) return;
+        setLoad({ status: "done", result, scopeKey });
+        setBackground({ lastUpdated: Date.now(), refreshing: false, error: null });
+      },
       (e: unknown) => { if (!cancelled) setLoad({ status: "failed", message: errorMessage(e) }); },
     );
     return (): void => {
       cancelled = true;
     };
   }, [config, selectedSites, scope, loader, reloadTick]);
+
+  // The latest values, read by refresh() when it runs (possibly from a timer).
+  const latest = useRef({ config, selectedSites, scope, load });
+  latest.current = { config, selectedSites, scope, load };
+
+  const refresh = useCallback(async (): Promise<void> => {
+    const { config: cfg, selectedSites: sites, scope: sc, load: current } = latest.current;
+    if (!cfg || sites.length === 0 || current.status !== "done" || refreshInFlight.current) return;
+    const generation = loadGeneration.current;
+    const scopeKey = scopeKeyOf(sites, sc);
+    const stale = (): boolean => generation !== loadGeneration.current || scopeKey !== current.scopeKey;
+    refreshInFlight.current = true;
+    setBackground((b) => ({ ...b, refreshing: true }));
+    try {
+      const next = await loader.load(sc, sites, cfg.sites);
+      if (stale()) return;
+      const outcome = adoptRefresh(current.result, next);
+      if (outcome.kind === "keep") {
+        const labels = outcome.failedSiteIds.map((id) => cfg.sites.find((x) => x.id === id)?.label ?? id);
+        setBackground((b) => ({ ...b, error: `Couldn't refresh ${labels.join(", ")}; showing the last loaded data.` }));
+        return;
+      }
+      if (outcome.result !== current.result) setLoad({ status: "done", result: outcome.result, scopeKey });
+      setBackground((b) => ({ ...b, lastUpdated: Date.now(), error: null }));
+    } catch (e: unknown) {
+      if (!stale()) setBackground((b) => ({ ...b, error: `Refresh failed: ${errorMessage(e)}` }));
+    } finally {
+      refreshInFlight.current = false;
+      setBackground((b) => ({ ...b, refreshing: false }));
+    }
+  }, [loader]);
 
   const graph = useMemo(() => {
     if (!config || load.status !== "done" || load.result.kind !== "ok") return EMPTY_GRAPH;
@@ -141,6 +194,8 @@ export function useDomino(store: ConfigStore, source: JiraSource): Domino {
     graph,
     loadedSiteCount,
     reload: () => { setReloadTick((t) => t + 1); },
+    refresh,
+    background,
     saveConfig,
     refreshConfig,
     health,

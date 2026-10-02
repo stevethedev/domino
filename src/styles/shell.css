@@ -208,3 +208,10 @@ kbd {
 /* The odd fifth tile spans the row as a compact line instead of leaving a hole. */
 .insight-tiles > .insight-cycles { grid-column: 1 / -1; flex-direction: row; align-items: baseline; gap: 8px; padding: 5px 10px; }
 .insight-tiles > .insight-cycles .insight-count { font-size: 18px; }
+
+/* Refresh-now (freshness shows in the At a glance summary; the interval is in Settings). */
+.freshness.warn { color: var(--warn-fg); }
+.icon-btn.spinning { animation: refresh-spin 900ms linear infinite; }
+@keyframes refresh-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .icon-btn.spinning { animation: none; opacity: 0.6; } }
+.auto-refresh-select { max-width: 240px; }

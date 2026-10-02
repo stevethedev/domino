@@ -2,13 +2,27 @@ import { useEffect, useRef, useState, type ReactElement } from "react";
 import type { SiteConfig } from "../../config/types";
 import { errorMessage } from "../../data/errors";
 import type { Domino } from "../../state/useDomino";
+import type { RefreshMinutes } from "../../state/refresh";
+import { AutoRefreshField } from "../Refresh";
 import { BackendSection } from "./BackendSection";
 import { blankSite, SiteForm, type SiteFormResult } from "./SiteForm";
 import { SiteRow } from "./SiteRow";
 
 type Editing = { kind: "new" } | { kind: "edit"; id: string } | null;
 
-export function SettingsDialog({ domino, open, onClose }: { domino: Domino; open: boolean; onClose: () => void }): ReactElement | null {
+export function SettingsDialog({
+  domino,
+  open,
+  onClose,
+  refreshMinutes,
+  onRefreshMinutes,
+}: {
+  domino: Domino;
+  open: boolean;
+  onClose: () => void;
+  refreshMinutes: RefreshMinutes;
+  onRefreshMinutes: (m: RefreshMinutes) => void;
+}): ReactElement | null {
   const ref = useRef<HTMLDialogElement>(null);
   const [editing, setEditing] = useState<Editing>(null);
   const [error, setError] = useState<string | null>(null);
@@ -92,6 +106,7 @@ export function SettingsDialog({ domino, open, onClose }: { domino: Domino; open
         </p>
       )}
       <BackendSection domino={domino} config={config} />
+      <AutoRefreshField minutes={refreshMinutes} onMinutes={onRefreshMinutes} />
       <div className="section-row">
         <h3 className="section-h">Sites</h3>
         {editing?.kind !== "new" && (

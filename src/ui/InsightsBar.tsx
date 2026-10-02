@@ -1,4 +1,4 @@
-import type { ReactElement } from "react";
+import type { ReactElement, ReactNode } from "react";
 import type { Highlight, Insights } from "../graph/insights";
 import type { GraphNode } from "../graph/types";
 
@@ -15,8 +15,8 @@ export function InsightTiles({
   onHighlight,
   onShowCycle,
 }: {
-  /** Load status / counts line, e.g. "12 issues · 6 outside scope". */
-  summary: string;
+  /** Load status / counts line, e.g. "12 issues · 6 outside scope · updated 3m ago". */
+  summary: ReactNode;
   insights: Insights;
   highlight: Highlight;
   onHighlight: (h: Highlight) => void;

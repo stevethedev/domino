@@ -3,6 +3,8 @@ import { useCallback, useEffect, useMemo, useState, type ReactElement } from "re
 import { summaryUid } from "./graph/collapse";
 import { computeInsights } from "./graph/insights";
 import { configStore, jiraSource, openExternal } from "./platform";
+import { DEFAULT_REFRESH_MINUTES, parseRefreshMinutes, REFRESH_MINUTES_KEY } from "./state/refresh";
+import { useAutoRefresh } from "./state/useAutoRefresh";
 import { useDomino } from "./state/useDomino";
 import { DEFAULT_ESTIMATE_SETTINGS, ESTIMATE_SETTINGS_KEY, parseEstimateSettings } from "./state/estimateSettings";
 import { oneOf, usePersistentState } from "./state/storage";
@@ -17,6 +19,7 @@ import { FilterPanel } from "./ui/FilterPanel";
 import { FinishFirst, InsightTiles } from "./ui/InsightsBar";
 import { SidebarSection } from "./ui/SidebarSection";
 import { QuickFind } from "./ui/QuickFind";
+import { Freshness, RefreshButton } from "./ui/Refresh";
 import { ScopeInputs } from "./ui/ScopeInputs";
 import { SettingsDialog } from "./ui/Settings/SettingsDialog";
 import { SavedViewsMenu } from "./ui/SavedViewsMenu";
@@ -66,9 +69,12 @@ function Shell(): ReactElement {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [viewMode, setViewMode] = usePersistentState<ViewMode>("domino.view", parseViewMode, "graph");
   const focusGraphNode = useFocusNode();
+  const [refreshMinutes, setRefreshMinutes] = usePersistentState(REFRESH_MINUTES_KEY, parseRefreshMinutes, DEFAULT_REFRESH_MINUTES);
+  useAutoRefresh(domino.refresh, refreshMinutes * 60_000, domino.background.lastUpdated);
   const { config, load, graph } = domino;
   // Status history feeds aging in both views and the Timeline; one bulk request per site per load.
-  const history = useStatusHistory(jiraSource, graph, true);
+  const loadedScopeKey = load.status === "done" ? load.scopeKey : null;
+  const history = useStatusHistory(jiraSource, graph, true, loadedScopeKey);
   const [estimates, setEstimates] = usePersistentState(ESTIMATE_SETTINGS_KEY, parseEstimateSettings, DEFAULT_ESTIMATE_SETTINGS);
   const baseInsights = useMemo(
     () =>
@@ -166,9 +172,12 @@ function Shell(): ReactElement {
         <QuickFind nodes={graph.nodes} showSite={domino.loadedSiteCount > 1} onPick={focusIssue} />
         <ViewToggle value={viewMode} onChange={setViewMode} />
 
-        <button type="button" className="icon-btn" onClick={domino.reload} aria-label="Reload" title="Reload">
-          ↻
-        </button>
+        <RefreshButton
+          refreshing={domino.background.refreshing}
+          lastUpdated={domino.background.lastUpdated}
+          // With data on screen, refresh in place; otherwise (nothing loaded, or a failed load) load again.
+          onRefresh={() => { if (load.status === "done") void domino.refresh(); else domino.reload(); }}
+        />
         <button type="button" className="icon-btn" onClick={() => { setSettingsOpen(true); }} aria-label="Settings" title="Settings">
           ⚙
         </button>
@@ -189,7 +198,11 @@ function Shell(): ReactElement {
                 load.status === "loading"
                   ? "Loading…"
                   : loaded
-                    ? `${full} issues · ${graph.nodes.length - full} outside scope`
+                    ? (
+                        <>
+                          {full} issues · {graph.nodes.length - full} outside scope · <Freshness background={domino.background} />
+                        </>
+                      )
                     : ""
               }
               insights={insights}
@@ -258,7 +271,7 @@ function Shell(): ReactElement {
         </section>
       </main>
 
-      <SettingsDialog domino={domino} open={settingsOpen} onClose={() => { setSettingsOpen(false); }} />
+      <SettingsDialog domino={domino} open={settingsOpen} onClose={() => { setSettingsOpen(false); }} refreshMinutes={refreshMinutes} onRefreshMinutes={setRefreshMinutes} />
     </div>
   );
 }
