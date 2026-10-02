@@ -102,12 +102,12 @@ export function useDomino(store: ConfigStore, source: JiraSource): Domino {
 
   useEffect(() => {
     if (!config) return;
+    loadGeneration.current++; // every scope change, including "nothing selected", invalidates an in-flight refresh
     if (selectedSites.length === 0) {
       setLoad({ status: "idle" });
       return;
     }
     let cancelled = false;
-    loadGeneration.current++;
     setLoad({ status: "loading" });
     const scopeKey = scopeKeyOf(selectedSites, scope);
     loader.load(scope, selectedSites, config.sites).then(

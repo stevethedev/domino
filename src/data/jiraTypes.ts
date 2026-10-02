@@ -6,7 +6,8 @@ export type RawStatusCategoryKey = "new" | "indeterminate" | "done" | "undefined
 export type RawStatus = {
   name: string;
   id?: string;
-  statusCategory: { key: RawStatusCategoryKey; name: string; id?: number };
+  /** Optional for the same reason as status itself (see RawLinkedIssue): Jira JSON arrives unvalidated. */
+  statusCategory?: { key: RawStatusCategoryKey; name: string; id?: number };
 };
 
 export type RawIssueType = { id?: string; name: string; iconUrl?: string; hierarchyLevel?: number };

@@ -1,4 +1,5 @@
 import { useEffect, useId, useState, type ReactElement } from "react";
+import { prefersReducedMotion } from "../lib/motion";
 import { REFRESH_MINUTES, updatedAgo, type RefreshMinutes } from "../state/refresh";
 import type { BackgroundRefresh } from "../state/useDomino";
 
@@ -56,7 +57,6 @@ export function RefreshButton({ refreshing, lastUpdated, onRefresh }: { refreshi
   );
 }
 
-const prefersReducedMotion = (): boolean => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /** The auto-refresh interval, a per-viewer preference shown in Settings. */
 export function AutoRefreshField({ minutes, onMinutes }: { minutes: RefreshMinutes; onMinutes: (m: RefreshMinutes) => void }): ReactElement {

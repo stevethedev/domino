@@ -166,4 +166,11 @@ describe("partial Jira data", () => {
       expect([n.ghost, n.issueType, n.statusName, n.statusCategory], key).toEqual([ghost, "Issue", "Unknown", "unknown"]);
     }
   });
+
+  it("treats a status without a category as unknown instead of failing the whole graph", () => {
+    const loaded = issue("CORE-1");
+    const g = buildGraph({ sites: [A], data: [data("a", [{ ...loaded, fields: { ...loaded.fields, status: { name: "Open" } } }])] });
+    const n = defined(g.nodes.find((x) => x.key === "CORE-1"), "CORE-1");
+    expect([n.statusName, n.statusCategory]).toEqual(["Open", "unknown"]);
+  });
 });

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type ReactElement } from "react";
+import { prefersReducedMotion } from "../../lib/motion";
 import { blockingChain } from "../../graph/analysis";
 import { emphasis, type Insights } from "../../graph/insights";
 import { computeTimeline, type ScheduleOptions, type TimelineEntry } from "../../graph/schedule";
@@ -30,7 +31,7 @@ import { TimelineLane } from "./TimelineLane";
 import { TimelineRow } from "./TimelineRow";
 
 /** How long a lane takes to fold or unfold; matches `--fold-ms` in timeline.css. */
-const FOLD_MS = 200;
+export const FOLD_MS = 200;
 
 export function Timeline({
   graph,
@@ -85,21 +86,23 @@ export function Timeline({
   // Rows on screen; folded rows (in collapsed lanes) stay mounted only so folding can animate.
   const rows = items.filter((i): i is TimelineRowModel => i.kind === "row" && !i.folded);
   const lanes = items.filter((i) => i.kind === "lane");
-  // While lanes fold, rows slide but arrows jump to their final positions; hide arrows until rows land.
+  // While lanes fold, rows slide but arrows jump to their final positions; hide arrows until rows
+  // land. Keyed on the collapsed set itself, so every source of a fold (toggles, Collapse all,
+  // revealing an issue from Quick Find) gets it. A layout effect, so arrows never paint early.
   const [settling, setSettling] = useState(false);
-  const settleTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  useEffect(() => (): void => { clearTimeout(settleTimer.current); }, []);
-  const fold = (next: ReadonlySet<string>): void => {
-    onCollapsedLanes(next);
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const prevCollapsed = useRef(collapsedLanes);
+  useLayoutEffect(() => {
+    if (prevCollapsed.current === collapsedLanes) return;
+    prevCollapsed.current = collapsedLanes;
+    if (prefersReducedMotion()) return;
     setSettling(true);
-    clearTimeout(settleTimer.current);
-    settleTimer.current = setTimeout(() => { setSettling(false); }, FOLD_MS);
-  };
+    const timer = setTimeout(() => { setSettling(false); }, FOLD_MS);
+    return (): void => { clearTimeout(timer); };
+  }, [collapsedLanes]);
   const toggleLane = (id: string): void => {
     const next = new Set(collapsedLanes);
     if (!next.delete(id)) next.add(id);
-    fold(next);
+    onCollapsedLanes(next);
   };
   const allCollapsed = lanes.length > 0 && lanes.every((l) => l.collapsed);
   const setAllCollapsed = (collapse: boolean): void => {
@@ -108,7 +111,7 @@ export function Timeline({
       if (collapse) next.add(l.lane.id);
       else next.delete(l.lane.id);
     }
-    fold(next);
+    onCollapsedLanes(next);
   };
   // The date range covers every row, collapsed or not, so folding a lane never shifts the chart.
   const range = useMemo(

@@ -16,7 +16,7 @@ export type BuildInput = {
 };
 
 function statusCategoryOf(status: RawStatus | undefined): StatusCategory {
-  switch (status?.statusCategory.key) {
+  switch (status?.statusCategory?.key) {
     case "new":
       return "todo";
     case "indeterminate":

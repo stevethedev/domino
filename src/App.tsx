@@ -1,4 +1,5 @@
 import { ReactFlowProvider } from "@xyflow/react";
+import { prefersReducedMotion } from "./lib/motion";
 import { useCallback, useEffect, useMemo, useState, type ReactElement } from "react";
 import { summaryUid } from "./graph/collapse";
 import { computeInsights } from "./graph/insights";
@@ -24,7 +25,7 @@ import { ScopeInputs } from "./ui/ScopeInputs";
 import { SettingsDialog } from "./ui/Settings/SettingsDialog";
 import { SavedViewsMenu } from "./ui/SavedViewsMenu";
 import { SiteSelector } from "./ui/SiteSelector";
-import { Timeline } from "./ui/timeline/Timeline";
+import { FOLD_MS, Timeline } from "./ui/timeline/Timeline";
 import { localToday } from "./ui/timeline/timelineLayout";
 import { isViewMode, ViewToggle, type ViewMode } from "./ui/ViewToggle";
 import { WarningsPanel } from "./ui/WarningsPanel";
@@ -162,7 +163,10 @@ function Shell(): ReactElement {
     const next = new Set(collapsedLanes);
     next.delete(laneId);
     setCollapsedLanes(next);
-    requestAnimationFrame(() => { focusTimelineRow(uid); });
+    // The lane's rows slide out of its header for FOLD_MS; scroll once the target has landed,
+    // or the smooth scroll would aim at where the row was mid-animation.
+    const settleMs = prefersReducedMotion() ? 0 : FOLD_MS;
+    setTimeout(() => { requestAnimationFrame(() => { focusTimelineRow(uid); }); }, settleMs);
   };
   const focusIssue = viewMode === "graph" ? focusInGraph : focusInTimeline;
   useViewHotkeys(setViewMode);
