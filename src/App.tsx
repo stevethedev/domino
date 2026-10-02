@@ -180,6 +180,11 @@ function Shell(): ReactElement {
     () => new Set(visibleSubgraph(graph, { ...filters, hideImplied: false }).nodes.map((n) => n.uid)),
     [graph, filters],
   );
+  /** Issues clearing the issue filters would put on screen (link filters can still hide a ghost). */
+  const revealableUids = useMemo(
+    () => new Set(visibleSubgraph(graph, { ...filters, issues: NO_ISSUE_FILTERS, hideImplied: false }).nodes.map((n) => n.uid)),
+    [graph, filters],
+  );
   const hiddenIssueCount = useMemo(
     () => loadedIssues.filter((n) => !passesIssueFilters(n, filters.issues)).length,
     [loadedIssues, filters.issues],
@@ -266,7 +271,8 @@ function Shell(): ReactElement {
    */
   const focusIssue = (uid: string, moveFocus = true): void => {
     const node = nodesByUid.get(uid);
-    if (!node || drawnUids.has(uid) || !hasIssueFilters(filters.issues)) {
+    // Clear the issue filters only when that would actually draw it; otherwise leave them alone.
+    if (!node || drawnUids.has(uid) || !hasIssueFilters(filters.issues) || !revealableUids.has(uid)) {
       focusInView(uid, moveFocus);
       return;
     }
