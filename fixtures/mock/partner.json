@@ -37,6 +37,7 @@
         "resolutiondate": null,
         "duedate": null,
         "created": "2026-09-01T09:00:00.000+0000",
+        "fixVersions": [],
         "issuelinks": []
       }
     },
@@ -76,6 +77,7 @@
         "resolutiondate": "2026-09-13T15:00:00.000+0000",
         "duedate": null,
         "created": "2026-09-01T09:00:00.000+0000",
+        "fixVersions": [],
         "parent": {
           "id": "208020",
           "key": "PAY-20",
@@ -175,6 +177,17 @@
         "resolutiondate": null,
         "duedate": null,
         "created": "2026-08-30T09:00:00.000+0000",
+        "fixVersions": [
+          {
+            "self": "https://partner.atlassian.net/rest/api/3/version/40001",
+            "id": "40001",
+            "description": "",
+            "name": "Partner SDK 3.0",
+            "archived": false,
+            "released": false,
+            "releaseDate": "2026-10-18"
+          }
+        ],
         "parent": {
           "id": "208020",
           "key": "PAY-20",
@@ -309,6 +322,17 @@
         "resolutiondate": null,
         "duedate": "2026-10-08",
         "created": "2026-09-23T09:00:00.000+0000",
+        "fixVersions": [
+          {
+            "self": "https://partner.atlassian.net/rest/api/3/version/40001",
+            "id": "40001",
+            "description": "",
+            "name": "Partner SDK 3.0",
+            "archived": false,
+            "released": false,
+            "releaseDate": "2026-10-18"
+          }
+        ],
         "parent": {
           "id": "208020",
           "key": "PAY-20",
@@ -408,6 +432,7 @@
         "resolutiondate": null,
         "duedate": null,
         "created": "2026-09-22T09:00:00.000+0000",
+        "fixVersions": [],
         "issuelinks": [
           {
             "id": "10003",
@@ -483,6 +508,17 @@
         "resolutiondate": null,
         "duedate": null,
         "created": "2026-09-18T09:00:00.000+0000",
+        "fixVersions": [
+          {
+            "self": "https://partner.atlassian.net/rest/api/3/version/40001",
+            "id": "40001",
+            "description": "",
+            "name": "Partner SDK 3.0",
+            "archived": false,
+            "released": false,
+            "releaseDate": "2026-10-18"
+          }
+        ],
         "issuelinks": [
           {
             "id": "10003",
@@ -593,6 +629,7 @@
         "resolutiondate": "2026-09-03T15:00:00.000+0000",
         "duedate": null,
         "created": "2026-08-26T09:00:00.000+0000",
+        "fixVersions": [],
         "issuelinks": [
           {
             "id": "10004",
@@ -664,6 +701,7 @@
         "resolutiondate": null,
         "duedate": null,
         "created": "2026-09-22T09:00:00.000+0000",
+        "fixVersions": [],
         "issuelinks": [
           {
             "id": "10004",
@@ -739,6 +777,7 @@
         "resolutiondate": null,
         "duedate": null,
         "created": "2026-09-22T09:00:00.000+0000",
+        "fixVersions": [],
         "issuelinks": [
           {
             "id": "10005",
@@ -814,6 +853,7 @@
         "resolutiondate": null,
         "duedate": null,
         "created": "2026-09-22T09:00:00.000+0000",
+        "fixVersions": [],
         "issuelinks": [
           {
             "id": "10005",
@@ -889,6 +929,7 @@
         "resolutiondate": null,
         "duedate": null,
         "created": "2026-09-17T09:00:00.000+0000",
+        "fixVersions": [],
         "issuelinks": [
           {
             "id": "10006",

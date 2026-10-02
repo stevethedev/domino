@@ -32,6 +32,7 @@ pub const FIELDS: &[&str] = &[
     "resolutiondate",
     "duedate",
     "created",
+    "fixVersions",
 ];
 /// `changelog/bulkfetch` accepts up to 1000 issues per request.
 const CHANGELOG_BATCH: usize = 1000;

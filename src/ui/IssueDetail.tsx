@@ -2,15 +2,15 @@ import { useEffect, useRef, type ReactElement } from "react";
 import type { Aging } from "../graph/aging";
 import type { ChangeKind } from "../graph/changes";
 import type { Day, StatusChange } from "../graph/schedule";
-import type { Graph, GraphEdge, GraphNode, StatusCategory } from "../graph/types";
+import type { Graph, GraphEdge, GraphNode, Release, StatusCategory } from "../graph/types";
 import { AgingBadge, ChangeTag, ISSUE_DETAIL_ID, TypeIcon } from "./IssueCard";
+import { fmtDay } from "./format";
 import { Icon } from "./Icon";
 
 const CATEGORY_LABEL: Record<StatusCategory, string> = { todo: "To Do", inprogress: "In Progress", done: "Done", unknown: "Unknown" };
 
-/** "Oct 3, 2026" for a calendar day ("YYYY-MM-DD"), read as the day it names (not shifted by time zone). */
-const fmtDay = (d: Day): string =>
-  new Date(`${d}T00:00:00Z`).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+/** "Oct 3, 2026" for a calendar day. */
+const fmtDate = (d: Day): string => fmtDay(d, true);
 
 export type IssueDetailData = {
   node: GraphNode;
@@ -22,6 +22,10 @@ export type IssueDetailData = {
   changes: readonly ChangeKind[];
   /** Status-category transitions, oldest first; undefined until history has loaded. */
   history?: readonly StatusChange[];
+  /** The releases it's planned for, and whether the forecast misses each one's date. */
+  releases: readonly Readonly<{ release: Release; misses: boolean }>[];
+  /** The last day it's forecast to finish, while open. */
+  forecastDone?: Day;
 };
 
 /** One related issue: key, summary and status; activating it moves the panel (and the view) there. */
@@ -99,7 +103,7 @@ export function IssueDetail({
    */
   focusRequest: number;
 }): ReactElement {
-  const { node: n, graph, unblocks, openBlockers, aging, changes, history } = data;
+  const { node: n, graph, unblocks, openBlockers, aging, changes, history, releases, forecastDone } = data;
   const headingRef = useRef<HTMLHeadingElement>(null);
   // Move focus into the panel when asked, so keyboard users land on it.
   useEffect(() => {
@@ -134,9 +138,17 @@ export function IssueDetail({
       ),
     ]);
   }
-  if (n.dates?.created) facts.push(["Created", fmtDay(n.dates.created)]);
-  if (n.dates?.due) facts.push(["Due", fmtDay(n.dates.due)]);
-  if (n.dates?.resolved) facts.push(["Resolved", fmtDay(n.dates.resolved)]);
+  for (const { release } of releases) {
+    const when = release.date ? ` · ${fmtDate(release.date)}` : "";
+    facts.push([
+      releases.length > 1 ? `Release (${release.name})` : "Release",
+      `${release.name}${when}${release.released ? " · released" : ""}`,
+    ]);
+  }
+  const missed = releases.filter((r) => r.misses).map((r) => r.release);
+  if (n.dates?.created) facts.push(["Created", fmtDate(n.dates.created)]);
+  if (n.dates?.due) facts.push(["Due", fmtDate(n.dates.due)]);
+  if (n.dates?.resolved) facts.push(["Resolved", fmtDate(n.dates.resolved)]);
 
   return (
     <aside
@@ -176,6 +188,12 @@ export function IssueDetail({
         ))}
       </div>
       {n.ghost && <p className="hint">Outside the loaded scope: only what its links say is known.</p>}
+      {missed.length > 0 && forecastDone && (
+        <p className="detail-risk">
+          <Icon name="alert" /> Forecast to finish {fmtDate(forecastDone)}, after{" "}
+          {missed.map((r) => `${r.name}${r.date ? ` (${fmtDate(r.date)})` : ""}`).join(", ")}.
+        </p>
+      )}
       {unblocks > 0 && (
         <p className="detail-impact">
           Finishing this unblocks <strong>{unblocks}</strong> open issue{unblocks === 1 ? "" : "s"} downstream.
@@ -206,7 +224,7 @@ export function IssueDetail({
           <ol className="detail-history">
             {history.map((h, i) => (
               <li key={`${h.at}-${i}`}>
-                <span className="muted">{fmtDay(h.at)}</span> {CATEGORY_LABEL[h.toCategory]}
+                <span className="muted">{fmtDate(h.at)}</span> {CATEGORY_LABEL[h.toCategory]}
               </li>
             ))}
           </ol>

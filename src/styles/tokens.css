@@ -30,6 +30,9 @@
 
   --edge: #5b6475;
   --cycle: #d62d2d;
+  /* Release (fix version) markers on the timeline. */
+  --release: #7c3aed;
+  --release-text: #ffffff;
   --critical: #b45309;
   /* The amber tile of the Domino mark (assets/brand); the same in both themes. */
   --brand-amber: #f59e0b;
@@ -143,6 +146,8 @@
     --pill-unknown-fg: #c9ceda;
     --edge: #9aa3b5;
     --cycle: #ff6161;
+    --release: #a78bfa;
+    --release-text: #1b1530;
     --critical: #f59e0b;
     --warn-bg: #3b2f12;
     --warn-fg: #ffd98a;

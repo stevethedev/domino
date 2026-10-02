@@ -172,6 +172,32 @@ const TIMES = {
   },
 };
 
+// Releases (Jira fix versions): release dates in days relative to generation, like TIMES.
+// Checkout 2.4 is close enough that its chain (blocked on partner work) is forecast to miss it.
+const VERSIONS = {
+  acme: {
+    "checkout-2.4": { id: "30001", name: "Checkout 2.4", release: 12 },
+    "checkout-2.5": { id: "30002", name: "Checkout 2.5", release: 40 },
+    "platform-1.8": { id: "30003", name: "Platform 1.8", release: -12, released: true },
+  },
+  partner: {
+    "sdk-3.0": { id: "40001", name: "Partner SDK 3.0", release: 16 },
+  },
+};
+const FIX_VERSIONS = {
+  acme: {
+    "CORE-10": ["checkout-2.4"],
+    "CORE-11": ["checkout-2.4"],
+    "CORE-16": ["checkout-2.4"],
+    "WEB-1": ["checkout-2.4"],
+    "WEB-2": ["checkout-2.5"],
+    "CORE-8": ["checkout-2.5"],
+    "CORE-12": ["platform-1.8"],
+    "CORE-14": ["platform-1.8"],
+  },
+  partner: { "PAY-2": ["sdk-3.0"], "PAY-3": ["sdk-3.0"], "PAY-4": ["sdk-3.0"] },
+};
+
 const GENERATED_ON = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate()));
 const at = (offsetDays, hour = 15) => new Date(GENERATED_ON.getTime() + offsetDays * 86_400_000 + hour * 3_600_000);
 const jiraDateTime = (d) => d.toISOString().replace("Z", "+0000");
@@ -198,6 +224,18 @@ function statusObj(name) {
 
 function issueTypeObj(name) {
   return { id: ISSUE_TYPES[name], name, subtask: name === "Sub-task", hierarchyLevel: HIERARCHY[name] ?? 0 };
+}
+
+function versionObj(site, v) {
+  return {
+    self: `${SITES[site]}/rest/api/3/version/${v.id}`,
+    id: v.id,
+    description: "",
+    name: v.name,
+    archived: false,
+    released: v.released === true,
+    releaseDate: at(v.release).toISOString().slice(0, 10),
+  };
 }
 
 function linkedIssueRef(site, row) {
@@ -231,6 +269,7 @@ function build(site) {
         created: jiraDateTime(
           at(TIMES[site][key]?.created ?? (TIMES[site][key]?.start !== undefined ? TIMES[site][key].start - 7 : -10), 9),
         ),
+        fixVersions: (FIX_VERSIONS[site][key] ?? []).map((slug) => versionObj(site, VERSIONS[site][slug])),
         parent: parent ? linkedIssueRef(site, rows.get(parent)) : undefined,
         issuelinks: [],
       },

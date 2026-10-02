@@ -95,6 +95,29 @@ export function layoutRows(
   return { items, height: y, all: ordered.flatMap((l) => l.rows) };
 }
 
+/** Header flags that end at `right` (px) and are `width` wide; see `stackFlags`. */
+export type Flag = Readonly<{ id: string; right: number; width: number }>;
+
+/** Space kept between flags on one header line, in px. */
+const FLAG_GAP = 4;
+
+/**
+ * Header lines for flags that would overlap: each flag takes the first line (0 = top) where it
+ * clears the flag before it, working left to right. Returns each flag's line.
+ */
+export function stackFlags(flags: readonly Flag[]): Map<string, number> {
+  const lineEnds: number[] = []; // right edge of the last flag on each line
+  const lines = new Map<string, number>();
+  for (const f of [...flags].sort((a, b) => a.right - b.right)) {
+    const left = f.right - f.width;
+    const free = lineEnds.findIndex((end) => end + FLAG_GAP <= left);
+    const line = free === -1 ? lineEnds.length : free;
+    lineEnds[line] = f.right;
+    lines.set(f.id, line);
+  }
+  return lines;
+}
+
 /** First and last day shown: everything drawn, plus today and the plan start, with padding. */
 export function dayRange(entries: readonly TimelineEntry[], extra: readonly Day[]): { start: Day; end: Day } {
   const starts = [...entries.map(entryStart), ...extra];

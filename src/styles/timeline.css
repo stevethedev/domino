@@ -91,6 +91,38 @@
   color: var(--text);
   font-weight: var(--weight-semibold);
 }
+/* Release flags sit on a second header line, under the ticks and clear of the Today flag. */
+.tl-axis.with-releases {
+  height: calc(30px + var(--release-lines) * 18px);
+}
+.tl-release-flag {
+  position: absolute;
+  top: calc(28px + var(--line) * 18px);
+  transform: translateX(-100%);
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
+  line-height: 16px;
+  padding: 0 var(--space-1_5);
+  color: var(--release-text);
+  background: var(--release);
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  pointer-events: auto;
+  cursor: default;
+}
+.tl-release-flag.at-risk {
+  color: var(--accent-text);
+  background: var(--cycle);
+}
+.tl-release-flag.released {
+  color: var(--muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-right: 0;
+}
 .tl-today-flag {
   position: absolute;
   top: 0;
@@ -122,6 +154,21 @@
   top: 0;
   bottom: 0;
   background: color-mix(in srgb, var(--muted) 7%, transparent);
+}
+/* A release line: dashed, at the end of its release day. */
+.tl-release {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 2px dashed var(--release);
+  margin-left: -1px;
+  opacity: 0.7;
+}
+.tl-release.at-risk {
+  border-left-color: var(--cycle);
+}
+.tl-release.released {
+  border-left-color: var(--border);
 }
 .tl-today {
   position: absolute;

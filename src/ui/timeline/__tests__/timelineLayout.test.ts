@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { TimelineEntry } from "../../../graph/schedule";
 import type { GraphNode } from "../../../graph/types";
 import type { Lane } from "../../../graph/layout";
-import { LANE_HEIGHT, layoutRows, ROW_HEIGHT } from "../timelineLayout";
+import { LANE_HEIGHT, layoutRows, ROW_HEIGHT, stackFlags } from "../timelineLayout";
 
 const node = (uid: string, ghost = false): GraphNode => ({
   uid,
@@ -76,5 +76,37 @@ describe("layoutRows with collapsed lanes", () => {
   it("ignores collapse without grouping (there's no header to fold into)", () => {
     const { items } = layoutRows(nodes, timeline, undefined, new Set(["all"]));
     expect(items.filter((i) => i.kind === "row" && !i.folded)).toHaveLength(4);
+  });
+});
+
+describe("stackFlags", () => {
+  it("keeps flags that clear each other on one line", () => {
+    const lines = stackFlags([
+      { id: "a", right: 100, width: 50 },
+      { id: "b", right: 200, width: 50 },
+    ]);
+    expect([...lines]).toEqual([
+      ["a", 0],
+      ["b", 0],
+    ]);
+  });
+
+  it("moves an overlapping flag to the next free line, and reuses lines once clear", () => {
+    const lines = stackFlags([
+      { id: "c", right: 300, width: 80 }, // clears a: back on line 0
+      { id: "b", right: 130, width: 80 }, // overlaps a (ends at 100, b starts at 50)
+      { id: "a", right: 100, width: 80 },
+    ]);
+    expect(lines.get("a")).toBe(0);
+    expect(lines.get("b")).toBe(1);
+    expect(lines.get("c")).toBe(0);
+  });
+
+  it("needs the gap between flags on a line", () => {
+    const lines = stackFlags([
+      { id: "a", right: 100, width: 50 },
+      { id: "b", right: 152, width: 50 }, // starts at 102: only 2px after a
+    ]);
+    expect(lines.get("b")).toBe(1);
   });
 });

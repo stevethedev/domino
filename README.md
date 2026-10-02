@@ -191,7 +191,8 @@ What `HttpBackend` does:
 
 - **Estimates:** story points × _Days / point_ (default 1). Unpointed issues use _Unpointed_ days (default 2). Weekends are skipped.
 - **Arrows:** go from a blocker's projected end to the blocked issue's projected start. They're red when work started before its blocker finished, or when they're part of a cycle.
-- **Data:** `resolutiondate` and `duedate` come with the normal search. Status history comes from `POST /rest/api/3/changelog/bulkfetch` (up to 1,000 issues per request) plus `GET /rest/api/3/status`, fetched after every load (aging uses it in both views).
+- **Data:** `resolutiondate`, `duedate` and `fixVersions` come with the normal search. Status history comes from `POST /rest/api/3/changelog/bulkfetch` (up to 1,000 issues per request) plus `GET /rest/api/3/status`, fetched after every load (aging uses it in both views).
+- **Release markers:** each Jira fix version with a release date gets a dashed line at the end of its release day, with a flag in the header. Upcoming releases stretch the chart so they always show; released ones show only when already in range. Flags that would overlap stack onto extra header lines. A release turns red when any of its open issues is forecast to finish after its date. Those rows get a _Misses 2.4_ badge, the details panel says when the issue is forecast to finish, and the sidebar's **Releases** section lists upcoming releases soonest first, with open and at-risk counts and the at-risk issues (pick one to show it). `fixVersions` comes with the normal search (archived versions are ignored). The logic is `releaseStatuses` in `src/graph/releases.ts`, and the sidebar and timeline share one cached forecast (`timelineFor`).
 - **Missing history:** issues that are in progress or done without status history show "start unknown" rather than invented dates.
 - **Remembered per machine:** scale, estimates and _Unstarted from_.
 

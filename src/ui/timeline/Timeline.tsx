@@ -2,16 +2,18 @@ import { useLayoutEffect, useMemo, useRef, useState, type ReactElement } from "r
 import { prefersReducedMotion } from "../../lib/motion";
 import { blockingChain } from "../../graph/analysis";
 import { emphasis, type Insights } from "../../graph/insights";
-import { computeTimeline, type ScheduleOptions, type TimelineEntry } from "../../graph/schedule";
+import { releaseStatuses } from "../../graph/releases";
+import type { TimelineEntry } from "../../graph/schedule";
 import type { Graph } from "../../graph/types";
 import { previewOf, type LinkPreview, type Move } from "../../graph/traverse";
 import { visibleSubgraph } from "../../graph/visible";
 import type { EstimateSettings } from "../../state/estimateSettings";
+import { useForecast } from "../../state/useForecast";
 import type { HistoryState } from "../../state/useStatusHistory";
 import { getOrThrow } from "../../lib/guards";
 import { lanesFor, type Filters, type ViewOptions } from "../Canvas";
 import { NumberField } from "../NumberField";
-import { TimeAxis, TimeGrid } from "./TimeAxis";
+import { flagWidth, releaseX, TimeAxis, TimeGrid, type ReleaseMarker } from "./TimeAxis";
 import { arrowAnchors, isViolated, TimelineArrows, type ArrowModel } from "./TimelineArrows";
 import {
   dayRange,
@@ -23,13 +25,14 @@ import {
   LABEL_WIDTH,
   layoutRows,
   type TimelineRowModel,
-  localToday,
   PX_PER_DAY,
   SCALES,
+  stackFlags,
   summarizeEpics,
   xOf,
 } from "./timelineLayout";
 import { captureElement } from "../capture";
+import { fmtDay } from "../format";
 import { ExportMenu } from "../ExportMenu";
 import { TimelineLane } from "./TimelineLane";
 import { TimelineRow } from "./TimelineRow";
@@ -73,14 +76,15 @@ export function Timeline({
     onSettings({ ...settings, ...patch });
   };
 
-  const today = localToday();
-  const historyMap = useMemo(() => (history.status === "done" ? history.history : new Map()), [history]);
-  const opts = useMemo<ScheduleOptions>(
-    () => ({ planStart: settings.planStart ?? today, today, daysPerPoint: settings.daysPerPoint, defaultDays: settings.defaultDays }),
-    [settings, today],
-  );
-  const timeline = useMemo(() => computeTimeline(graph, historyMap, opts), [graph, historyMap, opts]);
+  const { today, opts, timeline } = useForecast(graph, history, settings);
   const epics = useMemo(() => summarizeEpics(graph.nodes, timeline), [graph.nodes, timeline]);
+  const releases = useMemo(() => releaseStatuses(graph, timeline), [graph, timeline]);
+  /** Release names each issue is forecast to miss. */
+  const missedReleases = useMemo(() => {
+    const out = new Map<string, string[]>();
+    for (const s of releases) for (const uid of s.atRisk) out.set(uid, [...(out.get(uid) ?? []), s.release.name]);
+    return out;
+  }, [releases]);
   // Epics are placed by their children's envelope, so rows and the date range follow the real work.
   const placed = useMemo(() => {
     const out = new Map<string, TimelineEntry>(timeline);
@@ -137,9 +141,36 @@ export function Timeline({
     const dated = all.filter((r) => !r.node.ghost);
     return dayRange(
       dated.map((r) => r.entry),
-      [today, opts.planStart, ...dated.flatMap((r) => (r.node.dates?.due ? [r.node.dates.due] : []))],
+      [
+        today,
+        opts.planStart,
+        ...dated.flatMap((r) => (r.node.dates?.due ? [r.node.dates.due] : [])),
+        // Upcoming releases stretch the chart so their markers show; past ones only if already in range.
+        ...releases.flatMap((s) => (s.release.date && !s.release.released ? [s.release.date] : [])),
+      ],
     );
-  }, [all, today, opts.planStart]);
+  }, [all, today, opts.planStart, releases]);
+  const multiSite = new Set(graph.nodes.map((n) => n.siteId)).size > 1;
+  const releaseMarkers = useMemo((): ReleaseMarker[] => {
+    if (!range) return [];
+    const siteLabel = (siteId: string): string => graph.nodes.find((n) => n.siteId === siteId)?.siteLabel ?? siteId;
+    const markers = releases.flatMap((s) => {
+      const { uid, name, date, released, siteId } = s.release;
+      if (!date || date < range.start || date > range.end) return [];
+      const where = multiSite ? ` (${siteLabel(siteId)})` : "";
+      const state = released
+        ? "released"
+        : `${s.open.length} open${s.atRisk.length ? `, ${s.atRisk.length} forecast to finish after it` : ", on track"}`;
+      const label = `${name}${s.atRisk.length ? ` · ${s.atRisk.length} at risk` : ""}`;
+      return [{ uid, label, date, released, atRisk: s.atRisk.length, title: `${name}${where}: ${fmtDay(date)}, ${state}` }];
+    });
+    // Flags close together stack onto extra header lines instead of covering each other.
+    const lines = stackFlags(
+      markers.map((m) => ({ id: m.uid, right: releaseX(range.start, m.date, settings.scale), width: flagWidth(m.label) })),
+    );
+    return markers.map((m) => ({ ...m, line: lines.get(m.uid) ?? 0 }));
+  }, [releases, range, graph.nodes, multiSite, settings.scale]);
+  const releaseLines = releaseMarkers.length ? Math.max(...releaseMarkers.map((m) => m.line)) + 1 : 0;
 
   const chain = useMemo(() => (hovered ? blockingChain(graph, hovered) : null), [graph, hovered]);
   const emphasized = useMemo(
@@ -292,13 +323,13 @@ export function Timeline({
       {range ? (
         <div className="tl-scroll">
           <div className="tl-inner" style={{ width: LABEL_WIDTH + Math.max(chartWidth, lastBarX + 140) }}>
-            <div className="tl-axis">
+            <div className={`tl-axis${releaseLines ? " with-releases" : ""}`} style={{ "--release-lines": releaseLines }}>
               <div className="tl-corner">Issue</div>
-              <TimeAxis range={range} scale={settings.scale} today={today} />
+              <TimeAxis range={range} scale={settings.scale} today={today} releases={releaseMarkers} />
             </div>
             <div className={`tl-body${settling ? " settling" : ""}`} style={{ height }}>
               <div className="tl-chart" style={{ left: LABEL_WIDTH }}>
-                <TimeGrid range={range} scale={settings.scale} today={today} height={height} />
+                <TimeGrid range={range} scale={settings.scale} today={today} height={height} releases={releaseMarkers} />
                 <TimelineArrows
                   arrows={arrows}
                   rowY={rowY}
@@ -333,6 +364,7 @@ export function Timeline({
                       aging: insights.aging.get(item.node.uid),
                       change: insights.changed.get(item.node.uid)?.[0],
                       preview: previewOf(linkPreview, item.node.uid),
+                      missedReleases: missedReleases.get(item.node.uid),
                     }}
                     selected={item.node.uid === selectedUid}
                     onSelect={onSelect}

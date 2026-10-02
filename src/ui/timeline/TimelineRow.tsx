@@ -1,4 +1,5 @@
 import { memo, type ReactElement } from "react";
+import { fmtDay } from "../format";
 import { MOVE_KEYS, type Move, type PreviewKey } from "../../graph/traverse";
 import { addDays, maxDay, type Day, type Span } from "../../graph/schedule";
 import type { GraphNode } from "../../graph/types";
@@ -7,10 +8,8 @@ import { CHANGE_LABEL, type ChangeKind } from "../../graph/changes";
 import { AgingBadge, agingDescription, CappedBadges, ChangeTag, ISSUE_DETAIL_ID, TraverseHint, TypeIcon } from "../IssueCard";
 import { entryEnd, PX_PER_DAY, varianceLabel, xOf, type EpicSummary, type Scale, type TimelineRowModel } from "./timelineLayout";
 
-const fmt = (d: Day): string =>
-  new Date(`${d}T00:00:00Z`).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
 /** Spans are half-open; people read the last day inclusively. */
-const spanText = (s: Span): string => `${fmt(s.start)} – ${fmt(addDays(s.end, -1))}`;
+const spanText = (s: Span): string => `${fmtDay(s.start)} – ${fmtDay(addDays(s.end, -1))}`;
 
 export type RowFlags = {
   dimmed: boolean;
@@ -20,16 +19,21 @@ export type RowFlags = {
   change?: ChangeKind;
   /** Set while the focused row's ← (upstream) or → (downstream) would come here. */
   preview?: PreviewKey;
+  /** Releases this issue is forecast to finish after. */
+  missedReleases?: readonly string[];
 };
+
+const missesText = (names: readonly string[]): string =>
+  `forecast to miss ${names.length === 1 ? "release" : "releases"} ${names.join(", ")}`;
 
 function describe(node: GraphNode, row: TimelineRowModel): string {
   const p = row.entry.progress;
   const parts = [`${node.key}, ${node.summary}`, `status ${node.statusName}`, `projected ${spanText(row.entry.projected)}`];
   if (p.state === "done") parts.push(`actual ${spanText(p.actual)}`);
-  if (p.state === "started") parts.push(`started ${fmt(p.actualStart)}, forecast finish ${fmt(addDays(p.forecast.end, -1))}`);
+  if (p.state === "started") parts.push(`started ${fmtDay(p.actualStart)}, forecast finish ${fmtDay(addDays(p.forecast.end, -1))}`);
   if (p.state === "not-started") parts.push(`not started, forecast ${spanText(p.forecast)}`);
   if (p.state === "unknown") parts.push("start date unknown");
-  if (node.dates?.due) parts.push(`due ${fmt(node.dates.due)}`);
+  if (node.dates?.due) parts.push(`due ${fmtDay(node.dates.due)}`);
   if (p.state !== "unknown") parts.push(varianceLabel(row.entry.varianceDays));
   if (node.ghost) parts.push("outside scope");
   return `${parts.join(", ")}. Shows details.`;
@@ -94,7 +98,11 @@ export const TimelineRow = memo(function TimelineRow({
       // A folded row (collapsed lane) is only kept for the fold animation: out of reach until shown.
       tabIndex={row.folded ? -1 : 0}
       aria-hidden={row.folded || undefined}
-      aria-label={epic ? describeEpic(node, epic) : `${describe(node, row)}${flags.aging ? ` ${agingDescription(flags.aging)}.` : ""}`}
+      aria-label={
+        epic
+          ? describeEpic(node, epic)
+          : `${describe(node, row)}${flags.missedReleases ? ` ${missesText(flags.missedReleases)}.` : ""}${flags.aging ? ` ${agingDescription(flags.aging)}.` : ""}`
+      }
       aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown"
       data-tl-uid={node.uid}
       onClick={(e) => {
@@ -139,6 +147,16 @@ export const TimelineRow = memo(function TimelineRow({
             <span className={`pill pill-${node.statusCategory}`}>{node.statusName}</span>
             <CappedBadges
               badges={[
+                flags.missedReleases && {
+                  key: "release",
+                  label: missesText(flags.missedReleases),
+                  el: (
+                    <span className="tag-risk" title={missesText(flags.missedReleases)}>
+                      Misses {flags.missedReleases[0]}
+                      {flags.missedReleases.length > 1 && ` +${flags.missedReleases.length - 1}`}
+                    </span>
+                  ),
+                },
                 flags.ready && { key: "ready", label: "Ready", el: <span className="tag-ready">Ready</span> },
                 flags.aging && { key: "aging", label: agingDescription(flags.aging), el: <AgingBadge aging={flags.aging} /> },
                 flags.change && { key: "change", label: CHANGE_LABEL[flags.change], el: <ChangeTag change={flags.change} /> },
@@ -190,7 +208,7 @@ export const TimelineRow = memo(function TimelineRow({
             <span
               className={`tl-due${pastDue ? " past" : ""}`}
               style={{ left: xOf(rangeStart, due, scale) + PX_PER_DAY[scale] / 2 }}
-              title={`Due ${fmt(due)}${pastDue ? " (forecast misses it)" : ""}`}
+              title={`Due ${fmtDay(due)}${pastDue ? " (forecast misses it)" : ""}`}
             >
               ◆
             </span>

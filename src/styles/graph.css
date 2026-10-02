@@ -110,6 +110,7 @@
 .site-badge,
 .blockers,
 .tag-ready,
+.tag-risk,
 .age,
 .chg,
 .tl-variance {
@@ -390,7 +391,8 @@
 .age {
   flex: none;
 }
-.age-stuck {
+.age-stuck,
+.tag-risk {
   background: var(--error-bg);
   color: var(--error-fg);
 }

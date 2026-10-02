@@ -4,6 +4,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type
 import { collapseEpics, summaryUid } from "./graph/collapse";
 import { computeInsights, downstreamOpen, isHighlightScope, type Highlight, type HighlightScope, type Insights } from "./graph/insights";
 import { myIssues } from "./graph/mine";
+import { lastDayOf, releaseStatuses } from "./graph/releases";
 import { linkPreview, step, type LinkPreview, type Move, type Trail, type TraverseLayout } from "./graph/traverse";
 import { hasIssueFilters, NO_ISSUE_FILTERS, passesIssueFilters, visibleSubgraph } from "./graph/visible";
 import { configStore, jiraSource, notify, openExternal } from "./platform";
@@ -18,11 +19,13 @@ import { mergeViews, parseSavedViews, SAVED_VIEWS_KEY, upsertView, type SavedVie
 import { saveQuery, scopeKeyOf } from "./state/useDomino";
 import { useChanges } from "./state/useChanges";
 import { useStatusHistory } from "./state/useStatusHistory";
+import { useForecast } from "./state/useForecast";
 import { Canvas, lanesFor, useFocusNode, type Filters, type ViewOptions } from "./ui/Canvas";
 import { ChangesPanel } from "./ui/ChangesPanel";
 import { ErrorBanner } from "./ui/ErrorBanner";
 import { FilterPanel } from "./ui/FilterPanel";
 import { FinishFirst } from "./ui/InsightsBar";
+import { ReleasesPanel } from "./ui/ReleasesPanel";
 import { BrandMark } from "./ui/BrandMark";
 import { IssueDetail, type IssueDetailData } from "./ui/IssueDetail";
 import { Glance } from "./ui/Glance";
@@ -123,6 +126,10 @@ function Shell(): ReactElement {
   const loadedScopeKey = load.status === "done" ? load.scopeKey : null;
   const history = useStatusHistory(jiraSource, graph, true, loadedScopeKey);
   const [estimates, setEstimates] = usePersistentState(ESTIMATE_SETTINGS_KEY, parseEstimateSettings, DEFAULT_ESTIMATE_SETTINGS);
+  // The schedule forecast (shared with the timeline) says which releases' work runs late.
+  const forecast = useForecast(graph, history, estimates);
+  const releases = useMemo(() => releaseStatuses(graph, forecast.timeline), [graph, forecast.timeline]);
+  const atRiskCount = new Set(releases.flatMap((s) => s.atRisk)).size;
   const baseInsights = useMemo(
     () =>
       computeInsights(
@@ -257,6 +264,14 @@ function Shell(): ReactElement {
         aging: insights.aging.get(selectedNode.uid),
         changes: insights.changed.get(selectedNode.uid) ?? [],
         history: history.status === "done" ? history.history.get(selectedNode.uid) : undefined,
+        releases: (selectedNode.releases ?? []).map((release) => ({
+          release,
+          misses: releases.some((s) => s.release.uid === release.uid && s.atRisk.includes(selectedNode.uid)),
+        })),
+        forecastDone: (() => {
+          const entry = forecast.timeline.get(selectedNode.uid);
+          return entry && selectedNode.statusCategory !== "done" ? lastDayOf(entry) : undefined;
+        })(),
       }
     : null;
   /** Closing returns focus to the card or row the panel was showing, so keyboard users aren't lost. */
@@ -459,6 +474,23 @@ function Shell(): ReactElement {
           <SidebarSection id="finish-first" title="Finish first" badge={insights.unblockers.length || undefined}>
             <FinishFirst insights={insights} nodes={nodesByUid} onPick={focusIssue} />
           </SidebarSection>
+          {releases.length > 0 && (
+            <SidebarSection
+              id="releases"
+              title="Releases"
+              badge={atRiskCount || undefined}
+              badgeLabel="issues forecast to miss their release"
+              tone={atRiskCount ? "warn" : undefined}
+            >
+              <ReleasesPanel
+                releases={releases}
+                nodes={nodesByUid}
+                today={forecast.today}
+                showSite={domino.loadedSiteCount > 1}
+                onPick={focusIssue}
+              />
+            </SidebarSection>
+          )}
           <SidebarSection id="display" title="Display" badge={hiddenIssueCount || undefined} badgeLabel="issues hidden by filters">
             <FilterPanel
               filters={filters}

@@ -1,10 +1,10 @@
 import type { SiteConfig } from "../config/types";
-import type { RawIssue, RawLinkedIssue, RawSiteData, RawStatus } from "../data/jiraTypes";
+import type { RawIssue, RawLinkedIssue, RawSiteData, RawStatus, RawVersion } from "../data/jiraTypes";
 import { getOrThrow } from "../lib/guards";
 import { findCycles } from "./cycles";
 import { DEFAULT_LINK_TYPES, kindOf, resolveRelationship } from "./linkTypes";
 import { matchRemoteUrl } from "./remoteUrl";
-import type { EpicRef, Graph, GraphEdge, GraphNode, StatusCategory } from "./types";
+import type { EpicRef, Graph, GraphEdge, GraphNode, Release, StatusCategory } from "./types";
 import { toDay } from "./schedule";
 import { uidOf } from "./types";
 
@@ -50,6 +50,22 @@ function directEpic(issue: RawIssue, site: SiteConfig): EpicRef | { viaParent: s
   return undefined;
 }
 
+const DAY = /^\d{4}-\d{2}-\d{2}/;
+
+/** One fix version, if it's well-formed and not archived (the JSON arrives unvalidated). */
+function releaseOf(raw: unknown, site: SiteConfig): Release[] {
+  if (!raw || typeof raw !== "object") return [];
+  const v: Partial<Record<keyof RawVersion, unknown>> = raw;
+  if (typeof v.id !== "string" || typeof v.name !== "string" || v.archived === true) return [];
+  const date = typeof v.releaseDate === "string" && DAY.test(v.releaseDate) ? v.releaseDate.slice(0, 10) : undefined;
+  return [{ uid: `${site.id}:version:${v.id}`, siteId: site.id, name: v.name, date, released: v.released === true }];
+}
+
+function releasesOf(versions: unknown, site: SiteConfig): Release[] | undefined {
+  const releases = Array.isArray(versions) ? versions.flatMap((v: unknown) => releaseOf(v, site)) : [];
+  return releases.length > 0 ? releases : undefined;
+}
+
 function nodeFromIssue(issue: RawIssue, site: SiteConfig): GraphNode {
   const f = issue.fields;
   const avatars = f.assignee?.avatarUrls;
@@ -76,6 +92,7 @@ function nodeFromIssue(issue: RawIssue, site: SiteConfig): GraphNode {
       due: f.duedate ? f.duedate.slice(0, 10) : undefined,
       created: f.created ? toDay(f.created) : undefined,
     },
+    releases: releasesOf(f.fixVersions, site),
   };
 }
 

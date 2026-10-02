@@ -31,7 +31,19 @@ export type GraphNode = {
   rollup?: EpicRollup;
   /** Calendar days ("YYYY-MM-DD") from Jira fields. */
   dates?: { resolved?: string; due?: string; created?: string };
+  /** The releases (Jira fix versions) the issue is planned for; archived versions are left out. */
+  releases?: readonly Release[];
 };
+
+/** A Jira release (project version). Versions belong to one site, so `uid` is site-qualified. */
+export type Release = Readonly<{
+  uid: string;
+  siteId: string;
+  name: string;
+  /** Release date ("YYYY-MM-DD"), if one is set. */
+  date?: string;
+  released: boolean;
+}>;
 
 export type EpicRef = { uid: string; key: string; summary?: string; url: string };
 

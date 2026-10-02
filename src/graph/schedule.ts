@@ -180,3 +180,24 @@ export function computeTimeline(graph: Graph, history: StatusHistory, opts: Sche
   }
   return out;
 }
+
+/** For when status history hasn't loaded: one shared empty history, so cached forecasts are reused. */
+export const NO_HISTORY: StatusHistory = new Map();
+
+// The timeline and the sidebar's release forecasts ask for the same schedule; share it per graph
+// and history (dropped with them), keyed by the options.
+const timelines = new WeakMap<Graph, WeakMap<StatusHistory, Map<string, ReadonlyMap<string, TimelineEntry>>>>();
+
+/** `computeTimeline`, computed once per graph, history and options. */
+export function timelineFor(graph: Graph, history: StatusHistory, opts: ScheduleOptions): ReadonlyMap<string, TimelineEntry> {
+  const byHistory = timelines.get(graph) ?? new WeakMap<StatusHistory, Map<string, ReadonlyMap<string, TimelineEntry>>>();
+  timelines.set(graph, byHistory);
+  const byOpts = byHistory.get(history) ?? new Map<string, ReadonlyMap<string, TimelineEntry>>();
+  byHistory.set(history, byOpts);
+  const key = JSON.stringify(opts);
+  const hit = byOpts.get(key);
+  if (hit) return hit;
+  const result = computeTimeline(graph, history, opts);
+  byOpts.set(key, result);
+  return result;
+}

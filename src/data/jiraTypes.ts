@@ -15,6 +15,9 @@ export type RawUser = { accountId?: string; displayName: string; avatarUrls?: Re
 
 export type RawIssueType = { id?: string; name: string; iconUrl?: string; hierarchyLevel?: number };
 
+/** A project version (release), as embedded in an issue's `fixVersions`. */
+export type RawVersion = { id: string; name: string; released?: boolean; archived?: boolean; releaseDate?: string; self?: string };
+
 export type RawLinkType = { id: string; name: string; inward: string; outward: string; self?: string };
 
 /** The linked issue embedded in an issuelink: summary, status and type only. */
@@ -57,6 +60,8 @@ export type RawIssue = {
     duedate?: string | null;
     /** ISO datetime the issue was created. */
     created?: string;
+    /** The releases the issue is planned for. */
+    fixVersions?: RawVersion[];
     parent?: RawLinkedIssue;
     issuelinks?: RawIssueLink[];
   };
