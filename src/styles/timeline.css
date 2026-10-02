@@ -241,6 +241,27 @@
 .tl-row.status-unknown .tl-label {
   border-left: 4px dashed var(--unknown);
 }
+.tl-label-text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+.tl-label-title,
+.tl-label-badges {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1_5);
+  min-width: 0;
+}
+.tl-label-badges {
+  gap: var(--space-1);
+  overflow: hidden; /* last-resort guard: badges never paint into the chart */
+}
+.tl-label-badges .badge-slot {
+  display: inline-flex;
+  flex: none;
+}
 .tl-summary {
   flex: 1;
   min-width: 0;
@@ -308,12 +329,7 @@
 .tl-variance {
   position: absolute;
   z-index: var(--z-raised);
-  top: 12px;
-  font-size: var(--text-xs);
-  font-weight: var(--weight-bold);
-  padding: 1px var(--space-1_5);
-  border-radius: var(--radius-sm);
-  white-space: nowrap;
+  top: calc(50% - var(--badge-h) / 2);
   background: var(--surface-2);
   color: var(--muted);
 }

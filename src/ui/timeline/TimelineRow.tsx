@@ -2,8 +2,8 @@ import { memo, type ReactElement } from "react";
 import { addDays, maxDay, type Day, type Span } from "../../graph/schedule";
 import type { GraphNode } from "../../graph/types";
 import type { Aging } from "../../graph/aging";
-import type { ChangeKind } from "../../graph/changes";
-import { AgingBadge, agingDescription, ChangeTag, TypeIcon } from "../IssueCard";
+import { CHANGE_LABEL, type ChangeKind } from "../../graph/changes";
+import { AgingBadge, agingDescription, CappedBadges, ChangeTag, TypeIcon } from "../IssueCard";
 import { entryEnd, PX_PER_DAY, varianceLabel, xOf, type EpicSummary, type Scale, type TimelineRowModel } from "./timelineLayout";
 
 const fmt = (d: Day): string =>
@@ -97,16 +97,28 @@ export const TimelineRow = memo(function TimelineRow({
         onHover(null);
       }}
     >
+      {/* Two lines, like the cards: key and summary on top, status and badges below, so a busy row
+          never pushes its badges into the chart or squeezes the summary away. */}
       <div className="tl-label">
         <TypeIcon type={node.issueType} />
-        <span className="card-key">{node.key}</span>
-        <span className="tl-summary" title={node.summary}>
-          {node.summary}
-        </span>
-        <span className={`pill pill-${node.statusCategory}`}>{node.statusName}</span>
-        {flags.ready && <span className="tag-ready">Ready</span>}
-        {flags.aging && <AgingBadge aging={flags.aging} />}
-        {flags.change && <ChangeTag change={flags.change} />}
+        <div className="tl-label-text">
+          <div className="tl-label-title">
+            <span className="card-key">{node.key}</span>
+            <span className="tl-summary" title={node.summary}>
+              {node.summary}
+            </span>
+          </div>
+          <div className="tl-label-badges">
+            <span className={`pill pill-${node.statusCategory}`}>{node.statusName}</span>
+            <CappedBadges
+              badges={[
+                flags.ready && { key: "ready", label: "Ready", el: <span className="tag-ready">Ready</span> },
+                flags.aging && { key: "aging", label: agingDescription(flags.aging), el: <AgingBadge aging={flags.aging} /> },
+                flags.change && { key: "change", label: CHANGE_LABEL[flags.change], el: <ChangeTag change={flags.change} /> },
+              ]}
+            />
+          </div>
+        </div>
       </div>
       {epic ? (
         <div className="tl-track">

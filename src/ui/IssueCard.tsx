@@ -98,17 +98,16 @@ function RollupBody({ node, rollup: r, compact }: { node: GraphNode; rollup: Epi
   );
 }
 
-type Badge = { key: string; label: string; el: React.ReactNode };
+export type Badge = { key: string; label: string; el: React.ReactNode };
 
 /**
- * The card's bottom row fits two badges. With more, it shows the first and a "+N" chip (the chip
- * takes the second slot) whose tooltip lists the rest; the card's own accessible name already
- * covers every badge.
+ * Fits badges into `slots` (two by default, a card's bottom row). With more, it shows the first
+ * `slots - 1` and a "+N" chip in the last slot whose tooltip lists the rest; the card or row's own
+ * accessible name already covers every badge.
  */
-const ROW_BADGE_SLOTS = 2;
-function CappedBadges({ badges }: { badges: readonly (Badge | false | undefined)[] }): ReactElement {
+export function CappedBadges({ badges, slots = 2 }: { badges: readonly (Badge | false | undefined)[]; slots?: number }): ReactElement {
   const all = badges.filter((b): b is Badge => !!b);
-  const visible = all.length > ROW_BADGE_SLOTS ? ROW_BADGE_SLOTS - 1 : all.length;
+  const visible = all.length > slots ? slots - 1 : all.length;
   const extra = all.slice(visible);
   return (
     <>

@@ -91,9 +91,10 @@
   --control-h: 32px;
   /* The select caret: Icon's chevron-down in --muted (a background image can't use currentColor). */
   --select-caret: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235d6576' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  /* Badges: rectangular tags (status facts on cards/rows) and rounded pills (status, counts). */
-  --tag-padding: 1px var(--space-1_5);
-  --pill-padding: 1px 7px;
+  /* Badges: every status fact (status, blocked, ready, aging, changes, variance) shares one box. */
+  --badge-h: 18px;
+  --badge-h-compact: 26px; /* zoomed-out cards */
+  --badge-px: var(--space-1_5);
 
   /* Elevation, lowest to highest: resting cards, raised controls, popovers, dialogs. */
   --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.08);
