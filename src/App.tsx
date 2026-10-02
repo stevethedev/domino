@@ -109,7 +109,7 @@ function Shell(): ReactElement {
   // Only compare once the loaded result belongs to the current scope (not the previous one mid-switch).
   const loadedThisScope = loaded && load.scopeKey === scopeKey;
   const { changes, markSeen } = useChanges(scopeKey, graph, baseInsights, loadedThisScope, history.status === "done");
-  const myself = useMyself(jiraSource, domino.selectedSites, config?.backend ?? "none");
+  const myself = useMyself(jiraSource, domino.selectedSites, config?.backend ?? "none", domino.background.lastUpdated);
   const mine = useMemo(() => myIssues(graph.nodes, myself.me), [graph.nodes, myself.me]);
   const insights = useMemo(() => ({ ...baseInsights, changed: changes?.byIssue ?? new Map(), mine }), [baseInsights, changes, mine]);
   /** Highlight from a tile group: `scope` says whose issues it covers. Clicking the active tile again clears it. */

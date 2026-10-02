@@ -9,33 +9,35 @@ export type MyselfState = {
   me: Me;
   /** Sites that couldn't say who the user is (failed, or returned no account id). */
   errors: readonly { siteId: string; message: string }[];
+  /** Some selected site hasn't answered yet (not even with an error). */
   loading: boolean;
 };
 
-type Answer = { accountId: string } | { error: string };
+/** `epoch` is the load the answer was asked for; answers from an older load are asked again. */
+type Answer = ({ accountId: string } | { error: string }) & { epoch: number };
 
 /**
- * Who the signed-in user is on each selected site (`GET /myself`). Asked once per site and
- * data source (`backendKey`): identities don't change while the app runs, but a different
- * backend (mock vs live Jira) or account means a different answer.
+ * Who the signed-in user is on each selected site (`GET /myself`), asked again after every
+ * finished load or refresh (`epoch`, null until the first): fixing a token, connecting OAuth or
+ * switching a site to another account then shows up without a restart. The previous answer stays
+ * on screen while re-asking. Answers are keyed per data source (`backendKey`) as well as site.
  */
-export function useMyself(source: JiraSource, sites: readonly SiteConfig[], backendKey: string): MyselfState {
+export function useMyself(source: JiraSource, sites: readonly SiteConfig[], backendKey: string, epoch: number | null): MyselfState {
   const [answers, setAnswers] = useState<ReadonlyMap<string, Answer>>(new Map());
   const keyOf = (siteId: string): string => `${backendKey}:${siteId}`;
-  const missing = sites.filter((s) => !answers.has(keyOf(s.id))).map((s) => s.id);
-  const missingKey = missing.join("|");
+  const dueKey = epoch === null ? "" : sites.filter((s) => answers.get(keyOf(s.id))?.epoch !== epoch).map((s) => s.id).join("|");
+  const unanswered = sites.some((s) => !answers.has(keyOf(s.id)));
 
   useEffect(() => {
-    if (!missingKey) return;
+    if (!dueKey || epoch === null) return;
     let cancelled = false;
-    const ids = missingKey.split("|");
     void Promise.all(
-      ids.map(async (siteId): Promise<[string, Answer]> => {
+      dueKey.split("|").map(async (siteId): Promise<[string, Answer]> => {
         try {
           const user = await source.fetchMyself(siteId);
-          return [siteId, user.accountId ? { accountId: user.accountId } : { error: "Jira didn't return an account id" }];
+          return [siteId, user.accountId ? { accountId: user.accountId, epoch } : { error: "Jira didn't return an account id", epoch }];
         } catch (e) {
-          return [siteId, { error: errorMessage(e) }];
+          return [siteId, { error: errorMessage(e), epoch }];
         }
       }),
     ).then((results) => {
@@ -45,7 +47,7 @@ export function useMyself(source: JiraSource, sites: readonly SiteConfig[], back
     return (): void => {
       cancelled = true;
     };
-  }, [source, backendKey, missingKey]);
+  }, [source, backendKey, dueKey, epoch]);
 
   return useMemo(() => {
     const me = new Map<string, string>();
@@ -56,6 +58,6 @@ export function useMyself(source: JiraSource, sites: readonly SiteConfig[], back
       if ("accountId" in a) me.set(s.id, a.accountId);
       else errors.push({ siteId: s.id, message: a.error });
     }
-    return { me, errors, loading: missingKey !== "" };
-  }, [answers, sites, backendKey, missingKey]);
+    return { me, errors, loading: unanswered };
+  }, [answers, sites, backendKey, unanswered]);
 }
