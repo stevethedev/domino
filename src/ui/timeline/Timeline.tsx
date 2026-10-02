@@ -4,6 +4,7 @@ import { blockingChain } from "../../graph/analysis";
 import { emphasis, type Insights } from "../../graph/insights";
 import { computeTimeline, type ScheduleOptions, type TimelineEntry } from "../../graph/schedule";
 import type { Graph } from "../../graph/types";
+import { previewOf, type LinkPreview, type Move } from "../../graph/traverse";
 import { visibleSubgraph } from "../../graph/visible";
 import type { EstimateSettings } from "../../state/estimateSettings";
 import type { HistoryState } from "../../state/useStatusHistory";
@@ -46,6 +47,8 @@ export function Timeline({
   onCollapsedLanes,
   selectedUid,
   onSelect,
+  onTraverse,
+  linkPreview,
 }: {
   graph: Graph;
   insights: Insights;
@@ -61,6 +64,9 @@ export function Timeline({
   /** The issue open in the details panel, if any. */
   selectedUid: string | null;
   onSelect: (uid: string) => void;
+  onTraverse: (uid: string, move: Move) => boolean;
+  /** Where the focused row's ← and → would go. */
+  linkPreview: LinkPreview;
 }): ReactElement {
   const [hovered, setHovered] = useState<string | null>(null);
   const setSettings = (patch: Partial<EstimateSettings>): void => {
@@ -326,11 +332,13 @@ export function Timeline({
                       ready: view.highlight === "ready" && (emphasized?.nodes.has(item.node.uid) ?? false),
                       aging: insights.aging.get(item.node.uid),
                       change: insights.changed.get(item.node.uid)?.[0],
+                      preview: previewOf(linkPreview, item.node.uid),
                     }}
                     selected={item.node.uid === selectedUid}
                     onSelect={onSelect}
                     onOpen={onOpen}
                     onHover={setHovered}
+                    onTraverse={onTraverse}
                   />
                 ),
               )}

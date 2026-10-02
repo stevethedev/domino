@@ -1,9 +1,10 @@
 import { memo, type ReactElement } from "react";
+import { MOVE_KEYS, type Direction, type Move } from "../../graph/traverse";
 import { addDays, maxDay, type Day, type Span } from "../../graph/schedule";
 import type { GraphNode } from "../../graph/types";
 import type { Aging } from "../../graph/aging";
 import { CHANGE_LABEL, type ChangeKind } from "../../graph/changes";
-import { AgingBadge, agingDescription, CappedBadges, ChangeTag, ISSUE_DETAIL_ID, TypeIcon } from "../IssueCard";
+import { AgingBadge, agingDescription, CappedBadges, ChangeTag, ISSUE_DETAIL_ID, TraverseHint, TypeIcon } from "../IssueCard";
 import { entryEnd, PX_PER_DAY, varianceLabel, xOf, type EpicSummary, type Scale, type TimelineRowModel } from "./timelineLayout";
 
 const fmt = (d: Day): string =>
@@ -11,7 +12,15 @@ const fmt = (d: Day): string =>
 /** Spans are half-open; people read the last day inclusively. */
 const spanText = (s: Span): string => `${fmt(s.start)} – ${fmt(addDays(s.end, -1))}`;
 
-export type RowFlags = { dimmed: boolean; critical: boolean; ready: boolean; aging?: Aging; change?: ChangeKind };
+export type RowFlags = {
+  dimmed: boolean;
+  critical: boolean;
+  ready: boolean;
+  aging?: Aging;
+  change?: ChangeKind;
+  /** Set while the focused row's ← (upstream) or → (downstream) would come here. */
+  preview?: Direction;
+};
 
 function describe(node: GraphNode, row: TimelineRowModel): string {
   const p = row.entry.progress;
@@ -48,6 +57,7 @@ export const TimelineRow = memo(function TimelineRow({
   onSelect,
   onOpen,
   onHover,
+  onTraverse,
 }: {
   row: TimelineRowModel;
   /** Set for epics: a summary over their loaded children, or "empty" when none are loaded. */
@@ -63,6 +73,8 @@ export const TimelineRow = memo(function TimelineRow({
   /** ⌘/Ctrl+click: open in Jira directly. */
   onOpen: (url: string) => void;
   onHover: (uid: string | null) => void;
+  /** Arrow keys: follow links to the next row; true when it moved. */
+  onTraverse: (uid: string, move: Move) => boolean;
 }) {
   const { node, entry } = row;
   const p = entry.progress;
@@ -74,7 +86,7 @@ export const TimelineRow = memo(function TimelineRow({
 
   return (
     <div
-      className={`tl-row status-${node.statusCategory}${node.ghost ? " ghost" : ""}${flags.dimmed ? " dimmed" : ""}${flags.critical ? " critical" : ""}${row.folded ? " folded" : ""}${selected ? " selected" : ""}`}
+      className={`tl-row status-${node.statusCategory}${node.ghost ? " ghost" : ""}${flags.dimmed ? " dimmed" : ""}${flags.critical ? " critical" : ""}${row.folded ? " folded" : ""}${selected ? " selected" : ""}${flags.preview ? " traverse-target" : ""}`}
       style={{ top: row.y }}
       role="button"
       aria-expanded={selected}
@@ -83,6 +95,7 @@ export const TimelineRow = memo(function TimelineRow({
       tabIndex={row.folded ? -1 : 0}
       aria-hidden={row.folded || undefined}
       aria-label={epic ? describeEpic(node, epic) : `${describe(node, row)}${flags.aging ? ` ${agingDescription(flags.aging)}.` : ""}`}
+      aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown"
       data-tl-uid={node.uid}
       onClick={(e) => {
         if (e.metaKey || e.ctrlKey) onOpen(node.url);
@@ -93,7 +106,10 @@ export const TimelineRow = memo(function TimelineRow({
           e.preventDefault();
           if (e.metaKey || e.ctrlKey) onOpen(node.url);
           else onSelect(node.uid);
+          return;
         }
+        const move = MOVE_KEYS[e.key];
+        if (move && !e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey && onTraverse(node.uid, move)) e.preventDefault();
       }}
       onMouseEnter={() => {
         onHover(node.uid);
@@ -130,6 +146,7 @@ export const TimelineRow = memo(function TimelineRow({
             />
           </div>
         </div>
+        <TraverseHint direction={flags.preview ?? "activate"} />
       </div>
       {epic ? (
         <div className="tl-track">

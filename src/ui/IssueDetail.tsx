@@ -87,18 +87,24 @@ export function IssueDetail({
   onSelect,
   onOpen,
   onClose,
+  focusRequest,
 }: {
   data: IssueDetailData;
   onSelect: (uid: string) => void;
   onOpen: (url: string) => void;
   onClose: () => void;
+  /**
+   * Changes whenever focus should move into the panel (opening an issue with click or Enter), but
+   * not when arrow keys follow links on the cards, which keeps focus there.
+   */
+  focusRequest: number;
 }): ReactElement {
   const { node: n, graph, unblocks, openBlockers, aging, changes, history } = data;
   const headingRef = useRef<HTMLHeadingElement>(null);
-  // Move focus into the panel when it opens or switches issue, so keyboard users land on it.
+  // Move focus into the panel when asked, so keyboard users land on it.
   useEffect(() => {
     headingRef.current?.focus();
-  }, [n.uid]);
+  }, [focusRequest]);
 
   const nodes = new Map(graph.nodes.map((x) => [x.uid, x]));
   const links = graph.edges.filter((e) => e.source === n.uid || e.target === n.uid);

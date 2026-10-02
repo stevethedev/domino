@@ -1,6 +1,7 @@
 /* Dependency graph: issue cards, site/epic lanes, edges and React Flow theming. */
 
 .card {
+  position: relative; /* anchors the key hints */
   width: 280px;
   height: 112px;
   padding: var(--space-2) var(--space-2_5) var(--space-2) var(--space-3); /* keep in sync with CARD_WIDTH / CARD_HEIGHT in graph/layout.ts */
@@ -520,4 +521,42 @@
 .card.selected:not(:focus-visible) {
   outline: var(--ring-width) solid var(--accent);
   outline-offset: 3px;
+}
+
+/* Where the focused card's ← or → would go: a dashed outline and the key, before it's pressed. */
+.card.traverse-target:not(:focus-visible) {
+  outline: 2px dashed var(--focus);
+  outline-offset: 3px;
+}
+/* On the edge facing the focused card: ← targets sit to its left, → targets to its right. */
+.traverse-hint {
+  position: absolute;
+  top: -11px;
+  z-index: 1;
+  line-height: 1.4;
+  color: var(--text);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+  pointer-events: none;
+}
+.traverse-hint.upstream {
+  right: 10px;
+}
+.traverse-hint.downstream {
+  left: 10px;
+}
+/* ↵ on the focused card itself: what Enter would open. */
+.traverse-hint.activate {
+  display: none;
+  left: 50%;
+  translate: -50% 0;
+}
+.card:focus-visible > .traverse-hint.activate,
+.tl-row:focus-visible .traverse-hint.activate {
+  display: inline-block;
+}
+/* Zoomed out, the hint grows with the compact card text so it stays readable. */
+.card.compact .traverse-hint {
+  top: -20px;
+  font-size: 22px;
 }

@@ -1,9 +1,10 @@
 import { ReactFlowProvider } from "@xyflow/react";
 import { prefersReducedMotion } from "./lib/motion";
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type ReactElement } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { collapseEpics, summaryUid } from "./graph/collapse";
 import { computeInsights, downstreamOpen, isHighlightScope, type Highlight, type HighlightScope, type Insights } from "./graph/insights";
 import { myIssues } from "./graph/mine";
+import { linkPreview, step, type LinkPreview, type Move, type Trail } from "./graph/traverse";
 import { hasIssueFilters, NO_ISSUE_FILTERS, passesIssueFilters, visibleSubgraph } from "./graph/visible";
 import { configStore, jiraSource, notify, openExternal } from "./platform";
 import { DEFAULT_REFRESH_MINUTES, parseRefreshMinutes, REFRESH_MINUTES_KEY } from "./state/refresh";
@@ -33,6 +34,7 @@ import { SavedViewsMenu } from "./ui/SavedViewsMenu";
 import { SiteSelector } from "./ui/SiteSelector";
 import { FOLD_MS, localToday } from "./ui/timeline/timelineLayout";
 import { isViewMode, ViewToggle, type ViewMode } from "./ui/ViewToggle";
+import { screenLayout } from "./ui/traverseLayout";
 import { WarningsPanel } from "./ui/WarningsPanel";
 import { Icon } from "./ui/Icon";
 
@@ -55,10 +57,13 @@ const NOTIFY_UNBLOCKED_KEY = "domino.notifyUnblocked";
 const parseBool = (raw: unknown): boolean | undefined => (typeof raw === "boolean" ? raw : undefined);
 const parseGlanceScope = oneOf(isHighlightScope);
 
-/** Focus a timeline row by uid (the graph view uses React Flow's viewport instead). Returns whether it was found. */
-function focusTimelineRow(uid: string, moveFocus = true): boolean {
+/**
+ * Focus a timeline row by uid (the graph view uses React Flow's viewport instead), centring it, or
+ * with `nearest` (following links) scrolling only as far as needed. Returns whether it was found.
+ */
+function focusTimelineRow(uid: string, moveFocus = true, nearest = false): boolean {
   const el = document.querySelector<HTMLElement>(`[data-tl-uid="${CSS.escape(uid)}"]`);
-  el?.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
+  el?.scrollIntoView({ block: nearest ? "nearest" : "center", inline: "nearest", behavior: "smooth" });
   if (moveFocus) el?.focus({ preventScroll: true });
   return el !== null;
 }
@@ -198,28 +203,28 @@ function Shell(): ReactElement {
     });
   }, []);
   /** In the epic map, an issue inside a collapsed epic is revealed by expanding that epic first. */
-  const focusInGraph = (uid: string, moveFocus = true): void => {
+  const focusInGraph = (uid: string, moveFocus = true, follow = false): void => {
     // A ghost epic with loaded children is drawn as its summary in the epic map.
     const isFoldedGhostEpic =
       view.collapseEpics && nodesByUid.get(uid)?.ghost && !expandedEpics.has(uid) && graph.nodes.some((n) => n.epic?.uid === uid);
-    if (isFoldedGhostEpic) return void focusGraphNode(summaryUid(uid), moveFocus);
+    if (isFoldedGhostEpic) return void focusGraphNode(summaryUid(uid), moveFocus, follow);
     const epicUid = nodesByUid.get(uid)?.epic?.uid;
     const hidden = view.collapseEpics && !nodesByUid.get(uid)?.ghost && epicUid && !expandedEpics.has(epicUid);
-    if (!hidden) return void focusGraphNode(uid, moveFocus);
-    if (epicUid === uid) return void focusGraphNode(summaryUid(epicUid), moveFocus);
+    if (!hidden) return void focusGraphNode(uid, moveFocus, follow);
+    if (epicUid === uid) return void focusGraphNode(summaryUid(epicUid), moveFocus, follow);
     toggleEpic(epicUid);
     // Wait for the re-layout to render the issue, then focus it.
     let tries = 0;
     const retry = (): void => {
-      if (!focusGraphNode(uid, moveFocus) && ++tries < 10) setTimeout(retry, 120);
+      if (!focusGraphNode(uid, moveFocus, follow) && ++tries < 10) setTimeout(retry, 120);
     };
     setTimeout(retry, 120);
   };
   /** In the timeline, an issue inside a collapsed lane is revealed by expanding that lane first. */
-  const focusInTimeline = (uid: string, moveFocus = true): void => {
+  const focusInTimeline = (uid: string, moveFocus = true, follow = false): void => {
     const node = nodesByUid.get(uid);
     const laneId = node ? lanesFor(view.groupBy, insights)?.(node).id : undefined;
-    if (!laneId || !collapsedLanes.has(laneId)) return void focusTimelineRow(uid, moveFocus);
+    if (!laneId || !collapsedLanes.has(laneId)) return void focusTimelineRow(uid, moveFocus, follow);
     const next = new Set(collapsedLanes);
     next.delete(laneId);
     setCollapsedLanes(next);
@@ -228,15 +233,18 @@ function Shell(): ReactElement {
     const settleMs = prefersReducedMotion() ? 0 : FOLD_MS;
     setTimeout(() => {
       requestAnimationFrame(() => {
-        focusTimelineRow(uid, moveFocus);
+        focusTimelineRow(uid, moveFocus, follow);
       });
     }, settleMs);
   };
   const focusInView = viewMode === "graph" ? focusInGraph : focusInTimeline;
   // The issue open in the details panel. It closes by itself if the issue leaves the loaded graph.
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
+  // Opening an issue moves focus into the panel; following links with the arrow keys doesn't.
+  const [detailFocusRequest, setDetailFocusRequest] = useState(0);
   const selectIssue = useCallback((uid: string) => {
     setSelectedUid(uid);
+    setDetailFocusRequest((n) => n + 1);
   }, []);
   const downstream = useMemo(() => downstreamOpen(graph), [graph]);
   const selectedNode = selectedUid ? nodesByUid.get(selectedUid) : undefined;
@@ -264,6 +272,47 @@ function Shell(): ReactElement {
     [viewMode, view.collapseEpics, graph, insights, expandedEpics],
   );
   const impliedLinkCount = useMemo(() => visibleSubgraph(drawnGraph, { ...filters, hideImplied: true }).implied, [drawnGraph, filters]);
+  /** Arrow keys on a card or row follow the drawn blocking links (see `step`); an open details panel follows along. */
+  const trail = useRef<Trail | null>(null);
+  const traverse = (uid: string, move: Move): boolean => {
+    const result = step(uid, move, trail.current, screenLayout(visibleSubgraph(drawnGraph, filters).edges));
+    if (!result) return false;
+    trail.current = result.trail;
+    if (selectedUid) setSelectedUid(result.target);
+    focusInView(result.target, true, true);
+    return true;
+  };
+  // Cards are memoized: hand them a stable function that calls the latest `traverse`.
+  const latestTraverse = useRef(traverse);
+  latestTraverse.current = traverse;
+  const onTraverse = useCallback((uid: string, move: Move) => latestTraverse.current(uid, move), []);
+  /** While a card or row has keyboard focus, the cards its ← and → would reach are marked. */
+  const [preview, setPreview] = useState<LinkPreview>(null);
+  const previewFrom = (el: Element): LinkPreview => {
+    const uid = el.getAttribute("data-uid") ?? el.getAttribute("data-tl-uid");
+    if (!uid || !el.matches(":focus-visible")) return null;
+    return linkPreview(uid, trail.current, screenLayout(visibleSubgraph(drawnGraph, filters).edges));
+  };
+  const latestPreviewFrom = useRef(previewFrom);
+  latestPreviewFrom.current = previewFrom;
+  useEffect(() => {
+    const onFocusIn = (e: FocusEvent): void => {
+      setPreview(e.target instanceof Element ? latestPreviewFrom.current(e.target) : null);
+    };
+    const onFocusOut = (e: FocusEvent): void => {
+      if (e.relatedTarget === null) setPreview(null);
+    };
+    document.addEventListener("focusin", onFocusIn);
+    document.addEventListener("focusout", onFocusOut);
+    return (): void => {
+      document.removeEventListener("focusin", onFocusIn);
+      document.removeEventListener("focusout", onFocusOut);
+    };
+  }, []);
+  // A new picture (filters, epic map, view) moves the cards: drop the preview until focus moves.
+  useEffect(() => {
+    setPreview(null);
+  }, [drawnGraph, filters, viewMode]);
   /**
    * An issue the issue filters keep off screen (filtered itself, or a ghost whose only links go to
    * filtered issues) is revealed by clearing them first, as collapsed lanes are expanded.
@@ -435,6 +484,8 @@ function Shell(): ReactElement {
               onToggleEpic={toggleEpic}
               selectedUid={selectedUid}
               onSelect={selectIssue}
+              onTraverse={onTraverse}
+              linkPreview={preview}
             />
           ) : (
             <Suspense fallback={<div className="canvas-message">Loading timeline…</div>}>
@@ -451,6 +502,8 @@ function Shell(): ReactElement {
                 onCollapsedLanes={setCollapsedLanes}
                 selectedUid={selectedUid}
                 onSelect={selectIssue}
+                onTraverse={onTraverse}
+                linkPreview={preview}
               />
             </Suspense>
           )}
@@ -459,11 +512,12 @@ function Shell(): ReactElement {
             <IssueDetail
               data={detail}
               onSelect={(uid) => {
-                setSelectedUid(uid);
+                selectIssue(uid);
                 focusIssue(uid, false); // keep keyboard focus in the panel
               }}
               onOpen={openExternal}
               onClose={closeDetail}
+              focusRequest={detailFocusRequest}
             />
           )}
         </section>

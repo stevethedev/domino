@@ -1,4 +1,5 @@
 import { Handle, Position, useStore, type Node, type NodeProps } from "@xyflow/react";
+import { MOVE_KEYS, type Direction, type Move } from "../graph/traverse";
 import { memo, type ReactElement } from "react";
 import { agingLabel, type Aging } from "../graph/aging";
 import { CHANGE_LABEL, type ChangeKind } from "../graph/changes";
@@ -22,6 +23,10 @@ export type IssueNodeData = {
   /** ⌘/Ctrl+click: open the issue in Jira directly. */
   onOpen: (url: string) => void;
   onHover: (uid: string | null) => void;
+  /** Arrow keys: follow links to the next card; true when it moved. */
+  onTraverse: (uid: string, move: Move) => boolean;
+  /** Set while the focused card's ← (upstream) or → (downstream) would come here. */
+  preview?: Direction;
   /** Set on epic-map summary nodes: activating the card expands the epic instead. */
   onExpand?: () => void;
 };
@@ -193,8 +198,37 @@ function CompactBody({
   );
 }
 
+const HINT_KEY: Record<Direction | "activate", string> = { upstream: "←", downstream: "→", activate: "↵" };
+
+/**
+ * A key hint on a card or row: the arrow that would move focus here from the focused one, or
+ * (`activate`, shown only while it has keyboard focus) Enter, which opens it.
+ */
+export function TraverseHint({ direction }: { direction: Direction | "activate" }): ReactElement {
+  return (
+    <kbd className={`traverse-hint ${direction}`} aria-hidden="true">
+      {HINT_KEY[direction]}
+    </kbd>
+  );
+}
+
 export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNode>): ReactElement {
-  const { node: n, openBlockers, showSite, dimmed, highlight, aging, change, selected, onSelect, onOpen, onHover, onExpand } = data;
+  const {
+    node: n,
+    openBlockers,
+    showSite,
+    dimmed,
+    highlight,
+    aging,
+    change,
+    selected,
+    onSelect,
+    onOpen,
+    onHover,
+    onTraverse,
+    preview,
+    onExpand,
+  } = data;
   const activate = (e: { metaKey: boolean; ctrlKey: boolean }): void => {
     if (onExpand) onExpand();
     else if (e.metaKey || e.ctrlKey) onOpen(n.url);
@@ -221,20 +255,24 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
 
   return (
     <div
-      className={`card status-${status}${n.ghost ? " ghost" : ""}${dimmed ? " dimmed" : ""}${highlight ? ` hl-${highlight}` : ""}${compact ? " compact" : ""}${selected ? " selected" : ""}`}
+      className={`card status-${status}${n.ghost ? " ghost" : ""}${dimmed ? " dimmed" : ""}${highlight ? ` hl-${highlight}` : ""}${compact ? " compact" : ""}${selected ? " selected" : ""}${preview ? " traverse-target" : ""}`}
       role="button"
       // Activating shows the details panel; while it shows this issue, the card controls it.
       aria-expanded={onExpand ? undefined : selected}
       aria-controls={selected ? ISSUE_DETAIL_ID : undefined}
       tabIndex={0}
       aria-label={n.rollup ? rollupLabel(n, n.rollup) : `${label}. Shows details.`}
+      aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown"
       data-uid={n.uid}
       onClick={activate}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           activate(e);
+          return;
         }
+        const move = MOVE_KEYS[e.key];
+        if (move && !e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey && onTraverse(n.uid, move)) e.preventDefault();
       }}
       onMouseEnter={() => {
         onHover(n.uid);
@@ -250,6 +288,7 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
       }}
     >
       <Handle type="target" position={Position.Left} isConnectable={false} />
+      <TraverseHint direction={preview ?? "activate"} />
       {n.rollup ? (
         <RollupBody node={n} rollup={n.rollup} compact={compact} />
       ) : compact ? (

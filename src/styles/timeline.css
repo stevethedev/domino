@@ -203,6 +203,11 @@
   outline: 3px solid var(--focus);
   outline-offset: -3px;
 }
+/* The sticky label column paints over the row's own outline: ring the label too. */
+.tl-row:focus-visible .tl-label,
+.tl-row.selected:focus-visible .tl-label {
+  box-shadow: inset 0 0 0 3px var(--focus);
+}
 .tl-row.dimmed {
   opacity: 0.2;
 }
@@ -449,4 +454,16 @@
 .tl-row.selected .tl-label {
   background: color-mix(in srgb, var(--accent) 10%, var(--surface));
   box-shadow: inset 3px 0 0 var(--accent);
+}
+
+/* Where the focused row's ← or → would go (see .traverse-hint in graph.css). */
+.tl-row.traverse-target .tl-label {
+  outline: 2px dashed var(--focus);
+  outline-offset: -3px;
+}
+.tl-label .traverse-hint {
+  position: static;
+  flex: none;
+  margin-left: auto;
+  translate: none;
 }

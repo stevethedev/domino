@@ -174,7 +174,7 @@ What `HttpBackend` does:
 
   "Open in Jira" leaves the app; ⌘/Ctrl+click on a card opens Jira directly. Esc closes the drawer and returns focus to the card or row. It's `src/ui/IssueDetail.tsx`.
 
-- **Keyboard:** `/` or ⌘K / Ctrl+K opens quick find. `g` and `t` switch to Graph and Timeline. Tab moves between cards and rows; Enter shows the issue's details, ⌘/Ctrl+Enter opens it in Jira, and Esc closes the details.
+- **Keyboard:** `/` or ⌘K / Ctrl+K opens quick find. `g` and `t` switch to Graph and Timeline. Tab moves between cards and rows; Enter shows the issue's details, ⌘/Ctrl+Enter opens it in Jira, and Esc closes the details. On a card or row, ← and → follow blocking links: → goes to what it blocks, ← to what blocks it. When there are several, they take the one straight ahead, or the one you came from, so ← then → returns you. The cards they'd reach are outlined with their key before you press it, and the focused card shows ↵ for Enter. ↑ and ↓ move up and down: first among the issues the last step could have reached, then to the next card in the column (in the timeline, the next row). Only drawn links count, so filters and Hide implied links apply. The camera pans only when needed and keeps your zoom, and an open details panel follows along. The rules are `step` in `src/graph/traverse.ts`; screen positions come from `src/ui/traverseLayout.ts`.
 
 ## Timeline view
 

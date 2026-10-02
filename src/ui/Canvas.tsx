@@ -2,6 +2,7 @@ import { Background, Controls, getNodesBounds, MiniMap, Panel, ReactFlow, useRea
 import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { blockingChain } from "../graph/analysis";
 import { collapseEpics, shownEdgeId } from "../graph/collapse";
+import { previewOf, type LinkPreview, type Move } from "../graph/traverse";
 import { emphasis, type Highlight, type HighlightScope, type Insights } from "../graph/insights";
 import { CARD_HEIGHT, CARD_WIDTH, computeLayout, laneByAssignee, laneByEpic, laneBySite, type LaneFn, type Layout } from "../graph/layout";
 import type { Graph } from "../graph/types";
@@ -98,6 +99,8 @@ export function Canvas({
   onToggleEpic,
   selectedUid,
   onSelect,
+  onTraverse,
+  linkPreview,
 }: {
   graph: Graph;
   insights: Insights;
@@ -110,6 +113,9 @@ export function Canvas({
   /** The issue open in the details panel, if any. */
   selectedUid: string | null;
   onSelect: (uid: string) => void;
+  onTraverse: (uid: string, move: Move) => boolean;
+  /** Where the focused card's ← and → would go. */
+  linkPreview: LinkPreview;
 }): ReactElement {
   const rf = useReactFlow();
   const [hovered, setHovered] = useState<string | null>(null);
@@ -213,6 +219,8 @@ export function Canvas({
             onSelect,
             onOpen: openExternal,
             onHover: setHovered,
+            onTraverse,
+            preview: previewOf(linkPreview, n.uid),
             onExpand: n.rollup ? toggleEpic(n.rollup.epicUid) : undefined,
           },
           draggable: false,
@@ -221,7 +229,20 @@ export function Canvas({
       ];
     });
     return [...groups, ...cards];
-  }, [layout, vNodes, insights, showSiteBadges, chain, emphasized, view.highlight, onToggleEpic, selectedUid, onSelect]);
+  }, [
+    layout,
+    vNodes,
+    insights,
+    showSiteBadges,
+    chain,
+    emphasized,
+    view.highlight,
+    onToggleEpic,
+    selectedUid,
+    onSelect,
+    onTraverse,
+    linkPreview,
+  ]);
 
   const flowEdges = useMemo<LinkFlowEdge[]>(() => {
     return vEdges.map((e) => {
@@ -330,14 +351,25 @@ export function Canvas({
 }
 
 /** Centers the viewport on a card and focuses it (used by the Warnings panel). */
-export function useFocusNode(): (uid: string, moveFocus?: boolean) => boolean {
+export function useFocusNode(): (uid: string, moveFocus?: boolean, keepZoom?: boolean) => boolean {
   const rf = useReactFlow();
-  /** Centres the node (and focuses it unless `moveFocus` is false). Returns false when it isn't rendered yet. */
-  return (uid: string, moveFocus = true): boolean => {
+  /**
+   * Centres the node at a readable zoom (and focuses it unless `moveFocus` is false). With
+   * `keepZoom` (following links), it keeps the zoom and only pans when the card is off screen.
+   * Returns false when the node isn't rendered yet.
+   */
+  return (uid: string, moveFocus = true, keepZoom = false): boolean => {
     const n = rf.getInternalNode(uid);
     if (!n) return false;
     const { x, y } = n.internals.positionAbsolute;
-    void rf.setCenter(x + (n.measured.width ?? CARD_WIDTH) / 2, y + (n.measured.height ?? CARD_HEIGHT) / 2, { zoom: 1.1, duration: 300 });
+    const width = n.measured.width ?? CARD_WIDTH;
+    const height = n.measured.height ?? CARD_HEIGHT;
+    const card = document.querySelector<HTMLElement>(`[data-uid="${CSS.escape(uid)}"]`)?.getBoundingClientRect();
+    const pane = document.querySelector(".canvas .react-flow")?.getBoundingClientRect();
+    const onScreen =
+      card && pane && card.left >= pane.left && card.right <= pane.right && card.top >= pane.top && card.bottom <= pane.bottom;
+    if (!keepZoom) void rf.setCenter(x + width / 2, y + height / 2, { zoom: 1.1, duration: 300 });
+    else if (!onScreen) void rf.setCenter(x + width / 2, y + height / 2, { zoom: rf.getZoom(), duration: 200 });
     if (moveFocus) document.querySelector<HTMLElement>(`[data-uid="${CSS.escape(uid)}"]`)?.focus({ preventScroll: true });
     return true;
   };
