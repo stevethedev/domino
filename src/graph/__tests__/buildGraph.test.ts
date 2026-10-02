@@ -13,7 +13,12 @@ describe("uid identity", () => {
   it("keeps the same key on two sites as two distinct nodes", () => {
     const g = buildGraph({ sites: [A, B], data: [data("a", [issue("CORE-7")]), data("b", [issue("CORE-7", "done")])] });
     expect(g.nodes.map((n) => n.uid).sort()).toEqual(["a:CORE-7", "b:CORE-7"]);
-    expect(defined(g.nodes.find((n) => n.uid === "b:CORE-7"), "node").statusCategory).toBe("done");
+    expect(
+      defined(
+        g.nodes.find((n) => n.uid === "b:CORE-7"),
+        "node",
+      ).statusCategory,
+    ).toBe("done");
   });
 
   it("does not connect same-key issues across sites via native links", () => {
@@ -43,7 +48,12 @@ describe("direction normalization and dedup", () => {
     link("100", BLOCKS, x, y, { out: false, in: true });
     const g = buildGraph({ sites: [A], data: [data("a", [y])] });
     expect(g.edges[0]).toMatchObject({ source: "a:X-1", target: "a:X-2" });
-    expect(defined(g.nodes.find((n) => n.uid === "a:X-1"), "node").ghost).toBe(true);
+    expect(
+      defined(
+        g.nodes.find((n) => n.uid === "a:X-1"),
+        "node",
+      ).ghost,
+    ).toBe(true);
   });
 
   it("dedups by siteId + linkId, so equal link ids on two sites stay separate", () => {
@@ -85,7 +95,10 @@ describe("remote links", () => {
   it("falls back to relates to for unknown relationships", () => {
     const g = buildGraph({
       sites: [A, B],
-      data: [data("a", [issue("A-1")], { "A-1": [remote(1, "discussed with", "https://b.atlassian.net/browse/B-1")] }), data("b", [issue("B-1")])],
+      data: [
+        data("a", [issue("A-1")], { "A-1": [remote(1, "discussed with", "https://b.atlassian.net/browse/B-1")] }),
+        data("b", [issue("B-1")]),
+      ],
     });
     expect(g.edges[0]).toMatchObject({ kind: "relates", linkType: "relates to", crossSite: true });
   });
@@ -96,7 +109,10 @@ describe("remote links", () => {
       sites: [A, legacy],
       data: [data("a", [issue("WEB-2")], { "WEB-2": [remote(1, "is blocked by", "https://legacy.atlassian.net/browse/LEG-4")] })],
     });
-    const ghost = defined(g.nodes.find((n) => n.uid === "legacy:LEG-4"), "node");
+    const ghost = defined(
+      g.nodes.find((n) => n.uid === "legacy:LEG-4"),
+      "node",
+    );
     expect(ghost).toMatchObject({ ghost: true, siteLabel: "LEGACY", statusCategory: "unknown" });
     expect(g.edges[0]).toMatchObject({ source: "legacy:LEG-4", target: "a:WEB-2", crossSite: true });
   });
@@ -114,7 +130,12 @@ describe("remote links", () => {
       ],
     });
     expect(g.nodes.map((n) => n.uid).sort()).toEqual(["a:A-1", "other.atlassian.net:EXT-9"]);
-    expect(defined(g.nodes.find((n) => n.ghost), "node")).toMatchObject({ siteLabel: "other.atlassian.net", url: "https://other.atlassian.net/browse/EXT-9" });
+    expect(
+      defined(
+        g.nodes.find((n) => n.ghost),
+        "node",
+      ),
+    ).toMatchObject({ siteLabel: "other.atlassian.net", url: "https://other.atlassian.net/browse/EXT-9" });
     expect(g.edges).toHaveLength(1);
   });
 
@@ -161,8 +182,14 @@ describe("partial Jira data", () => {
     const [loaded, outside] = [withoutStatusAndType("CORE-1"), withoutStatusAndType("CORE-2")];
     link("1", BLOCKS, loaded, outside, { out: true, in: false });
     const g = buildGraph({ sites: [A], data: [data("a", [loaded])] });
-    for (const [key, ghost] of [["CORE-1", false], ["CORE-2", true]] as const) {
-      const n = defined(g.nodes.find((x) => x.key === key), key);
+    for (const [key, ghost] of [
+      ["CORE-1", false],
+      ["CORE-2", true],
+    ] as const) {
+      const n = defined(
+        g.nodes.find((x) => x.key === key),
+        key,
+      );
       expect([n.ghost, n.issueType, n.statusName, n.statusCategory], key).toEqual([ghost, "Issue", "Unknown", "unknown"]);
     }
   });
@@ -170,7 +197,10 @@ describe("partial Jira data", () => {
   it("treats a status without a category as unknown instead of failing the whole graph", () => {
     const loaded = issue("CORE-1");
     const g = buildGraph({ sites: [A], data: [data("a", [{ ...loaded, fields: { ...loaded.fields, status: { name: "Open" } } }])] });
-    const n = defined(g.nodes.find((x) => x.key === "CORE-1"), "CORE-1");
+    const n = defined(
+      g.nodes.find((x) => x.key === "CORE-1"),
+      "CORE-1",
+    );
     expect([n.statusName, n.statusCategory]).toEqual(["Open", "unknown"]);
   });
 });

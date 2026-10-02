@@ -70,7 +70,12 @@ export function layoutRows(
     Number(a.node.ghost) - Number(b.node.ghost) || startOf(a).localeCompare(startOf(b)) || a.node.uid.localeCompare(b.node.uid);
   const ordered = [...lanes.values()]
     .map((l) => ({ ...l, rows: [...l.rows].sort(byStart) }))
-    .sort((a, b) => Number(!!a.lane.last) - Number(!!b.lane.last) || startOf(a.rows[0]).localeCompare(startOf(b.rows[0])) || a.lane.id.localeCompare(b.lane.id));
+    .sort(
+      (a, b) =>
+        Number(!!a.lane.last) - Number(!!b.lane.last) ||
+        startOf(a.rows[0]).localeCompare(startOf(b.rows[0])) ||
+        a.lane.id.localeCompare(b.lane.id),
+    );
 
   const items: TimelineItem[] = [];
   let y = 0;
@@ -145,7 +150,10 @@ export function summarizeEpics(nodes: readonly GraphNode[], timeline: ReadonlyMa
   }
   const envelope = (spans: Span[]): Span => ({ start: minDay(...spans.map((s) => s.start)), end: maxDay(...spans.map((s) => s.end)) });
   return new Map(
-    [...children].map(([uid, es]) => [uid, { projected: envelope(es.map((e) => e.projected)), work: envelope(es.map(workSpan)), children: es.length }]),
+    [...children].map(([uid, es]) => [
+      uid,
+      { projected: envelope(es.map((e) => e.projected)), work: envelope(es.map(workSpan)), children: es.length },
+    ]),
   );
 }
 
@@ -155,7 +163,15 @@ export const isEpicNode = (n: GraphNode): boolean => n.epic?.uid === n.uid;
  * What a row actually draws, for anchoring arrows: an epic with loaded children draws its
  * children's envelope; an epic without them, like a ghost, draws no bar, so it has no position.
  */
-export function drawnBar(node: GraphNode, entry: TimelineEntry, summary: EpicSummary | undefined): { entry: TimelineEntry; positionless: boolean } {
-  if (summary) return { entry: { ...entry, projected: summary.projected, progress: { state: "not-started", forecast: summary.work } }, positionless: false };
+export function drawnBar(
+  node: GraphNode,
+  entry: TimelineEntry,
+  summary: EpicSummary | undefined,
+): { entry: TimelineEntry; positionless: boolean } {
+  if (summary)
+    return {
+      entry: { ...entry, projected: summary.projected, progress: { state: "not-started", forecast: summary.work } },
+      positionless: false,
+    };
   return { entry, positionless: node.ghost || isEpicNode(node) };
 }

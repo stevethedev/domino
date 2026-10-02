@@ -10,13 +10,19 @@ describe("guards", () => {
   it("defined passes values through (including falsy ones) and throws on null/undefined", () => {
     expect(defined(0, "zero")).toBe(0);
     expect(defined("", "empty")).toBe("");
-    expect(() => { defined(undefined, "the row"); }).toThrow("Expected the row to be defined");
-    expect(() => { defined(null, "the row"); }).toThrow("Expected the row to be defined");
+    expect(() => {
+      defined(undefined, "the row");
+    }).toThrow("Expected the row to be defined");
+    expect(() => {
+      defined(null, "the row");
+    }).toThrow("Expected the row to be defined");
   });
 
   it("getOrThrow returns present entries and throws on missing keys", () => {
     const m = new Map([["a", 1]]);
     expect(getOrThrow(m, "a")).toBe(1);
-    expect(() => { getOrThrow(m, "b"); }).toThrow("map entry b");
+    expect(() => {
+      getOrThrow(m, "b");
+    }).toThrow("map entry b");
   });
 });

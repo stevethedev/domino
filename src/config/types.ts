@@ -25,8 +25,4 @@ export type DominoConfig = {
 
 export type OAuthStatus = { appConfigured: boolean; connected: boolean };
 
-export type HealthStatus =
-  | { state: "unknown" }
-  | { state: "checking" }
-  | { state: "ok" }
-  | { state: "error"; message: string };
+export type HealthStatus = { state: "unknown" } | { state: "checking" } | { state: "ok" } | { state: "error"; message: string };

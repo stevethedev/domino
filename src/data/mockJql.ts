@@ -65,7 +65,10 @@ export function parseMockJql(jql: string): MockClause[] {
     return {
       field,
       negate: op === "!=" || op === "not in",
-      values: list.split(",").map((v) => v.trim().replace(/^"|"$/g, "").toLowerCase()).filter(Boolean),
+      values: list
+        .split(",")
+        .map((v) => v.trim().replace(/^"|"$/g, "").toLowerCase())
+        .filter(Boolean),
     };
   });
 }

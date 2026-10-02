@@ -36,7 +36,13 @@ export function issue(key: string, cat: RawStatusCategoryKey = "new", summary = 
 }
 
 /** Adds a native link on both issues exactly as Jira returns it. Pass `null` for an issue that isn't loaded. */
-export function link(id: string, type: RawLinkType, outward: RawIssue, inward: RawIssue, loaded: { out: boolean; in: boolean } = { out: true, in: true }): void {
+export function link(
+  id: string,
+  type: RawLinkType,
+  outward: RawIssue,
+  inward: RawIssue,
+  loaded: { out: boolean; in: boolean } = { out: true, in: true },
+): void {
   const ref = (i: RawIssue): RawLinkedIssue => ({
     id: i.id,
     key: i.key,

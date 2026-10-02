@@ -5,7 +5,10 @@ import { combineJql } from "./jqlPresets";
 import { matchesMockJql, parseMockJql } from "./mockJql";
 
 /** Runs `fn` as an async method body would: a throw becomes a rejection, never a synchronous exception. */
-const settle = <T,>(fn: () => T): Promise<T> => new Promise((resolve) => { resolve(fn()); });
+const settle = <T>(fn: () => T): Promise<T> =>
+  new Promise((resolve) => {
+    resolve(fn());
+  });
 
 /** In-memory JiraSource over fixture data. `failSites` simulate a site that is down. */
 export class FixtureSource implements JiraSource {

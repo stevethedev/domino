@@ -21,7 +21,12 @@ const CATS = {
   done: { id: 3, key: "done", name: "Done", colorName: "green" },
 };
 const STATUS = {
-  Backlog: "todo", "To Do": "todo", "In Progress": "prog", "In Review": "prog", Done: "done", Closed: "done",
+  Backlog: "todo",
+  "To Do": "todo",
+  "In Progress": "prog",
+  "In Review": "prog",
+  Done: "done",
+  Closed: "done",
 };
 
 const SITES = {
@@ -35,7 +40,14 @@ const ISSUES = {
     ["CORE-1", "Epic", "In Progress", "Checkout v2", "Dana Whitfield", null],
     ["CORE-7", "Story", "In Progress", "Rate limiter for public API", "Priya Raman", 5],
     // Deliberately long, with an unbroken path: summaries like this must truncate, not overflow.
-    ["CORE-8", "Task", "To Do", "Expose rate-limit headers (X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset) to clients via src/api/middleware/rateLimitHeadersMiddlewareForPartnerAndMobileSdkClients.ts so SDKs can back off before 429s", "Marcus Lee", 2],
+    [
+      "CORE-8",
+      "Task",
+      "To Do",
+      "Expose rate-limit headers (X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset) to clients via src/api/middleware/rateLimitHeadersMiddlewareForPartnerAndMobileSdkClients.ts so SDKs can back off before 429s",
+      "Marcus Lee",
+      2,
+    ],
     ["CORE-10", "Story", "To Do", "Accept partner payment tokens in checkout", "Dana Whitfield", 8, "CORE-1"],
     ["CORE-11", "Story", "To Do", "Persist tokenized cards on the order", "Priya Raman", 5, "CORE-1"],
     // Sub-task: its parent is a story, so its epic (CORE-1) is found through CORE-11.
@@ -163,7 +175,11 @@ const at = (offsetDays, hour = 15) => new Date(GENERATED_ON.getTime() + offsetDa
 const jiraDateTime = (d) => d.toISOString().replace("Z", "+0000");
 
 const ISSUE_TYPES = {
-  Epic: "10000", Story: "10001", Task: "10002", Bug: "10003", "Sub-task": "10004",
+  Epic: "10000",
+  Story: "10001",
+  Task: "10002",
+  Bug: "10003",
+  "Sub-task": "10004",
 };
 const HIERARCHY = { Epic: 1, "Sub-task": -1 };
 
@@ -210,7 +226,9 @@ function build(site) {
         resolutiondate: TIMES[site][key]?.done !== undefined ? jiraDateTime(at(TIMES[site][key].done)) : null,
         duedate: TIMES[site][key]?.due !== undefined ? at(TIMES[site][key].due).toISOString().slice(0, 10) : null,
         // Created a week before work started, or per TIMES, or 10 days ago.
-        created: jiraDateTime(at(TIMES[site][key]?.created ?? (TIMES[site][key]?.start !== undefined ? TIMES[site][key].start - 7 : -10), 9)),
+        created: jiraDateTime(
+          at(TIMES[site][key]?.created ?? (TIMES[site][key]?.start !== undefined ? TIMES[site][key].start - 7 : -10), 9),
+        ),
         parent: parent ? linkedIssueRef(site, rows.get(parent)) : undefined,
         issuelinks: [],
       },
@@ -249,7 +267,9 @@ function build(site) {
       histories.push({
         id: String(histories.length + 1),
         created: jiraDateTime(at(offset, 10)),
-        items: [{ field: "status", fieldtype: "jira", fieldId: "status", from: statusId(from), fromString: from, to: statusId(to), toString: to }],
+        items: [
+          { field: "status", fieldtype: "jira", fieldId: "status", from: statusId(from), fromString: from, to: statusId(to), toString: to },
+        ],
       });
     change(t.start, "To Do", "In Progress");
     if (t.review !== undefined) change(t.review, "In Progress", "In Review");
@@ -265,7 +285,16 @@ const statuses = Object.keys(STATUS).map((name) => ({ ...statusObj(name), status
 
 for (const site of Object.keys(SITES)) {
   const myself = { ...user(ME), emailAddress: "jonas.berg@example.com", active: true };
-  writeFileSync(join(out, `${site}.json`), JSON.stringify({ generatedOn: GENERATED_ON.toISOString().slice(0, 10), ...build(site), statuses, myself }, null, 2) + "\n");
+  writeFileSync(
+    join(out, `${site}.json`),
+    JSON.stringify({ generatedOn: GENERATED_ON.toISOString().slice(0, 10), ...build(site), statuses, myself }, null, 2) + "\n",
+  );
 }
 writeFileSync(join(out, "linkTypes.json"), JSON.stringify(linkTypes, null, 2) + "\n");
-console.log("wrote", Object.keys(SITES).map((s) => `${s}.json`).join(", "), "linkTypes.json");
+console.log(
+  "wrote",
+  Object.keys(SITES)
+    .map((s) => `${s}.json`)
+    .join(", "),
+  "linkTypes.json",
+);

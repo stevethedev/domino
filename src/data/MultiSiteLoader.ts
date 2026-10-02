@@ -16,9 +16,7 @@ export type Scope =
 
 export type SiteError = { siteId: string; message: string };
 
-export type LoadResult =
-  | { kind: "ok"; data: RawSiteData[]; errors: SiteError[] }
-  | { kind: "overCap"; count: number; errors: SiteError[] };
+export type LoadResult = { kind: "ok"; data: RawSiteData[]; errors: SiteError[] } | { kind: "overCap"; count: number; errors: SiteError[] };
 
 export type LoaderOptions = { maxNodes?: number; perSiteConcurrency?: number; keyBatchSize?: number };
 
@@ -30,7 +28,12 @@ class OverCap extends Error {
   }
 }
 
-type SiteState = { site: SiteConfig; issues: Map<string, RawIssue>; remoteLinks: Record<string, RawRemoteLink[]>; linkTypes: RawLinkType[] };
+type SiteState = {
+  site: SiteConfig;
+  issues: Map<string, RawIssue>;
+  remoteLinks: Record<string, RawRemoteLink[]>;
+  linkTypes: RawLinkType[];
+};
 type Ref = { siteId: string; key: string };
 
 /**
@@ -43,7 +46,10 @@ export class MultiSiteLoader {
   private readonly perSite: number;
   private readonly batch: number;
 
-  constructor(private readonly source: JiraSource, opts: LoaderOptions = {}) {
+  constructor(
+    private readonly source: JiraSource,
+    opts: LoaderOptions = {},
+  ) {
     this.maxNodes = opts.maxNodes ?? 300;
     this.perSite = opts.perSiteConcurrency ?? 4;
     this.batch = opts.keyBatchSize ?? 50;
@@ -111,7 +117,10 @@ class LoadRun {
     await Promise.all(
       [...this.states.values()].map(async ({ site }) => {
         const q = combineJql(site.baseJql ?? "", jql);
-        if (!q) {  this.fail(site.id, "Nothing to load: type a query above, or set this site's \"Always filter by\" JQL in Settings");; return; }
+        if (!q) {
+          this.fail(site.id, 'Nothing to load: type a query above, or set this site\'s "Always filter by" JQL in Settings');
+          return;
+        }
         await this.guard(site.id, async () => {
           const issues = await this.call(site.id, () => this.source.fetchByJql(site.id, q, this.maxNodes + 1));
           this.checkCap(issues.length);

@@ -52,7 +52,11 @@ describe("timeline on the mock data", () => {
       return p.state === "done" ? p.actual.end : p.forecast.end;
     };
     // Each link in the chain finishes after its blocker.
-    for (const [a, b] of [["partner:PAY-2", "partner:PAY-3"], ["partner:PAY-3", "acme:CORE-10"], ["acme:CORE-10", "acme:CORE-11"]]) {
+    for (const [a, b] of [
+      ["partner:PAY-2", "partner:PAY-3"],
+      ["partner:PAY-3", "acme:CORE-10"],
+      ["acme:CORE-10", "acme:CORE-11"],
+    ]) {
       expect(end(b) > end(a), `${b} after ${a}`).toBe(true);
     }
   });

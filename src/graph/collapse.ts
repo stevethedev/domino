@@ -57,7 +57,8 @@ export function collapseEpics(graph: Graph, insights: Insights, expanded: Readon
     };
     // With no loaded children, the epic's own status is the best signal.
     const category = ms.length ? rollupCategory(ms) : (epic?.statusCategory ?? "todo");
-    const statusName = !ms.length && epic ? epic.statusName : category === "done" ? "Done" : category === "inprogress" ? "In Progress" : "To Do";
+    const statusName =
+      !ms.length && epic ? epic.statusName : category === "done" ? "Done" : category === "inprogress" ? "In Progress" : "To Do";
     return {
       uid: summaryUid(epicUid),
       siteId: site.siteId,

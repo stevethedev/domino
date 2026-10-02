@@ -23,7 +23,9 @@ export function toStatusHistory(
   siteId: string,
 ): Map<string, StatusChange[]> {
   const uidById = new Map(nodes.flatMap((n): [string, string][] => (n.siteId === siteId && n.jiraId ? [[n.jiraId, n.uid]] : [])));
-  const categorized = statuses.flatMap((s) => (s.statusCategory ? [{ id: s.id, name: s.name, category: CATEGORY[s.statusCategory.key] }] : []));
+  const categorized = statuses.flatMap((s) =>
+    s.statusCategory ? [{ id: s.id, name: s.name, category: CATEGORY[s.statusCategory.key] }] : [],
+  );
   const byId = new Map(categorized.map((s) => [s.id, s.category]));
   const byName = new Map(categorized.map((s) => [s.name.toLowerCase(), s.category]));
   const out = new Map<string, StatusChange[]>();
@@ -35,7 +37,10 @@ export function toStatusHistory(
         h.items
           .filter((i) => i.fieldId === "status" || i.field?.toLowerCase() === "status")
           // `toString` is also an inherited Object member, so check it's really a string field.
-          .map((i) => ({ created: h.created, category: (i.to && byId.get(i.to)) ?? byName.get((typeof i.toString === "string" ? i.toString : "").toLowerCase()) })),
+          .map((i) => ({
+            created: h.created,
+            category: (i.to && byId.get(i.to)) ?? byName.get((typeof i.toString === "string" ? i.toString : "").toLowerCase()),
+          })),
       )
       .filter((c): c is { created: string | number; category: StatusCategory } => c.category !== undefined)
       .map((c) => ({ at: toDay(c.created), toCategory: c.category, sortKey: new Date(c.created).getTime() }))

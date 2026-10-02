@@ -14,16 +14,14 @@ React UI  ──invoke()──▶  Rust core (src-tauri)  ──▶  JiraBackend
 
 Requires Node 20+ and a Rust toolchain (`rustup`). On Linux you also need Tauri's system packages (webkit2gtk and friends).
 
-| Command | What it does |
-|---|---|
-| `npm install` | Installs JS deps |
-| `npm run dev` | Opens the desktop app (`tauri dev`). Mock data by default; switch to live Jira in Settings |
-| `npm run dev:web` | Browser preview at http://localhost:1420. Answers IPC from fixtures via `@tauri-apps/api/mocks`. For UI checks and Playwright only; never shipped |
-| `npm test` | Vitest (graph logic, loader, layout) |
-| `npm run check` | Everything CI would check: types (`tsc`), lint (oxlint, type-aware, no warnings allowed), formatting (Prettier) and unused files, exports and dependencies (knip) |
-| `npm run fix` | Applies Prettier formatting and oxlint autofixes |
-| `cd src-tauri && cargo test` | Rust tests (config, mock backend, HTTP backend and OAuth against wiremock) |
-| `npm run tauri build` | Release build and installer |
+| Command                      | What it does                                                                                                                                      |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm install`                | Installs JS deps                                                                                                                                  |
+| `npm run dev`                | Opens the desktop app (`tauri dev`). Mock data by default; switch to live Jira in Settings                                                        |
+| `npm run dev:web`            | Browser preview at http://localhost:1420. Answers IPC from fixtures via `@tauri-apps/api/mocks`. For UI checks and Playwright only; never shipped |
+| `npm test`                   | Vitest (graph logic, loader, layout)                                                                                                              |
+| `cd src-tauri && cargo test` | Rust tests (config, mock backend, HTTP backend and OAuth against wiremock)                                                                        |
+| `npm run tauri build`        | Release build and installer                                                                                                                       |
 
 ### Simulating a failing site
 
@@ -39,11 +37,11 @@ The failing site's error appears in a banner and the other sites still render. I
 
 The app keeps its config in the OS app-config directory:
 
-| OS | Path |
-|---|---|
-| macOS | `~/Library/Application Support/org.change.domino/domino.config.json` |
-| Windows | `%APPDATA%\org.change.domino\domino.config.json` |
-| Linux | `~/.config/org.change.domino/domino.config.json` |
+| OS      | Path                                                                 |
+| ------- | -------------------------------------------------------------------- |
+| macOS   | `~/Library/Application Support/org.change.domino/domino.config.json` |
+| Windows | `%APPDATA%\org.change.domino\domino.config.json`                     |
+| Linux   | `~/.config/org.change.domino/domino.config.json`                     |
 
 On first run it is seeded from `fixtures/mock/config.json`. Settings (⚙) edits it through the `save_config` command, which validates the file and writes it atomically (temp file + rename). You can also edit it by hand while the app is closed.
 
@@ -51,20 +49,26 @@ On first run it is seeded from `fixtures/mock/config.json`. Settings (⚙) edits
 {
   "sites": [
     {
-      "id": "acme",                        // unique slug, used in uids ("acme:CORE-7")
-      "label": "Acme",                     // shown in the UI
+      "id": "acme", // unique slug, used in uids ("acme:CORE-7")
+      "label": "Acme", // shown in the UI
       "baseUrl": "https://acme.atlassian.net",
-      "cloudId": "…",                      // optional; filled in automatically (Phase 2, OAuth)
+      "cloudId": "…", // optional; filled in automatically (Phase 2, OAuth)
       "auth": { "type": "apiToken", "email": "bot@acme.example", "secretRef": "DOMINO_ACME_TOKEN" },
-      "color": "#7c3aed",                  // site badge / swimlane / minimap tint
+      "color": "#7c3aed", // site badge / swimlane / minimap tint
       "enabled": true,
-      "baseJql": "project in (CORE, WEB)"   // "Always filter by": ANDed onto every search on this site
+      "baseJql": "project in (CORE, WEB)", // "Always filter by": ANDed onto every search on this site
     },
-    { "id": "partner", "label": "Partner", "baseUrl": "https://partner.atlassian.net",
-      "auth": { "type": "oauth3lo" }, "color": "#c2410c", "enabled": true }
+    {
+      "id": "partner",
+      "label": "Partner",
+      "baseUrl": "https://partner.atlassian.net",
+      "auth": { "type": "oauth3lo" },
+      "color": "#c2410c",
+      "enabled": true,
+    },
   ],
   "defaultSiteIds": ["acme", "partner"],
-  "backend": "mock"                        // "mock" (fixtures) or "jira" (live REST v3); default "mock"
+  "backend": "mock", // "mock" (fixtures) or "jira" (live REST v3); default "mock"
 }
 ```
 
@@ -74,29 +78,29 @@ Anyone using the app can change its config. It is a single-user desktop app, so 
 
 The config never holds a secret. `secretRef` only names one.
 
-- **API token auth:** the token is stored in the **OS keychain** (service `domino`, account = `secretRef`). Paste it into Settings → Edit site → *API token*. The field is write-only: the value goes straight to Rust and is never read back into the UI.
+- **API token auth:** the token is stored in the **OS keychain** (service `domino`, account = `secretRef`). Paste it into Settings → Edit site → _API token_. The field is write-only: the value goes straight to Rust and is never read back into the UI.
 - **Environment override (development/CI):** if an env var named after the `secretRef` exists (e.g. `DOMINO_ACME_TOKEN=…`), it takes precedence over the keychain. GUI apps on macOS don't inherit your shell's environment, so launch with `npm run dev` from that shell.
 - Tokens are never logged or returned to the webview.
 
-| Auth type | What you need |
-|---|---|
+| Auth type  | What you need                                                                                                            |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------ |
 | `apiToken` | `email` + an [Atlassian API token](https://id.atlassian.com/manage-profile/security/api-tokens) stored under `secretRef` |
-| `oauth3lo` | An OAuth 2.0 (3LO) app (see below). Client id/secret and refresh tokens are kept in the keychain |
+| `oauth3lo` | An OAuth 2.0 (3LO) app (see below). Client id/secret and refresh tokens are kept in the keychain                         |
 
 Keychain entries Domino uses (each can be overridden by an env var of the same name):
 
-| Entry | Holds |
-|---|---|
-| *your `secretRef`*, e.g. `DOMINO_ACME_TOKEN` | API token for an `apiToken` site |
-| `DOMINO_OAUTH_CLIENT_ID` / `DOMINO_OAUTH_CLIENT_SECRET` | OAuth app credentials |
-| `DOMINO_OAUTH_REFRESH_TOKEN` | Refresh token from **Connect** (rotated on every refresh; set only by Connect/Disconnect) |
+| Entry                                                   | Holds                                                                                     |
+| ------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| _your `secretRef`_, e.g. `DOMINO_ACME_TOKEN`            | API token for an `apiToken` site                                                          |
+| `DOMINO_OAUTH_CLIENT_ID` / `DOMINO_OAUTH_CLIENT_SECRET` | OAuth app credentials                                                                     |
+| `DOMINO_OAUTH_REFRESH_TOKEN`                            | Refresh token from **Connect** (rotated on every refresh; set only by Connect/Disconnect) |
 
 ## OAuth 2.0 (3LO) app setup
 
 1. Go to https://developer.atlassian.com/console/myapps/ → **Create → OAuth 2.0 integration**.
 2. **Permissions → Jira API:** add the scopes `read:jira-work`, `read:jira-user` and `offline_access` (needed for refresh tokens).
 3. **Authorization → Callback URL:** `http://127.0.0.1:53682/callback`.
-4. Copy the **Client ID** and **Secret** into Domino Settings → *Data source* → *OAuth 2.0 (3LO) app* and click **Save app credentials**. They are stored in the keychain (`DOMINO_OAUTH_CLIENT_ID` / `DOMINO_OAUTH_CLIENT_SECRET`, which env vars can also override).
+4. Copy the **Client ID** and **Secret** into Domino Settings → _Data source_ → _OAuth 2.0 (3LO) app_ and click **Save app credentials**. They are stored in the keychain (`DOMINO_OAUTH_CLIENT_ID` / `DOMINO_OAUTH_CLIENT_SECRET`, which env vars can also override).
 5. Click **Connect with Atlassian**. One sign-in covers every site your account can access. Domino opens the system browser to Atlassian's consent page and listens once on the loopback port, checking `state`. It exchanges the code, stores the refresh token in the keychain, and discovers the site's `cloudId` via `https://api.atlassian.com/oauth/token/accessible-resources` (matched on `baseUrl`). Requests then go to `https://api.atlassian.com/ex/jira/{cloudId}/rest/api/3/...`.
 
 A desktop app can't truly keep a client secret. Anyone with the binary and keychain access could extract it, which is why it's entered per user rather than compiled in.
@@ -125,23 +129,24 @@ What `HttpBackend` does:
 
 - **Identity:** every node is `uid = ${siteId}:${key}`, so `CORE-7` on two sites is two nodes.
 - **Links:** Jira stores each link on both issues. Domino converts each to the outward direction (blocker → blocked) and dedupes by `siteId + linkId`.
-- **Cross-site links:** remote links whose URL is `{baseUrl}/browse/{KEY}` for a configured site become edges (marked ⇄). The `relationship` text is matched against link-type outward and inward names ("is blocked by" flips direction); unknown text becomes *relates to*. Reciprocal remote links collapse into one edge on (source, target, type). Jira URLs on sites that aren't configured become ghosts labeled with the host. Other URLs are ignored.
+- **Cross-site links:** remote links whose URL is `{baseUrl}/browse/{KEY}` for a configured site become edges (marked ⇄). The `relationship` text is matched against link-type outward and inward names ("is blocked by" flips direction); unknown text becomes _relates to_. Reciprocal remote links collapse into one edge on (source, target, type). Jira URLs on sites that aren't configured become ghosts labeled with the host. Other URLs are ignored.
 - **Ghosts:** linked issues outside the loaded scope render dimmed and dashed, with an "Outside scope" label. Their own links aren't loaded. Ghosts with unknown status count as open blockers.
 - **Scope: two layers of JQL.**
-  1. **Site filter** ("Always filter by", `baseJql` in `domino.config.json`) is part of the connection. It is ANDed onto *every* search Domino runs on that site: JQL mode, epic children, and linked issues fetched in Epic and Seed modes. Linked issues it excludes still appear as ghosts. The epic or seed issue you ask for directly always loads. Older configs named this `defaultJql`, and they're still read.
-  2. **Query** (the top-bar box) is per view and applies to every selected site. It's remembered on this machine between launches. **Presets…** fills it with one click: *Open with blocking links (30 days)* (the starting query: `statusCategory != Done AND issueLinkType in (blocks, "is blocked by") AND updated >= -30d`), *Open, updated in 14 days*, *Open in current sprint*, *Assigned to me, not done*, or empty (everything the site filter allows). Presets live in `src/data/jqlPresets.ts`.
+  1. **Site filter** ("Always filter by", `baseJql` in `domino.config.json`) is part of the connection. It is ANDed onto _every_ search Domino runs on that site: JQL mode, epic children, and linked issues fetched in Epic and Seed modes. Linked issues it excludes still appear as ghosts. The epic or seed issue you ask for directly always loads. Older configs named this `defaultJql`, and they're still read.
+  2. **Query** (the top-bar box) is per view and applies to every selected site. It's remembered on this machine between launches. **Presets…** fills it with one click: _Open with blocking links (30 days)_ (the starting query: `statusCategory != Done AND issueLinkType in (blocks, "is blocked by") AND updated >= -30d`), _Open, updated in 14 days_, _Open in current sprint_, _Assigned to me, not done_, or empty (everything the site filter allows). Presets live in `src/data/jqlPresets.ts`.
 
   Each site runs `(site filter) AND (query)`. Hover the query box to see the exact JQL per site. `issueLinkType` only sees native links, so an issue linked only through remote (cross-site) links drops out of the blocking-links preset, although it still appears as a ghost when a loaded issue links to it.
+
 - **Cap:** more than 300 nodes, ghosts included, stops the load and asks you to narrow the scope.
 - **Cycles:** found with Tarjan's SCC algorithm, drawn in red, listed under Warnings. A DFS back edge in each cycle is left out of layout and critical path, and drawn as a loop underneath.
 - **Layout:** ELK layered, left to right, using only blocks edges, so blockers always sit left of what they block.
 - **Group by** (None / Site / Epic / Assignee) draws labeled swimlanes and keeps ELK's global x order. Separate ELK containers can't keep that order when groups block each other in both directions.
-  - *Site:* one lane per site. Ghosts on unconfigured Jira sites get a lane named after the host.
-  - *Epic:* one lane per epic. The lane header opens the epic in Jira.
+  - _Site:_ one lane per site. Ghosts on unconfigured Jira sites get a lane named after the host.
+  - _Epic:_ one lane per epic. The lane header opens the epic in Jira.
     - An issue's epic is its `parent` when that parent is an epic (`hierarchyLevel` 1, or type "Epic"). An epic sits in its own lane.
     - Sub-tasks inherit their story's epic when the story is loaded.
     - Older company-managed projects fall back to the legacy "Epic Link" field (`customfield_10014`).
-    - Issues without an epic go in a *No epic* lane, and ghosts in *Outside scope*. Both lanes come last.
+    - Issues without an epic go in a _No epic_ lane, and ghosts in _Outside scope_. Both lanes come last.
     - Epic keys are site-qualified, so the same key on two sites is two lanes.
 
 ## Finding your way around
@@ -149,11 +154,11 @@ What `HttpBackend` does:
 - **At a glance** (top of the sidebar): counts of **Blocked**, **Ready**, **Critical path** and **Cycles** for the loaded scope. Click a count to highlight those issues in either view; click it again to clear. The insights are computed once per load in `src/graph/insights.ts`.
 - **Assigned to me / Reported by me** (under At a glance): the same tiles, counting only loaded issues assigned to or reported by you. "You" is asked from each site once (`GET /rest/api/3/myself`, covered by the `read:jira-user` scope) and matched by account id on that issue's own site; a site that can't answer is named under the tiles and its issues aren't counted. Clicking a tile highlights just your matching issues in either view (`emphasis` with a `HighlightScope` in `src/graph/insights.ts`; matching in `src/graph/mine.ts`). The mock data's signed-in user is Jonas Berg.
 - **Finish first** (under At a glance): the five open issues whose completion unblocks the most open work. That's distinct open, in-scope issues downstream through blocking links, at any depth and across sites; Done issues are passed through but not counted. Click one to show it and trace its chain.
-- **Group by Assignee:** one lane per person, matched by display name so the same person on two sites shares a lane. Each lane header says how many of *other people's* open issues are waiting downstream of that person's work ("Noor · holding up 7"). Unassigned issues and ghosts get their own lanes at the end.
-- **Aging** (in At a glance, and ⏳ badges on cards and timeline rows). An issue is *stuck* when it has been in progress for more than twice its estimate in working days; the estimate uses the same days-per-point setting as the Timeline. It is *waiting* when it has an open blocker and no status change (or, if it never moved, no creation) for 5+ working days. Epics, Done issues and ghosts are never flagged, and issues without the dates to judge are left out. Rules and thresholds live in `src/graph/aging.ts`. Status history now loads after every graph load (one bulk request per site), and `created` is requested with each search.
-- **Epic map** (View → *Epic map*, graph view). Each epic becomes one summary card showing done/total with a progress bar, blocked and aging counts. Links between epics are combined into one arrow per direction, labelled "*N* links · *M* open", where open means the blocker isn't Done. Links inside an epic are hidden; issues without an epic and ghosts stay as they are. Click an epic to expand it into its own lane, and use the lane's *Collapse* button to fold it back. Quick find and Finish first expand an epic automatically when you jump to an issue inside it. Cycles are recomputed between epics. The transform is `src/graph/collapse.ts`.
-- **Since you last looked** (sidebar). Each scope (selected sites plus query or mode) keeps a small local snapshot: each issue's status category, whether it's blocked, its aging state, and the blocking links. On load Domino compares against it and lists issues that are *newly blocked*, *unblocked*, *done*, *newly aging*, *new* in scope or *status moved*, plus new blocking links and issues that left the scope. Click the summary to highlight changed issues; changed cards and rows also carry a tag. **Mark as seen** moves the baseline forward. A scope's first visit records the baseline silently, after status history loads so aging isn't reported as new. Up to 12 scopes are remembered. The logic is in `src/graph/changes.ts`; the storage is in `src/state/useChanges.ts`.
-- **Saved views** (top bar, *Views*). Save the current sites, query or mode, link filters, Group by, highlight, epic map and Graph/Timeline under a name, then apply it again in one click. Saving under an existing name updates that view. Views are stored on this machine (up to 30) and validated when read back; see `src/state/savedViews.ts`.
+- **Group by Assignee:** one lane per person, matched by display name so the same person on two sites shares a lane. Each lane header says how many of _other people's_ open issues are waiting downstream of that person's work ("Noor · holding up 7"). Unassigned issues and ghosts get their own lanes at the end.
+- **Aging** (in At a glance, and ⏳ badges on cards and timeline rows). An issue is _stuck_ when it has been in progress for more than twice its estimate in working days; the estimate uses the same days-per-point setting as the Timeline. It is _waiting_ when it has an open blocker and no status change (or, if it never moved, no creation) for 5+ working days. Epics, Done issues and ghosts are never flagged, and issues without the dates to judge are left out. Rules and thresholds live in `src/graph/aging.ts`. Status history now loads after every graph load (one bulk request per site), and `created` is requested with each search.
+- **Epic map** (View → _Epic map_, graph view). Each epic becomes one summary card showing done/total with a progress bar, blocked and aging counts. Links between epics are combined into one arrow per direction, labelled "_N_ links · _M_ open", where open means the blocker isn't Done. Links inside an epic are hidden; issues without an epic and ghosts stay as they are. Click an epic to expand it into its own lane, and use the lane's _Collapse_ button to fold it back. Quick find and Finish first expand an epic automatically when you jump to an issue inside it. Cycles are recomputed between epics. The transform is `src/graph/collapse.ts`.
+- **Since you last looked** (sidebar). Each scope (selected sites plus query or mode) keeps a small local snapshot: each issue's status category, whether it's blocked, its aging state, and the blocking links. On load Domino compares against it and lists issues that are _newly blocked_, _unblocked_, _done_, _newly aging_, _new_ in scope or _status moved_, plus new blocking links and issues that left the scope. Click the summary to highlight changed issues; changed cards and rows also carry a tag. **Mark as seen** moves the baseline forward. A scope's first visit records the baseline silently, after status history loads so aging isn't reported as new. Up to 12 scopes are remembered. The logic is in `src/graph/changes.ts`; the storage is in `src/state/useChanges.ts`.
+- **Saved views** (top bar, _Views_). Save the current sites, query or mode, link filters, Group by, highlight, epic map and Graph/Timeline under a name, then apply it again in one click. Saving under an existing name updates that view. Views are stored on this machine (up to 30) and validated when read back; see `src/state/savedViews.ts`.
 - **Quick find** (top bar): type a key or part of a summary to jump to the issue in the current view. Exact and prefix key matches come first.
 - **Semantic zoom:** below 60% zoom, graph cards switch to a compact form (key, status, blocker count) that stays readable.
 - **Keyboard:** `/` or ⌘K / Ctrl+K opens quick find. `g` and `t` switch to Graph and Timeline. Tab moves between cards and rows; Enter opens the issue in Jira.
@@ -162,20 +167,20 @@ What `HttpBackend` does:
 
 **Graph / Timeline** in the top bar switches between the dependency graph and a projected-vs-actual timeline of the same loaded issues. Sites, query, link filters, Group by, Critical path and What's ready all apply to both views.
 
-| On each row | Meaning |
-|---|---|
-| Dashed outline | **Projected**: the issue's estimate laid out in working days. Started issues begin at their real start. Unstarted issues begin when their blockers are projected to finish, never before *Unstarted from* (default today). |
-| Solid bar | **Actual**: from the first move out of To Do to the resolved date, or to today if still open |
-| Dotted bar | **Forecast**: the remaining work from today. A late blocker pushes its dependents' forecasts. |
-| Badge | Variance in working days between projected and actual/forecast end (`+3d late`, `2d early`, `on track`) |
-| ◆ | Jira due date; red when the forecast misses it |
-| Purple bar | Epic summary spanning its loaded children |
+| On each row    | Meaning                                                                                                                                                                                                                    |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Dashed outline | **Projected**: the issue's estimate laid out in working days. Started issues begin at their real start. Unstarted issues begin when their blockers are projected to finish, never before _Unstarted from_ (default today). |
+| Solid bar      | **Actual**: from the first move out of To Do to the resolved date, or to today if still open                                                                                                                               |
+| Dotted bar     | **Forecast**: the remaining work from today. A late blocker pushes its dependents' forecasts.                                                                                                                              |
+| Badge          | Variance in working days between projected and actual/forecast end (`+3d late`, `2d early`, `on track`)                                                                                                                    |
+| ◆              | Jira due date; red when the forecast misses it                                                                                                                                                                             |
+| Purple bar     | Epic summary spanning its loaded children                                                                                                                                                                                  |
 
-- **Estimates:** story points × *Days / point* (default 1). Unpointed issues use *Unpointed* days (default 2). Weekends are skipped.
+- **Estimates:** story points × _Days / point_ (default 1). Unpointed issues use _Unpointed_ days (default 2). Weekends are skipped.
 - **Arrows:** go from a blocker's projected end to the blocked issue's projected start. They're red when work started before its blocker finished, or when they're part of a cycle.
 - **Data:** `resolutiondate` and `duedate` come with the normal search. Status history comes from `POST /rest/api/3/changelog/bulkfetch` (up to 1,000 issues per request) plus `GET /rest/api/3/status`, fetched only while the Timeline view is open.
 - **Missing history:** issues that are in progress or done without status history show "start unknown" rather than invented dates.
-- **Remembered per machine:** scale, estimates and *Unstarted from*.
+- **Remembered per machine:** scale, estimates and _Unstarted from_.
 
 Scheduling lives in `src/graph/schedule.ts` (pure, unit-tested). The UI lives in `src/ui/timeline/`.
 

@@ -2,7 +2,15 @@ import type { ReactElement } from "react";
 import type { SiteConfig } from "../config/types";
 import type { SiteError } from "../data/MultiSiteLoader";
 
-export function ErrorBanner({ errors, sites, attempted }: { errors: SiteError[]; sites: SiteConfig[]; attempted: number }): ReactElement | null {
+export function ErrorBanner({
+  errors,
+  sites,
+  attempted,
+}: {
+  errors: SiteError[];
+  sites: SiteConfig[];
+  attempted: number;
+}): ReactElement | null {
   if (errors.length === 0) return null;
   const label = (id: string): string => sites.find((s) => s.id === id)?.label ?? id;
   return (

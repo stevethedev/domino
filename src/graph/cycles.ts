@@ -87,13 +87,16 @@ function cycleOrder(members: string[], adj: Adjacency): Cycle {
  * Finds blocking cycles (any sites). Returns each cycle, the blocks edges inside cycles (for red styling),
  * and a minimal-ish set of DFS back edges whose removal makes the blocks graph acyclic.
  */
-export function findCycles(nodes: readonly GraphNode[], edges: readonly GraphEdge[]): Pick<Graph, "cycles" | "cycleEdgeIds" | "brokenEdgeIds"> {
+export function findCycles(
+  nodes: readonly GraphNode[],
+  edges: readonly GraphEdge[],
+): Pick<Graph, "cycles" | "cycleEdgeIds" | "brokenEdgeIds"> {
   const adj = blocksAdjacency(nodes, edges);
-  const comps = stronglyConnected(adj).filter(
-    (c) => c.length > 1 || (adj.get(c[0]) ?? []).some((s) => s.to === c[0]),
-  );
+  const comps = stronglyConnected(adj).filter((c) => c.length > 1 || (adj.get(c[0]) ?? []).some((s) => s.to === c[0]));
   const compOf = new Map<string, number>();
-  comps.forEach((c, i) => { c.forEach((u) => compOf.set(u, i)); });
+  comps.forEach((c, i) => {
+    c.forEach((u) => compOf.set(u, i));
+  });
 
   const cycleEdgeIds = new Set<string>();
   for (const e of edges) {

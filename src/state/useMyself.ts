@@ -25,7 +25,13 @@ type Answer = ({ accountId: string } | { error: string }) & { epoch: number };
 export function useMyself(source: JiraSource, sites: readonly SiteConfig[], backendKey: string, epoch: number | null): MyselfState {
   const [answers, setAnswers] = useState<ReadonlyMap<string, Answer>>(new Map());
   const keyOf = (siteId: string): string => `${backendKey}:${siteId}`;
-  const dueKey = epoch === null ? "" : sites.filter((s) => answers.get(keyOf(s.id))?.epoch !== epoch).map((s) => s.id).join("|");
+  const dueKey =
+    epoch === null
+      ? ""
+      : sites
+          .filter((s) => answers.get(keyOf(s.id))?.epoch !== epoch)
+          .map((s) => s.id)
+          .join("|");
   const unanswered = sites.some((s) => !answers.has(keyOf(s.id)));
 
   useEffect(() => {

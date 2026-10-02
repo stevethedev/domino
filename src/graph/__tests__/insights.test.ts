@@ -45,7 +45,6 @@ describe("computeInsights", () => {
   });
 });
 
-
 const B = site("b");
 const owned = (key: string, who: string | null, cat: "new" | "indeterminate" | "done" = "new"): RawIssue => {
   const i = issue(key, cat);
@@ -62,7 +61,10 @@ describe("unblock impact", () => {
     link("3", BLOCKS, x3, x4);
     return buildGraph({
       sites: [A, B],
-      data: [data("a", [x1, x2, x3, x4], { "X-2": [remote(9, "blocks", "https://b.atlassian.net/browse/Y-1")] }), data("b", [owned("Y-1", "Dee")])],
+      data: [
+        data("a", [x1, x2, x3, x4], { "X-2": [remote(9, "blocks", "https://b.atlassian.net/browse/Y-1")] }),
+        data("b", [owned("Y-1", "Dee")]),
+      ],
     });
   }
 
@@ -97,7 +99,21 @@ describe("laneByAssignee", () => {
   it("labels lanes with holding-up counts and puts unassigned and ghosts last", () => {
     const g = buildGraph({ sites: [A], data: [data("a", [owned("Z-1", "Ana"), owned("Z-2", null)])] });
     const lane = laneByAssignee(new Map([["Ana", 3]]));
-    expect(lane(defined(g.nodes.find((n) => n.key === "Z-1"), "node"))).toEqual({ id: "assignee:Ana", label: "Ana · holding up 3" });
-    expect(lane(defined(g.nodes.find((n) => n.key === "Z-2"), "node"))).toMatchObject({ label: "Unassigned", last: true });
+    expect(
+      lane(
+        defined(
+          g.nodes.find((n) => n.key === "Z-1"),
+          "node",
+        ),
+      ),
+    ).toEqual({ id: "assignee:Ana", label: "Ana · holding up 3" });
+    expect(
+      lane(
+        defined(
+          g.nodes.find((n) => n.key === "Z-2"),
+          "node",
+        ),
+      ),
+    ).toMatchObject({ label: "Unassigned", last: true });
   });
 });

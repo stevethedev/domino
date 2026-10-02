@@ -4,11 +4,19 @@ import { buildGraph } from "../buildGraph";
 import { mockConfig, mockLinkTypes, mockSites } from "../../data/mockData";
 
 // Mirrors the default JQL scope ("project in (...)") to check that the fixtures cover the spec's scenarios.
-const inProjects = (keys: string[]) => (k: string): boolean => keys.includes(k.split("-")[0]);
+const inProjects =
+  (keys: string[]) =>
+  (k: string): boolean =>
+    keys.includes(k.split("-")[0]);
 const g = buildGraph({
   sites: mockConfig.sites,
   data: [
-    { siteId: "acme", issues: mockSites.acme.issues.filter((i) => inProjects(["CORE", "WEB"])(i.key)), remoteLinks: mockSites.acme.remoteLinks, linkTypes: mockLinkTypes },
+    {
+      siteId: "acme",
+      issues: mockSites.acme.issues.filter((i) => inProjects(["CORE", "WEB"])(i.key)),
+      remoteLinks: mockSites.acme.remoteLinks,
+      linkTypes: mockLinkTypes,
+    },
     { siteId: "partner", issues: mockSites.partner.issues, remoteLinks: mockSites.partner.remoteLinks, linkTypes: mockLinkTypes },
   ],
 });
@@ -16,11 +24,12 @@ const g = buildGraph({
 describe("mock fixtures", () => {
   it("has about 30 issues including exactly 3 ghosts", () => {
     expect(g.nodes.length).toBeGreaterThanOrEqual(28);
-    expect(g.nodes.filter((n) => n.ghost).map((n) => n.uid).sort()).toEqual([
-      "acme:OPS-3",
-      "legacy:LEG-4",
-      "other.atlassian.net:EXT-9",
-    ]);
+    expect(
+      g.nodes
+        .filter((n) => n.ghost)
+        .map((n) => n.uid)
+        .sort(),
+    ).toEqual(["acme:OPS-3", "legacy:LEG-4", "other.atlassian.net:EXT-9"]);
   });
 
   it("contains the 5-hop chain with a partner -> acme hop", () => {

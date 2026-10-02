@@ -12,20 +12,26 @@ export function WarningsPanel({ graph, onFocusNode }: { graph: Graph; onFocusNod
   };
   return (
     <ul className="warnings-list">
-        {graph.cycles.map((cycle) => (
-          <li key={cycle.join(">")}>
-            <span className="muted">Blocking cycle: </span>
-            {cycle.map((uid) => (
-              <span key={uid}>
-                <button type="button" className="link-btn mono" onClick={() => { onFocusNode(uid); }}>
-                  {label(uid)}
-                </button>
-                {" → "}
-              </span>
-            ))}
-            <span className="mono muted">{label(cycle[0])}</span>
-          </li>
-        ))}
+      {graph.cycles.map((cycle) => (
+        <li key={cycle.join(">")}>
+          <span className="muted">Blocking cycle: </span>
+          {cycle.map((uid) => (
+            <span key={uid}>
+              <button
+                type="button"
+                className="link-btn mono"
+                onClick={() => {
+                  onFocusNode(uid);
+                }}
+              >
+                {label(uid)}
+              </button>
+              {" → "}
+            </span>
+          ))}
+          <span className="mono muted">{label(cycle[0])}</span>
+        </li>
+      ))}
     </ul>
   );
 }

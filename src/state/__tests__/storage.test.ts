@@ -42,6 +42,8 @@ describe("storage", () => {
       },
     });
     expect(readStored("k", oneOf(isColor), "red")).toBe("red");
-    expect(() => { writeStored("k", "blue"); }).not.toThrow();
+    expect(() => {
+      writeStored("k", "blue");
+    }).not.toThrow();
   });
 });

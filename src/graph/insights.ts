@@ -126,13 +126,18 @@ export function computeInsights(graph: Graph, opts?: InsightOptions): Insights {
  * Nodes and edges to keep at full strength for a highlight; `null` means nothing dims. A scoped
  * highlight keeps only the signed-in user's issues (and critical-path links between two of them).
  */
-export function emphasis(h: Highlight, insights: Insights, scope: HighlightScope = "all"): { nodes: ReadonlySet<string>; edges: ReadonlySet<string> } | null {
+export function emphasis(
+  h: Highlight,
+  insights: Insights,
+  scope: HighlightScope = "all",
+): { nodes: ReadonlySet<string>; edges: ReadonlySet<string> } | null {
   const all = emphasisForAll(h, insights);
   if (!all || scope === "all") return all;
   const only = insights.mine[scope];
   const nodes = new Set([...all.nodes].filter((uid) => only.has(uid)));
   const chain = insights.critical;
-  const edges = h === "critical" ? new Set(chain.edges.filter((_, i) => only.has(chain.nodes[i]) && only.has(chain.nodes[i + 1]))) : new Set<string>();
+  const edges =
+    h === "critical" ? new Set(chain.edges.filter((_, i) => only.has(chain.nodes[i]) && only.has(chain.nodes[i + 1]))) : new Set<string>();
   return { nodes, edges };
 }
 

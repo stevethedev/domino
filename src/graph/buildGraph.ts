@@ -95,7 +95,15 @@ function ghostFromLinked(ref: RawLinkedIssue, site: SiteConfig): GraphNode {
   };
 }
 
-function ghostUnknown(uid: string, siteId: string, siteLabel: string, key: string, url: string, title?: string, siteColor?: string): GraphNode {
+function ghostUnknown(
+  uid: string,
+  siteId: string,
+  siteLabel: string,
+  key: string,
+  url: string,
+  title?: string,
+  siteColor?: string,
+): GraphNode {
   return {
     uid,
     siteId,

@@ -17,12 +17,26 @@ export function TimelineLane({
   return (
     <div className={`tl-lane${collapsed ? " collapsed" : ""}`} style={{ top: item.y, height: LANE_HEIGHT }}>
       <div className="tl-lane-title">
-        <button type="button" className="tl-lane-toggle" aria-expanded={!collapsed} onClick={onToggle} aria-label={`${lane.label}, ${counts}`} title={collapsed ? "Show issues" : "Hide issues"}>
+        <button
+          type="button"
+          className="tl-lane-toggle"
+          aria-expanded={!collapsed}
+          onClick={onToggle}
+          aria-label={`${lane.label}, ${counts}`}
+          title={collapsed ? "Show issues" : "Hide issues"}
+        >
           <span className="sb-chevron" aria-hidden="true" />
           {!url && <span className="tl-lane-name">{lane.label}</span>}
         </button>
         {url && (
-          <button type="button" className="link-btn tl-lane-name" onClick={() => { onOpen(url); }} aria-label={`Epic ${lane.label}. Opens in browser.`}>
+          <button
+            type="button"
+            className="link-btn tl-lane-name"
+            onClick={() => {
+              onOpen(url);
+            }}
+            aria-label={`Epic ${lane.label}. Opens in browser.`}
+          >
             {lane.label} ↗
           </button>
         )}

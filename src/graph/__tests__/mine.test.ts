@@ -6,7 +6,11 @@ import { BLOCKS, data, issue, link, site } from "./helpers";
 
 const as = (i: RawIssue, assignee: string | null, reporter: string): RawIssue => ({
   ...i,
-  fields: { ...i.fields, assignee: assignee ? { accountId: assignee, displayName: assignee } : null, reporter: { accountId: reporter, displayName: reporter } },
+  fields: {
+    ...i.fields,
+    assignee: assignee ? { accountId: assignee, displayName: assignee } : null,
+    reporter: { accountId: reporter, displayName: reporter },
+  },
 });
 
 describe("myIssues", () => {
@@ -19,7 +23,13 @@ describe("myIssues", () => {
 
   it("matches assignee and reporter against the user's account on each issue's own site", () => {
     // On site b the user is someone else, so B-1 (assigned to/reported by "me") isn't theirs there.
-    const mine = myIssues(graph.nodes, new Map([["a", "me"], ["b", "other-account"]]));
+    const mine = myIssues(
+      graph.nodes,
+      new Map([
+        ["a", "me"],
+        ["b", "other-account"],
+      ]),
+    );
     expect([...mine.assigned]).toEqual(["a:A-1"]);
     expect([...mine.reported]).toEqual(["a:A-2"]);
   });

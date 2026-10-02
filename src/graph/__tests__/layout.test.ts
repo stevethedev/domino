@@ -10,7 +10,11 @@ const g = buildGraph({
   data: Object.entries(mockSites).map(([siteId, s]) => ({ siteId, ...s, linkTypes: mockLinkTypes })),
 });
 
-const MODES: [string, LaneFn | undefined][] = [["none", undefined], ["site", laneBySite], ["epic", laneByEpic]];
+const MODES: [string, LaneFn | undefined][] = [
+  ["none", undefined],
+  ["site", laneBySite],
+  ["epic", laneByEpic],
+];
 
 describe.each(MODES)("computeLayout (group by %s)", (mode, laneOf) => {
   it("places every blocker left of what it blocks and never overlaps cards", async () => {
@@ -57,7 +61,9 @@ describe("swimlanes keep the layout's rows", () => {
     const lane = (uid: string): string | undefined => getOrThrow(lanes.positions, uid).parent;
     const pairs: [string, string][] = [];
     const uids = [...flat.positions.keys()];
-    for (const a of uids) for (const b of uids) if (a < b && lane(a) === lane(b) && getOrThrow(flat.positions, a).y === getOrThrow(flat.positions, b).y) pairs.push([a, b]);
+    for (const a of uids)
+      for (const b of uids)
+        if (a < b && lane(a) === lane(b) && getOrThrow(flat.positions, a).y === getOrThrow(flat.positions, b).y) pairs.push([a, b]);
     expect(pairs.length).toBeGreaterThan(0);
     for (const [a, b] of pairs) expect(getOrThrow(lanes.positions, a).y, `${a} vs ${b}`).toBe(getOrThrow(lanes.positions, b).y);
   });
@@ -76,13 +82,21 @@ describe("swimlanes stay compact", () => {
     // At least one lane got denser than one-row-per-flat-row.
     const denser = lanes.groups.some((group) => {
       const members = [...lanes.positions].filter(([, p]) => p.parent === group.id).map(([uid]) => uid);
-      return new Set(members.map((u) => getOrThrow(lanes.positions, u).y)).size < new Set(members.map((u) => getOrThrow(flat.positions, u).y)).size;
+      return (
+        new Set(members.map((u) => getOrThrow(lanes.positions, u).y)).size <
+        new Set(members.map((u) => getOrThrow(flat.positions, u).y)).size
+      );
     });
     expect(denser).toBe(true);
   });
 
   // A link between two cards on one lane row is drawn straight along it; a third card in between would read as part of the chain.
-  const expectNoLinkOverCards = (layout: Layout, nodes: readonly GraphNode[], edges: readonly GraphEdge[], broken: ReadonlySet<string> = new Set()): void => {
+  const expectNoLinkOverCards = (
+    layout: Layout,
+    nodes: readonly GraphNode[],
+    edges: readonly GraphEdge[],
+    broken: ReadonlySet<string> = new Set(),
+  ): void => {
     const rowKey = (uid: string): string => {
       const p = getOrThrow(layout.positions, uid);
       return `${p.parent ?? ""}|${p.y}`;
@@ -102,14 +116,36 @@ describe("swimlanes stay compact", () => {
   it("never packs a card onto a skip-layer link", async () => {
     // A->C skips a layer; packing X (its own flat row) beside A and C would put it on that line.
     const node = (key: string): GraphNode => ({
-      uid: `s:${key}`, siteId: "s", siteLabel: "S", key, summary: key, issueType: "Story",
-      statusName: "To Do", statusCategory: "todo", url: "", ghost: false,
+      uid: `s:${key}`,
+      siteId: "s",
+      siteLabel: "S",
+      key,
+      summary: key,
+      issueType: "Story",
+      statusName: "To Do",
+      statusCategory: "todo",
+      url: "",
+      ghost: false,
     });
     const edge = (s: string, t: string): GraphEdge => ({
-      id: `${s}>${t}`, source: `s:${s}`, target: `s:${t}`, kind: "blocks", linkType: "blocks", linkId: `${s}>${t}`, crossSite: false,
+      id: `${s}>${t}`,
+      source: `s:${s}`,
+      target: `s:${t}`,
+      kind: "blocks",
+      linkType: "blocks",
+      linkId: `${s}>${t}`,
+      crossSite: false,
     });
     const nodes = ["A", "X", "C", "P", "Q", "R"].map(node);
-    const edges = [["A", "X"], ["X", "C"], ["A", "C"], ["P", "Q"], ["Q", "R"], ["P", "R"], ["A", "R"]].map(([s, t]) => edge(s, t));
+    const edges = [
+      ["A", "X"],
+      ["X", "C"],
+      ["A", "C"],
+      ["P", "Q"],
+      ["Q", "R"],
+      ["P", "R"],
+      ["A", "R"],
+    ].map(([s, t]) => edge(s, t));
     expectNoLinkOverCards(await computeLayout(nodes, edges, new Set(), laneBySite), nodes, edges);
   });
 

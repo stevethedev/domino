@@ -51,7 +51,14 @@ describe("working-day calendar", () => {
 
   it("uses points x days/point, or the default for unpointed issues, minimum 1", () => {
     const g = buildGraph({ sites: [A], data: [data("a", [pointed("P-1", 3), pointed("P-2", null), pointed("P-3", 0.2)])] });
-    const d = (k: string): number => durationDays(defined(g.nodes.find((n) => n.key === k), "node"), opts({ daysPerPoint: 0.5 }));
+    const d = (k: string): number =>
+      durationDays(
+        defined(
+          g.nodes.find((n) => n.key === k),
+          "node",
+        ),
+        opts({ daysPerPoint: 0.5 }),
+      );
     expect([d("P-1"), d("P-2"), d("P-3")]).toEqual([2, 2, 1]);
   });
 });
@@ -96,7 +103,11 @@ describe("computeTimeline", () => {
     const g = chainGraph([pointed("S-1", 5), pointed("S-2", 2)]);
     const t = computeTimeline(g, history({ "a:S-1": [{ at: "2026-10-05", toCategory: "inprogress" }] }), opts({ today: "2026-10-14" }));
     // 7 workdays elapsed of a 5-day estimate -> 1 more day from today.
-    expect(getOrThrow(t, "a:S-1").progress).toEqual({ state: "started", actualStart: "2026-10-05", forecast: { start: "2026-10-14", end: "2026-10-15" } });
+    expect(getOrThrow(t, "a:S-1").progress).toEqual({
+      state: "started",
+      actualStart: "2026-10-05",
+      forecast: { start: "2026-10-14", end: "2026-10-15" },
+    });
     expect(getOrThrow(t, "a:S-1").varianceDays).toBe(3); // projected end 10-12, forecast 10-15
     // The late blocker pushes the dependent's forecast.
     expect(getOrThrow(t, "a:S-2").progress).toEqual({ state: "not-started", forecast: { start: "2026-10-15", end: "2026-10-17" } });
@@ -120,7 +131,11 @@ describe("computeTimeline", () => {
   it("unstarted work inherits slip from a late blocker", () => {
     const g = chainGraph([pointed("I-1", 2), pointed("I-2", 1)]);
     // I-1 started on time but is still open well past its 2-day estimate.
-    const t = computeTimeline(g, history({ "a:I-1": [{ at: "2026-10-05", toCategory: "inprogress" }] }), opts({ today: "2026-10-12", planStart: "2026-10-12" }));
+    const t = computeTimeline(
+      g,
+      history({ "a:I-1": [{ at: "2026-10-05", toCategory: "inprogress" }] }),
+      opts({ today: "2026-10-12", planStart: "2026-10-12" }),
+    );
     expect(getOrThrow(t, "a:I-2").projected.start).toBe("2026-10-12"); // blocker's projected end is past: from planStart
     expect(getOrThrow(t, "a:I-2").varianceDays).toBe(1); // forecast waits for I-1's forecast finish (10-13)
   });
@@ -146,7 +161,9 @@ describe("toStatusHistory", () => {
     const g = chainGraph([pointed("H-1", 1)]);
     // Parsed from JSON like real payloads: the item has no own `toString`, only the inherited method.
     // oxlint-disable-next-line typescript/no-unsafe-assignment -- no typed literal can omit `toString`: RawChangeItem's string field clashes with Object#toString.
-    const logs: RawIssueChangeLog[] = JSON.parse('[{ "issueId": "H-1", "changeHistories": [{ "created": "2026-10-05T10:00:00.000+0000", "items": [{ "fieldId": "status", "to": "999" }] }] }]');
+    const logs: RawIssueChangeLog[] = JSON.parse(
+      '[{ "issueId": "H-1", "changeHistories": [{ "created": "2026-10-05T10:00:00.000+0000", "items": [{ "fieldId": "status", "to": "999" }] }] }]',
+    );
     expect(() => toStatusHistory(logs, [], g.nodes, "a")).not.toThrow();
     expect(toStatusHistory(logs, [], g.nodes, "a").size).toBe(0); // unknown status: dropped
   });
@@ -158,7 +175,10 @@ describe("toStatusHistory", () => {
       items: [{ fieldId: "status", to, toString: null }], // an own toString, so the literal type-checks (see above)
     });
     const logs: RawIssueChangeLog[] = [{ issueId: "H-1", changeHistories: [change("1"), change("2")] }];
-    const statuses: RawStatusDef[] = [{ id: "1", name: "Mystery" }, { id: "2", name: "In Progress", statusCategory: { key: "indeterminate" } }];
+    const statuses: RawStatusDef[] = [
+      { id: "1", name: "Mystery" },
+      { id: "2", name: "In Progress", statusCategory: { key: "indeterminate" } },
+    ];
     expect(toStatusHistory(logs, statuses, g.nodes, "a").get("a:H-1")).toEqual([{ at: "2026-10-05", toCategory: "inprogress" }]);
   });
 });

@@ -46,7 +46,16 @@ function ArrowMarkers(): ReactElement {
     <svg className="arrow-defs" aria-hidden="true">
       <defs>
         {MARKER_KINDS.map((k) => (
-          <marker key={k} id={markerId(k)} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+          <marker
+            key={k}
+            id={markerId(k)}
+            viewBox="0 0 10 10"
+            refX="9"
+            refY="5"
+            markerWidth="9"
+            markerHeight="9"
+            orient="auto-start-reverse"
+          >
             <path d="M0,0 L10,5 L0,10 z" className={`arrowhead arrowhead-${k}`} />
           </marker>
         ))}
@@ -61,7 +70,13 @@ function epicMapLanes(expanded: ReadonlySet<string>): LaneFn | undefined {
   return (n) => {
     const epic = n.epic;
     if (!n.rollup && epic && expanded.has(epic.uid)) {
-      return { id: `expanded:${epic.uid}`, label: epic.summary ? `${epic.key} · ${epic.summary}` : epic.key, url: epic.url, color: n.siteColor, collapseEpic: epic.uid };
+      return {
+        id: `expanded:${epic.uid}`,
+        label: epic.summary ? `${epic.key} · ${epic.summary}` : epic.key,
+        url: epic.url,
+        color: n.siteColor,
+        collapseEpic: epic.uid,
+      };
     }
     return { id: "epic-map", label: "Epics and other issues", last: true };
   };
@@ -114,11 +129,15 @@ export function Canvas({
         const shape = `${[...l.positions.keys()].sort().join("|")}#${l.groups.map((g) => g.id).join("|")}`;
         if (shape !== fittedShape.current) {
           fittedShape.current = shape;
-          requestAnimationFrame(() => { void rf.fitView({ padding: 0.2, maxZoom: 1, duration: 250 }); });
+          requestAnimationFrame(() => {
+            void rf.fitView({ padding: 0.2, maxZoom: 1, duration: 250 });
+          });
         }
       },
       // A failed layout keeps the previous one on screen; there is no layout error UI, so log it.
-      (e: unknown) => { if (!cancelled) console.error("Graph layout failed", e); },
+      (e: unknown) => {
+        if (!cancelled) console.error("Graph layout failed", e);
+      },
     );
     return (): void => {
       cancelled = true;
@@ -138,7 +157,9 @@ export function Canvas({
 
   const flowNodes = useMemo<FlowNode[]>(() => {
     if (!layout) return [];
-    const toggleEpic = (epicUid: string) => (): void => { onToggleEpic(epicUid); };
+    const toggleEpic = (epicUid: string) => (): void => {
+      onToggleEpic(epicUid);
+    };
     const groups: SiteGroupNode[] = layout.groups.map((g) => ({
       id: g.id,
       type: "siteGroup",
@@ -216,32 +237,32 @@ export function Canvas({
 
   return (
     <>
-    <ArrowMarkers />
-    <ReactFlow
-      nodes={flowNodes}
-      edges={flowEdges}
-      nodeTypes={nodeTypes}
-      edgeTypes={edgeTypes}
-      nodesConnectable={false}
-      nodesDraggable={false}
-      elementsSelectable={false}
-      nodesFocusable={false}
-      edgesFocusable={false}
-      minZoom={0.1}
-      maxZoom={2}
-      fitView
-    >
-      <Background gap={24} size={1} />
-      <Controls showInteractive={false} position="bottom-left" />
-      <MiniMap<FlowNode>
-        pannable
-        style={{ width: 170, height: 110 }}
-        zoomable
-        ariaLabel="Minimap, tinted by site"
-        nodeColor={(n) => (n.type === "issue" ? n.data.node.siteColor ?? "#9ca3af" : "transparent")}
-        nodeStrokeColor={(n) => (n.type === "siteGroup" ? n.data.color ?? "#9ca3af" : "transparent")}
-      />
-    </ReactFlow>
+      <ArrowMarkers />
+      <ReactFlow
+        nodes={flowNodes}
+        edges={flowEdges}
+        nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
+        nodesConnectable={false}
+        nodesDraggable={false}
+        elementsSelectable={false}
+        nodesFocusable={false}
+        edgesFocusable={false}
+        minZoom={0.1}
+        maxZoom={2}
+        fitView
+      >
+        <Background gap={24} size={1} />
+        <Controls showInteractive={false} position="bottom-left" />
+        <MiniMap<FlowNode>
+          pannable
+          style={{ width: 170, height: 110 }}
+          zoomable
+          ariaLabel="Minimap, tinted by site"
+          nodeColor={(n) => (n.type === "issue" ? (n.data.node.siteColor ?? "#9ca3af") : "transparent")}
+          nodeStrokeColor={(n) => (n.type === "siteGroup" ? (n.data.color ?? "#9ca3af") : "transparent")}
+        />
+      </ReactFlow>
     </>
   );
 }

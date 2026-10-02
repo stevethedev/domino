@@ -6,7 +6,8 @@ import type { ChangeKind } from "../../graph/changes";
 import { AgingBadge, agingDescription, ChangeTag, TypeIcon } from "../IssueCard";
 import { entryEnd, PX_PER_DAY, varianceLabel, xOf, type EpicSummary, type Scale, type TimelineRowModel } from "./timelineLayout";
 
-const fmt = (d: Day): string => new Date(`${d}T00:00:00Z`).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
+const fmt = (d: Day): string =>
+  new Date(`${d}T00:00:00Z`).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
 /** Spans are half-open; people read the last day inclusively. */
 const spanText = (s: Span): string => `${fmt(s.start)} – ${fmt(addDays(s.end, -1))}`;
 
@@ -74,17 +75,27 @@ export const TimelineRow = memo(function TimelineRow({
       aria-hidden={row.folded || undefined}
       aria-label={epic ? describeEpic(node, epic) : `${describe(node, row)}${flags.aging ? ` ${agingDescription(flags.aging)}.` : ""}`}
       data-tl-uid={node.uid}
-      onClick={() => { onOpen(node.url); }}
+      onClick={() => {
+        onOpen(node.url);
+      }}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           onOpen(node.url);
         }
       }}
-      onMouseEnter={() => { onHover(node.uid); }}
-      onMouseLeave={() => { onHover(null); }}
-      onFocus={() => { onHover(node.uid); }}
-      onBlur={() => { onHover(null); }}
+      onMouseEnter={() => {
+        onHover(node.uid);
+      }}
+      onMouseLeave={() => {
+        onHover(null);
+      }}
+      onFocus={() => {
+        onHover(node.uid);
+      }}
+      onBlur={() => {
+        onHover(null);
+      }}
     >
       <div className="tl-label">
         <TypeIcon type={node.issueType} />
@@ -114,42 +125,47 @@ export const TimelineRow = memo(function TimelineRow({
           )}
         </div>
       ) : (
-      <div className="tl-track">
-        {node.ghost ? (
-          <span className="tl-ghost-note">Outside scope · dates not loaded</span>
-        ) : (
-          <Bar span={entry.projected} start={rangeStart} scale={scale} className="tl-bar tl-projected" />
-        )}
-        {p.state === "done" && <Bar span={p.actual} start={rangeStart} scale={scale} className="tl-bar tl-actual" />}
-        {p.state === "started" && (
-          <>
-            <Bar span={{ start: p.actualStart, end: maxEnd(p.actualStart, today) }} start={rangeStart} scale={scale} className="tl-bar tl-actual" />
+        <div className="tl-track">
+          {node.ghost ? (
+            <span className="tl-ghost-note">Outside scope · dates not loaded</span>
+          ) : (
+            <Bar span={entry.projected} start={rangeStart} scale={scale} className="tl-bar tl-projected" />
+          )}
+          {p.state === "done" && <Bar span={p.actual} start={rangeStart} scale={scale} className="tl-bar tl-actual" />}
+          {p.state === "started" && (
+            <>
+              <Bar
+                span={{ start: p.actualStart, end: maxEnd(p.actualStart, today) }}
+                start={rangeStart}
+                scale={scale}
+                className="tl-bar tl-actual"
+              />
+              <Bar span={p.forecast} start={rangeStart} scale={scale} className="tl-bar tl-forecast" />
+            </>
+          )}
+          {(p.state === "not-started" || p.state === "unknown") && !node.ghost && (
             <Bar span={p.forecast} start={rangeStart} scale={scale} className="tl-bar tl-forecast" />
-          </>
-        )}
-        {(p.state === "not-started" || p.state === "unknown") && !node.ghost && (
-          <Bar span={p.forecast} start={rangeStart} scale={scale} className="tl-bar tl-forecast" />
-        )}
-        {due && (
-          <span
-            className={`tl-due${pastDue ? " past" : ""}`}
-            style={{ left: xOf(rangeStart, due, scale) + PX_PER_DAY[scale] / 2 }}
-            title={`Due ${fmt(due)}${pastDue ? " (forecast misses it)" : ""}`}
-          >
-            ◆
-          </span>
-        )}
-        {!node.ghost && p.state !== "unknown" && (
-          <span className={`tl-variance${late ? " late" : entry.varianceDays < 0 ? " early" : ""}`} style={{ left: badgeLeft }}>
-            {p.state === "done" ? `done, ${varianceLabel(entry.varianceDays)}` : varianceLabel(entry.varianceDays)}
-          </span>
-        )}
-        {p.state === "unknown" && !node.ghost && (
-          <span className="tl-variance" style={{ left: badgeLeft }}>
-            start unknown
-          </span>
-        )}
-      </div>
+          )}
+          {due && (
+            <span
+              className={`tl-due${pastDue ? " past" : ""}`}
+              style={{ left: xOf(rangeStart, due, scale) + PX_PER_DAY[scale] / 2 }}
+              title={`Due ${fmt(due)}${pastDue ? " (forecast misses it)" : ""}`}
+            >
+              ◆
+            </span>
+          )}
+          {!node.ghost && p.state !== "unknown" && (
+            <span className={`tl-variance${late ? " late" : entry.varianceDays < 0 ? " early" : ""}`} style={{ left: badgeLeft }}>
+              {p.state === "done" ? `done, ${varianceLabel(entry.varianceDays)}` : varianceLabel(entry.varianceDays)}
+            </span>
+          )}
+          {p.state === "unknown" && !node.ghost && (
+            <span className="tl-variance" style={{ left: badgeLeft }}>
+              start unknown
+            </span>
+          )}
+        </div>
       )}
     </div>
   );

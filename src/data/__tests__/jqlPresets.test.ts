@@ -40,7 +40,10 @@ describe("mock JQL", () => {
     const acme = mockSites.acme.issues;
     const blocks = parseMockJql("issueLinkType = blocks");
     const blocked = parseMockJql('issueLinkType = "is blocked by"');
-    const web2 = defined(acme.find((i) => i.key === "WEB-2"), "WEB-2");
+    const web2 = defined(
+      acme.find((i) => i.key === "WEB-2"),
+      "WEB-2",
+    );
     expect(matchesMockJql(web2, blocks)).toBe(false);
     expect(matchesMockJql(web2, blocked)).toBe(true);
   });

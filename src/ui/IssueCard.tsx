@@ -171,7 +171,11 @@ function CompactBody({
 
 export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNode>): ReactElement {
   const { node: n, openBlockers, showSite, dimmed, highlight, aging, change, onOpen, onHover, onExpand } = data;
-  const activate = onExpand ?? ((): void => { onOpen(n.url); });
+  const activate =
+    onExpand ??
+    ((): void => {
+      onOpen(n.url);
+    });
   // Selecting a boolean means cards re-render only when crossing the threshold, not on every zoom step.
   const compact = useStore((s) => s.transform[2] < COMPACT_BELOW_ZOOM);
   const status = n.statusCategory;
@@ -205,56 +209,81 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
           activate();
         }
       }}
-      onMouseEnter={() => { onHover(n.uid); }}
-      onMouseLeave={() => { onHover(null); }}
-      onFocus={() => { onHover(n.uid); }}
-      onBlur={() => { onHover(null); }}
+      onMouseEnter={() => {
+        onHover(n.uid);
+      }}
+      onMouseLeave={() => {
+        onHover(null);
+      }}
+      onFocus={() => {
+        onHover(n.uid);
+      }}
+      onBlur={() => {
+        onHover(null);
+      }}
     >
       <Handle type="target" position={Position.Left} isConnectable={false} />
       {n.rollup ? (
         <RollupBody node={n} rollup={n.rollup} compact={compact} />
-      ) : compact ? <CompactBody node={n} statusText={statusText} openBlockers={openBlockers} ready={highlight === "ready"} aging={aging} change={change} /> : (
-        <>
-      <div className="card-row1">
-        <TypeIcon type={n.issueType} />
-        <span className="card-key">{n.key}</span>
-        <span className={`pill pill-${status}`}>{statusText}</span>
-        {(showSite || n.ghost) && (
-          <span className="site-badge" style={{ "--site": n.siteColor ?? "#6b7280" }} title={`Site: ${n.siteLabel}`}>
-            {n.siteLabel}
-          </span>
-        )}
-      </div>
-      <div className="card-summary" title={n.summary}>
-        {n.summary}
-      </div>
-      <div className="card-row3">
-        {n.ghost ? (
-          <span className="outside">Outside scope</span>
-        ) : (
-          <>
-            <span className="assignee">
-              {n.assigneeAvatarUrl ? (
-                <img className="avatar" src={n.assigneeAvatarUrl} alt="" width={20} height={20} />
-              ) : (
-                <span className="avatar" aria-hidden="true">
-                  {initials(n.assigneeName)}
-                </span>
-              )}
-              <span className="assignee-name">{firstName(n.assigneeName)}</span>
-            </span>
-            {n.storyPoints !== undefined && <span className="points">{n.storyPoints} pts</span>}
-          </>
-        )}
-        <CappedBadges
-          badges={[
-            openBlockers > 0 && { key: "blockers", label: blockerText(openBlockers), el: <span className="blockers" title={`${openBlockers} open blocker${openBlockers === 1 ? "" : "s"}`}>{blockerText(openBlockers)}</span> },
-            highlight === "ready" && { key: "ready", label: "Ready", el: <span className="tag-ready">Ready</span> },
-            aging && { key: "aging", label: agingDescription(aging), el: <AgingBadge aging={aging} /> },
-            change && { key: "change", label: CHANGE_LABEL[change], el: <ChangeTag change={change} /> },
-          ]}
+      ) : compact ? (
+        <CompactBody
+          node={n}
+          statusText={statusText}
+          openBlockers={openBlockers}
+          ready={highlight === "ready"}
+          aging={aging}
+          change={change}
         />
-      </div>
+      ) : (
+        <>
+          <div className="card-row1">
+            <TypeIcon type={n.issueType} />
+            <span className="card-key">{n.key}</span>
+            <span className={`pill pill-${status}`}>{statusText}</span>
+            {(showSite || n.ghost) && (
+              <span className="site-badge" style={{ "--site": n.siteColor ?? "#6b7280" }} title={`Site: ${n.siteLabel}`}>
+                {n.siteLabel}
+              </span>
+            )}
+          </div>
+          <div className="card-summary" title={n.summary}>
+            {n.summary}
+          </div>
+          <div className="card-row3">
+            {n.ghost ? (
+              <span className="outside">Outside scope</span>
+            ) : (
+              <>
+                <span className="assignee">
+                  {n.assigneeAvatarUrl ? (
+                    <img className="avatar" src={n.assigneeAvatarUrl} alt="" width={20} height={20} />
+                  ) : (
+                    <span className="avatar" aria-hidden="true">
+                      {initials(n.assigneeName)}
+                    </span>
+                  )}
+                  <span className="assignee-name">{firstName(n.assigneeName)}</span>
+                </span>
+                {n.storyPoints !== undefined && <span className="points">{n.storyPoints} pts</span>}
+              </>
+            )}
+            <CappedBadges
+              badges={[
+                openBlockers > 0 && {
+                  key: "blockers",
+                  label: blockerText(openBlockers),
+                  el: (
+                    <span className="blockers" title={`${openBlockers} open blocker${openBlockers === 1 ? "" : "s"}`}>
+                      {blockerText(openBlockers)}
+                    </span>
+                  ),
+                },
+                highlight === "ready" && { key: "ready", label: "Ready", el: <span className="tag-ready">Ready</span> },
+                aging && { key: "aging", label: agingDescription(aging), el: <AgingBadge aging={aging} /> },
+                change && { key: "change", label: CHANGE_LABEL[change], el: <ChangeTag change={change} /> },
+              ]}
+            />
+          </div>
         </>
       )}
       <Handle type="source" position={Position.Right} isConnectable={false} />
@@ -273,7 +302,9 @@ export const SiteGroup = memo(function SiteGroup({ data }: NodeProps<SiteGroupNo
         <button
           type="button"
           className="site-group-label lane-link"
-          onClick={() => { data.onOpen(url); }}
+          onClick={() => {
+            data.onOpen(url);
+          }}
           title="Open epic in Jira"
           aria-label={`Epic ${data.label}. Opens in browser.`}
         >

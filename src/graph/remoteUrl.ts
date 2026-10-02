@@ -1,9 +1,7 @@
 import { normalizeBaseUrl } from "../config/schema";
 import type { SiteConfig } from "../config/types";
 
-export type RemoteTarget =
-  | { kind: "site"; siteId: string; key: string }
-  | { kind: "foreign"; host: string; key: string; url: string };
+export type RemoteTarget = { kind: "site"; siteId: string; key: string } | { kind: "foreign"; host: string; key: string; url: string };
 
 const ISSUE_KEY = /^[A-Z][A-Z0-9_]*-\d+$/;
 

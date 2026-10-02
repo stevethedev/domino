@@ -1,21 +1,13 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": [
-    "typescript"
-  ],
+  "plugins": ["typescript"],
   "categories": {
     "correctness": "off"
   },
-  "ignorePatterns": [
-    "dist/**",
-    "src-tauri/**",
-    "coverage/**"
-  ],
+  "ignorePatterns": ["dist/**", "src-tauri/**", "coverage/**"],
   "overrides": [
     {
-      "files": [
-        "**/*.{ts,tsx,mts,cts}"
-      ],
+      "files": ["**/*.{ts,tsx,mts,cts}"],
       "rules": {
         "typescript/ban-ts-comment": [
           "error",
@@ -107,10 +99,7 @@
             "allowRegExp": false
           }
         ],
-        "typescript/return-await": [
-          "error",
-          "error-handling-correctness-only"
-        ],
+        "typescript/return-await": ["error", "error-handling-correctness-only"],
         "typescript/unbound-method": "error",
         "typescript/use-unknown-in-catch-callback-variable": "error",
         "typescript/consistent-type-imports": "error",

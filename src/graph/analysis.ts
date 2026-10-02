@@ -23,9 +23,7 @@ export function openBlockerCounts(graph: Graph): Map<string, number> {
 /** In-scope issues that aren't Done and have no open blockers. */
 export function readyIssues(graph: Graph): Set<string> {
   const counts = openBlockerCounts(graph);
-  return new Set(
-    graph.nodes.filter((n) => !n.ghost && n.statusCategory !== "done" && !counts.get(n.uid)).map((n) => n.uid),
-  );
+  return new Set(graph.nodes.filter((n) => !n.ghost && n.statusCategory !== "done" && !counts.get(n.uid)).map((n) => n.uid));
 }
 
 function compareUids(a: readonly string[], b: readonly string[]): number {
@@ -44,11 +42,7 @@ export function criticalPath(graph: Graph): Chain {
   const eligible = new Set(graph.nodes.filter((n) => !n.ghost && n.statusCategory !== "done").map((n) => n.uid));
   const edges = graph.edges.filter(
     (e) =>
-      e.kind === "blocks" &&
-      !graph.brokenEdgeIds.has(e.id) &&
-      e.source !== e.target &&
-      eligible.has(e.source) &&
-      eligible.has(e.target),
+      e.kind === "blocks" && !graph.brokenEdgeIds.has(e.id) && e.source !== e.target && eligible.has(e.source) && eligible.has(e.target),
   );
   const indeg = new Map([...eligible].map((u) => [u, 0]));
   const out = new Map<string, { to: string; id: string }[]>();
@@ -59,9 +53,7 @@ export function criticalPath(graph: Graph): Chain {
     list.push({ to: e.target, id: e.id });
   }
   // best[v] = best path ending at v
-  const best = new Map<string, Chain>(
-    [...eligible].map((u) => [u, { nodes: [u], edges: [] }]),
-  );
+  const best = new Map<string, Chain>([...eligible].map((u) => [u, { nodes: [u], edges: [] }]));
   const queue = [...eligible].filter((u) => indeg.get(u) === 0).sort();
   for (let v = queue.shift(); v !== undefined; v = queue.shift()) {
     const bv = getOrThrow(best, v);

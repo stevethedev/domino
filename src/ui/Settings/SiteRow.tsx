@@ -41,7 +41,15 @@ export function SiteRow({
       <td>{site.auth.type === "apiToken" ? "API token" : "OAuth 3LO"}</td>
       <td>
         <label className="check">
-          <input type="checkbox" role="switch" checked={site.enabled} onChange={(e) => { onToggle(e.target.checked); }} aria-label={`Enable ${site.label}`} />
+          <input
+            type="checkbox"
+            role="switch"
+            checked={site.enabled}
+            onChange={(e) => {
+              onToggle(e.target.checked);
+            }}
+            aria-label={`Enable ${site.label}`}
+          />
           <span className="small">{site.enabled ? "On" : "Off"}</span>
         </label>
       </td>
@@ -60,12 +68,23 @@ export function SiteRow({
             <button ref={confirmRef} type="button" className="danger" onClick={onRemove} aria-label={`Confirm removing ${site.label}`}>
               Confirm remove
             </button>
-            <button type="button" onClick={() => { setConfirming(false); }}>
+            <button
+              type="button"
+              onClick={() => {
+                setConfirming(false);
+              }}
+            >
               Keep
             </button>
           </>
         ) : (
-          <button type="button" onClick={() => { setConfirming(true); }} aria-label={`Remove ${site.label}`}>
+          <button
+            type="button"
+            onClick={() => {
+              setConfirming(true);
+            }}
+            aria-label={`Remove ${site.label}`}
+          >
             Remove
           </button>
         )}
@@ -79,9 +98,17 @@ function HealthBadge({ health }: { health: HealthStatus }): ReactElement {
     case "unknown":
       return <span className="health health-unknown">Unknown</span>;
     case "checking":
-      return <span className="health health-unknown" aria-live="polite">Checking…</span>;
+      return (
+        <span className="health health-unknown" aria-live="polite">
+          Checking…
+        </span>
+      );
     case "ok":
-      return <span className="health health-ok" aria-live="polite">✓ OK</span>;
+      return (
+        <span className="health health-ok" aria-live="polite">
+          ✓ OK
+        </span>
+      );
     case "error":
       return (
         <span className="health health-error" aria-live="polite">

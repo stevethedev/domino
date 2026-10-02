@@ -18,7 +18,13 @@ describe("saved views", () => {
   });
 
   it("drops invalid entries instead of failing the whole list", () => {
-    const stored = [view("Good"), { ...view("Bad mode"), mode: "kanban" }, { ...view("Bad scope"), scope: { mode: "seed", key: "X-1" } }, null, { name: "  " }];
+    const stored = [
+      view("Good"),
+      { ...view("Bad mode"), mode: "kanban" },
+      { ...view("Bad scope"), scope: { mode: "seed", key: "X-1" } },
+      null,
+      { name: "  " },
+    ];
     expect(defined(parseSavedViews(JSON.parse(JSON.stringify(stored))), "parsed views").map((v) => v.name)).toEqual(["Good"]);
     expect(parseSavedViews("nope")).toBeUndefined();
   });
@@ -35,6 +41,9 @@ describe("saved views", () => {
 
   it("upsert replaces a same-named view (case-insensitive) and puts it first", () => {
     const next = upsertView([view("Standup"), view("Partner")], { ...view("standup"), mode: "graph" });
-    expect(next.map((v) => [v.name, v.mode])).toEqual([["standup", "graph"], ["Partner", "timeline"]]);
+    expect(next.map((v) => [v.name, v.mode])).toEqual([
+      ["standup", "graph"],
+      ["Partner", "timeline"],
+    ]);
   });
 });

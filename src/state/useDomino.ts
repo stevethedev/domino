@@ -22,7 +22,9 @@ const asString = (raw: unknown): string | undefined => (typeof raw === "string" 
 
 /** The last-run top-bar query, remembered per viewer. */
 const loadQuery = (): string => readStored(QUERY_KEY, asString, presetById(DEFAULT_PRESET_ID).jql);
-export const saveQuery = (q: string): void => { writeStored(QUERY_KEY, q); };
+export const saveQuery = (q: string): void => {
+  writeStored(QUERY_KEY, q);
+};
 
 /** Stable identity of a scope: the selected sites plus the query or mode. */
 export const scopeKeyOf = (sites: readonly SiteConfig[], scope: Scope): string =>
@@ -79,7 +81,9 @@ export function useDomino(store: ConfigStore, source: JiraSource): Domino {
   const refreshInFlight = useRef(false);
 
   useEffect(() => {
-    store.load().then(setConfig, (e: unknown) => { setConfigError(errorMessage(e)); });
+    store.load().then(setConfig, (e: unknown) => {
+      setConfigError(errorMessage(e));
+    });
   }, [store]);
 
   // Keep the selection in sync with config: drop disabled/removed sites, select newly enabled ones.
@@ -95,10 +99,7 @@ export function useDomino(store: ConfigStore, source: JiraSource): Domino {
     });
   }, [config]);
 
-  const selectedSites = useMemo(
-    () => (config ? config.sites.filter((s) => s.enabled && selected.includes(s.id)) : []),
-    [config, selected],
-  );
+  const selectedSites = useMemo(() => (config ? config.sites.filter((s) => s.enabled && selected.includes(s.id)) : []), [config, selected]);
 
   useEffect(() => {
     if (!config) return;
@@ -116,7 +117,9 @@ export function useDomino(store: ConfigStore, source: JiraSource): Domino {
         setLoad({ status: "done", result, scopeKey });
         setBackground({ lastUpdated: Date.now(), refreshing: false, error: null });
       },
-      (e: unknown) => { if (!cancelled) setLoad({ status: "failed", message: errorMessage(e) }); },
+      (e: unknown) => {
+        if (!cancelled) setLoad({ status: "failed", message: errorMessage(e) });
+      },
     );
     return (): void => {
       cancelled = true;
@@ -171,7 +174,9 @@ export function useDomino(store: ConfigStore, source: JiraSource): Domino {
   );
 
   /** Re-reads config the backend may have changed on its own (e.g. discovered cloudIds). */
-  const refreshConfig = useCallback(async () => { setConfig(await store.load()); }, [store]);
+  const refreshConfig = useCallback(async () => {
+    setConfig(await store.load());
+  }, [store]);
 
   const testConnection = useCallback(
     async (siteId: string) => {
@@ -193,7 +198,9 @@ export function useDomino(store: ConfigStore, source: JiraSource): Domino {
     load,
     graph,
     loadedSiteCount,
-    reload: () => { setReloadTick((t) => t + 1); },
+    reload: () => {
+      setReloadTick((t) => t + 1);
+    },
     refresh,
     background,
     saveConfig,

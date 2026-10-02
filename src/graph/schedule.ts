@@ -96,7 +96,10 @@ function topoOrder(graph: Graph, blockers: Map<string, string[]>): string[] {
   const indeg = new Map(graph.nodes.map((n) => [n.uid, blockers.get(n.uid)?.length ?? 0]));
   const dependents = new Map<string, string[]>();
   for (const [target, sources] of blockers) for (const s of sources) dependents.set(s, [...(dependents.get(s) ?? []), target]);
-  const queue = graph.nodes.filter((n) => indeg.get(n.uid) === 0).map((n) => n.uid).sort();
+  const queue = graph.nodes
+    .filter((n) => indeg.get(n.uid) === 0)
+    .map((n) => n.uid)
+    .sort();
   const order: string[] = [];
   for (let v = queue.shift(); v !== undefined; v = queue.shift()) {
     order.push(v);

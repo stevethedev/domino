@@ -58,7 +58,9 @@ export function Timeline({
   onCollapsedLanes: (next: ReadonlySet<string>) => void;
 }): ReactElement {
   const [hovered, setHovered] = useState<string | null>(null);
-  const setSettings = (patch: Partial<EstimateSettings>): void => { onSettings({ ...settings, ...patch }); };
+  const setSettings = (patch: Partial<EstimateSettings>): void => {
+    onSettings({ ...settings, ...patch });
+  };
 
   const today = localToday();
   const historyMap = useMemo(() => (history.status === "done" ? history.history : new Map()), [history]);
@@ -96,8 +98,12 @@ export function Timeline({
     prevCollapsed.current = collapsedLanes;
     if (prefersReducedMotion()) return;
     setSettling(true);
-    const timer = setTimeout(() => { setSettling(false); }, FOLD_MS);
-    return (): void => { clearTimeout(timer); };
+    const timer = setTimeout(() => {
+      setSettling(false);
+    }, FOLD_MS);
+    return (): void => {
+      clearTimeout(timer);
+    };
   }, [collapsedLanes]);
   const toggleLane = (id: string): void => {
     const next = new Set(collapsedLanes);
@@ -114,23 +120,27 @@ export function Timeline({
     onCollapsedLanes(next);
   };
   // The date range covers every row, collapsed or not, so folding a lane never shifts the chart.
-  const range = useMemo(
-    () => {
-      if (!all.length) return null;
-      // Ghost rows draw nothing, so their computed (invented) dates don't widen the chart.
-      const dated = all.filter((r) => !r.node.ghost);
-      return dayRange(dated.map((r) => r.entry), [today, opts.planStart, ...dated.flatMap((r) => (r.node.dates?.due ? [r.node.dates.due] : []))]);
-    },
-    [all, today, opts.planStart],
-  );
+  const range = useMemo(() => {
+    if (!all.length) return null;
+    // Ghost rows draw nothing, so their computed (invented) dates don't widen the chart.
+    const dated = all.filter((r) => !r.node.ghost);
+    return dayRange(
+      dated.map((r) => r.entry),
+      [today, opts.planStart, ...dated.flatMap((r) => (r.node.dates?.due ? [r.node.dates.due] : []))],
+    );
+  }, [all, today, opts.planStart]);
 
   const chain = useMemo(() => (hovered ? blockingChain(graph, hovered) : null), [graph, hovered]);
-  const emphasized = useMemo(() => emphasis(view.highlight, insights, view.highlightScope), [view.highlight, view.highlightScope, insights]);
+  const emphasized = useMemo(
+    () => emphasis(view.highlight, insights, view.highlightScope),
+    [view.highlight, view.highlightScope, insights],
+  );
   const criticalEdges = view.highlight === "critical" ? (emphasized?.edges ?? new Set<string>()) : new Set<string>();
 
   const rowY = new Map(rows.map((r) => [r.node.uid, r.y]));
   const rowByUid = new Map(rows.map((r) => [r.node.uid, r]));
-  const drawn = (r: TimelineRowModel): ReturnType<typeof drawnBar> => drawnBar(r.node, getOrThrow(timeline, r.node.uid), epics.get(r.node.uid));
+  const drawn = (r: TimelineRowModel): ReturnType<typeof drawnBar> =>
+    drawnBar(r.node, getOrThrow(timeline, r.node.uid), epics.get(r.node.uid));
   const arrows: ArrowModel[] = edges
     .filter((e) => e.kind === "blocks" && !graph.brokenEdgeIds.has(e.id))
     .flatMap((e) => {
@@ -139,19 +149,23 @@ export function Timeline({
       const [from, to] = [drawn(source), drawn(target)];
       if (from.positionless && to.positionless) return []; // nothing real to connect
       const ghostEnd = from.positionless ? "blocker" : to.positionless ? "blocked" : null;
-      return [{
-        edge: e,
-        ...arrowAnchors(from.entry, to.entry, ghostEnd),
-        violated: isViolated(getOrThrow(timeline, e.source), getOrThrow(timeline, e.target)),
-        inCycle: graph.cycleEdgeIds.has(e.id),
-        critical: criticalEdges.has(e.id),
-        dimmed: chain ? !chain.edges.has(e.id) : emphasized ? !criticalEdges.has(e.id) : false,
-      }];
+      return [
+        {
+          edge: e,
+          ...arrowAnchors(from.entry, to.entry, ghostEnd),
+          violated: isViolated(getOrThrow(timeline, e.source), getOrThrow(timeline, e.target)),
+          inCycle: graph.cycleEdgeIds.has(e.id),
+          critical: criticalEdges.has(e.id),
+          dimmed: chain ? !chain.edges.has(e.id) : emphasized ? !criticalEdges.has(e.id) : false,
+        },
+      ];
     });
 
   const late = all.filter(isLate).length;
   const chartWidth = range ? xOf(range.start, range.end, settings.scale) + PX_PER_DAY[settings.scale] : 0;
-  const lastBarX = range ? Math.max(0, ...all.filter((r) => !r.node.ghost).map((r) => xOf(range.start, entryEnd(r.entry), settings.scale))) : 0;
+  const lastBarX = range
+    ? Math.max(0, ...all.filter((r) => !r.node.ghost).map((r) => xOf(range.start, entryEnd(r.entry), settings.scale)))
+    : 0;
 
   return (
     <div className="timeline">
@@ -160,37 +174,89 @@ export function Timeline({
           <legend className="sr-only">Scale</legend>
           {SCALES.map((s) => (
             <label key={s} className={settings.scale === s ? "active" : ""}>
-              <input type="radio" name="tl-scale" value={s} checked={settings.scale === s} onChange={() => { setSettings({ scale: s }); }} />
+              <input
+                type="radio"
+                name="tl-scale"
+                value={s}
+                checked={settings.scale === s}
+                onChange={() => {
+                  setSettings({ scale: s });
+                }}
+              />
               {s[0].toUpperCase() + s.slice(1)}
             </label>
           ))}
         </fieldset>
         <label className="field" title="Unstarted work is projected to begin no earlier than this day">
           <span className="field-label">Unstarted from</span>
-          <input type="date" value={opts.planStart} onChange={(e) => { setSettings({ planStart: e.target.value || null }); }} />
+          <input
+            type="date"
+            value={opts.planStart}
+            onChange={(e) => {
+              setSettings({ planStart: e.target.value || null });
+            }}
+          />
         </label>
         {settings.planStart && (
-          <button type="button" className="link-btn" onClick={() => { setSettings({ planStart: null }); }}>
+          <button
+            type="button"
+            className="link-btn"
+            onClick={() => {
+              setSettings({ planStart: null });
+            }}
+          >
             Reset to today
           </button>
         )}
         <label className="field">
           <span className="field-label">Days / point</span>
-          <NumberField min={0.25} step={0.25} value={settings.daysPerPoint} onCommit={(daysPerPoint) => { setSettings({ daysPerPoint }); }} />
+          <NumberField
+            min={0.25}
+            step={0.25}
+            value={settings.daysPerPoint}
+            onCommit={(daysPerPoint) => {
+              setSettings({ daysPerPoint });
+            }}
+          />
         </label>
         <label className="field">
           <span className="field-label">Unpointed</span>
-          <NumberField min={1} step={1} integer value={settings.defaultDays} onCommit={(defaultDays) => { setSettings({ defaultDays }); }} />
+          <NumberField
+            min={1}
+            step={1}
+            integer
+            value={settings.defaultDays}
+            onCommit={(defaultDays) => {
+              setSettings({ defaultDays });
+            }}
+          />
           <span className="muted small">days</span>
         </label>
         <ul className="tl-legend" aria-label="Legend">
-          <li><span className="tl-key tl-projected" aria-hidden="true" /> Projected</li>
-          <li><span className="tl-key tl-actual" aria-hidden="true" /> Actual</li>
-          <li><span className="tl-key tl-forecast" aria-hidden="true" /> Forecast</li>
-          <li><span className="tl-due" aria-hidden="true">◆</span> Due</li>
+          <li>
+            <span className="tl-key tl-projected" aria-hidden="true" /> Projected
+          </li>
+          <li>
+            <span className="tl-key tl-actual" aria-hidden="true" /> Actual
+          </li>
+          <li>
+            <span className="tl-key tl-forecast" aria-hidden="true" /> Forecast
+          </li>
+          <li>
+            <span className="tl-due" aria-hidden="true">
+              ◆
+            </span>{" "}
+            Due
+          </li>
         </ul>
         {lanes.length > 1 && (
-          <button type="button" className="link-btn" onClick={() => { setAllCollapsed(!allCollapsed); }}>
+          <button
+            type="button"
+            className="link-btn"
+            onClick={() => {
+              setAllCollapsed(!allCollapsed);
+            }}
+          >
             {allCollapsed ? "Expand all" : "Collapse all"}
           </button>
         )}
@@ -214,14 +280,23 @@ export function Timeline({
             <div className={`tl-body${settling ? " settling" : ""}`} style={{ height }}>
               <div className="tl-chart" style={{ left: LABEL_WIDTH }}>
                 <TimeGrid range={range} scale={settings.scale} today={today} height={height} />
-                <TimelineArrows arrows={arrows} rowY={rowY} rangeStart={range.start} scale={settings.scale} width={chartWidth + 200} height={height} />
+                <TimelineArrows
+                  arrows={arrows}
+                  rowY={rowY}
+                  rangeStart={range.start}
+                  scale={settings.scale}
+                  width={chartWidth + 200}
+                  height={height}
+                />
               </div>
               {items.map((item) =>
                 item.kind === "lane" ? (
                   <TimelineLane
                     key={item.lane.id}
                     item={item}
-                    onToggle={() => { toggleLane(item.lane.id); }}
+                    onToggle={() => {
+                      toggleLane(item.lane.id);
+                    }}
                     onOpen={onOpen}
                   />
                 ) : (

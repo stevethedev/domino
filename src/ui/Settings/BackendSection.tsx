@@ -18,7 +18,9 @@ export function BackendSection({ domino, config }: { domino: Domino; config: Dom
   const hasOAuthSites = config.sites.some((s) => s.auth.type === "oauth3lo");
 
   const refresh = useCallback(() => {
-    store.oauthStatus().then(setStatus, () => { setStatus(null); });
+    store.oauthStatus().then(setStatus, () => {
+      setStatus(null);
+    });
   }, [store]);
   useEffect(refresh, [refresh]);
 
@@ -67,11 +69,27 @@ export function BackendSection({ domino, config }: { domino: Domino; config: Dom
       <fieldset className="radio-row">
         <legend className="sr-only">Data source</legend>
         <label className="check">
-          <input type="radio" name={`${uid}-backend`} checked={config.backend === "mock"} onChange={() => { setBackend("mock"); }} disabled={busy === "backend"} />
+          <input
+            type="radio"
+            name={`${uid}-backend`}
+            checked={config.backend === "mock"}
+            onChange={() => {
+              setBackend("mock");
+            }}
+            disabled={busy === "backend"}
+          />
           Mock data <span className="muted small">(bundled fixtures)</span>
         </label>
         <label className="check">
-          <input type="radio" name={`${uid}-backend`} checked={config.backend === "jira"} onChange={() => { setBackend("jira"); }} disabled={busy === "backend"} />
+          <input
+            type="radio"
+            name={`${uid}-backend`}
+            checked={config.backend === "jira"}
+            onChange={() => {
+              setBackend("jira");
+            }}
+            disabled={busy === "backend"}
+          />
           Live Jira <span className="muted small">(REST API v3)</span>
         </label>
       </fieldset>
@@ -85,7 +103,9 @@ export function BackendSection({ domino, config }: { domino: Domino; config: Dom
               : status.connected
                 ? "✓ Connected"
                 : hasOAuthSites
-                  ? status.appConfigured ? "Not connected" : "Not configured (needed by your OAuth sites)"
+                  ? status.appConfigured
+                    ? "Not connected"
+                    : "Not configured (needed by your OAuth sites)"
                   : "Not configured"}
           </span>
         </summary>
@@ -96,13 +116,29 @@ export function BackendSection({ domino, config }: { domino: Domino; config: Dom
         <div className="form-grid">
           <div className="form-field">
             <label htmlFor={`${uid}-cid`}>Client ID</label>
-            <input id={`${uid}-cid`} value={clientId} onChange={(e) => { setClientId(e.target.value); }} autoComplete="off" spellCheck={false}
-              placeholder={status?.appConfigured ? "Stored. Type to replace." : ""} />
+            <input
+              id={`${uid}-cid`}
+              value={clientId}
+              onChange={(e) => {
+                setClientId(e.target.value);
+              }}
+              autoComplete="off"
+              spellCheck={false}
+              placeholder={status?.appConfigured ? "Stored. Type to replace." : ""}
+            />
           </div>
           <div className="form-field">
             <label htmlFor={`${uid}-csec`}>Client secret</label>
-            <input id={`${uid}-csec`} type="password" value={clientSecret} onChange={(e) => { setClientSecret(e.target.value); }} autoComplete="off"
-              placeholder={status?.appConfigured ? "Stored. Type to replace." : ""} />
+            <input
+              id={`${uid}-csec`}
+              type="password"
+              value={clientSecret}
+              onChange={(e) => {
+                setClientSecret(e.target.value);
+              }}
+              autoComplete="off"
+              placeholder={status?.appConfigured ? "Stored. Type to replace." : ""}
+            />
           </div>
         </div>
         <div className="form-actions">
@@ -110,7 +146,16 @@ export function BackendSection({ domino, config }: { domino: Domino; config: Dom
             {busy === "save" ? "Saving…" : "Save app credentials"}
           </button>
           {status?.connected ? (
-            <button type="button" onClick={() => { void run("disconnect", async () => { await store.oauthDisconnect(); return "Disconnected."; }); }} disabled={busy !== null}>
+            <button
+              type="button"
+              onClick={() => {
+                void run("disconnect", async () => {
+                  await store.oauthDisconnect();
+                  return "Disconnected.";
+                });
+              }}
+              disabled={busy !== null}
+            >
               {busy === "disconnect" ? "Disconnecting…" : "Disconnect"}
             </button>
           ) : null}

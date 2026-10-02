@@ -31,8 +31,18 @@ export function InsightTiles({
   const tiles: Tile[] = [
     { id: "blocked", label: "Blocked", count: count(insights.blocked), hint: `${whose}open issues waiting on an open blocker` },
     { id: "ready", label: "Ready", count: count(insights.ready), hint: `${whose}open issues with nothing in the way` },
-    { id: "critical", label: "Critical path", count: count(insights.critical.nodes), hint: `${only ? "of these issues" : "issues"} in the longest open blocking chain` },
-    { id: "aging", label: "Aging", count: count(insights.aging.keys()), hint: `${only ? "of these issues" : "issues"} stuck past twice their estimate, or blocked with no change for a week` },
+    {
+      id: "critical",
+      label: "Critical path",
+      count: count(insights.critical.nodes),
+      hint: `${only ? "of these issues" : "issues"} in the longest open blocking chain`,
+    },
+    {
+      id: "aging",
+      label: "Aging",
+      count: count(insights.aging.keys()),
+      hint: `${only ? "of these issues" : "issues"} stuck past twice their estimate, or blocked with no change for a week`,
+    },
   ];
   const active = tiles.find((t) => t.id === highlight);
   return (
@@ -47,23 +57,27 @@ export function InsightTiles({
             type="button"
             className={`insight insight-${t.id}`}
             aria-pressed={highlight === t.id}
-            onClick={() => { onHighlight(highlight === t.id ? "none" : t.id); }}
+            onClick={() => {
+              onHighlight(highlight === t.id ? "none" : t.id);
+            }}
             title={`Highlight ${t.count} ${t.hint}`}
           >
             <span className="insight-count">{t.count}</span>
             <span className="insight-label">{t.label}</span>
           </button>
         ))}
-        {onShowCycle && <button
-          type="button"
-          className="insight insight-cycles"
-          disabled={insights.cycleCount === 0}
-          onClick={onShowCycle}
-          title={insights.cycleCount ? "Show the first blocking cycle" : "No blocking cycles"}
-        >
-          <span className="insight-count">{insights.cycleCount}</span>
-          <span className="insight-label">{insights.cycleCount === 1 ? "Cycle" : "Cycles"}</span>
-        </button>}
+        {onShowCycle && (
+          <button
+            type="button"
+            className="insight insight-cycles"
+            disabled={insights.cycleCount === 0}
+            onClick={onShowCycle}
+            title={insights.cycleCount ? "Show the first blocking cycle" : "No blocking cycles"}
+          >
+            <span className="insight-count">{insights.cycleCount}</span>
+            <span className="insight-label">{insights.cycleCount === 1 ? "Cycle" : "Cycles"}</span>
+          </button>
+        )}
       </div>
       <p className="hint" aria-live="polite">
         {active ? `Showing ${active.count} ${active.hint}. Click again to clear.` : "Click a number to highlight those issues."}
@@ -94,7 +108,9 @@ export function FinishFirst({
           <li key={u.uid}>
             <button
               type="button"
-              onClick={() => { onPick(u.uid); }}
+              onClick={() => {
+                onPick(u.uid);
+              }}
               title={`${n.key}: ${n.summary}`}
               aria-label={`${n.key}, ${n.summary}, ${reach}, ${n.assigneeName ?? "unassigned"}. Shows it in the current view.`}
             >

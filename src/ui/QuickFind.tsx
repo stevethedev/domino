@@ -24,7 +24,15 @@ export function findIssues(nodes: readonly GraphNode[], query: string): GraphNod
 }
 
 /** Jump to an issue by key or summary. `/` or ⌘K/Ctrl+K focuses it from anywhere. */
-export function QuickFind({ nodes, showSite, onPick }: { nodes: readonly GraphNode[]; showSite: boolean; onPick: (uid: string) => void }): ReactElement {
+export function QuickFind({
+  nodes,
+  showSite,
+  onPick,
+}: {
+  nodes: readonly GraphNode[];
+  showSite: boolean;
+  onPick: (uid: string) => void;
+}): ReactElement {
   const id = useId();
   const input = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
@@ -42,7 +50,9 @@ export function QuickFind({ nodes, showSite, onPick }: { nodes: readonly GraphNo
       }
     };
     window.addEventListener("keydown", onKey);
-    return (): void => { window.removeEventListener("keydown", onKey); };
+    return (): void => {
+      window.removeEventListener("keydown", onKey);
+    };
   }, []);
 
   const pick = (n: GraphNode): void => {
@@ -70,8 +80,14 @@ export function QuickFind({ nodes, showSite, onPick }: { nodes: readonly GraphNo
           setActive(0);
           setOpen(true);
         }}
-        onFocus={() => { setOpen(true); }}
-        onBlur={() => setTimeout(() => { setOpen(false); }, 120)}
+        onFocus={() => {
+          setOpen(true);
+        }}
+        onBlur={() =>
+          setTimeout(() => {
+            setOpen(false);
+          }, 120)
+        }
         onKeyDown={(e) => {
           if (e.key === "ArrowDown") {
             e.preventDefault();
@@ -103,9 +119,15 @@ export function QuickFind({ nodes, showSite, onPick }: { nodes: readonly GraphNo
               role="option"
               aria-selected={i === active}
               className={i === active ? "active" : undefined}
-              onMouseDown={(e) => { e.preventDefault(); }} // keep focus in the input until the pick
-              onClick={() => { pick(n); }}
-              onMouseEnter={() => { setActive(i); }}
+              onMouseDown={(e) => {
+                e.preventDefault();
+              }} // keep focus in the input until the pick
+              onClick={() => {
+                pick(n);
+              }}
+              onMouseEnter={() => {
+                setActive(i);
+              }}
             >
               <span className="card-key">{n.key}</span>
               <span className="quick-find-summary">{n.summary}</span>

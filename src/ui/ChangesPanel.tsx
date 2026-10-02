@@ -35,9 +35,7 @@ export function ChangesPanel({
   if (!changes) return null;
   const total = changes.byIssue.size;
   // Most actionable first: newly blocked, then unblocked, done, aging, new, moved.
-  const listed = [...changes.byIssue]
-    .sort(([, a], [, b]) => ORDER.indexOf(a[0]) - ORDER.indexOf(b[0]))
-    .slice(0, MAX_LISTED);
+  const listed = [...changes.byIssue].sort(([, a], [, b]) => ORDER.indexOf(a[0]) - ORDER.indexOf(b[0])).slice(0, MAX_LISTED);
   return (
     <>
       <p className="sb-meta" title={new Date(changes.since).toLocaleString()}>
@@ -51,7 +49,9 @@ export function ChangesPanel({
             type="button"
             className="change-summary"
             aria-pressed={highlight === "changed"}
-            onClick={() => { onHighlight(highlight === "changed" ? "none" : "changed"); }}
+            onClick={() => {
+              onHighlight(highlight === "changed" ? "none" : "changed");
+            }}
             title="Highlight changed issues"
           >
             {ORDER.filter((k) => changes.counts[k] > 0).map((k) => (
@@ -59,7 +59,11 @@ export function ChangesPanel({
                 {changes.counts[k]} {CHANGE_LABEL[k].toLowerCase()}
               </span>
             ))}
-            {changes.newLinks > 0 && <span className="chg">+{changes.newLinks} {changes.newLinks === 1 ? "link" : "links"}</span>}
+            {changes.newLinks > 0 && (
+              <span className="chg">
+                +{changes.newLinks} {changes.newLinks === 1 ? "link" : "links"}
+              </span>
+            )}
             {changes.leftScope > 0 && <span className="chg">{changes.leftScope} left scope</span>}
           </button>
           {listed.length > 0 && (
@@ -69,7 +73,13 @@ export function ChangesPanel({
                 if (!n) return null;
                 return (
                   <li key={uid}>
-                    <button type="button" onClick={() => { onPick(uid); }} aria-label={`${n.key}, ${n.summary}: ${kinds.map((k) => CHANGE_LABEL[k]).join(", ")}`}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onPick(uid);
+                      }}
+                      aria-label={`${n.key}, ${n.summary}: ${kinds.map((k) => CHANGE_LABEL[k]).join(", ")}`}
+                    >
                       <span className="card-key">{n.key}</span>
                       <span className={`chg chg-${kinds[0]}`}>{CHANGE_LABEL[kinds[0]]}</span>
                       <span className="change-summary-text">{n.summary}</span>

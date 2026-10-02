@@ -17,9 +17,12 @@ describe("parseJiraUrl", () => {
     expect(parseJiraUrl("https://partner-x.atlassian.net")).toMatchObject({ suggestedId: "partner-x", suggestedLabel: "Partner X" });
   });
 
-  it.each(["", "http://acme.atlassian.net", "localhost", "https://user:pw@acme.atlassian.net", "not a url at all"])("rejects %j", (input) => {
-    expect(parseJiraUrl(input)).toBeNull();
-  });
+  it.each(["", "http://acme.atlassian.net", "localhost", "https://user:pw@acme.atlassian.net", "not a url at all"])(
+    "rejects %j",
+    (input) => {
+      expect(parseJiraUrl(input)).toBeNull();
+    },
+  );
 });
 
 describe("uniqueId", () => {

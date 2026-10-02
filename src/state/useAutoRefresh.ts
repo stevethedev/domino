@@ -17,7 +17,12 @@ export function startAutoRefresh(refresh: () => Promise<void>, intervalMs: numbe
     clearTimeout(timer);
     timer = undefined;
     if (stopped || doc.hidden) return;
-    timer = setTimeout(() => { void run(); }, nextRefreshDelay(since, Date.now(), intervalMs));
+    timer = setTimeout(
+      () => {
+        void run();
+      },
+      nextRefreshDelay(since, Date.now(), intervalMs),
+    );
   };
   const run = async (): Promise<void> => {
     since = Date.now();

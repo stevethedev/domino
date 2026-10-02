@@ -19,7 +19,9 @@ export function SiteSelector({
       if (ref.current?.open && e.target instanceof Node && !ref.current.contains(e.target)) ref.current.open = false;
     };
     document.addEventListener("mousedown", close);
-    return (): void => { document.removeEventListener("mousedown", close); };
+    return (): void => {
+      document.removeEventListener("mousedown", close);
+    };
   }, []);
 
   return (
@@ -55,7 +57,9 @@ export function SiteSelector({
             <input
               type="checkbox"
               checked={selected.includes(s.id)}
-              onChange={(e) => { onChange(e.target.checked ? [...selected, s.id] : selected.filter((id) => id !== s.id)); }}
+              onChange={(e) => {
+                onChange(e.target.checked ? [...selected, s.id] : selected.filter((id) => id !== s.id));
+              }}
             />
             <span className="dot" style={{ "--site": s.color }} aria-hidden="true" />
             {s.label} <span className="muted">{new URL(s.baseUrl).host}</span>

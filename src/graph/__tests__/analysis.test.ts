@@ -41,8 +41,16 @@ function chain(keysAndCats: [string, "new" | "indeterminate" | "done"][]): RawIs
 
 describe("critical path", () => {
   it("returns the longest not-Done blocks chain", () => {
-    const main = chain([["M-1", "done"], ["M-2", "indeterminate"], ["M-3", "new"], ["M-4", "new"]]);
-    const side = chain([["S-1", "new"], ["S-2", "new"]]);
+    const main = chain([
+      ["M-1", "done"],
+      ["M-2", "indeterminate"],
+      ["M-3", "new"],
+      ["M-4", "new"],
+    ]);
+    const side = chain([
+      ["S-1", "new"],
+      ["S-2", "new"],
+    ]);
     const g = buildGraph({ sites: [A], data: [data("a", [...main, ...side])] });
     expect(criticalPath(g).nodes).toEqual(["a:M-2", "a:M-3", "a:M-4"]);
     expect(criticalPath(g).edges).toHaveLength(2);
@@ -61,7 +69,21 @@ describe("critical path", () => {
   });
 
   it("breaks ties deterministically by uid order", () => {
-    const g = buildGraph({ sites: [A], data: [data("a", [...chain([["B-1", "new"], ["B-2", "new"]]), ...chain([["A-1", "new"], ["A-2", "new"]])])] });
+    const g = buildGraph({
+      sites: [A],
+      data: [
+        data("a", [
+          ...chain([
+            ["B-1", "new"],
+            ["B-2", "new"],
+          ]),
+          ...chain([
+            ["A-1", "new"],
+            ["A-2", "new"],
+          ]),
+        ]),
+      ],
+    });
     expect(criticalPath(g).nodes).toEqual(["a:A-1", "a:A-2"]);
   });
 
@@ -81,9 +103,11 @@ describe("what's ready and open blockers", () => {
     const blocked = issue("B-1");
     const g = buildGraph({
       sites: [A],
-      data: [data("a", [done, readyOne, blocked, issue("F-1", "indeterminate")], {
-        "B-1": [remote(1, "is blocked by", "https://elsewhere.atlassian.net/browse/Q-1")],
-      })],
+      data: [
+        data("a", [done, readyOne, blocked, issue("F-1", "indeterminate")], {
+          "B-1": [remote(1, "is blocked by", "https://elsewhere.atlassian.net/browse/Q-1")],
+        }),
+      ],
     });
     const ready = readyIssues(g);
     expect([...ready].sort()).toEqual(["a:F-1", "a:R-1"]);
@@ -94,7 +118,9 @@ describe("what's ready and open blockers", () => {
   it("counts distinct open blockers", () => {
     const target = issue("T-1");
     const bs = ["B-1", "B-2", "B-3"].map((k) => issue(k));
-    bs.forEach((b, i) => { link(String(i), BLOCKS, b, target); });
+    bs.forEach((b, i) => {
+      link(String(i), BLOCKS, b, target);
+    });
     const g = buildGraph({ sites: [A], data: [data("a", [target, ...bs])] });
     expect(openBlockerCounts(g).get("a:T-1")).toBe(3);
   });

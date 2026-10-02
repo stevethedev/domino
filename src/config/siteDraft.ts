@@ -20,7 +20,11 @@ export function parseJiraUrl(input: string): ParsedJiraUrl | null {
   if (u.protocol !== "https:" || !u.hostname.includes(".") || u.username || u.password) return null;
   const host = u.host.toLowerCase();
   const first = u.hostname.toLowerCase().split(".")[0];
-  const slug = first.replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "site";
+  const slug =
+    first
+      .replace(/[^a-z0-9-]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40) || "site";
   const label = first
     .split(/[-_]+/)
     .filter(Boolean)
@@ -46,7 +50,12 @@ export const API_TOKEN_URL = "https://id.atlassian.com/manage-profile/security/a
 export type AutoFields = { id: string; label: string };
 
 /** Fills id / label / secretRef from the URL unless the user already customized them. */
-export function applyUrl(draft: SiteConfig, input: string, taken: readonly string[], prevAuto: AutoFields): { draft: SiteConfig; auto: AutoFields } {
+export function applyUrl(
+  draft: SiteConfig,
+  input: string,
+  taken: readonly string[],
+  prevAuto: AutoFields,
+): { draft: SiteConfig; auto: AutoFields } {
   const parsed = parseJiraUrl(input);
   const next: SiteConfig = { ...draft, baseUrl: input };
   if (!parsed) return { draft: next, auto: prevAuto };

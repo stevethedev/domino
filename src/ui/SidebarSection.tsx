@@ -38,7 +38,9 @@ export function SidebarSection({
           aria-controls={bodyId}
           // Starts with the visible title, so voice control ("click Warnings") still matches.
           aria-label={badge !== undefined ? `${title}, ${badge}` : undefined}
-          onClick={() => { setOpen(!open); }}
+          onClick={() => {
+            setOpen(!open);
+          }}
         >
           <span className="sb-chevron" aria-hidden="true" />
           <span className="sb-title">{title}</span>

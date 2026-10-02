@@ -44,7 +44,12 @@ export function arrowAnchors(
 
 /** True when the blocked issue started before its blocker finished. */
 export function isViolated(blocker: TimelineEntry, blocked: TimelineEntry): boolean {
-  const started = blocked.progress.state === "done" ? blocked.progress.actual.start : blocked.progress.state === "started" ? blocked.progress.actualStart : undefined;
+  const started =
+    blocked.progress.state === "done"
+      ? blocked.progress.actual.start
+      : blocked.progress.state === "started"
+        ? blocked.progress.actualStart
+        : undefined;
   if (!started) return false;
   switch (blocker.progress.state) {
     case "done":
@@ -76,7 +81,16 @@ export const TimelineArrows = memo(function TimelineArrows({
     <svg className="tl-arrows" width={width} height={height} aria-hidden="true">
       <defs>
         {["edge", "violated", "critical"].map((k) => (
-          <marker key={k} id={`tl-arrow-${k}`} viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <marker
+            key={k}
+            id={`tl-arrow-${k}`}
+            viewBox="0 0 8 8"
+            refX="7"
+            refY="4"
+            markerWidth="7"
+            markerHeight="7"
+            orient="auto-start-reverse"
+          >
             <path d="M0,0 L8,4 L0,8 z" className={`tl-arrowhead ${k}`} />
           </marker>
         ))}

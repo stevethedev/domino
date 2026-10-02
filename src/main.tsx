@@ -16,4 +16,6 @@ async function start(): Promise<void> {
 }
 
 // Nothing is mounted yet to show an error in, so a failed start (e.g. a chunk that will not load) goes to the console.
-start().catch((e: unknown) => { console.error("Domino failed to start", e); });
+start().catch((e: unknown) => {
+  console.error("Domino failed to start", e);
+});

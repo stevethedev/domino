@@ -62,7 +62,9 @@ function useViewHotkeys(setViewMode: (m: ViewMode) => void): void {
       if (e.key === "t") setViewMode("timeline");
     };
     window.addEventListener("keydown", onKey);
-    return (): void => { window.removeEventListener("keydown", onKey); };
+    return (): void => {
+      window.removeEventListener("keydown", onKey);
+    };
   }, [setViewMode]);
 }
 
@@ -83,7 +85,9 @@ function Shell(): ReactElement {
   const focusGraphNode = useFocusNode();
   const [collapsedLaneIds, setCollapsedLaneIds] = usePersistentState(COLLAPSED_LANES_KEY, parseLaneIds, []);
   const collapsedLanes = useMemo<ReadonlySet<string>>(() => new Set(collapsedLaneIds), [collapsedLaneIds]);
-  const setCollapsedLanes = (next: ReadonlySet<string>): void => { setCollapsedLaneIds([...next].slice(-MAX_COLLAPSED_LANES)); };
+  const setCollapsedLanes = (next: ReadonlySet<string>): void => {
+    setCollapsedLaneIds([...next].slice(-MAX_COLLAPSED_LANES));
+  };
   const [refreshMinutes, setRefreshMinutes] = usePersistentState(REFRESH_MINUTES_KEY, parseRefreshMinutes, DEFAULT_REFRESH_MINUTES);
   useAutoRefresh(domino.refresh, refreshMinutes * 60_000, domino.background.lastUpdated);
   const { config, load, graph } = domino;
@@ -115,7 +119,11 @@ function Shell(): ReactElement {
   const insights = useMemo(() => ({ ...baseInsights, changed: changes?.byIssue ?? new Map(), mine }), [baseInsights, changes, mine]);
   /** Highlight from a tile group: `scope` says whose issues it covers. Clicking the active tile again clears it. */
   const highlightFor = (scope: HighlightScope): Highlight => (view.highlightScope === scope ? view.highlight : "none");
-  const setHighlight = (scope: HighlightScope) => (highlight: Highlight): void => { setView({ ...view, highlight, highlightScope: highlight === "none" ? "all" : scope }); };
+  const setHighlight =
+    (scope: HighlightScope) =>
+    (highlight: Highlight): void => {
+      setView({ ...view, highlight, highlightScope: highlight === "none" ? "all" : scope });
+    };
 
   const [savedViews, setSavedViews] = usePersistentState<SavedView[]>(SAVED_VIEWS_KEY, parseSavedViews, []);
   const currentView = (name: string): SavedView => ({
@@ -136,16 +144,13 @@ function Shell(): ReactElement {
   };
   const nodesByUid = useMemo(() => new Map(graph.nodes.map((n) => [n.uid, n])), [graph]);
   const [expandedEpics, setExpandedEpics] = useState<ReadonlySet<string>>(new Set());
-  const toggleEpic = useCallback(
-    (epicUid: string) => {
-      setExpandedEpics((cur) => {
-        const next = new Set(cur);
-        if (!next.delete(epicUid)) next.add(epicUid);
-        return next;
-      });
-    },
-    [],
-  );
+  const toggleEpic = useCallback((epicUid: string) => {
+    setExpandedEpics((cur) => {
+      const next = new Set(cur);
+      if (!next.delete(epicUid)) next.add(epicUid);
+      return next;
+    });
+  }, []);
   /** In the epic map, an issue inside a collapsed epic is revealed by expanding that epic first. */
   const focusInGraph = (uid: string): void => {
     // A ghost epic with loaded children is drawn as its summary in the epic map.
@@ -175,7 +180,11 @@ function Shell(): ReactElement {
     // The lane's rows slide out of its header for FOLD_MS; scroll once the target has landed,
     // or the smooth scroll would aim at where the row was mid-animation.
     const settleMs = prefersReducedMotion() ? 0 : FOLD_MS;
-    setTimeout(() => { requestAnimationFrame(() => { focusTimelineRow(uid); }); }, settleMs);
+    setTimeout(() => {
+      requestAnimationFrame(() => {
+        focusTimelineRow(uid);
+      });
+    }, settleMs);
   };
   const focusIssue = viewMode === "graph" ? focusInGraph : focusInTimeline;
   useViewHotkeys(setViewMode);
@@ -194,8 +203,12 @@ function Shell(): ReactElement {
             <SavedViewsMenu
               views={savedViews}
               onApply={applyView}
-              onSave={(name) => { setSavedViews(upsertView(savedViews, currentView(name))); }}
-              onDelete={(name) => { setSavedViews(savedViews.filter((v) => v.name !== name)); }}
+              onSave={(name) => {
+                setSavedViews(upsertView(savedViews, currentView(name)));
+              }}
+              onDelete={(name) => {
+                setSavedViews(savedViews.filter((v) => v.name !== name));
+              }}
             />
             <SiteSelector sites={config.sites} selected={domino.selected} onChange={domino.setSelected} />
             {/* Remount when a saved view swaps the scope, so the inputs show it. */}
@@ -209,9 +222,20 @@ function Shell(): ReactElement {
           refreshing={domino.background.refreshing}
           lastUpdated={domino.background.lastUpdated}
           // With data on screen, refresh in place; otherwise (nothing loaded, or a failed load) load again.
-          onRefresh={() => { if (load.status === "done") void domino.refresh(); else domino.reload(); }}
+          onRefresh={() => {
+            if (load.status === "done") void domino.refresh();
+            else domino.reload();
+          }}
         />
-        <button type="button" className="icon-btn" onClick={() => { setSettingsOpen(true); }} aria-label="Settings" title="Settings">
+        <button
+          type="button"
+          className="icon-btn"
+          onClick={() => {
+            setSettingsOpen(true);
+          }}
+          aria-label="Settings"
+          title="Settings"
+        >
           ⚙
         </button>
       </header>
@@ -228,15 +252,15 @@ function Shell(): ReactElement {
           <SidebarSection id="glance" title="At a glance">
             <InsightTiles
               summary={
-                load.status === "loading"
-                  ? "Loading…"
-                  : loaded
-                    ? (
-                        <>
-                          {full} issues · {graph.nodes.length - full} outside scope · <Freshness background={domino.background} />
-                        </>
-                      )
-                    : ""
+                load.status === "loading" ? (
+                  "Loading…"
+                ) : loaded ? (
+                  <>
+                    {full} issues · {graph.nodes.length - full} outside scope · <Freshness background={domino.background} />
+                  </>
+                ) : (
+                  ""
+                )
               }
               insights={insights}
               highlight={highlightFor("all")}
@@ -247,7 +271,8 @@ function Shell(): ReactElement {
               }}
             />
           </SidebarSection>
-          {loaded && config &&
+          {loaded &&
+            config &&
             (["assigned", "reported"] as const).map((scope) => (
               <MyGlance
                 key={scope}
@@ -319,7 +344,15 @@ function Shell(): ReactElement {
         </section>
       </main>
 
-      <SettingsDialog domino={domino} open={settingsOpen} onClose={() => { setSettingsOpen(false); }} refreshMinutes={refreshMinutes} onRefreshMinutes={setRefreshMinutes} />
+      <SettingsDialog
+        domino={domino}
+        open={settingsOpen}
+        onClose={() => {
+          setSettingsOpen(false);
+        }}
+        refreshMinutes={refreshMinutes}
+        onRefreshMinutes={setRefreshMinutes}
+      />
     </div>
   );
 }
@@ -332,7 +365,8 @@ function CanvasMessage({ domino }: { domino: ReturnType<typeof useDomino> }): Re
   else if (load.status === "done" && load.result.kind === "overCap")
     msg = (
       <>
-        <strong>Too many issues ({load.result.count}+).</strong> Domino shows at most 300. Narrow the scope with a tighter JQL, an epic, or a smaller depth.
+        <strong>Too many issues ({load.result.count}+).</strong> Domino shows at most 300. Narrow the scope with a tighter JQL, an epic, or
+        a smaller depth.
       </>
     );
   else if (load.status === "done" && load.result.kind === "ok" && graph.nodes.length === 0 && load.result.errors.length === 0)
@@ -349,12 +383,24 @@ function Legend(): ReactElement {
   return (
     <>
       <ul className="legend-list">
-        <li><span className="swatch status-todo" aria-hidden="true" /> To Do</li>
-        <li><span className="swatch status-inprogress" aria-hidden="true" /> In Progress</li>
-        <li><span className="swatch status-done" aria-hidden="true" /> Done</li>
-        <li><span className="legend legend-cycle" aria-hidden="true" /> Blocking cycle</li>
-        <li><span className="legend legend-critical" aria-hidden="true" /> Critical path</li>
-        <li><span className="swatch ghost-swatch" aria-hidden="true" /> Outside scope</li>
+        <li>
+          <span className="swatch status-todo" aria-hidden="true" /> To Do
+        </li>
+        <li>
+          <span className="swatch status-inprogress" aria-hidden="true" /> In Progress
+        </li>
+        <li>
+          <span className="swatch status-done" aria-hidden="true" /> Done
+        </li>
+        <li>
+          <span className="legend legend-cycle" aria-hidden="true" /> Blocking cycle
+        </li>
+        <li>
+          <span className="legend legend-critical" aria-hidden="true" /> Critical path
+        </li>
+        <li>
+          <span className="swatch ghost-swatch" aria-hidden="true" /> Outside scope
+        </li>
       </ul>
       <p className="hint">Hover or focus a card to trace its blockers. Enter or click opens it in Jira.</p>
       <p className="hint">

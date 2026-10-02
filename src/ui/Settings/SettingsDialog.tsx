@@ -54,9 +54,7 @@ export function SettingsDialog({
   const submit = async ({ site, isDefault, token, test }: SiteFormResult): Promise<void> => {
     const exists = config.sites.some((s) => s.id === site.id);
     const sites = exists ? config.sites.map((s) => (s.id === site.id ? { ...site, cloudId: s.cloudId } : s)) : [...config.sites, site];
-    const defaults = isDefault
-      ? [...new Set([...config.defaultSiteIds, site.id])]
-      : config.defaultSiteIds.filter((id) => id !== site.id);
+    const defaults = isDefault ? [...new Set([...config.defaultSiteIds, site.id])] : config.defaultSiteIds.filter((id) => id !== site.id);
     await persist(sites, defaults);
     if (token && site.auth.type === "apiToken") await domino.store.setSecret(site.auth.secretRef, token);
     setEditing(null);
@@ -65,7 +63,9 @@ export function SettingsDialog({
   };
 
   const switchToLive = (): void => {
-    domino.saveConfig({ ...config, backend: "jira" }).catch((e: unknown) => { setError(errorMessage(e)); });
+    domino.saveConfig({ ...config, backend: "jira" }).catch((e: unknown) => {
+      setError(errorMessage(e));
+    });
   };
 
   const form = editing && (
@@ -79,10 +79,11 @@ export function SettingsDialog({
       backend={config.backend}
       onSwitchToLive={switchToLive}
       onSubmit={submit}
-      onCancel={() => { setEditing(null); }}
+      onCancel={() => {
+        setEditing(null);
+      }}
     />
   );
-
 
   return (
     <dialog
@@ -110,7 +111,13 @@ export function SettingsDialog({
       <div className="section-row">
         <h3 className="section-h">Sites</h3>
         {editing?.kind !== "new" && (
-          <button type="button" className="primary" onClick={() => { setEditing({ kind: "new" }); }}>
+          <button
+            type="button"
+            className="primary"
+            onClick={() => {
+              setEditing({ kind: "new" });
+            }}
+          >
             + Add site
           </button>
         )}
@@ -136,10 +143,18 @@ export function SettingsDialog({
               site={s}
               highlight={justSaved === s.id}
               health={domino.health[s.id] ?? { state: "unknown" }}
-              onToggle={(enabled) => { persist(config.sites.map((x) => (x.id === s.id ? { ...x, enabled } : x))).catch(() => {}); }}
-              onTest={() => { void domino.testConnection(s.id); }}
-              onEdit={() => { setEditing({ kind: "edit", id: s.id }); }}
-              onRemove={() => { persist(config.sites.filter((x) => x.id !== s.id)).catch(() => {}); }}
+              onToggle={(enabled) => {
+                persist(config.sites.map((x) => (x.id === s.id ? { ...x, enabled } : x))).catch(() => {});
+              }}
+              onTest={() => {
+                void domino.testConnection(s.id);
+              }}
+              onEdit={() => {
+                setEditing({ kind: "edit", id: s.id });
+              }}
+              onRemove={() => {
+                persist(config.sites.filter((x) => x.id !== s.id)).catch(() => {});
+              }}
             />
           ))}
           {config.sites.length === 0 && (

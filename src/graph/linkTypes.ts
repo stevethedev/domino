@@ -31,10 +31,7 @@ export type ResolvedRelationship = {
 const RELATES: ResolvedRelationship = { kind: "relates", linkType: "relates to", inward: false, symmetric: true };
 
 /** Maps a remote link's free-text `relationship` onto a known link type, or falls back to "relates to". */
-export function resolveRelationship(
-  relationship: string | undefined,
-  linkTypes: readonly RawLinkType[],
-): ResolvedRelationship {
+export function resolveRelationship(relationship: string | undefined, linkTypes: readonly RawLinkType[]): ResolvedRelationship {
   const rel = relationship?.trim().toLowerCase();
   if (!rel) return RELATES;
   for (const t of [...linkTypes, ...DEFAULT_LINK_TYPES]) {

@@ -45,7 +45,7 @@ export function installMockIpc(): Promise<void> {
     if (requireEnabled && !s.enabled) throw new MockIpcError(`${s.label} is disabled`);
     return s;
   };
-  const wrap = async <T,>(fn: () => Promise<T>): Promise<T> => {
+  const wrap = async <T>(fn: () => Promise<T>): Promise<T> => {
     if (config.backend === "jira") return rejectLikeTauri("Live Jira needs the desktop app (npm run dev)");
     try {
       return await fn();
@@ -57,7 +57,8 @@ export function installMockIpc(): Promise<void> {
   mockWindows("main");
   mockIPC(async (cmd, payload) => {
     // Every command takes named arguments; the binary payload forms are never used.
-    const args: Readonly<Record<string, unknown>> = payload === undefined || Array.isArray(payload) || payload instanceof ArrayBuffer || ArrayBuffer.isView(payload) ? {} : payload;
+    const args: Readonly<Record<string, unknown>> =
+      payload === undefined || Array.isArray(payload) || payload instanceof ArrayBuffer || ArrayBuffer.isView(payload) ? {} : payload;
     const str = (name: string): string => optStr(name) ?? "";
     const optStr = (name: string): string | undefined => {
       const v = args[name];
@@ -80,7 +81,9 @@ export function installMockIpc(): Promise<void> {
       case "site_health":
         return wrap(async () => void (await source.fetchLinkTypes(site(siteId, false).id)));
       case "fetch_by_jql":
-        return wrap(() => source.fetchByJql(site(siteId).id, str("jql"), typeof args.maxResults === "number" ? args.maxResults : undefined));
+        return wrap(() =>
+          source.fetchByJql(site(siteId).id, str("jql"), typeof args.maxResults === "number" ? args.maxResults : undefined),
+        );
       case "fetch_epic":
         return wrap(() => source.fetchEpic(site(siteId).id, key, optStr("filter")));
       case "fetch_issue":

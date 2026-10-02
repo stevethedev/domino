@@ -48,10 +48,17 @@ describe("MultiSiteLoader", () => {
   it("applies the site filter to epic children and to linked issues, leaving the rest as ghosts", async () => {
     const narrowed = sites.map((s) => (s.id === "acme" ? { ...s, baseJql: "project = CORE" } : s));
     const loader = new MultiSiteLoader(new FixtureSource(mockSites, mockLinkTypes));
-    const res = await loader.load({ mode: "epic", siteId: "acme", key: "CORE-1" }, narrowed.filter((s) => s.id === "acme"), narrowed);
+    const res = await loader.load(
+      { mode: "epic", siteId: "acme", key: "CORE-1" },
+      narrowed.filter((s) => s.id === "acme"),
+      narrowed,
+    );
     if (res.kind !== "ok") throw new Error("expected ok");
     const g = buildGraph({ sites: narrowed, data: res.data });
-    const full = g.nodes.filter((n) => !n.ghost).map((n) => n.key).sort();
+    const full = g.nodes
+      .filter((n) => !n.ghost)
+      .map((n) => n.key)
+      .sort();
     // Children in CORE: CORE-10, CORE-11. Their WEB links (WEB-1, WEB-2) fail the filter and stay ghosts,
     // and so aren't expanded further.
     expect(full).toEqual(["CORE-10", "CORE-11"]);
@@ -66,7 +73,10 @@ describe("MultiSiteLoader", () => {
       narrowed,
     );
     if (res.kind !== "ok") throw new Error("expected ok");
-    const full = buildGraph({ sites: narrowed, data: res.data }).nodes.filter((n) => !n.ghost).map((n) => n.key).sort();
+    const full = buildGraph({ sites: narrowed, data: res.data })
+      .nodes.filter((n) => !n.ghost)
+      .map((n) => n.key)
+      .sort();
     expect(full).toEqual(["CORE-11", "CORE-8", "WEB-2"]); // OPS-3 (project OPS) stays a ghost
   });
 
@@ -93,7 +103,10 @@ describe("MultiSiteLoader", () => {
     const res = await loader.load({ mode: "epic", siteId: "acme", key: "CORE-1" }, selected, sites);
     if (res.kind !== "ok") throw new Error("expected ok");
     const g = buildGraph({ sites, data: res.data });
-    const full = g.nodes.filter((n) => !n.ghost).map((n) => n.uid).sort();
+    const full = g.nodes
+      .filter((n) => !n.ghost)
+      .map((n) => n.uid)
+      .sort();
     // children: CORE-10, CORE-11, WEB-1, WEB-2; one hop: CORE-8, WEB-5, partner:PAY-3.
     // OPS-3 is linked too, but acme's site filter (project in (CORE, WEB)) keeps it a ghost.
     expect(full).toEqual(["acme:CORE-10", "acme:CORE-11", "acme:CORE-8", "acme:WEB-1", "acme:WEB-2", "acme:WEB-5", "partner:PAY-3"]);
@@ -107,9 +120,12 @@ describe("MultiSiteLoader", () => {
     const res = await loader.load({ mode: "seed", siteId: "acme", key: "CORE-11", depth: 2 }, acmeOnly, sites);
     if (res.kind !== "ok") throw new Error("expected ok");
     const g = buildGraph({ sites, data: res.data });
-    expect(g.nodes.filter((n) => !n.ghost).map((n) => n.uid).sort()).toEqual([
-      "acme:CORE-10", "acme:CORE-11", "acme:CORE-8", "acme:WEB-1", "acme:WEB-2", "acme:WEB-5",
-    ]);
+    expect(
+      g.nodes
+        .filter((n) => !n.ghost)
+        .map((n) => n.uid)
+        .sort(),
+    ).toEqual(["acme:CORE-10", "acme:CORE-11", "acme:CORE-8", "acme:WEB-1", "acme:WEB-2", "acme:WEB-5"]);
     expect(g.nodes.find((n) => n.uid === "partner:PAY-3")).toMatchObject({ ghost: true });
   });
 
@@ -117,16 +133,18 @@ describe("MultiSiteLoader", () => {
     const inner = new FixtureSource(mockSites, mockLinkTypes);
     const active = new Map<string, number>();
     let peak = 0;
-    const slow = <T,>(siteId: string, fn: () => Promise<T>) => async (): Promise<T> => {
-      active.set(siteId, (active.get(siteId) ?? 0) + 1);
-      peak = Math.max(peak, getOrThrow(active, siteId));
-      await new Promise((r) => setTimeout(r, 2));
-      try {
-        return await fn();
-      } finally {
-        active.set(siteId, getOrThrow(active, siteId) - 1);
-      }
-    };
+    const slow =
+      <T>(siteId: string, fn: () => Promise<T>) =>
+      async (): Promise<T> => {
+        active.set(siteId, (active.get(siteId) ?? 0) + 1);
+        peak = Math.max(peak, getOrThrow(active, siteId));
+        await new Promise((r) => setTimeout(r, 2));
+        try {
+          return await fn();
+        } finally {
+          active.set(siteId, getOrThrow(active, siteId) - 1);
+        }
+      };
     const src: JiraSource = {
       fetchByJql: (s, j, m) => slow(s, () => inner.fetchByJql(s, j, m))(),
       fetchEpic: (s, k) => slow(s, () => inner.fetchEpic(s, k))(),

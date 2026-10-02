@@ -35,7 +35,12 @@ export function MyGlance({
   const open = [...only].filter((uid) => nodes.get(uid)?.statusCategory !== "done").length;
   const labelOf = (siteId: string): string => sites.find((s) => s.id === siteId)?.label ?? siteId;
   const unknownOn = myself.errors.map((e) => labelOf(e.siteId));
-  const summary = myself.loading && only.size === 0 ? "Finding you on each site…" : only.size === 0 ? copy.none : `${only.size} ${only.size === 1 ? "issue" : "issues"} · ${open} open`;
+  const summary =
+    myself.loading && only.size === 0
+      ? "Finding you on each site…"
+      : only.size === 0
+        ? copy.none
+        : `${only.size} ${only.size === 1 ? "issue" : "issues"} · ${open} open`;
   return (
     <SidebarSection id={`mine-${scope}`} title={copy.title} badge={only.size ? open : undefined}>
       <InsightTiles summary={summary} insights={insights} highlight={highlight} onHighlight={onHighlight} only={only} />

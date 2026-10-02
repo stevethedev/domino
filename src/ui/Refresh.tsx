@@ -7,8 +7,12 @@ import type { BackgroundRefresh } from "../state/useDomino";
 function useNow(ms: number): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const id = setInterval(() => { setNow(Date.now()); }, ms);
-    return (): void => { clearInterval(id); };
+    const id = setInterval(() => {
+      setNow(Date.now());
+    }, ms);
+    return (): void => {
+      clearInterval(id);
+    };
   }, [ms]);
   return now;
 }
@@ -21,7 +25,12 @@ function useNow(ms: number): number {
 export function Freshness({ background }: { background: BackgroundRefresh }): ReactElement | null {
   const now = useNow(30_000);
   const { lastUpdated, refreshing, error } = background;
-  if (refreshing) return <span className="freshness" aria-hidden="true">refreshing…</span>;
+  if (refreshing)
+    return (
+      <span className="freshness" aria-hidden="true">
+        refreshing…
+      </span>
+    );
   if (error) return <span className="freshness warn">{error}</span>;
   if (lastUpdated === null) return null;
   return (
@@ -32,8 +41,19 @@ export function Freshness({ background }: { background: BackgroundRefresh }): Re
 }
 
 /** Refresh-now. The auto-refresh interval lives in Settings (see `AutoRefreshField`). */
-export function RefreshButton({ refreshing, lastUpdated, onRefresh }: { refreshing: boolean; lastUpdated: number | null; onRefresh: () => void }): ReactElement {
-  const label = lastUpdated === null ? "Refresh now" : `Refresh now (last updated ${new Date(lastUpdated).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })})`;
+export function RefreshButton({
+  refreshing,
+  lastUpdated,
+  onRefresh,
+}: {
+  refreshing: boolean;
+  lastUpdated: number | null;
+  onRefresh: () => void;
+}): ReactElement {
+  const label =
+    lastUpdated === null
+      ? "Refresh now"
+      : `Refresh now (last updated ${new Date(lastUpdated).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })})`;
   // Spinning starts with the refresh but stops only at the end of a turn, so a quick refresh
   // still reads as one full rotation and the icon never snaps back from a tilted angle.
   const [spinning, setSpinning] = useState(false);
@@ -47,7 +67,9 @@ export function RefreshButton({ refreshing, lastUpdated, onRefresh }: { refreshi
         className={spinning ? "refresh-icon spinning" : "refresh-icon"}
         viewBox="0 0 24 24"
         aria-hidden="true"
-        onAnimationIteration={() => { if (!refreshing) setSpinning(false); }}
+        onAnimationIteration={() => {
+          if (!refreshing) setSpinning(false);
+        }}
       >
         {/* Drawn around (12, 12), the rotation centre. */}
         <path d="M20 12a8 8 0 1 1-2.34-5.66" />
@@ -57,9 +79,14 @@ export function RefreshButton({ refreshing, lastUpdated, onRefresh }: { refreshi
   );
 }
 
-
 /** The auto-refresh interval, a per-viewer preference shown in Settings. */
-export function AutoRefreshField({ minutes, onMinutes }: { minutes: RefreshMinutes; onMinutes: (m: RefreshMinutes) => void }): ReactElement {
+export function AutoRefreshField({
+  minutes,
+  onMinutes,
+}: {
+  minutes: RefreshMinutes;
+  onMinutes: (m: RefreshMinutes) => void;
+}): ReactElement {
   const id = useId();
   return (
     <section className="backend-section" aria-labelledby={`${id}-h`}>
@@ -84,7 +111,8 @@ export function AutoRefreshField({ minutes, onMinutes }: { minutes: RefreshMinut
         </select>
       </div>
       <p className="hint" id={`${id}-hint`}>
-        Re-checks the current sites and query in the background, keeping the graph on screen. Paused while the window is hidden. Stored on this computer only.
+        Re-checks the current sites and query in the background, keeping the graph on screen. Paused while the window is hidden. Stored on
+        this computer only.
       </p>
     </section>
   );

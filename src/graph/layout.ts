@@ -45,7 +45,12 @@ export const laneBySite: LaneFn = (n) => ({ id: `site:${n.siteId}`, label: n.sit
 
 export const laneByEpic: LaneFn = (n) => {
   if (n.epic) {
-    return { id: `epic:${n.epic.uid}`, label: n.epic.summary ? `${n.epic.key} · ${n.epic.summary}` : n.epic.key, color: n.siteColor, url: n.epic.url };
+    return {
+      id: `epic:${n.epic.uid}`,
+      label: n.epic.summary ? `${n.epic.key} · ${n.epic.summary}` : n.epic.key,
+      color: n.siteColor,
+      url: n.epic.url,
+    };
   }
   return n.ghost ? { id: "epic:~ghost", label: "Outside scope", last: true } : { id: "epic:~none", label: "No epic", last: true };
 };
@@ -84,7 +89,9 @@ export async function computeLayout(
   const visible = new Set(nodes.map((n) => n.uid));
   const sorted = [...nodes].sort((a, b) => a.uid.localeCompare(b.uid));
   const layoutEdges: ElkExtendedEdge[] = edges
-    .filter((e) => e.kind === "blocks" && !brokenEdgeIds.has(e.id) && visible.has(e.source) && visible.has(e.target) && e.source !== e.target)
+    .filter(
+      (e) => e.kind === "blocks" && !brokenEdgeIds.has(e.id) && visible.has(e.source) && visible.has(e.target) && e.source !== e.target,
+    )
     .map((e) => ({ id: e.id, sources: [e.source], targets: [e.target] }));
   const root: ElkNode = {
     id: "root",
