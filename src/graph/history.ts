@@ -12,7 +12,9 @@ const CATEGORY: Record<RawStatusCategoryKey, StatusCategory> = {
 /**
  * Turns one site's raw changelogs into per-uid status-category transitions, oldest first.
  * Changelogs identify issues by Jira id and statuses by id, so both are resolved here;
- * changes to statuses the site doesn't list are matched by name, else dropped.
+ * changes to statuses the site doesn't list are matched by name, else dropped. A listed status
+ * without a category can't be placed, so it's treated as unlisted (rather than as "unknown",
+ * which would read as leaving To Do).
  */
 export function toStatusHistory(
   logs: readonly RawIssueChangeLog[],
@@ -21,8 +23,9 @@ export function toStatusHistory(
   siteId: string,
 ): Map<string, StatusChange[]> {
   const uidById = new Map(nodes.flatMap((n): [string, string][] => (n.siteId === siteId && n.jiraId ? [[n.jiraId, n.uid]] : [])));
-  const byId = new Map(statuses.map((s) => [s.id, CATEGORY[s.statusCategory.key]]));
-  const byName = new Map(statuses.map((s) => [s.name.toLowerCase(), CATEGORY[s.statusCategory.key]]));
+  const categorized = statuses.flatMap((s) => (s.statusCategory ? [{ id: s.id, name: s.name, category: CATEGORY[s.statusCategory.key] }] : []));
+  const byId = new Map(categorized.map((s) => [s.id, s.category]));
+  const byName = new Map(categorized.map((s) => [s.name.toLowerCase(), s.category]));
   const out = new Map<string, StatusChange[]>();
   for (const log of logs) {
     const uid = uidById.get(log.issueId);

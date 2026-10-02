@@ -11,7 +11,7 @@ import {
   type StatusChange,
 } from "../schedule";
 import { BLOCKS, data, issue, link, site } from "./helpers";
-import type { RawIssue, RawIssueChangeLog, RawStatusCategoryKey } from "../../data/jiraTypes";
+import type { RawIssue, RawIssueChangeLog, RawStatusCategoryKey, RawStatusDef } from "../../data/jiraTypes";
 import type { Graph } from "../types";
 
 const A = site("a");
@@ -149,6 +149,17 @@ describe("toStatusHistory", () => {
     const logs: RawIssueChangeLog[] = JSON.parse('[{ "issueId": "H-1", "changeHistories": [{ "created": "2026-10-05T10:00:00.000+0000", "items": [{ "fieldId": "status", "to": "999" }] }] }]');
     expect(() => toStatusHistory(logs, [], g.nodes, "a")).not.toThrow();
     expect(toStatusHistory(logs, [], g.nodes, "a").size).toBe(0); // unknown status: dropped
+  });
+
+  it("treats a listed status without a category as unlisted instead of crashing", () => {
+    const g = chainGraph([pointed("H-1", 1)]);
+    const change = (to: string): RawIssueChangeLog["changeHistories"][number] => ({
+      created: "2026-10-05T10:00:00.000+0000",
+      items: [{ fieldId: "status", to, toString: null }], // an own toString, so the literal type-checks (see above)
+    });
+    const logs: RawIssueChangeLog[] = [{ issueId: "H-1", changeHistories: [change("1"), change("2")] }];
+    const statuses: RawStatusDef[] = [{ id: "1", name: "Mystery" }, { id: "2", name: "In Progress", statusCategory: { key: "indeterminate" } }];
+    expect(toStatusHistory(logs, statuses, g.nodes, "a").get("a:H-1")).toEqual([{ at: "2026-10-05", toCategory: "inprogress" }]);
   });
 });
 

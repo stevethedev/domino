@@ -91,4 +91,5 @@ export type RawChangeHistory = { id?: string; created: string | number; items: R
 export type RawIssueChangeLog = { issueId: string; changeHistories: RawChangeHistory[] };
 
 /** `GET /rest/api/3/status` item. */
-export type RawStatusDef = { id: string; name: string; statusCategory: { key: RawStatusCategoryKey; name?: string } };
+/** `statusCategory` is optional: like issues, this arrives as unvalidated Jira JSON. */
+export type RawStatusDef = { id: string; name: string; statusCategory?: { key: RawStatusCategoryKey; name?: string } };
