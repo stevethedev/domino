@@ -23,12 +23,12 @@ function describe(node: GraphNode, row: TimelineRowModel): string {
   if (node.dates?.due) parts.push(`due ${fmt(node.dates.due)}`);
   if (p.state !== "unknown") parts.push(varianceLabel(row.entry.varianceDays));
   if (node.ghost) parts.push("outside scope");
-  return `${parts.join(", ")}. Opens in browser.`;
+  return `${parts.join(", ")}. Shows details.`;
 }
 
 function describeEpic(node: GraphNode, epic: EpicSummary | "empty"): string {
-  if (epic === "empty") return `Epic ${node.key}, ${node.summary}, no child issues in scope. Opens in browser.`;
-  return `Epic ${node.key}, ${node.summary}, ${epic.children} issues, projected ${spanText(epic.projected)}, work ${spanText(epic.work)}. Opens in browser.`;
+  if (epic === "empty") return `Epic ${node.key}, ${node.summary}, no child issues in scope. Shows details.`;
+  return `Epic ${node.key}, ${node.summary}, ${epic.children} issues, projected ${spanText(epic.projected)}, work ${spanText(epic.work)}. Shows details.`;
 }
 
 function Bar({ span, start, scale, className }: { span: Span; start: Day; scale: Scale; className: string }): ReactElement {
@@ -44,6 +44,8 @@ export const TimelineRow = memo(function TimelineRow({
   scale,
   today,
   flags,
+  selected,
+  onSelect,
   onOpen,
   onHover,
 }: {
@@ -54,6 +56,11 @@ export const TimelineRow = memo(function TimelineRow({
   scale: Scale;
   today: Day;
   flags: RowFlags;
+  /** Whether this row's issue is open in the details panel. */
+  selected: boolean;
+  /** Click / Enter: show details. */
+  onSelect: (uid: string) => void;
+  /** ⌘/Ctrl+click: open in Jira directly. */
   onOpen: (url: string) => void;
   onHover: (uid: string | null) => void;
 }) {
@@ -67,21 +74,24 @@ export const TimelineRow = memo(function TimelineRow({
 
   return (
     <div
-      className={`tl-row status-${node.statusCategory}${node.ghost ? " ghost" : ""}${flags.dimmed ? " dimmed" : ""}${flags.critical ? " critical" : ""}${row.folded ? " folded" : ""}`}
+      className={`tl-row status-${node.statusCategory}${node.ghost ? " ghost" : ""}${flags.dimmed ? " dimmed" : ""}${flags.critical ? " critical" : ""}${row.folded ? " folded" : ""}${selected ? " selected" : ""}`}
       style={{ top: row.y }}
-      role="link"
+      role="button"
+      aria-pressed={selected}
       // A folded row (collapsed lane) is only kept for the fold animation: out of reach until shown.
       tabIndex={row.folded ? -1 : 0}
       aria-hidden={row.folded || undefined}
       aria-label={epic ? describeEpic(node, epic) : `${describe(node, row)}${flags.aging ? ` ${agingDescription(flags.aging)}.` : ""}`}
       data-tl-uid={node.uid}
-      onClick={() => {
-        onOpen(node.url);
+      onClick={(e) => {
+        if (e.metaKey || e.ctrlKey) onOpen(node.url);
+        else onSelect(node.uid);
       }}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          onOpen(node.url);
+          if (e.metaKey || e.ctrlKey) onOpen(node.url);
+          else onSelect(node.uid);
         }
       }}
       onMouseEnter={() => {

@@ -91,6 +91,8 @@ export function Canvas({
   showSiteBadges,
   expandedEpics,
   onToggleEpic,
+  selectedUid,
+  onSelect,
 }: {
   graph: Graph;
   insights: Insights;
@@ -100,6 +102,9 @@ export function Canvas({
   /** Epics shown issue-by-issue while the epic map is on. */
   expandedEpics: ReadonlySet<string>;
   onToggleEpic: (epicUid: string) => void;
+  /** The issue open in the details panel, if any. */
+  selectedUid: string | null;
+  onSelect: (uid: string) => void;
 }): ReactElement {
   const rf = useReactFlow();
   const [hovered, setHovered] = useState<string | null>(null);
@@ -199,6 +204,8 @@ export function Canvas({
             showSite: showSiteBadges,
             dimmed: chain ? !chain.nodes.has(n.uid) : emphasized ? !isEmphasized : false,
             highlight: isEmphasized && view.highlight !== "none" ? view.highlight : null,
+            selected: n.uid === selectedUid,
+            onSelect,
             onOpen: openExternal,
             onHover: setHovered,
             onExpand: n.rollup ? toggleEpic(n.rollup.epicUid) : undefined,
@@ -209,7 +216,7 @@ export function Canvas({
       ];
     });
     return [...groups, ...cards];
-  }, [layout, vNodes, insights, showSiteBadges, chain, emphasized, view.highlight, onToggleEpic]);
+  }, [layout, vNodes, insights, showSiteBadges, chain, emphasized, view.highlight, onToggleEpic, selectedUid, onSelect]);
 
   const flowEdges = useMemo<LinkFlowEdge[]>(() => {
     return vEdges.map((e) => {

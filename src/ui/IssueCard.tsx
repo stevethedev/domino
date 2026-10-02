@@ -15,9 +15,14 @@ export type IssueNodeData = {
   aging?: Aging;
   /** The most notable change since the scope was last marked seen. */
   change?: ChangeKind;
+  /** Whether this card's issue is open in the details panel. */
+  selected: boolean;
+  /** Click / Enter: show the issue's details. */
+  onSelect: (uid: string) => void;
+  /** ⌘/Ctrl+click: open the issue in Jira directly. */
   onOpen: (url: string) => void;
   onHover: (uid: string | null) => void;
-  /** Set on epic-map summary nodes: activating the card expands the epic instead of opening Jira. */
+  /** Set on epic-map summary nodes: activating the card expands the epic instead. */
   onExpand?: () => void;
 };
 export type IssueFlowNode = Node<IssueNodeData, "issue">;
@@ -186,12 +191,12 @@ function CompactBody({
 }
 
 export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNode>): ReactElement {
-  const { node: n, openBlockers, showSite, dimmed, highlight, aging, change, onOpen, onHover, onExpand } = data;
-  const activate =
-    onExpand ??
-    ((): void => {
-      onOpen(n.url);
-    });
+  const { node: n, openBlockers, showSite, dimmed, highlight, aging, change, selected, onSelect, onOpen, onHover, onExpand } = data;
+  const activate = (e: { metaKey: boolean; ctrlKey: boolean }): void => {
+    if (onExpand) onExpand();
+    else if (e.metaKey || e.ctrlKey) onOpen(n.url);
+    else onSelect(n.uid);
+  };
   // Selecting a boolean means cards re-render only when crossing the threshold, not on every zoom step.
   const compact = useStore((s) => s.transform[2] < COMPACT_BELOW_ZOOM);
   const status = n.statusCategory;
@@ -213,16 +218,17 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
 
   return (
     <div
-      className={`card status-${status}${n.ghost ? " ghost" : ""}${dimmed ? " dimmed" : ""}${highlight ? ` hl-${highlight}` : ""}${compact ? " compact" : ""}`}
-      role={onExpand ? "button" : "link"}
+      className={`card status-${status}${n.ghost ? " ghost" : ""}${dimmed ? " dimmed" : ""}${highlight ? ` hl-${highlight}` : ""}${compact ? " compact" : ""}${selected ? " selected" : ""}`}
+      role="button"
+      aria-pressed={onExpand ? undefined : selected}
       tabIndex={0}
-      aria-label={n.rollup ? rollupLabel(n, n.rollup) : `${label}. Opens in browser.`}
+      aria-label={n.rollup ? rollupLabel(n, n.rollup) : `${label}. Shows details.`}
       data-uid={n.uid}
       onClick={activate}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          activate();
+          activate(e);
         }
       }}
       onMouseEnter={() => {

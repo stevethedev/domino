@@ -871,3 +871,119 @@ kbd {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Issue details: a drawer over the right edge of the canvas (both views). */
+.issue-detail {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--z-popover);
+  width: min(360px, 100%);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+}
+.detail-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1_5);
+}
+.detail-header .site-badge {
+  margin-left: var(--space-1);
+}
+.detail-close {
+  margin-left: auto;
+}
+.detail-title {
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  line-height: 1.3;
+}
+/* Focused on open so keyboard and screen-reader users land in the panel; it isn't interactive,
+   so no ring. */
+.detail-title:focus {
+  outline: none;
+}
+.detail-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.detail-badges .blockers {
+  margin-left: 0; /* cards push it to the row's end; here it sits with the others */
+}
+.detail-impact {
+  margin: 0;
+  padding: var(--space-2) var(--space-2_5);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.detail-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-1_5) var(--space-3);
+  margin: 0;
+}
+.detail-facts > div {
+  display: contents;
+}
+.detail-facts dt {
+  color: var(--muted);
+}
+.detail-facts dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.detail-section .subhead {
+  margin-bottom: var(--space-1_5);
+}
+.detail-links,
+.detail-history {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr); /* let rows shrink so long summaries ellipsize */
+  gap: var(--space-0_5);
+}
+.detail-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1_5);
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-1) var(--space-1_5);
+  border: none;
+  background: none;
+  text-align: left;
+}
+.detail-link:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+.detail-link .card-key {
+  flex: none;
+}
+.detail-link-summary {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.detail-link .pill {
+  flex: none;
+}
+.detail-actions {
+  margin-top: auto;
+  padding-top: var(--space-2);
+}
+.detail-actions .primary {
+  width: 100%;
+}

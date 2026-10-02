@@ -162,7 +162,16 @@ What `HttpBackend` does:
 - **Issue filters** (Display → Issues): hide issues by status category, issue type or assignee without reloading. Each control lists only what's loaded, with counts. The section's badge shows how many issues are hidden, with a "Showing 9 of 12 · Clear filters" line. Filters store what's hidden, so new types or assignees arriving with a refresh still show. They're display only: At a glance, Finish first and the timeline's schedule still use the whole scope, so a hidden blocker still delays its dependents. Out-of-scope tickets linked only to hidden issues are hidden too. Jumping to a hidden issue (Quick find, sidebar lists) clears the issue filters first. Saved views include them. The logic is `visibleSubgraph` in `src/graph/visible.ts`.
 - **Quick find** (top bar): type a key or part of a summary to jump to the issue in the current view. Exact and prefix key matches come first.
 - **Semantic zoom:** below 60% zoom, graph cards switch to a compact form (key, status, blocker count) that stays readable.
-- **Keyboard:** `/` or ⌘K / Ctrl+K opens quick find. `g` and `t` switch to Graph and Timeline. Tab moves between cards and rows; Enter opens the issue in Jira.
+- **Issue details** (click a card or timeline row): a drawer over the right of the canvas, built from what's already loaded, with no extra requests. It shows:
+  - the summary, status, blockers, aging and change badges;
+  - assignee, estimate, epic, and the created, due and resolved dates;
+  - how many open issues finishing it would unblock downstream;
+  - what it's blocked by, what it blocks, and its other links (each opens that issue in the drawer and the view);
+  - its status history.
+
+  "Open in Jira" leaves the app; ⌘/Ctrl+click on a card opens Jira directly. Esc closes the drawer and returns focus to the card or row. It's `src/ui/IssueDetail.tsx`.
+
+- **Keyboard:** `/` or ⌘K / Ctrl+K opens quick find. `g` and `t` switch to Graph and Timeline. Tab moves between cards and rows; Enter shows the issue's details, ⌘/Ctrl+Enter opens it in Jira, and Esc closes the details.
 
 ## Timeline view
 

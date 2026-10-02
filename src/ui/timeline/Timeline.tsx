@@ -42,6 +42,8 @@ export function Timeline({
   onOpen,
   collapsedLanes,
   onCollapsedLanes,
+  selectedUid,
+  onSelect,
 }: {
   graph: Graph;
   insights: Insights;
@@ -54,6 +56,9 @@ export function Timeline({
   /** Lane ids folded to their header (per viewer; ids are unique across grouping modes). */
   collapsedLanes: ReadonlySet<string>;
   onCollapsedLanes: (next: ReadonlySet<string>) => void;
+  /** The issue open in the details panel, if any. */
+  selectedUid: string | null;
+  onSelect: (uid: string) => void;
 }): ReactElement {
   const [hovered, setHovered] = useState<string | null>(null);
   const setSettings = (patch: Partial<EstimateSettings>): void => {
@@ -312,6 +317,8 @@ export function Timeline({
                       aging: insights.aging.get(item.node.uid),
                       change: insights.changed.get(item.node.uid)?.[0],
                     }}
+                    selected={item.node.uid === selectedUid}
+                    onSelect={onSelect}
                     onOpen={onOpen}
                     onHover={setHovered}
                   />

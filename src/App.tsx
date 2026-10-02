@@ -2,7 +2,7 @@ import { ReactFlowProvider } from "@xyflow/react";
 import { prefersReducedMotion } from "./lib/motion";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type ReactElement } from "react";
 import { summaryUid } from "./graph/collapse";
-import { computeInsights, isHighlightScope, type Highlight, type HighlightScope } from "./graph/insights";
+import { computeInsights, downstreamOpen, isHighlightScope, type Highlight, type HighlightScope, type Insights } from "./graph/insights";
 import { myIssues } from "./graph/mine";
 import { NO_ISSUE_FILTERS, passesIssueFilters } from "./graph/visible";
 import { configStore, jiraSource, openExternal } from "./platform";
@@ -22,6 +22,7 @@ import { ErrorBanner } from "./ui/ErrorBanner";
 import { FilterPanel } from "./ui/FilterPanel";
 import { FinishFirst } from "./ui/InsightsBar";
 import { BrandMark } from "./ui/BrandMark";
+import { IssueDetail, type IssueDetailData } from "./ui/IssueDetail";
 import { Glance } from "./ui/Glance";
 import { SidebarSection } from "./ui/SidebarSection";
 import { QuickFind } from "./ui/QuickFind";
@@ -127,7 +128,10 @@ function Shell(): ReactElement {
   const { changes, markSeen } = useChanges(scopeKey, graph, baseInsights, loadedThisScope, history.status === "done");
   const myself = useMyself(jiraSource, domino.selectedSites, config?.backend ?? "none", domino.background.lastUpdated);
   const mine = useMemo(() => myIssues(graph.nodes, myself.me), [graph.nodes, myself.me]);
-  const insights = useMemo(() => ({ ...baseInsights, changed: changes?.byIssue ?? new Map(), mine }), [baseInsights, changes, mine]);
+  const insights = useMemo<Insights>(
+    () => ({ ...baseInsights, changed: changes?.byIssue ?? new Map(), mine }),
+    [baseInsights, changes, mine],
+  );
   /** Highlight from a tile group: `scope` says whose issues it covers. Clicking the active tile again clears it. */
   const highlightFor = (scope: HighlightScope): Highlight => (view.highlightScope === scope ? view.highlight : "none");
   const setHighlight =
@@ -208,6 +212,30 @@ function Shell(): ReactElement {
   };
   const focusInView = viewMode === "graph" ? focusInGraph : focusInTimeline;
   /** An issue hidden by the issue filters is revealed by clearing them first (as lanes are expanded). */
+  // The issue open in the details panel. It closes by itself if the issue leaves the loaded graph.
+  const [selectedUid, setSelectedUid] = useState<string | null>(null);
+  const selectIssue = useCallback((uid: string) => {
+    setSelectedUid(uid);
+  }, []);
+  const downstream = useMemo(() => downstreamOpen(graph), [graph]);
+  const selectedNode = selectedUid ? nodesByUid.get(selectedUid) : undefined;
+  const detail: IssueDetailData | null = selectedNode
+    ? {
+        node: selectedNode,
+        graph,
+        unblocks: downstream.get(selectedNode.uid)?.size ?? 0,
+        openBlockers: insights.openBlockers.get(selectedNode.uid) ?? 0,
+        aging: insights.aging.get(selectedNode.uid),
+        changes: insights.changed.get(selectedNode.uid) ?? [],
+        history: history.status === "done" ? history.history.get(selectedNode.uid) : undefined,
+      }
+    : null;
+  /** Closing returns focus to the card or row the panel was showing, so keyboard users aren't lost. */
+  const closeDetail = (): void => {
+    const uid = selectedUid;
+    setSelectedUid(null);
+    if (uid) document.querySelector<HTMLElement>(`[data-uid="${CSS.escape(uid)}"], [data-tl-uid="${CSS.escape(uid)}"]`)?.focus();
+  };
   const focusIssue = (uid: string): void => {
     const node = nodesByUid.get(uid);
     if (!node || passesIssueFilters(node, filters.issues)) {
@@ -367,6 +395,8 @@ function Shell(): ReactElement {
               showSiteBadges={domino.loadedSiteCount > 1}
               expandedEpics={expandedEpics}
               onToggleEpic={toggleEpic}
+              selectedUid={selectedUid}
+              onSelect={selectIssue}
             />
           ) : (
             <Suspense fallback={<div className="canvas-message">Loading timeline…</div>}>
@@ -381,10 +411,23 @@ function Shell(): ReactElement {
                 onOpen={openExternal}
                 collapsedLanes={collapsedLanes}
                 onCollapsedLanes={setCollapsedLanes}
+                selectedUid={selectedUid}
+                onSelect={selectIssue}
               />
             </Suspense>
           )}
           <CanvasMessage domino={domino} />
+          {detail && (
+            <IssueDetail
+              data={detail}
+              onSelect={(uid) => {
+                setSelectedUid(uid);
+                focusIssue(uid);
+              }}
+              onOpen={openExternal}
+              onClose={closeDetail}
+            />
+          )}
         </section>
       </main>
 
@@ -450,7 +493,7 @@ function Legend(): ReactElement {
           <span className="swatch ghost-swatch" aria-hidden="true" /> Outside scope
         </li>
       </ul>
-      <p className="hint">Hover or focus a card to trace its blockers. Enter or click opens it in Jira.</p>
+      <p className="hint">Hover or focus a card to trace its blockers. Enter or click shows its details; ⌘/Ctrl+click opens it in Jira.</p>
       <p className="hint">
         <kbd>/</kbd> find · <kbd>g</kbd> graph · <kbd>t</kbd> timeline
       </p>

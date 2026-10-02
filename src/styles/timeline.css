@@ -444,3 +444,9 @@
     --fold-ms: 0ms;
   }
 }
+
+/* The issue open in the details panel. */
+.tl-row.selected .tl-label {
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  box-shadow: inset 3px 0 0 var(--accent);
+}

@@ -515,3 +515,8 @@
   flex: none;
   cursor: default;
 }
+
+/* The issue open in the details panel. */
+.card.selected {
+  box-shadow: 0 0 0 var(--ring-width) var(--accent);
+}
