@@ -22,7 +22,6 @@ describe("computeInsights", () => {
     expect([...i.blocked]).toEqual(["a:B-1"]);
     expect([...i.ready].sort()).toEqual(["a:O-1", "a:R-1"]);
     expect(i.critical.nodes).toEqual(["a:O-1", "a:B-1"]);
-    expect(i.cycleCount).toBe(0);
   });
 
   it("emphasis returns the highlighted set, or null for none", () => {

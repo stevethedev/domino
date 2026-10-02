@@ -7,14 +7,13 @@ type Tile = { id: Exclude<Highlight, "none" | "changed">; label: string; count: 
 /**
  * The answers Domino exists to give, before any reading: how much is blocked, what can start
  * now, how long the critical chain is, what's aging. Each tile toggles a highlight in the current view.
- * With `only`, the tiles count just those issues (e.g. the signed-in user's) and cycles are left out.
+ * With `only`, the tiles count just those issues (e.g. the signed-in user's).
  */
 export function InsightTiles({
   summary,
   insights,
   highlight,
   onHighlight,
-  onShowCycle,
   only,
 }: {
   /** Load status / counts line, e.g. "12 issues · 6 outside scope · updated 3m ago". */
@@ -23,7 +22,6 @@ export function InsightTiles({
   /** The active highlight for these tiles ("none" when another tile group's highlight is on). */
   highlight: Highlight;
   onHighlight: (h: Highlight) => void;
-  onShowCycle?: () => void;
   only?: ReadonlySet<string>;
 }): ReactElement {
   const count = (uids: Iterable<string>): number => (only ? [...uids].filter((u) => only.has(u)).length : [...uids].length);
@@ -66,18 +64,6 @@ export function InsightTiles({
             <span className="insight-label">{t.label}</span>
           </button>
         ))}
-        {onShowCycle && (
-          <button
-            type="button"
-            className="insight insight-cycles"
-            disabled={insights.cycleCount === 0}
-            onClick={onShowCycle}
-            title={insights.cycleCount ? "Show the first blocking cycle" : "No blocking cycles"}
-          >
-            <span className="insight-count">{insights.cycleCount}</span>
-            <span className="insight-label">{insights.cycleCount === 1 ? "Cycle" : "Cycles"}</span>
-          </button>
-        )}
       </div>
       <p className="hint" aria-live="polite">
         {active ? `Showing ${active.count} ${active.hint}. Click again to clear.` : "Click a number to highlight those issues."}

@@ -2,7 +2,7 @@ import { ReactFlowProvider } from "@xyflow/react";
 import { prefersReducedMotion } from "./lib/motion";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type ReactElement } from "react";
 import { summaryUid } from "./graph/collapse";
-import { computeInsights, type Highlight, type HighlightScope } from "./graph/insights";
+import { computeInsights, isHighlightScope, type Highlight, type HighlightScope } from "./graph/insights";
 import { myIssues } from "./graph/mine";
 import { configStore, jiraSource, openExternal } from "./platform";
 import { DEFAULT_REFRESH_MINUTES, parseRefreshMinutes, REFRESH_MINUTES_KEY } from "./state/refresh";
@@ -19,9 +19,9 @@ import { Canvas, lanesFor, useFocusNode, type Filters, type ViewOptions } from "
 import { ChangesPanel } from "./ui/ChangesPanel";
 import { ErrorBanner } from "./ui/ErrorBanner";
 import { FilterPanel } from "./ui/FilterPanel";
-import { FinishFirst, InsightTiles } from "./ui/InsightsBar";
+import { FinishFirst } from "./ui/InsightsBar";
 import { BrandMark } from "./ui/BrandMark";
-import { MyGlance } from "./ui/MyGlance";
+import { Glance } from "./ui/Glance";
 import { SidebarSection } from "./ui/SidebarSection";
 import { QuickFind } from "./ui/QuickFind";
 import { Freshness, RefreshButton } from "./ui/Refresh";
@@ -40,6 +40,8 @@ const SettingsDialog = lazy(() => import("./ui/Settings/SettingsDialog").then((m
 const DEFAULT_FILTERS: Filters = { blocks: true, relates: false, duplicates: false, crossSite: true };
 const DEFAULT_VIEW: ViewOptions = { groupBy: "none", highlight: "none", highlightScope: "all", collapseEpics: false };
 const parseViewMode = oneOf(isViewMode);
+const GLANCE_SCOPE_KEY = "domino.glanceScope";
+const parseGlanceScope = oneOf(isHighlightScope);
 
 /** Focus a timeline row by uid (the graph view uses React Flow's viewport instead). Returns whether it was found. */
 function focusTimelineRow(uid: string): boolean {
@@ -132,6 +134,8 @@ function Shell(): ReactElement {
     (highlight: Highlight): void => {
       setView({ ...view, highlight, highlightScope: highlight === "none" ? "all" : scope });
     };
+  /** Whose issues "At a glance" counts; remembered per viewer. */
+  const [glanceScope, setGlanceScope] = usePersistentState<HighlightScope>(GLANCE_SCOPE_KEY, parseGlanceScope, "all");
 
   const [savedViews, setSavedViews] = usePersistentState<SavedView[]>(SAVED_VIEWS_KEY, parseSavedViews, []);
   const currentView = (name: string): SavedView => ({
@@ -258,8 +262,15 @@ function Shell(): ReactElement {
       <main className="workspace">
         <aside className="sidebar" aria-label="Insights, filters and warnings">
           <SidebarSection id="glance" title="At a glance">
-            <InsightTiles
-              summary={
+            <Glance
+              scope={glanceScope}
+              onScope={(scope) => {
+                setGlanceScope(scope);
+                // An active tile highlight follows the switch (Blocked stays Blocked, for the new scope),
+                // so there's always a pressed tile that clears it. "Changed" belongs to its own panel.
+                if (view.highlight !== "none" && view.highlight !== "changed") setView({ ...view, highlightScope: scope });
+              }}
+              everyoneSummary={
                 load.status === "loading" ? (
                   "Loading…"
                 ) : loaded ? (
@@ -271,28 +282,20 @@ function Shell(): ReactElement {
                 )
               }
               insights={insights}
-              highlight={highlightFor("all")}
-              onHighlight={setHighlight("all")}
-              onShowCycle={() => {
-                const first = graph.cycles.at(0);
-                if (first) focusIssue(first[0]);
+              nodes={nodesByUid}
+              myself={myself}
+              sites={config?.sites ?? []}
+              highlightFor={highlightFor}
+              onHighlight={(scope, h) => {
+                setHighlight(scope)(h);
               }}
             />
           </SidebarSection>
-          {loaded &&
-            config &&
-            (["assigned", "reported"] as const).map((scope) => (
-              <MyGlance
-                key={scope}
-                scope={scope}
-                insights={insights}
-                nodes={nodesByUid}
-                myself={myself}
-                sites={config.sites}
-                highlight={highlightFor(scope)}
-                onHighlight={setHighlight(scope)}
-              />
-            ))}
+          {graph.cycles.length > 0 && (
+            <SidebarSection id="warnings" title="Warnings" badge={graph.cycles.length} tone="warn">
+              <WarningsPanel graph={graph} onFocusNode={focusIssue} />
+            </SidebarSection>
+          )}
           {changes && (
             <SidebarSection id="changes" title="Since you last looked" badge={changes.byIssue.size}>
               <ChangesPanel
@@ -311,11 +314,6 @@ function Shell(): ReactElement {
           <SidebarSection id="finish-first" title="Finish first" badge={insights.unblockers.length || undefined}>
             <FinishFirst insights={insights} nodes={nodesByUid} onPick={focusIssue} />
           </SidebarSection>
-          {graph.cycles.length > 0 && (
-            <SidebarSection id="warnings" title="Warnings" badge={graph.cycles.length} tone="warn">
-              <WarningsPanel graph={graph} onFocusNode={focusIssue} />
-            </SidebarSection>
-          )}
           <SidebarSection id="display" title="Display">
             <FilterPanel filters={filters} onFilters={setFilters} view={view} onView={setView} epicMapAvailable={viewMode === "graph"} />
           </SidebarSection>

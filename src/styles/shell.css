@@ -76,9 +76,11 @@
   flex: 1 1 160px;
   min-width: 140px;
 }
+/* width: 0 so the input's intrinsic size (WebKit's is wide) doesn't inflate the top bar's
+   content width and wrap it; flex: 1 then grows it to fill the field. */
 .field.grow input {
   flex: 1;
-  width: 100%;
+  width: 0;
   min-width: 0;
 }
 .field-label {
@@ -261,6 +263,18 @@
   font-size: var(--text-md);
   position: relative;
 }
+/* "At a glance" scope switch: full sidebar width, equal segments. */
+.glance-scope {
+  display: flex;
+  width: 100%;
+  margin-bottom: var(--space-2);
+}
+.glance-scope label {
+  flex: 1;
+  text-align: center;
+  padding-inline: var(--space-1);
+  font-size: var(--text-sm);
+}
 .segmented label.active {
   background: var(--accent);
   color: var(--accent-text);
@@ -320,12 +334,6 @@
 }
 .insight-critical .insight-count {
   color: var(--critical);
-}
-.insight-cycles .insight-count {
-  color: var(--cycle);
-}
-.insight-cycles:disabled .insight-count {
-  color: var(--muted);
 }
 .insight[aria-pressed="true"] {
   border-color: currentColor;
@@ -745,17 +753,6 @@ kbd {
 }
 .change-list button {
   overflow: hidden;
-}
-/* The odd fifth tile spans the row as a compact line instead of leaving a hole. */
-.insight-tiles > .insight-cycles {
-  grid-column: 1 / -1;
-  flex-direction: row;
-  align-items: baseline;
-  gap: var(--space-2);
-  padding: var(--space-1_5) var(--space-2_5);
-}
-.insight-tiles > .insight-cycles .insight-count {
-  font-size: var(--text-2xl);
 }
 
 /* Refresh-now (freshness shows in the At a glance summary; the interval is in Settings). */
