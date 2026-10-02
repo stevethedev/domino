@@ -31,7 +31,7 @@
 .tl-arrowhead.critical { fill: var(--critical); }
 .tl-lane { position: absolute; left: 0; right: 0; display: flex; align-items: center; padding: 0 12px; font-weight: 700; font-size: 13px; background: var(--surface-2); border-bottom: 1px solid var(--border); z-index: 3; }
 .tl-lane > :first-child { position: sticky; left: 12px; }
-.tl-row { position: absolute; left: 0; right: 0; height: 40px; display: flex; border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); cursor: pointer; transition: opacity 120ms ease; }
+.tl-row { position: absolute; left: 0; right: 0; height: 40px; display: flex; border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); cursor: pointer; z-index: 1; transition: opacity 120ms ease, top var(--fold-ms) ease; }
 .tl-row:hover { background: color-mix(in srgb, var(--accent) 5%, transparent); }
 .tl-row:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; }
 .tl-row.dimmed { opacity: 0.2; }
@@ -76,3 +76,13 @@
 .tl-lane-toggle[aria-expanded="true"] .sb-chevron { transform: rotate(90deg); }
 .tl-lane-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .tl-lane-late { color: var(--error-fg); font-weight: 600; }
+
+/* Fold animation: rows slide into / out of their lane header while fading; lanes below follow.
+   Rows stay under headers (z-index 1 < 3) so a sliding row never covers one. */
+.tl-body { --fold-ms: 200ms; } /* FOLD_MS in Timeline.tsx */
+.tl-lane { transition: top var(--fold-ms) ease; }
+.tl-row.folded { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity var(--fold-ms) ease, top var(--fold-ms) ease, visibility 0s linear var(--fold-ms); }
+/* Arrows jump to their final positions, so they fade out while rows are moving. */
+.tl-arrows { transition: opacity 120ms ease; }
+.tl-body.settling .tl-arrows { opacity: 0; transition: none; }
+@media (prefers-reduced-motion: reduce) { .tl-body { --fold-ms: 0ms; } }

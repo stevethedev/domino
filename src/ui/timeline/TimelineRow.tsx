@@ -66,10 +66,12 @@ export const TimelineRow = memo(function TimelineRow({
 
   return (
     <div
-      className={`tl-row status-${node.statusCategory}${node.ghost ? " ghost" : ""}${flags.dimmed ? " dimmed" : ""}${flags.critical ? " critical" : ""}`}
+      className={`tl-row status-${node.statusCategory}${node.ghost ? " ghost" : ""}${flags.dimmed ? " dimmed" : ""}${flags.critical ? " critical" : ""}${row.folded ? " folded" : ""}`}
       style={{ top: row.y }}
       role="link"
-      tabIndex={0}
+      // A folded row (collapsed lane) is only kept for the fold animation: out of reach until shown.
+      tabIndex={row.folded ? -1 : 0}
+      aria-hidden={row.folded || undefined}
       aria-label={epic ? describeEpic(node, epic) : `${describe(node, row)}${flags.aging ? ` ${agingDescription(flags.aging)}.` : ""}`}
       data-tl-uid={node.uid}
       onClick={() => { onOpen(node.url); }}

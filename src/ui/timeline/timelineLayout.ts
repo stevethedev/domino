@@ -12,7 +12,8 @@ export const LABEL_WIDTH = 320;
 export const ROW_HEIGHT = 40;
 export const LANE_HEIGHT = 30;
 
-export type TimelineRowModel = { kind: "row"; node: GraphNode; entry: TimelineEntry; y: number };
+/** `folded`: the row's lane is collapsed; it stays mounted at the header's y (hidden) so folding can animate. */
+export type TimelineRowModel = { kind: "row"; node: GraphNode; entry: TimelineEntry; y: number; folded: boolean };
 export type TimelineLaneModel = {
   kind: "lane";
   lane: Lane;
@@ -43,8 +44,9 @@ function entryStart(e: TimelineEntry): Day {
 /**
  * Rows grouped into lanes (or one unlabeled lane), each lane sorted by projected start so
  * dependency arrows mostly run down and to the right. Lanes order by their earliest start,
- * with catch-all lanes last. A collapsed lane keeps only its header. Returns items with their
- * y offsets, the total height, and every row (collapsed or not) for date ranges and counts.
+ * with catch-all lanes last. A collapsed lane takes only its header's height; its rows come back
+ * `folded` at the header's y. Returns items with their y offsets, the total height, and every
+ * row (collapsed or not) for date ranges and counts.
  */
 export function layoutRows(
   nodes: readonly GraphNode[],
@@ -78,10 +80,9 @@ export function layoutRows(
       items.push({ kind: "lane", lane, y, count: rows.length, collapsed: isCollapsed, late: rows.filter(isLate).length });
       y += LANE_HEIGHT;
     }
-    if (isCollapsed) continue;
     for (const { node, entry } of rows) {
-      items.push({ kind: "row", node, entry, y });
-      y += ROW_HEIGHT;
+      items.push({ kind: "row", node, entry, y: isCollapsed ? y - LANE_HEIGHT : y, folded: isCollapsed });
+      if (!isCollapsed) y += ROW_HEIGHT;
     }
   }
   return { items, height: y, all: ordered.flatMap((l) => l.rows) };

@@ -33,12 +33,17 @@ describe("layoutRows with collapsed lanes", () => {
     ["aGhost", entry("2026-09-01")],
   ]);
 
-  it("keeps a collapsed lane's header (with its counts) and drops its rows", () => {
+  it("folds a collapsed lane's rows under its header (still mounted, for animation) and takes only the header's height", () => {
     const { items, height } = layoutRows(nodes, timeline, laneOf, new Set(["lane:a"]));
-    expect(items.map((i) => (i.kind === "row" ? i.node.uid : `[${i.lane.id}${i.collapsed ? " collapsed" : ""}]`))).toEqual([
-      "[lane:a collapsed]",
-      "[lane:b]",
-      "b1",
+    const shown = (i: (typeof items)[number]): string =>
+      i.kind === "row" ? `${i.node.uid}@${i.y}${i.folded ? " folded" : ""}` : `[${i.lane.id}${i.collapsed ? " collapsed" : ""}]@${i.y}`;
+    expect(items.map(shown)).toEqual([
+      "[lane:a collapsed]@0",
+      "a1@0 folded",
+      "a2@0 folded",
+      "aGhost@0 folded",
+      `[lane:b]@${LANE_HEIGHT}`,
+      `b1@${2 * LANE_HEIGHT}`,
     ]);
     const header = items[0];
     expect(header.kind === "lane" && [header.count, header.late]).toEqual([3, 1]);
@@ -53,6 +58,6 @@ describe("layoutRows with collapsed lanes", () => {
 
   it("ignores collapse without grouping (there's no header to fold into)", () => {
     const { items } = layoutRows(nodes, timeline, undefined, new Set(["all"]));
-    expect(items.filter((i) => i.kind === "row")).toHaveLength(4);
+    expect(items.filter((i) => i.kind === "row" && !i.folded)).toHaveLength(4);
   });
 });
