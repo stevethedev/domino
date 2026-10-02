@@ -18,7 +18,9 @@
     "check:deps": "knip",
     "fix": "npm-run-all fix:*",
     "fix:format": "prettier --write .",
-    "fix:lint": "oxlint --type-aware --fix"
+    "fix:lint": "oxlint --type-aware --fix",
+    "changeset": "changeset",
+    "release:version": "changeset version && node scripts/sync-version.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.0",
@@ -31,6 +33,8 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@changesets/changelog-github": "^1.0.1",
+    "@changesets/cli": "^3.0.3",
     "@tauri-apps/cli": "^2.12.0",
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",

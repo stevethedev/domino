@@ -1,5 +1,5 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "ignoreExportsUsedInFile": true,
-  "entry": ["scripts/gen-mock-fixtures.mjs"]
+  "entry": ["scripts/gen-mock-fixtures.mjs", "scripts/tag-release.mjs"]
 }

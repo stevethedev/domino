@@ -184,6 +184,16 @@ What `HttpBackend` does:
 
 Scheduling lives in `src/graph/schedule.ts` (pure, unit-tested). The UI lives in `src/ui/timeline/`.
 
+## Releases
+
+Versioning and releases use [Changesets](https://github.com/changesets/changesets); see `.changeset/README.md` for details. In short:
+
+- `npm run changeset` describes a change.
+- Merging to `main` adds it to an auto-maintained "Version Packages" PR.
+- Merging that PR tags the release and starts a cross-platform build (macOS, Linux, Windows) that attaches installers to a draft GitHub Release.
+
+CI (`.github/workflows/typescript.yml` and `rust.yml`) runs `npm run check`, the Vitest suite, `cargo clippy -D warnings` and `cargo test` on every push to `main` and on every PR.
+
 ## App icon
 
 The mark is three dominoes in a cascade: the amber tile (the critical-path colour) tips first and falls onto the next, the chain reaction Domino makes visible, and "finish this first". Sources live in `assets/brand/`:

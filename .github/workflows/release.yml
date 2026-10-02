@@ -1,0 +1,96 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  # tag-release.mjs pushes the release tag using the job's GITHUB_TOKEN, and
+  # GitHub Actions doesn't let GITHUB_TOKEN-authored pushes trigger other
+  # workflows (loop prevention) — so the `push: tags:` trigger above never
+  # fires for it. It instead dispatches this workflow_dispatch event
+  # directly via the Actions API, passing the tag it just pushed.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v1.2.3)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  # rust.yml/typescript.yml only trigger on pushes to main/PRs, not tag
+  # pushes, so a release build would otherwise skip verification entirely
+  # for the exact commit being tagged. Re-run both here as a gate.
+  verify-rust:
+    uses: ./.github/workflows/rust.yml
+
+  verify-typescript:
+    uses: ./.github/workflows/typescript.yml
+
+  build-and-release:
+    needs: [verify-rust, verify-typescript]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: "--target universal-apple-darwin"
+            rust-targets: aarch64-apple-darwin,x86_64-apple-darwin
+          - platform: ubuntu-22.04
+            args: ""
+            rust-targets: ""
+          - platform: windows-latest
+            args: ""
+            rust-targets: ""
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # workflow_dispatch runs against whatever ref the dispatch call
+          # targets (used so the workflow_dispatch trigger itself can be
+          # found), which isn't necessarily the tag being released —
+          # check out the tag explicitly instead.
+          ref: ${{ inputs.tag || github.ref_name }}
+
+      - name: Install Tauri Linux system dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            librsvg2-dev \
+            patchelf
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-targets }}
+
+      - name: Install Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Cache cargo registry and build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build and upload release assets
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ inputs.tag || github.ref_name }}
+          releaseName: "Domino ${{ inputs.tag || github.ref_name }}"
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
