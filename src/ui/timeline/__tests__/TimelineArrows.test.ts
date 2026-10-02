@@ -17,7 +17,9 @@ describe("isViolated", () => {
   });
 });
 
+import type { GraphNode } from "../../../graph/types";
 import { arrowAnchors } from "../TimelineArrows";
+import { drawnBar, summarizeEpics } from "../timelineLayout";
 
 describe("arrowAnchors", () => {
   const projected = { start: "2026-09-07", end: "2026-09-10" };
@@ -40,5 +42,45 @@ describe("arrowAnchors", () => {
     const started: TimelineEntry = { projected, progress: { state: "started", actualStart: "2026-09-16", forecast: { start: "2026-10-01", end: "2026-10-02" } }, varianceDays: 0 };
     expect(arrowAnchors(ghost, started, "blocker")).toEqual({ from: "2026-09-16", to: "2026-09-16", stub: "from" });
     expect(arrowAnchors(started, ghost, "blocked")).toEqual({ from: "2026-10-02", to: "2026-10-02", stub: "to" });
+  });
+});
+
+describe("arrow anchors on epic rows", () => {
+  const issue = (key: string, epicKey?: string): GraphNode => ({
+    uid: key, siteId: "a", siteLabel: "A", key, summary: key, issueType: epicKey === key ? "Epic" : "Story",
+    statusName: "To Do", statusCategory: "todo", url: "", ghost: false,
+    ...(epicKey ? { epic: { uid: epicKey, key: epicKey, url: "" } } : {}),
+  });
+  // The epic's own schedule (a default-length bar at plan start) is not what its row draws.
+  const ownSchedule: TimelineEntry = {
+    projected: { start: "2026-09-01", end: "2026-09-03" },
+    progress: { state: "not-started", forecast: { start: "2026-09-01", end: "2026-09-03" } },
+    varianceDays: 0,
+  };
+  const epic = issue("E", "E");
+  const nodes = [epic, issue("C1", "E"), issue("C2", "E"), issue("B"), issue("EMPTY", "EMPTY")];
+  const timeline = new Map<string, TimelineEntry>([
+    ["E", ownSchedule],
+    ["EMPTY", ownSchedule],
+    ["C1", { projected: { start: "2026-09-07", end: "2026-09-10" }, progress: { state: "done", actual: { start: "2026-09-08", end: "2026-09-15" } }, varianceDays: 3 }],
+    ["C2", { projected: { start: "2026-09-10", end: "2026-09-14" }, progress: { state: "started", actualStart: "2026-09-16", forecast: { start: "2026-09-29", end: "2026-10-02" } }, varianceDays: 12 }],
+    ["B", { projected: { start: "2026-09-14", end: "2026-09-16" }, progress: { state: "not-started", forecast: { start: "2026-10-02", end: "2026-10-05" } }, varianceDays: 13 }],
+  ]);
+  const epics = summarizeEpics(nodes, timeline);
+  const drawn = (n: GraphNode) => drawnBar(n, timeline.get(n.uid)!, epics.get(n.uid));
+  const [b, empty] = [nodes[3], nodes[4]];
+
+  it("leaves an epic from the end of its children's work, not the epic's own schedule", () => {
+    expect(drawn(epic).positionless).toBe(false);
+    expect(arrowAnchors(drawn(epic).entry, drawn(b).entry, null)).toEqual({ from: "2026-10-02", to: "2026-10-02", stub: null });
+  });
+
+  it("points into an epic at the start of its children's work", () => {
+    expect(arrowAnchors(drawn(b).entry, drawn(epic).entry, null)).toEqual({ from: "2026-10-05", to: "2026-09-08", stub: null });
+  });
+
+  it("treats an epic with no loaded children as having no position, so its arrow is a stub", () => {
+    expect(drawn(empty).positionless).toBe(true);
+    expect(arrowAnchors(drawn(empty).entry, drawn(b).entry, "blocker")).toEqual({ from: "2026-10-02", to: "2026-10-02", stub: "from" });
   });
 });

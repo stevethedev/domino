@@ -130,3 +130,12 @@ export function summarizeEpics(nodes: readonly GraphNode[], timeline: ReadonlyMa
 }
 
 export const isEpicNode = (n: GraphNode) => n.epic?.uid === n.uid;
+
+/**
+ * What a row actually draws, for anchoring arrows: an epic with loaded children draws its
+ * children's envelope; an epic without them, like a ghost, draws no bar, so it has no position.
+ */
+export function drawnBar(node: GraphNode, entry: TimelineEntry, summary: EpicSummary | undefined): { entry: TimelineEntry; positionless: boolean } {
+  if (summary) return { entry: { ...entry, projected: summary.projected, progress: { state: "not-started", forecast: summary.work } }, positionless: false };
+  return { entry, positionless: node.ghost || isEpicNode(node) };
+}

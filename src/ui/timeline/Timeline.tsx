@@ -12,6 +12,7 @@ import { TimeAxis, TimeGrid } from "./TimeAxis";
 import { arrowAnchors, isViolated, TimelineArrows, type ArrowModel } from "./TimelineArrows";
 import {
   dayRange,
+  drawnBar,
   entryEnd,
   isEpicNode,
   LABEL_WIDTH,
@@ -80,17 +81,10 @@ export function Timeline({
   const criticalEdges = view.highlight === "critical" ? (emphasized?.edges ?? new Set<string>()) : new Set<string>();
 
   const rowY = new Map(rows.map((r) => [r.node.uid, r.y]));
-  const ghostUids = new Set(rows.filter((r) => r.node.ghost).map((r) => r.node.uid));
-  const emptyEpicUids = new Set(rows.filter((r) => isEpicNode(r.node) && !epics.has(r.node.uid)).map((r) => r.node.uid));
-  // What each row actually draws: epics draw their children's envelope; an epic without loaded
-  // children (like a ghost) draws no bar, so arrows treat it as having no position.
-  const drawn = (uid: string): { entry: TimelineEntry; positionless: boolean } => {
-    const summary = epics.get(uid);
-    if (summary) return { entry: { ...timeline.get(uid)!, projected: summary.projected, progress: { state: "not-started", forecast: summary.work } }, positionless: false };
-    return { entry: timeline.get(uid)!, positionless: ghostUids.has(uid) || emptyEpicUids.has(uid) };
-  };
+  const rowNode = new Map(rows.map((r) => [r.node.uid, r.node]));
+  const drawn = (uid: string) => drawnBar(rowNode.get(uid)!, timeline.get(uid)!, epics.get(uid));
   const arrows: ArrowModel[] = edges
-    .filter((e) => e.kind === "blocks" && !graph.brokenEdgeIds.has(e.id) && rowY.has(e.source) && rowY.has(e.target))
+    .filter((e) => e.kind === "blocks" && !graph.brokenEdgeIds.has(e.id) && rowNode.has(e.source) && rowNode.has(e.target))
     .flatMap((e) => {
       const [from, to] = [drawn(e.source), drawn(e.target)];
       if (from.positionless && to.positionless) return []; // nothing real to connect
