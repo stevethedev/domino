@@ -78,6 +78,12 @@ export function linkPreview(current: string, trail: Trail | null, layout: Traver
   return upstream === undefined && downstream === undefined ? null : { upstream, downstream };
 }
 
+/** Which arrow would reach an issue: "both" when ← and → lead to the same one (a two-issue cycle). */
+export type PreviewKey = Direction | "both";
+
 /** Which arrow would reach `uid`, if either. */
-export const previewOf = (preview: LinkPreview, uid: string): Direction | undefined =>
-  preview?.downstream === uid ? "downstream" : preview?.upstream === uid ? "upstream" : undefined;
+export function previewOf(preview: LinkPreview, uid: string): PreviewKey | undefined {
+  const up = preview?.upstream === uid;
+  const down = preview?.downstream === uid;
+  return up && down ? "both" : down ? "downstream" : up ? "upstream" : undefined;
+}

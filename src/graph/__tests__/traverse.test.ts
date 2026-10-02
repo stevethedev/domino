@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { linkedIssues, step, type TraverseLayout } from "../traverse";
+import { linkedIssues, previewOf, step, type TraverseLayout } from "../traverse";
 import type { GraphEdge } from "../types";
 
 const edge = (source: string, target: string, kind: GraphEdge["kind"] = "blocks"): GraphEdge => ({
@@ -95,5 +95,15 @@ describe("step", () => {
     expect(step("C", "next", trail, layout)).toBeNull();
     // On D with a trail for B, ← is a fresh step: straight ahead is B.
     expect(step("D", "upstream", { at: "B", from: "C", direction: "downstream", options: ["D"] }, layout)?.target).toBe("B");
+  });
+});
+
+describe("previewOf", () => {
+  it("names the arrow that reaches an issue, or both when ← and → reach the same one", () => {
+    expect(previewOf({ upstream: "A", downstream: "B" }, "A")).toBe("upstream");
+    expect(previewOf({ upstream: "A", downstream: "B" }, "B")).toBe("downstream");
+    expect(previewOf({ upstream: "A", downstream: "B" }, "C")).toBeUndefined();
+    expect(previewOf({ upstream: "A", downstream: "A" }, "A")).toBe("both"); // a two-issue cycle
+    expect(previewOf(null, "A")).toBeUndefined();
   });
 });

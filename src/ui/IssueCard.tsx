@@ -1,5 +1,5 @@
 import { Handle, Position, useStore, type Node, type NodeProps } from "@xyflow/react";
-import { MOVE_KEYS, type Direction, type Move } from "../graph/traverse";
+import { MOVE_KEYS, type Move, type PreviewKey } from "../graph/traverse";
 import { memo, type ReactElement } from "react";
 import { agingLabel, type Aging } from "../graph/aging";
 import { CHANGE_LABEL, type ChangeKind } from "../graph/changes";
@@ -26,7 +26,7 @@ export type IssueNodeData = {
   /** Arrow keys: follow links to the next card; true when it moved. */
   onTraverse: (uid: string, move: Move) => boolean;
   /** Set while the focused card's ← (upstream) or → (downstream) would come here. */
-  preview?: Direction;
+  preview?: PreviewKey;
   /** Set on epic-map summary nodes: activating the card expands the epic instead. */
   onExpand?: () => void;
 };
@@ -198,13 +198,13 @@ function CompactBody({
   );
 }
 
-const HINT_KEY: Record<Direction | "activate", string> = { upstream: "←", downstream: "→", activate: "↵" };
+const HINT_KEY: Record<PreviewKey | "activate", string> = { upstream: "←", downstream: "→", both: "↔", activate: "↵" };
 
 /**
  * A key hint on a card or row: the arrow that would move focus here from the focused one, or
  * (`activate`, shown only while it has keyboard focus) Enter, which opens it.
  */
-export function TraverseHint({ direction }: { direction: Direction | "activate" }): ReactElement {
+export function TraverseHint({ direction }: { direction: PreviewKey | "activate" }): ReactElement {
   return (
     <kbd className={`traverse-hint ${direction}`} aria-hidden="true">
       {HINT_KEY[direction]}

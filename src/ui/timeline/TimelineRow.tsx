@@ -1,5 +1,5 @@
 import { memo, type ReactElement } from "react";
-import { MOVE_KEYS, type Direction, type Move } from "../../graph/traverse";
+import { MOVE_KEYS, type Move, type PreviewKey } from "../../graph/traverse";
 import { addDays, maxDay, type Day, type Span } from "../../graph/schedule";
 import type { GraphNode } from "../../graph/types";
 import type { Aging } from "../../graph/aging";
@@ -19,7 +19,7 @@ export type RowFlags = {
   aging?: Aging;
   change?: ChangeKind;
   /** Set while the focused row's ← (upstream) or → (downstream) would come here. */
-  preview?: Direction;
+  preview?: PreviewKey;
 };
 
 function describe(node: GraphNode, row: TimelineRowModel): string {

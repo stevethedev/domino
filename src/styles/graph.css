@@ -545,11 +545,14 @@
 .traverse-hint.downstream {
   left: 10px;
 }
-/* ↵ on the focused card itself: what Enter would open. */
+/* ↔ (both arrows lead here) and ↵ (on the focused card itself: what Enter would open) sit centred. */
+.traverse-hint.both,
 .traverse-hint.activate {
-  display: none;
   left: 50%;
   translate: -50% 0;
+}
+.traverse-hint.activate {
+  display: none;
 }
 .card:focus-visible > .traverse-hint.activate,
 .tl-row:focus-visible .traverse-hint.activate {

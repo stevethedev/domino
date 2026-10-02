@@ -4,7 +4,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type
 import { collapseEpics, summaryUid } from "./graph/collapse";
 import { computeInsights, downstreamOpen, isHighlightScope, type Highlight, type HighlightScope, type Insights } from "./graph/insights";
 import { myIssues } from "./graph/mine";
-import { linkPreview, step, type LinkPreview, type Move, type Trail } from "./graph/traverse";
+import { linkPreview, step, type LinkPreview, type Move, type Trail, type TraverseLayout } from "./graph/traverse";
 import { hasIssueFilters, NO_ISSUE_FILTERS, passesIssueFilters, visibleSubgraph } from "./graph/visible";
 import { configStore, jiraSource, notify, openExternal } from "./platform";
 import { DEFAULT_REFRESH_MINUTES, parseRefreshMinutes, REFRESH_MINUTES_KEY } from "./state/refresh";
@@ -274,8 +274,10 @@ function Shell(): ReactElement {
   const impliedLinkCount = useMemo(() => visibleSubgraph(drawnGraph, { ...filters, hideImplied: true }).implied, [drawnGraph, filters]);
   /** Arrow keys on a card or row follow the drawn blocking links (see `step`); an open details panel follows along. */
   const trail = useRef<Trail | null>(null);
+  /** Where the drawn issues are right now, over the links drawn (read at key press, not render). */
+  const layoutNow = (): TraverseLayout => screenLayout(visibleSubgraph(drawnGraph, filters).edges);
   const traverse = (uid: string, move: Move): boolean => {
-    const result = step(uid, move, trail.current, screenLayout(visibleSubgraph(drawnGraph, filters).edges));
+    const result = step(uid, move, trail.current, layoutNow());
     if (!result) return false;
     trail.current = result.trail;
     if (selectedUid) setSelectedUid(result.target);
@@ -291,7 +293,7 @@ function Shell(): ReactElement {
   const previewFrom = (el: Element): LinkPreview => {
     const uid = el.getAttribute("data-uid") ?? el.getAttribute("data-tl-uid");
     if (!uid || !el.matches(":focus-visible")) return null;
-    return linkPreview(uid, trail.current, screenLayout(visibleSubgraph(drawnGraph, filters).edges));
+    return linkPreview(uid, trail.current, layoutNow());
   };
   const latestPreviewFrom = useRef(previewFrom);
   latestPreviewFrom.current = previewFrom;
