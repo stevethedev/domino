@@ -27,6 +27,9 @@ export type IssueNodeData = {
 };
 export type IssueFlowNode = Node<IssueNodeData, "issue">;
 
+/** The details panel's id (src/ui/IssueDetail.tsx), for the controlling card or row's aria-controls. */
+export const ISSUE_DETAIL_ID = "issue-detail";
+
 /** Below this zoom, card text is too small to read, so cards switch to a compact, high-contrast form. */
 const COMPACT_BELOW_ZOOM = 0.6;
 
@@ -220,7 +223,9 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
     <div
       className={`card status-${status}${n.ghost ? " ghost" : ""}${dimmed ? " dimmed" : ""}${highlight ? ` hl-${highlight}` : ""}${compact ? " compact" : ""}${selected ? " selected" : ""}`}
       role="button"
-      aria-pressed={onExpand ? undefined : selected}
+      // Activating shows the details panel; while it shows this issue, the card controls it.
+      aria-expanded={onExpand ? undefined : selected}
+      aria-controls={selected ? ISSUE_DETAIL_ID : undefined}
       tabIndex={0}
       aria-label={n.rollup ? rollupLabel(n, n.rollup) : `${label}. Shows details.`}
       data-uid={n.uid}

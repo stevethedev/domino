@@ -3,7 +3,7 @@ import type { Aging } from "../graph/aging";
 import type { ChangeKind } from "../graph/changes";
 import type { Day, StatusChange } from "../graph/schedule";
 import type { Graph, GraphEdge, GraphNode, StatusCategory } from "../graph/types";
-import { AgingBadge, ChangeTag, TypeIcon } from "./IssueCard";
+import { AgingBadge, ChangeTag, ISSUE_DETAIL_ID, TypeIcon } from "./IssueCard";
 import { Icon } from "./Icon";
 
 const CATEGORY_LABEL: Record<StatusCategory, string> = { todo: "To Do", inprogress: "In Progress", done: "Done", unknown: "Unknown" };
@@ -134,6 +134,7 @@ export function IssueDetail({
 
   return (
     <aside
+      id={ISSUE_DETAIL_ID}
       className="issue-detail"
       aria-labelledby="issue-detail-title"
       onKeyDown={(e) => {

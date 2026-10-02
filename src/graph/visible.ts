@@ -70,7 +70,24 @@ export function impliedEdgeIds(edges: readonly GraphEdge[], graph: Pick<Graph, "
  * longer drawn chain implies are left out too (`implied` counts them). Display only: the
  * insights and the timeline's schedule still use the whole graph.
  */
-export function visibleSubgraph(graph: Graph, filters: ViewFilters): { nodes: GraphNode[]; edges: GraphEdge[]; implied: number } {
+export type VisibleSubgraph = Readonly<{ nodes: readonly GraphNode[]; edges: readonly GraphEdge[]; implied: number }>;
+
+// The graph, the timeline and the sidebar's counts all ask for the same graph and filters; the
+// implied-link reduction is the costly part, so results are shared per graph (dropped with it).
+const cache = new WeakMap<Graph, Map<string, VisibleSubgraph>>();
+
+export function visibleSubgraph(graph: Graph, filters: ViewFilters): VisibleSubgraph {
+  const key = JSON.stringify(filters);
+  const byFilters = cache.get(graph) ?? new Map<string, VisibleSubgraph>();
+  cache.set(graph, byFilters);
+  const hit = byFilters.get(key);
+  if (hit) return hit;
+  const result = computeVisible(graph, filters);
+  byFilters.set(key, result);
+  return result;
+}
+
+function computeVisible(graph: Graph, filters: ViewFilters): VisibleSubgraph {
   const passing = new Set(graph.nodes.filter((n) => passesIssueFilters(n, filters.issues)).map((n) => n.uid));
   const edges = graph.edges.filter(
     (e) => filters[e.kind] && (filters.crossSite || !e.crossSite) && passing.has(e.source) && passing.has(e.target),

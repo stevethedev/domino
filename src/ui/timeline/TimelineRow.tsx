@@ -3,7 +3,7 @@ import { addDays, maxDay, type Day, type Span } from "../../graph/schedule";
 import type { GraphNode } from "../../graph/types";
 import type { Aging } from "../../graph/aging";
 import { CHANGE_LABEL, type ChangeKind } from "../../graph/changes";
-import { AgingBadge, agingDescription, CappedBadges, ChangeTag, TypeIcon } from "../IssueCard";
+import { AgingBadge, agingDescription, CappedBadges, ChangeTag, ISSUE_DETAIL_ID, TypeIcon } from "../IssueCard";
 import { entryEnd, PX_PER_DAY, varianceLabel, xOf, type EpicSummary, type Scale, type TimelineRowModel } from "./timelineLayout";
 
 const fmt = (d: Day): string =>
@@ -77,7 +77,8 @@ export const TimelineRow = memo(function TimelineRow({
       className={`tl-row status-${node.statusCategory}${node.ghost ? " ghost" : ""}${flags.dimmed ? " dimmed" : ""}${flags.critical ? " critical" : ""}${row.folded ? " folded" : ""}${selected ? " selected" : ""}`}
       style={{ top: row.y }}
       role="button"
-      aria-pressed={selected}
+      aria-expanded={selected}
+      aria-controls={selected ? ISSUE_DETAIL_ID : undefined}
       // A folded row (collapsed lane) is only kept for the fold animation: out of reach until shown.
       tabIndex={row.folded ? -1 : 0}
       aria-hidden={row.folded || undefined}

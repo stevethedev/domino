@@ -105,3 +105,12 @@ describe("implied links (transitive reduction of drawn blocking links)", () => {
     expect(v.edges).toHaveLength(cyc.edges.length);
   });
 });
+
+describe("visibleSubgraph memoization", () => {
+  it("returns the same result for the same graph and equal filters, and recomputes when they differ", () => {
+    const f = { ...LINKS, issues: NO_ISSUE_FILTERS, hideImplied: true };
+    const first = visibleSubgraph(graph, f);
+    expect(visibleSubgraph(graph, { ...f })).toBe(first);
+    expect(visibleSubgraph(graph, { ...f, hideImplied: false })).not.toBe(first);
+  });
+});
