@@ -1,7 +1,18 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Main window: core IPC plus opening https issue links in the system browser",
+  "description": "Main window: core IPC, opening https issue links in the system browser, and desktop notifications",
   "windows": ["main"],
-  "permissions": ["core:default", { "identifier": "opener:allow-open-url", "allow": [{ "url": "https://*" }] }]
+  "permissions": [
+    "core:default",
+    "notification:default",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        {
+          "url": "https://*"
+        }
+      ]
+    }
+  ]
 }

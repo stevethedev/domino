@@ -5,11 +5,12 @@ import { collapseEpics, summaryUid } from "./graph/collapse";
 import { computeInsights, downstreamOpen, isHighlightScope, type Highlight, type HighlightScope, type Insights } from "./graph/insights";
 import { myIssues } from "./graph/mine";
 import { hasIssueFilters, NO_ISSUE_FILTERS, passesIssueFilters, visibleSubgraph } from "./graph/visible";
-import { configStore, jiraSource, openExternal } from "./platform";
+import { configStore, jiraSource, notify, openExternal } from "./platform";
 import { DEFAULT_REFRESH_MINUTES, parseRefreshMinutes, REFRESH_MINUTES_KEY } from "./state/refresh";
 import { useAutoRefresh } from "./state/useAutoRefresh";
 import { useDomino } from "./state/useDomino";
 import { useMyself } from "./state/useMyself";
+import { useUnblockedNotifications } from "./state/useUnblockedNotifications";
 import { DEFAULT_ESTIMATE_SETTINGS, ESTIMATE_SETTINGS_KEY, parseEstimateSettings } from "./state/estimateSettings";
 import { oneOf, usePersistentState } from "./state/storage";
 import { parseSavedViews, SAVED_VIEWS_KEY, upsertView, type SavedView } from "./state/savedViews";
@@ -50,6 +51,8 @@ const DEFAULT_FILTERS: Filters = {
 const DEFAULT_VIEW: ViewOptions = { groupBy: "none", highlight: "none", highlightScope: "all", collapseEpics: false };
 const parseViewMode = oneOf(isViewMode);
 const GLANCE_SCOPE_KEY = "domino.glanceScope";
+const NOTIFY_UNBLOCKED_KEY = "domino.notifyUnblocked";
+const parseBool = (raw: unknown): boolean | undefined => (typeof raw === "boolean" ? raw : undefined);
 const parseGlanceScope = oneOf(isHighlightScope);
 
 /** Focus a timeline row by uid (the graph view uses React Flow's viewport instead). Returns whether it was found. */
@@ -109,6 +112,7 @@ function Shell(): ReactElement {
   };
   const [refreshMinutes, setRefreshMinutes] = usePersistentState(REFRESH_MINUTES_KEY, parseRefreshMinutes, DEFAULT_REFRESH_MINUTES);
   useAutoRefresh(domino.refresh, refreshMinutes * 60_000, domino.background.lastUpdated);
+  const [notifyUnblocked, setNotifyUnblocked] = usePersistentState(NOTIFY_UNBLOCKED_KEY, parseBool, false);
   const { config, load, graph } = domino;
   // Status history feeds aging in both views and the Timeline; one bulk request per site per load.
   const loadedScopeKey = load.status === "done" ? load.scopeKey : null;
@@ -139,6 +143,7 @@ function Shell(): ReactElement {
     () => ({ ...baseInsights, changed: changes?.byIssue ?? new Map(), mine }),
     [baseInsights, changes, mine],
   );
+  useUnblockedNotifications(notifyUnblocked, loadedScopeKey, graph, insights.blocked, mine.assigned, notify);
   /** Highlight from a tile group: `scope` says whose issues it covers. Clicking the active tile again clears it. */
   const highlightFor = (scope: HighlightScope): Highlight => (view.highlightScope === scope ? view.highlight : "none");
   const setHighlight =
@@ -465,6 +470,8 @@ function Shell(): ReactElement {
             }}
             refreshMinutes={refreshMinutes}
             onRefreshMinutes={setRefreshMinutes}
+            notifyUnblocked={notifyUnblocked}
+            onNotifyUnblocked={setNotifyUnblocked}
           />
         </Suspense>
       )}

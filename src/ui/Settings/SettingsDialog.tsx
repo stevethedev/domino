@@ -17,12 +17,16 @@ export function SettingsDialog({
   onClose,
   refreshMinutes,
   onRefreshMinutes,
+  notifyUnblocked,
+  onNotifyUnblocked,
 }: {
   domino: Domino;
   open: boolean;
   onClose: () => void;
   refreshMinutes: RefreshMinutes;
   onRefreshMinutes: (m: RefreshMinutes) => void;
+  notifyUnblocked: boolean;
+  onNotifyUnblocked: (on: boolean) => void;
 }): ReactElement | null {
   const ref = useRef<HTMLDialogElement>(null);
   const [editing, setEditing] = useState<Editing>(null);
@@ -108,7 +112,12 @@ export function SettingsDialog({
         </p>
       )}
       <BackendSection domino={domino} config={config} />
-      <AutoRefreshField minutes={refreshMinutes} onMinutes={onRefreshMinutes} />
+      <AutoRefreshField
+        minutes={refreshMinutes}
+        onMinutes={onRefreshMinutes}
+        notifyUnblocked={notifyUnblocked}
+        onNotifyUnblocked={onNotifyUnblocked}
+      />
       <div className="section-row">
         <h3 className="section-h">Sites</h3>
         {editing?.kind !== "new" && (

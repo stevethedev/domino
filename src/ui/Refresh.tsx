@@ -1,5 +1,6 @@
 import { useEffect, useId, useState, type ReactElement } from "react";
 import { prefersReducedMotion } from "../lib/motion";
+import { requestNotificationPermission } from "../platform";
 import { REFRESH_MINUTES, updatedAgo, type RefreshMinutes } from "../state/refresh";
 import type { BackgroundRefresh } from "../state/useDomino";
 
@@ -83,11 +84,17 @@ export function RefreshButton({
 export function AutoRefreshField({
   minutes,
   onMinutes,
+  notifyUnblocked,
+  onNotifyUnblocked,
 }: {
   minutes: RefreshMinutes;
   onMinutes: (m: RefreshMinutes) => void;
+  /** Desktop notification when a refresh unblocks the user's own issues. */
+  notifyUnblocked: boolean;
+  onNotifyUnblocked: (on: boolean) => void;
 }): ReactElement {
   const id = useId();
+  const [permissionDenied, setPermissionDenied] = useState(false);
   return (
     <section className="backend-section" aria-labelledby={`${id}-h`}>
       <h3 id={`${id}-h`}>Updates</h3>
@@ -113,6 +120,31 @@ export function AutoRefreshField({
       <p className="hint" id={`${id}-hint`}>
         Re-checks the current sites and query in the background, keeping the graph on screen. Paused while the window is hidden. Stored on
         this computer only.
+      </p>
+      <label className="check">
+        <input
+          type="checkbox"
+          role="switch"
+          checked={notifyUnblocked}
+          aria-describedby={`${id}-notify-hint`}
+          onChange={(e) => {
+            if (!e.target.checked) {
+              onNotifyUnblocked(false);
+              return;
+            }
+            // Turning it on asks the OS first; it stays off if notifications aren't allowed.
+            void requestNotificationPermission().then((granted) => {
+              setPermissionDenied(!granted);
+              onNotifyUnblocked(granted);
+            });
+          }}
+        />
+        Notify me when my work is unblocked
+      </label>
+      <p className={permissionDenied ? "field-error" : "hint"} id={`${id}-notify-hint`} role={permissionDenied ? "alert" : undefined}>
+        {permissionDenied
+          ? "Notifications aren't allowed for Domino. Turn them on in your system settings, then try again."
+          : "When a refresh finds that an issue assigned to you is no longer blocked. Needs auto-refresh, or a manual refresh."}
       </p>
     </section>
   );
