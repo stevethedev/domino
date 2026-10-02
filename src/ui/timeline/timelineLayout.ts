@@ -13,8 +13,20 @@ export const ROW_HEIGHT = 40;
 export const LANE_HEIGHT = 30;
 
 export type TimelineRowModel = { kind: "row"; node: GraphNode; entry: TimelineEntry; y: number };
-export type TimelineLaneModel = { kind: "lane"; lane: Lane; y: number; count: number };
+export type TimelineLaneModel = {
+  kind: "lane";
+  lane: Lane;
+  y: number;
+  count: number;
+  collapsed: boolean;
+  /** Issues in the lane forecast to finish late (epic rows summarize others, so they don't count). */
+  late: number;
+};
 export type TimelineItem = TimelineRowModel | TimelineLaneModel;
+/** A row before placement: every row, including those inside collapsed lanes. */
+export type TimelineRowData = { node: GraphNode; entry: TimelineEntry };
+
+export const isLate = (r: TimelineRowData): boolean => !r.node.ghost && !isEpicNode(r.node) && r.entry.varianceDays > 0;
 
 /** The latest day any bar or marker for this entry reaches. */
 export function entryEnd(e: TimelineEntry): Day {
@@ -31,14 +43,16 @@ function entryStart(e: TimelineEntry): Day {
 /**
  * Rows grouped into lanes (or one unlabeled lane), each lane sorted by projected start so
  * dependency arrows mostly run down and to the right. Lanes order by their earliest start,
- * with catch-all lanes last. Returns items with their y offsets and the total height.
+ * with catch-all lanes last. A collapsed lane keeps only its header. Returns items with their
+ * y offsets, the total height, and every row (collapsed or not) for date ranges and counts.
  */
 export function layoutRows(
   nodes: readonly GraphNode[],
   timeline: ReadonlyMap<string, TimelineEntry>,
   laneOf: LaneFn | undefined,
-): { items: TimelineItem[]; height: number } {
-  type Row = { node: GraphNode; entry: TimelineEntry };
+  collapsed: ReadonlySet<string> = new Set(),
+): { items: TimelineItem[]; height: number; all: TimelineRowData[] } {
+  type Row = TimelineRowData;
   const lanes = new Map<string, { lane: Lane; rows: Row[] }>();
   for (const node of nodes) {
     const entry = timeline.get(node.uid);
@@ -59,16 +73,18 @@ export function layoutRows(
   const items: TimelineItem[] = [];
   let y = 0;
   for (const { lane, rows } of ordered) {
+    const isCollapsed = !!laneOf && collapsed.has(lane.id);
     if (laneOf) {
-      items.push({ kind: "lane", lane, y, count: rows.length });
+      items.push({ kind: "lane", lane, y, count: rows.length, collapsed: isCollapsed, late: rows.filter(isLate).length });
       y += LANE_HEIGHT;
     }
+    if (isCollapsed) continue;
     for (const { node, entry } of rows) {
       items.push({ kind: "row", node, entry, y });
       y += ROW_HEIGHT;
     }
   }
-  return { items, height: y };
+  return { items, height: y, all: ordered.flatMap((l) => l.rows) };
 }
 
 /** First and last day shown: everything drawn, plus today and the plan start, with padding. */

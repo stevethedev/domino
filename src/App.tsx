@@ -12,7 +12,7 @@ import { parseSavedViews, SAVED_VIEWS_KEY, upsertView, type SavedView } from "./
 import { saveQuery, scopeKeyOf } from "./state/useDomino";
 import { useChanges } from "./state/useChanges";
 import { useStatusHistory } from "./state/useStatusHistory";
-import { Canvas, useFocusNode, type Filters, type ViewOptions } from "./ui/Canvas";
+import { Canvas, lanesFor, useFocusNode, type Filters, type ViewOptions } from "./ui/Canvas";
 import { ChangesPanel } from "./ui/ChangesPanel";
 import { ErrorBanner } from "./ui/ErrorBanner";
 import { FilterPanel } from "./ui/FilterPanel";
@@ -33,12 +33,19 @@ const DEFAULT_FILTERS: Filters = { blocks: true, relates: false, duplicates: fal
 const DEFAULT_VIEW: ViewOptions = { groupBy: "none", highlight: "none", collapseEpics: false };
 const parseViewMode = oneOf(isViewMode);
 
-/** Focus a timeline row by uid (the graph view uses React Flow's viewport instead). */
-function focusTimelineRow(uid: string): void {
+/** Focus a timeline row by uid (the graph view uses React Flow's viewport instead). Returns whether it was found. */
+function focusTimelineRow(uid: string): boolean {
   const el = document.querySelector<HTMLElement>(`[data-tl-uid="${CSS.escape(uid)}"]`);
   el?.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
   el?.focus({ preventScroll: true });
+  return el !== null;
 }
+
+const COLLAPSED_LANES_KEY = "domino.timeline.collapsedLanes";
+/** Remembered collapsed lanes; capped so ids from long-gone scopes don't pile up. */
+const MAX_COLLAPSED_LANES = 200;
+const parseLaneIds = (raw: unknown): string[] | undefined =>
+  Array.isArray(raw) ? raw.filter((x): x is string => typeof x === "string").slice(-MAX_COLLAPSED_LANES) : undefined;
 
 /** `g` / `t` switch between Graph and Timeline when focus isn't in a text field. */
 function useViewHotkeys(setViewMode: (m: ViewMode) => void): void {
@@ -69,6 +76,9 @@ function Shell(): ReactElement {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [viewMode, setViewMode] = usePersistentState<ViewMode>("domino.view", parseViewMode, "graph");
   const focusGraphNode = useFocusNode();
+  const [collapsedLaneIds, setCollapsedLaneIds] = usePersistentState(COLLAPSED_LANES_KEY, parseLaneIds, []);
+  const collapsedLanes = useMemo<ReadonlySet<string>>(() => new Set(collapsedLaneIds), [collapsedLaneIds]);
+  const setCollapsedLanes = (next: ReadonlySet<string>): void => { setCollapsedLaneIds([...next].slice(-MAX_COLLAPSED_LANES)); };
   const [refreshMinutes, setRefreshMinutes] = usePersistentState(REFRESH_MINUTES_KEY, parseRefreshMinutes, DEFAULT_REFRESH_MINUTES);
   useAutoRefresh(domino.refresh, refreshMinutes * 60_000, domino.background.lastUpdated);
   const { config, load, graph } = domino;
@@ -144,7 +154,17 @@ function Shell(): ReactElement {
     };
     setTimeout(retry, 120);
   };
-  const focusIssue = viewMode === "graph" ? focusInGraph : focusTimelineRow;
+  /** In the timeline, an issue inside a collapsed lane is revealed by expanding that lane first. */
+  const focusInTimeline = (uid: string): void => {
+    const node = nodesByUid.get(uid);
+    const laneId = node ? lanesFor(view.groupBy, insights)?.(node).id : undefined;
+    if (!laneId || !collapsedLanes.has(laneId)) return void focusTimelineRow(uid);
+    const next = new Set(collapsedLanes);
+    next.delete(laneId);
+    setCollapsedLanes(next);
+    requestAnimationFrame(() => { focusTimelineRow(uid); });
+  };
+  const focusIssue = viewMode === "graph" ? focusInGraph : focusInTimeline;
   useViewHotkeys(setViewMode);
 
   const errors = load.status === "done" ? load.result.errors : [];
@@ -265,6 +285,8 @@ function Shell(): ReactElement {
               settings={estimates}
               onSettings={setEstimates}
               onOpen={openExternal}
+              collapsedLanes={collapsedLanes}
+              onCollapsedLanes={setCollapsedLanes}
             />
           )}
           <CanvasMessage domino={domino} />

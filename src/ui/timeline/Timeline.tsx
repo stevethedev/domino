@@ -16,8 +16,8 @@ import {
   drawnBar,
   entryEnd,
   isEpicNode,
+  isLate,
   LABEL_WIDTH,
-  LANE_HEIGHT,
   layoutRows,
   type TimelineRowModel,
   localToday,
@@ -26,6 +26,7 @@ import {
   summarizeEpics,
   xOf,
 } from "./timelineLayout";
+import { TimelineLane } from "./TimelineLane";
 import { TimelineRow } from "./TimelineRow";
 
 export function Timeline({
@@ -37,6 +38,8 @@ export function Timeline({
   settings,
   onSettings,
   onOpen,
+  collapsedLanes,
+  onCollapsedLanes,
 }: {
   graph: Graph;
   insights: Insights;
@@ -46,6 +49,9 @@ export function Timeline({
   settings: EstimateSettings;
   onSettings: (s: EstimateSettings) => void;
   onOpen: (url: string) => void;
+  /** Lane ids folded to their header (per viewer; ids are unique across grouping modes). */
+  collapsedLanes: ReadonlySet<string>;
+  onCollapsedLanes: (next: ReadonlySet<string>) => void;
 }): ReactElement {
   const [hovered, setHovered] = useState<string | null>(null);
   const setSettings = (patch: Partial<EstimateSettings>): void => { onSettings({ ...settings, ...patch }); };
@@ -69,16 +75,35 @@ export function Timeline({
   }, [timeline, epics]);
 
   const { nodes, edges } = useMemo(() => visibleSubgraph(graph, filters), [graph, filters]);
-  const { items, height } = useMemo(() => layoutRows(nodes, placed, lanesFor(view.groupBy, insights)), [nodes, placed, view.groupBy, insights]);
+  const { items, height, all } = useMemo(
+    () => layoutRows(nodes, placed, lanesFor(view.groupBy, insights), collapsedLanes),
+    [nodes, placed, view.groupBy, insights, collapsedLanes],
+  );
   const rows = items.filter((i) => i.kind === "row");
+  const lanes = items.filter((i) => i.kind === "lane");
+  const toggleLane = (id: string): void => {
+    const next = new Set(collapsedLanes);
+    if (!next.delete(id)) next.add(id);
+    onCollapsedLanes(next);
+  };
+  const allCollapsed = lanes.length > 0 && lanes.every((l) => l.collapsed);
+  const setAllCollapsed = (collapse: boolean): void => {
+    const next = new Set(collapsedLanes);
+    for (const l of lanes) {
+      if (collapse) next.add(l.lane.id);
+      else next.delete(l.lane.id);
+    }
+    onCollapsedLanes(next);
+  };
+  // The date range covers every row, collapsed or not, so folding a lane never shifts the chart.
   const range = useMemo(
     () => {
-      if (!rows.length) return null;
+      if (!all.length) return null;
       // Ghost rows draw nothing, so their computed (invented) dates don't widen the chart.
-      const dated = rows.filter((r) => !r.node.ghost);
+      const dated = all.filter((r) => !r.node.ghost);
       return dayRange(dated.map((r) => r.entry), [today, opts.planStart, ...dated.flatMap((r) => (r.node.dates?.due ? [r.node.dates.due] : []))]);
     },
-    [rows, today, opts.planStart],
+    [all, today, opts.planStart],
   );
 
   const chain = useMemo(() => (hovered ? blockingChain(graph, hovered) : null), [graph, hovered]);
@@ -106,9 +131,9 @@ export function Timeline({
       }];
     });
 
-  const late = rows.filter((r) => !r.node.ghost && !isEpicNode(r.node) && r.entry.varianceDays > 0).length;
+  const late = all.filter(isLate).length;
   const chartWidth = range ? xOf(range.start, range.end, settings.scale) + PX_PER_DAY[settings.scale] : 0;
-  const lastBarX = range ? Math.max(0, ...rows.filter((r) => !r.node.ghost).map((r) => xOf(range.start, entryEnd(r.entry), settings.scale))) : 0;
+  const lastBarX = range ? Math.max(0, ...all.filter((r) => !r.node.ghost).map((r) => xOf(range.start, entryEnd(r.entry), settings.scale))) : 0;
 
   return (
     <div className="timeline">
@@ -146,6 +171,11 @@ export function Timeline({
           <li><span className="tl-key tl-forecast" aria-hidden="true" /> Forecast</li>
           <li><span className="tl-due" aria-hidden="true">◆</span> Due</li>
         </ul>
+        {lanes.length > 1 && (
+          <button type="button" className="link-btn" onClick={() => { setAllCollapsed(!allCollapsed); }}>
+            {allCollapsed ? "Expand all" : "Collapse all"}
+          </button>
+        )}
         <span className="status-text" aria-live="polite">
           {history.status === "loading" ? "Loading status history…" : `${late} late`}
         </span>
@@ -168,19 +198,14 @@ export function Timeline({
                 <TimeGrid range={range} scale={settings.scale} today={today} height={height} />
                 <TimelineArrows arrows={arrows} rowY={rowY} rangeStart={range.start} scale={settings.scale} width={chartWidth + 200} height={height} />
               </div>
-              {items.map((item) => {
-                const laneUrl = item.kind === "lane" ? item.lane.url : undefined;
-                return item.kind === "lane" ? (
-                  <div key={item.lane.id} className="tl-lane" style={{ top: item.y, height: LANE_HEIGHT }}>
-                    {laneUrl ? (
-                      <button type="button" className="link-btn" onClick={() => { onOpen(laneUrl); }} aria-label={`Epic ${item.lane.label}. Opens in browser.`}>
-                        {item.lane.label} ↗
-                      </button>
-                    ) : (
-                      <span>{item.lane.label}</span>
-                    )}
-                    <span className="muted small"> · {item.count} {item.count === 1 ? "issue" : "issues"}</span>
-                  </div>
+              {items.map((item) =>
+                item.kind === "lane" ? (
+                  <TimelineLane
+                    key={item.lane.id}
+                    item={item}
+                    onToggle={() => { toggleLane(item.lane.id); }}
+                    onOpen={onOpen}
+                  />
                 ) : (
                   <TimelineRow
                     key={item.node.uid}
@@ -199,8 +224,8 @@ export function Timeline({
                     onOpen={onOpen}
                     onHover={setHovered}
                   />
-                );
-              })}
+                ),
+              )}
             </div>
           </div>
         </div>
