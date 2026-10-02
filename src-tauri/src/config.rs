@@ -209,9 +209,9 @@ impl ConfigFile {
     /// Loads the config, seeding it from the bundled mock config on first run.
     pub(crate) fn load(&self) -> Result<DominoConfig, String> {
         match fs::read_to_string(&self.path) {
-            Ok(text) => serde_json::from_str::<DominoConfig>(&text)
-                .map_err(|e| format!("{} is invalid: {e}", self.path.display()))?
-                .validated(),
+            Ok(text) => {
+                serde_json::from_str::<DominoConfig>(&text).map_err(|e| format!("{} is invalid: {e}", self.path.display()))?.validated()
+            }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
                 let seed: DominoConfig = serde_json::from_str(SEED_CONFIG).map_err(|e| e.to_string())?;
                 let seed = seed.validated()?;

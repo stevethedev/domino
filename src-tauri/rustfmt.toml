@@ -1,0 +1,4 @@
+# Match Prettier's 140 columns on the TypeScript side.
+max_width = 140
+# Let short struct literals, calls and chains use the full width instead of rustfmt's ~60% defaults.
+use_small_heuristics = "Max"

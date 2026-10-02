@@ -61,10 +61,7 @@ pub(crate) fn strip_order_by(jql: &str) -> &str {
 /// `clause AND (filter)`, or just `clause` when there's no filter. The filter's ORDER BY is
 /// dropped, since ORDER BY can't appear inside parentheses.
 pub(crate) fn and_filter(clause: &str, filter: Option<&str>) -> String {
-    filter
-        .map(|f| strip_order_by(f).trim())
-        .filter(|f| !f.is_empty())
-        .map_or_else(|| clause.to_owned(), |f| format!("{clause} AND ({f})"))
+    filter.map(|f| strip_order_by(f).trim()).filter(|f| !f.is_empty()).map_or_else(|| clause.to_owned(), |f| format!("{clause} AND ({f})"))
 }
 
 pub(crate) fn is_issue_id(s: &str) -> bool {
@@ -94,7 +91,10 @@ mod tests {
 
     #[test]
     fn and_filter_parenthesizes_and_drops_order_by() {
-        assert_eq!(and_filter("parent = A-1", Some("project = A OR project = B ORDER BY rank")), "parent = A-1 AND (project = A OR project = B)");
+        assert_eq!(
+            and_filter("parent = A-1", Some("project = A OR project = B ORDER BY rank")),
+            "parent = A-1 AND (project = A OR project = B)"
+        );
         assert_eq!(and_filter("parent = A-1", Some("  ")), "parent = A-1");
         assert_eq!(and_filter("parent = A-1", Some("ORDER BY rank")), "parent = A-1");
         assert_eq!(and_filter("parent = A-1", None), "parent = A-1");

@@ -22,6 +22,7 @@ Requires Node 20+ and a Rust toolchain (`rustup`). On Linux you also need Tauri'
 | `npm test`                                   | Vitest (graph logic, loader, layout)                                                                                                                                                                                                                                                       |
 | `cd src-tauri && cargo test`                 | Rust tests (config, mock backend, HTTP backend and OAuth against wiremock)                                                                                                                                                                                                                 |
 | `cd src-tauri && cargo clippy --all-targets` | Rust lints: every clippy group except `restriction`, plus a strict set of restriction lints (no `unwrap`, `expect`, indexing, `print`; suppressions must be `#[expect(..., reason)]`). Configured in `Cargo.toml` `[lints]`; tests get the exceptions in `clippy.toml`. CI denies warnings |
+| `cd src-tauri && cargo fmt`                  | Formats the Rust code (`rustfmt.toml`: 140 columns, like Prettier). CI runs `cargo fmt --check`                                                                                                                                                                                            |
 | `npm run tauri build`                        | Release build and installer                                                                                                                                                                                                                                                                |
 
 ### Simulating a failing site
@@ -207,7 +208,7 @@ Versioning and releases use [Changesets](https://github.com/changesets/changeset
 - Merging to `main` adds it to an auto-maintained "Version Packages" PR.
 - Merging that PR tags the release and starts a cross-platform build (macOS, Linux, Windows) that attaches installers to a draft GitHub Release.
 
-CI (`.github/workflows/typescript.yml` and `rust.yml`) runs `npm run check`, the Vitest suite, `cargo clippy -D warnings` and `cargo test` on every push to `main` and on every PR.
+CI (`.github/workflows/typescript.yml` and `rust.yml`) runs `npm run check`, the Vitest suite, `cargo fmt --check`, `cargo clippy -D warnings` and `cargo test` on every push to `main` and on every PR.
 
 ## Styling
 

@@ -75,12 +75,7 @@ pub(crate) async fn fetch_by_jql(
 }
 
 #[tauri::command]
-pub(crate) async fn fetch_epic(
-    state: State<'_, AppState>,
-    site_id: String,
-    key: String,
-    filter: Option<String>,
-) -> Result<Value, String> {
+pub(crate) async fn fetch_epic(state: State<'_, AppState>, site_id: String, key: String, filter: Option<String>) -> Result<Value, String> {
     let site = state.site(&site_id, true)?;
     state.backend().epic(&site, &key, filter.as_deref()).await
 }
@@ -104,11 +99,7 @@ pub(crate) async fn fetch_link_types(state: State<'_, AppState>, site_id: String
 }
 
 #[tauri::command]
-pub(crate) async fn fetch_status_history(
-    state: State<'_, AppState>,
-    site_id: String,
-    issue_ids: Vec<String>,
-) -> Result<Value, String> {
+pub(crate) async fn fetch_status_history(state: State<'_, AppState>, site_id: String, issue_ids: Vec<String>) -> Result<Value, String> {
     let site = state.site(&site_id, true)?;
     state.backend().status_history(&site, &issue_ids).await
 }

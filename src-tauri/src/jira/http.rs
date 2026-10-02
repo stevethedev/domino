@@ -95,9 +95,8 @@ impl HttpBackend {
 
     async fn discover_cloud_id(&self, site: &SiteConfig) -> JiraResult<String> {
         let resources = self.oauth.accessible_resources().await?;
-        let id = cloud_id_for(&site.base_url, &resources).ok_or_else(|| {
-            format!("Your Atlassian account has no access to {} (or the OAuth app lacks Jira scopes)", site.base_url)
-        })?;
+        let id = cloud_id_for(&site.base_url, &resources)
+            .ok_or_else(|| format!("Your Atlassian account has no access to {} (or the OAuth app lacks Jira scopes)", site.base_url))?;
         self.config.set_cloud_id(&site.base_url, &id)?;
         log::info!("discovered cloudId for {}", site.id);
         Ok(id)
@@ -185,13 +184,8 @@ fn with_page_token(mut body: Value, token: Option<&str>) -> Value {
 }
 
 fn describe_error(site: &SiteConfig, status: StatusCode, detail: &Value) -> String {
-    let mut msgs: Vec<String> = detail
-        .get("errorMessages")
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-        .filter_map(|m| m.as_str().map(String::from))
-        .collect();
+    let mut msgs: Vec<String> =
+        detail.get("errorMessages").and_then(Value::as_array).into_iter().flatten().filter_map(|m| m.as_str().map(String::from)).collect();
     if let Some(errs) = detail.get("errors").and_then(Value::as_object) {
         msgs.extend(errs.iter().filter_map(|(k, v)| v.as_str().map(|v| format!("{k}: {v}"))));
     }
@@ -404,7 +398,8 @@ mod tests {
             if self.0.swap(false, std::sync::atomic::Ordering::SeqCst) {
                 ResponseTemplate::new(429).insert_header("Retry-After", "0")
             } else {
-                ResponseTemplate::new(200).set_body_json(json!([{ "id": 1, "relationship": "blocks", "object": { "url": "https://x/browse/A-1" } }]))
+                ResponseTemplate::new(200)
+                    .set_body_json(json!([{ "id": 1, "relationship": "blocks", "object": { "url": "https://x/browse/A-1" } }]))
             }
         }
     }
@@ -459,12 +454,16 @@ mod tests {
         let f = fixture().await;
         Mock::given(method("POST"))
             .and(path("/oauth/token"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "access_token": "at", "expires_in": 3600, "refresh_token": "rt2" })))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(json!({ "access_token": "at", "expires_in": 3600, "refresh_token": "rt2" })),
+            )
             .mount(&f.server)
             .await;
         Mock::given(method("GET"))
             .and(path("/oauth/token/accessible-resources"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!([{ "id": "cloud-9", "url": "https://partner.atlassian.net", "name": "p" }])))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(json!([{ "id": "cloud-9", "url": "https://partner.atlassian.net", "name": "p" }])),
+            )
             .expect(1)
             .mount(&f.server)
             .await;

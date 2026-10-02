@@ -42,11 +42,8 @@ impl MockBackend {
         if self.fail_sites.contains(&site.id) {
             return Err("Simulated outage (503 Service Unavailable)".into());
         }
-        self.sites
-            .get(site.id.as_str())
-            .ok_or_else(|| format!("Could not connect to {}: no mock data for this site", site.base_url))
+        self.sites.get(site.id.as_str()).ok_or_else(|| format!("Could not connect to {}: no mock data for this site", site.base_url))
     }
-
 }
 
 fn issues(data: &Value) -> impl Iterator<Item = &Value> {
@@ -75,7 +72,11 @@ enum Field {
 
 #[derive(Debug, PartialEq)]
 enum Clause {
-    Match { field: Field, negate: bool, values: Vec<String> },
+    Match {
+        field: Field,
+        negate: bool,
+        values: Vec<String>,
+    },
     /// Accepted but not evaluated: the fixtures have no dates, sprints or users.
     Ignored,
 }
@@ -187,11 +188,7 @@ fn parse_jql(jql: &str) -> JiraResult<Vec<Clause>> {
                 return Err(unsupported());
             };
             let list = list.strip_prefix('(').and_then(|l| l.strip_suffix(')')).unwrap_or(list);
-            let values = list
-                .split(',')
-                .map(|v| v.trim().trim_matches('"').to_ascii_lowercase())
-                .filter(|v| !v.is_empty())
-                .collect();
+            let values = list.split(',').map(|v| v.trim().trim_matches('"').to_ascii_lowercase()).filter(|v| !v.is_empty()).collect();
             Ok(Clause::Match { field, negate, values })
         })
         .collect()
@@ -205,10 +202,9 @@ fn matches(issue: &Value, clauses: &[Clause]) -> bool {
             Field::Project => vec![key.split('-').next().unwrap_or_default()],
             Field::Key => vec![key],
             Field::Parent => vec![str_at(issue, "/fields/parent/key")],
-            Field::StatusCategory => vec![
-                str_at(issue, "/fields/status/statusCategory/name"),
-                str_at(issue, "/fields/status/statusCategory/key"),
-            ],
+            Field::StatusCategory => {
+                vec![str_at(issue, "/fields/status/statusCategory/name"), str_at(issue, "/fields/status/statusCategory/key")]
+            }
             Field::IssueLinkType => issue
                 .pointer("/fields/issuelinks")
                 .and_then(Value::as_array)
@@ -228,11 +224,7 @@ impl JiraBackend for MockBackend {
     async fn search(&self, site: &SiteConfig, jql: &str, max_results: Option<usize>) -> JiraResult<Vec<Value>> {
         let data = self.site_data(site)?;
         let clauses = parse_jql(jql)?;
-        Ok(issues(data)
-            .filter(|i| matches(i, &clauses))
-            .take(max_results.unwrap_or(usize::MAX))
-            .cloned()
-            .collect())
+        Ok(issues(data).filter(|i| matches(i, &clauses)).take(max_results.unwrap_or(usize::MAX)).cloned().collect())
     }
 
     async fn epic(&self, site: &SiteConfig, key: &str, filter: Option<&str>) -> JiraResult<Value> {
@@ -299,7 +291,10 @@ mod tests {
             vec![Clause::Match { field: Field::Project, negate: false, values: vec!["core".into(), "web".into()] }]
         );
         assert_eq!(parse_jql("parent = CORE-1 and key in (A-1)").unwrap().len(), 2);
-        let preset = parse_jql(r#"(project in (CORE, WEB)) AND statusCategory != Done AND issueLinkType in (blocks, "is blocked by") AND updated >= -30d"#).unwrap();
+        let preset = parse_jql(
+            r#"(project in (CORE, WEB)) AND statusCategory != Done AND issueLinkType in (blocks, "is blocked by") AND updated >= -30d"#,
+        )
+        .unwrap();
         assert_eq!(preset.len(), 4);
         assert_eq!(preset[1], Clause::Match { field: Field::StatusCategory, negate: true, values: vec!["done".into()] });
         assert_eq!(preset[3], Clause::Ignored);

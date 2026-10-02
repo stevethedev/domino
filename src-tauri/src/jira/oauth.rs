@@ -261,9 +261,8 @@ pub(crate) async fn wait_for_callback(listener: TcpListener, expected_state: &st
 }
 
 async fn respond(sock: &mut tokio::net::TcpStream, status: &str, text: &str) {
-    let body = format!(
-        "<!doctype html><meta charset=utf-8><title>Domino</title><body style=\"font:16px system-ui;padding:40px\"><p>{text}</p>"
-    );
+    let body =
+        format!("<!doctype html><meta charset=utf-8><title>Domino</title><body style=\"font:16px system-ui;padding:40px\"><p>{text}</p>");
     let res = format!(
         "HTTP/1.1 {status}\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\nCache-Control: no-store\r\n\r\n{body}",
         body.len()
@@ -337,7 +336,11 @@ mod tests {
         let server = MockServer::start().await;
         Mock::given(method("POST"))
             .and(path("/oauth/token"))
-            .respond_with(ResponseTemplate::new(403).set_body_json(serde_json::json!({ "error": "invalid_grant", "error_description": "Unknown or invalid refresh token." })))
+            .respond_with(
+                ResponseTemplate::new(403).set_body_json(
+                    serde_json::json!({ "error": "invalid_grant", "error_description": "Unknown or invalid refresh token." }),
+                ),
+            )
             .mount(&server)
             .await;
         let s = secrets();
