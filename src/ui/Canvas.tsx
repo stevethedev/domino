@@ -276,16 +276,15 @@ export function Canvas({
 }
 
 /** Centers the viewport on a card and focuses it (used by the Warnings panel). */
-export function useFocusNode(): (uid: string) => boolean {
+export function useFocusNode(): (uid: string, moveFocus?: boolean) => boolean {
   const rf = useReactFlow();
-  /** Returns false when the node isn't rendered (yet). */
-  return (uid: string): boolean => {
+  /** Centres the node (and focuses it unless `moveFocus` is false). Returns false when it isn't rendered yet. */
+  return (uid: string, moveFocus = true): boolean => {
     const n = rf.getInternalNode(uid);
     if (!n) return false;
     const { x, y } = n.internals.positionAbsolute;
     void rf.setCenter(x + (n.measured.width ?? CARD_WIDTH) / 2, y + (n.measured.height ?? CARD_HEIGHT) / 2, { zoom: 1.1, duration: 300 });
-    const el = document.querySelector<HTMLElement>(`[data-uid="${CSS.escape(uid)}"]`);
-    el?.focus({ preventScroll: true });
+    if (moveFocus) document.querySelector<HTMLElement>(`[data-uid="${CSS.escape(uid)}"]`)?.focus({ preventScroll: true });
     return true;
   };
 }

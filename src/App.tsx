@@ -1,10 +1,10 @@
 import { ReactFlowProvider } from "@xyflow/react";
 import { prefersReducedMotion } from "./lib/motion";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type ReactElement } from "react";
-import { summaryUid } from "./graph/collapse";
+import { collapseEpics, summaryUid } from "./graph/collapse";
 import { computeInsights, downstreamOpen, isHighlightScope, type Highlight, type HighlightScope, type Insights } from "./graph/insights";
 import { myIssues } from "./graph/mine";
-import { NO_ISSUE_FILTERS, passesIssueFilters, visibleSubgraph } from "./graph/visible";
+import { hasIssueFilters, NO_ISSUE_FILTERS, passesIssueFilters, visibleSubgraph } from "./graph/visible";
 import { configStore, jiraSource, openExternal } from "./platform";
 import { DEFAULT_REFRESH_MINUTES, parseRefreshMinutes, REFRESH_MINUTES_KEY } from "./state/refresh";
 import { useAutoRefresh } from "./state/useAutoRefresh";
@@ -53,10 +53,10 @@ const GLANCE_SCOPE_KEY = "domino.glanceScope";
 const parseGlanceScope = oneOf(isHighlightScope);
 
 /** Focus a timeline row by uid (the graph view uses React Flow's viewport instead). Returns whether it was found. */
-function focusTimelineRow(uid: string): boolean {
+function focusTimelineRow(uid: string, moveFocus = true): boolean {
   const el = document.querySelector<HTMLElement>(`[data-tl-uid="${CSS.escape(uid)}"]`);
   el?.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
-  el?.focus({ preventScroll: true });
+  if (moveFocus) el?.focus({ preventScroll: true });
   return el !== null;
 }
 
@@ -170,8 +170,11 @@ function Shell(): ReactElement {
   };
   const nodesByUid = useMemo(() => new Map(graph.nodes.map((n) => [n.uid, n])), [graph]);
   const loadedIssues = useMemo(() => graph.nodes.filter((n) => !n.ghost), [graph]);
-  // How many links "Hide implied links" removes from what's drawn (counted even while it's off).
-  const impliedLinkCount = useMemo(() => visibleSubgraph(graph, { ...filters, hideImplied: true }).implied, [graph, filters]);
+  /** Issues the filters leave on screen (implied-link hiding never removes an issue). */
+  const drawnUids = useMemo(
+    () => new Set(visibleSubgraph(graph, { ...filters, hideImplied: false }).nodes.map((n) => n.uid)),
+    [graph, filters],
+  );
   const hiddenIssueCount = useMemo(
     () => loadedIssues.filter((n) => !passesIssueFilters(n, filters.issues)).length,
     [loadedIssues, filters.issues],
@@ -185,28 +188,28 @@ function Shell(): ReactElement {
     });
   }, []);
   /** In the epic map, an issue inside a collapsed epic is revealed by expanding that epic first. */
-  const focusInGraph = (uid: string): void => {
+  const focusInGraph = (uid: string, moveFocus = true): void => {
     // A ghost epic with loaded children is drawn as its summary in the epic map.
     const isFoldedGhostEpic =
       view.collapseEpics && nodesByUid.get(uid)?.ghost && !expandedEpics.has(uid) && graph.nodes.some((n) => n.epic?.uid === uid);
-    if (isFoldedGhostEpic) return void focusGraphNode(summaryUid(uid));
+    if (isFoldedGhostEpic) return void focusGraphNode(summaryUid(uid), moveFocus);
     const epicUid = nodesByUid.get(uid)?.epic?.uid;
     const hidden = view.collapseEpics && !nodesByUid.get(uid)?.ghost && epicUid && !expandedEpics.has(epicUid);
-    if (!hidden) return void focusGraphNode(uid);
-    if (epicUid === uid) return void focusGraphNode(summaryUid(epicUid));
+    if (!hidden) return void focusGraphNode(uid, moveFocus);
+    if (epicUid === uid) return void focusGraphNode(summaryUid(epicUid), moveFocus);
     toggleEpic(epicUid);
     // Wait for the re-layout to render the issue, then focus it.
     let tries = 0;
     const retry = (): void => {
-      if (!focusGraphNode(uid) && ++tries < 10) setTimeout(retry, 120);
+      if (!focusGraphNode(uid, moveFocus) && ++tries < 10) setTimeout(retry, 120);
     };
     setTimeout(retry, 120);
   };
   /** In the timeline, an issue inside a collapsed lane is revealed by expanding that lane first. */
-  const focusInTimeline = (uid: string): void => {
+  const focusInTimeline = (uid: string, moveFocus = true): void => {
     const node = nodesByUid.get(uid);
     const laneId = node ? lanesFor(view.groupBy, insights)?.(node).id : undefined;
-    if (!laneId || !collapsedLanes.has(laneId)) return void focusTimelineRow(uid);
+    if (!laneId || !collapsedLanes.has(laneId)) return void focusTimelineRow(uid, moveFocus);
     const next = new Set(collapsedLanes);
     next.delete(laneId);
     setCollapsedLanes(next);
@@ -215,12 +218,11 @@ function Shell(): ReactElement {
     const settleMs = prefersReducedMotion() ? 0 : FOLD_MS;
     setTimeout(() => {
       requestAnimationFrame(() => {
-        focusTimelineRow(uid);
+        focusTimelineRow(uid, moveFocus);
       });
     }, settleMs);
   };
   const focusInView = viewMode === "graph" ? focusInGraph : focusInTimeline;
-  /** An issue hidden by the issue filters is revealed by clearing them first (as lanes are expanded). */
   // The issue open in the details panel. It closes by itself if the issue leaves the loaded graph.
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
   const selectIssue = useCallback((uid: string) => {
@@ -245,10 +247,22 @@ function Shell(): ReactElement {
     setSelectedUid(null);
     if (uid) document.querySelector<HTMLElement>(`[data-uid="${CSS.escape(uid)}"], [data-tl-uid="${CSS.escape(uid)}"]`)?.focus();
   };
-  const focusIssue = (uid: string): void => {
+  // How many links "Hide implied links" removes from what's drawn (counted even while it's off),
+  // on the graph actually drawn: the epic map has its own, combined links.
+  const drawnGraph = useMemo(
+    () => (viewMode === "graph" && view.collapseEpics ? collapseEpics(graph, insights, expandedEpics).graph : graph),
+    [viewMode, view.collapseEpics, graph, insights, expandedEpics],
+  );
+  const impliedLinkCount = useMemo(() => visibleSubgraph(drawnGraph, { ...filters, hideImplied: true }).implied, [drawnGraph, filters]);
+  /**
+   * An issue the issue filters keep off screen (filtered itself, or a ghost whose only links go to
+   * filtered issues) is revealed by clearing them first, as collapsed lanes are expanded.
+   * `moveFocus: false` moves the view without taking keyboard focus (used from the details panel).
+   */
+  const focusIssue = (uid: string, moveFocus = true): void => {
     const node = nodesByUid.get(uid);
-    if (!node || passesIssueFilters(node, filters.issues)) {
-      focusInView(uid);
+    if (!node || drawnUids.has(uid) || !hasIssueFilters(filters.issues)) {
+      focusInView(uid, moveFocus);
       return;
     }
     setFilters({ ...filters, issues: NO_ISSUE_FILTERS });
@@ -259,7 +273,7 @@ function Shell(): ReactElement {
     if (epicUid) selectors.push(`[data-id="${CSS.escape(summaryUid(epicUid))}"]`);
     let tries = 0;
     const whenDrawn = (): void => {
-      if (document.querySelector(selectors.join(","))) focusInView(uid);
+      if (document.querySelector(selectors.join(","))) focusInView(uid, moveFocus);
       else if (++tries < 25) setTimeout(whenDrawn, 80);
     };
     setTimeout(whenDrawn, 80);
@@ -432,7 +446,7 @@ function Shell(): ReactElement {
               data={detail}
               onSelect={(uid) => {
                 setSelectedUid(uid);
-                focusIssue(uid);
+                focusIssue(uid, false); // keep keyboard focus in the panel
               }}
               onOpen={openExternal}
               onClose={closeDetail}

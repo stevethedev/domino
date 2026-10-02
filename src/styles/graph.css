@@ -516,7 +516,8 @@
   cursor: default;
 }
 
-/* The issue open in the details panel. */
-.card.selected {
-  box-shadow: 0 0 0 var(--ring-width) var(--accent);
+/* The issue open in the details panel: an outline, so a highlight's box-shadow ring still shows. */
+.card.selected:not(:focus-visible) {
+  outline: var(--ring-width) solid var(--accent);
+  outline-offset: 3px;
 }
