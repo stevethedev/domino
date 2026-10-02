@@ -2,7 +2,7 @@ import { Background, Controls, MiniMap, ReactFlow, useReactFlow } from "@xyflow/
 import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { blockingChain } from "../graph/analysis";
 import { collapseEpics, shownEdgeId } from "../graph/collapse";
-import { emphasis, type Highlight, type Insights } from "../graph/insights";
+import { emphasis, type Highlight, type HighlightScope, type Insights } from "../graph/insights";
 import { CARD_HEIGHT, CARD_WIDTH, computeLayout, laneByAssignee, laneByEpic, laneBySite, type LaneFn, type Layout } from "../graph/layout";
 import type { Graph, LinkKind } from "../graph/types";
 import { visibleSubgraph } from "../graph/visible";
@@ -15,7 +15,8 @@ export type Filters = Record<LinkKind, boolean> & { crossSite: boolean };
 const GROUP_BY = ["none", "site", "epic", "assignee"] as const;
 export type GroupBy = (typeof GROUP_BY)[number];
 export const isGroupBy = isOneOf(GROUP_BY);
-export type ViewOptions = { groupBy: GroupBy; highlight: Highlight; collapseEpics: boolean };
+/** `highlightScope` narrows the highlight to the signed-in user's issues ("At a glance" for me). */
+export type ViewOptions = { groupBy: GroupBy; highlight: Highlight; highlightScope: HighlightScope; collapseEpics: boolean };
 
 /** The lane function for a Group by choice; assignee lanes need the insights for their labels. */
 export function lanesFor(groupBy: GroupBy, insights: Insights): LaneFn | undefined {
@@ -126,12 +127,12 @@ export function Canvas({
 
   // Highlights are computed on loaded issues; in the epic map they light up the node each issue is shown as.
   const emphasized = useMemo(() => {
-    const e = emphasis(view.highlight, insights);
+    const e = emphasis(view.highlight, insights, view.highlightScope);
     if (!e || !collapsed) return e;
     const nodes = new Set([...e.nodes].map((u) => collapsed.shownAs.get(u) ?? u));
     const edges = new Set(loaded.edges.filter((x) => e.edges.has(x.id)).flatMap((x) => shownEdgeId(x, collapsed.shownAs) ?? []));
     return { nodes, edges };
-  }, [view.highlight, insights, collapsed, loaded.edges]);
+  }, [view.highlight, view.highlightScope, insights, collapsed, loaded.edges]);
   const chain = useMemo(() => (hovered ? blockingChain(graph, hovered) : null), [graph, hovered]);
   const byUid = useMemo(() => new Map(graph.nodes.map((n) => [n.uid, n])), [graph]);
 

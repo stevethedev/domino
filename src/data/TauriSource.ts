@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { JiraSource } from "./JiraSource";
-import type { RawIssue, RawIssueChangeLog, RawLinkType, RawRemoteLink, RawStatusDef } from "./jiraTypes";
+import type { RawIssue, RawIssueChangeLog, RawLinkType, RawRemoteLink, RawStatusDef, RawUser } from "./jiraTypes";
 
 /** Calls the Rust core, which holds credentials and talks to Jira (or the mock backend). */
 export class TauriSource implements JiraSource {
@@ -22,6 +22,9 @@ export class TauriSource implements JiraSource {
   }
   fetchStatuses(siteId: string): Promise<RawStatusDef[]> {
     return invoke("fetch_statuses", { siteId });
+  }
+  fetchMyself(siteId: string): Promise<RawUser> {
+    return invoke("fetch_myself", { siteId });
   }
   async fetchLinkTypes(siteId: string): Promise<RawLinkType[]> {
     const res = await invoke<{ issueLinkTypes: RawLinkType[] }>("fetch_link_types", { siteId });

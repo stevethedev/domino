@@ -1,6 +1,7 @@
 import { AGING_DEFAULTS, computeAging, type Aging } from "./aging";
 import { criticalPath, openBlockerCounts, readyIssues, type Chain } from "./analysis";
 import type { ChangeKind } from "./changes";
+import { NO_ISSUES, type MyIssues } from "./mine";
 import type { Day, StatusHistory } from "./schedule";
 import type { Graph, GraphNode } from "./types";
 import { getOrThrow, isOneOf } from "../lib/guards";
@@ -9,6 +10,11 @@ import { getOrThrow, isOneOf } from "../lib/guards";
 export type Highlight = "none" | "blocked" | "ready" | "critical" | "aging" | "changed";
 const HIGHLIGHTS: readonly Highlight[] = ["none", "blocked", "ready", "critical", "aging", "changed"];
 export const isHighlight = isOneOf(HIGHLIGHTS);
+
+/** Whose issues a highlight covers: everyone's, or only the signed-in user's (see `MyIssues`). */
+export type HighlightScope = "all" | "assigned" | "reported";
+const HIGHLIGHT_SCOPES: readonly HighlightScope[] = ["all", "assigned", "reported"];
+export const isHighlightScope = isOneOf(HIGHLIGHT_SCOPES);
 
 /** The at-a-glance answers, computed once per graph and shared by both views. */
 export type Insights = {
@@ -27,6 +33,8 @@ export type Insights = {
   aging: ReadonlyMap<string, Aging>;
   /** What changed per issue since the scope was last marked seen; empty until compared. */
   changed: ReadonlyMap<string, readonly ChangeKind[]>;
+  /** The signed-in user's issues; empty until identities have loaded. */
+  mine: MyIssues;
 };
 
 /** Inputs for aging; without history, aging is simply empty. */
@@ -110,11 +118,25 @@ export function computeInsights(graph: Graph, opts?: InsightOptions): Insights {
     holdingUpByAssignee: holdingUp(graph, downstream),
     aging: opts ? computeAging(graph, opts.history, openBlockers, { ...opts, ...AGING_DEFAULTS }) : new Map(),
     changed: new Map(),
+    mine: NO_ISSUES,
   };
 }
 
-/** Nodes and edges to keep at full strength for a highlight; `null` means nothing dims. */
-export function emphasis(h: Highlight, insights: Insights): { nodes: ReadonlySet<string>; edges: ReadonlySet<string> } | null {
+/**
+ * Nodes and edges to keep at full strength for a highlight; `null` means nothing dims. A scoped
+ * highlight keeps only the signed-in user's issues (and critical-path links between two of them).
+ */
+export function emphasis(h: Highlight, insights: Insights, scope: HighlightScope = "all"): { nodes: ReadonlySet<string>; edges: ReadonlySet<string> } | null {
+  const all = emphasisForAll(h, insights);
+  if (!all || scope === "all") return all;
+  const only = insights.mine[scope];
+  const nodes = new Set([...all.nodes].filter((uid) => only.has(uid)));
+  const chain = insights.critical;
+  const edges = h === "critical" ? new Set(chain.edges.filter((_, i) => only.has(chain.nodes[i]) && only.has(chain.nodes[i + 1]))) : new Set<string>();
+  return { nodes, edges };
+}
+
+function emphasisForAll(h: Highlight, insights: Insights): { nodes: ReadonlySet<string>; edges: ReadonlySet<string> } | null {
   switch (h) {
     case "none":
       return null;

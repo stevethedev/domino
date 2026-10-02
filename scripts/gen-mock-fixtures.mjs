@@ -70,6 +70,17 @@ const ISSUES = {
   ],
 };
 
+// The signed-in user on both mock sites (GET /rest/api/3/myself); the same Atlassian account.
+const ME = "Jonas Berg";
+// Reporters: each site's PM by default, plus issues "I" filed (some assigned to others,
+// one on the other site) so "Reported by me" differs from "Assigned to me".
+const DEFAULT_REPORTER = { acme: "Dana Whitfield", partner: "Noor Haddad" };
+const REPORTED_BY = {
+  acme: { "CORE-11": ME, "CORE-21": ME, "WEB-1": ME, "WEB-2": ME },
+  partner: { "PAY-10": ME },
+};
+const user = (name) => ({ accountId: `acc-${name.toLowerCase().replace(/\W+/g, "-")}`, displayName: name, avatarUrls: {} });
+
 // Native links: [site, linkId, type, outwardKey (source), inwardKey (target)]
 // "A blocks B" => outward A, inward B. Link id 10001 is reused on both sites on
 // purpose: dedup must key on siteId + linkId.
@@ -193,9 +204,8 @@ function build(site) {
         summary,
         issuetype: issueTypeObj(type),
         status: statusObj(status),
-        assignee: assignee
-          ? { accountId: `acc-${assignee.toLowerCase().replace(/\W+/g, "-")}`, displayName: assignee, avatarUrls: {} }
-          : null,
+        assignee: assignee ? user(assignee) : null,
+        reporter: user(REPORTED_BY[site][key] ?? DEFAULT_REPORTER[site]),
         customfield_10016: points,
         resolutiondate: TIMES[site][key]?.done !== undefined ? jiraDateTime(at(TIMES[site][key].done)) : null,
         duedate: TIMES[site][key]?.due !== undefined ? at(TIMES[site][key].due).toISOString().slice(0, 10) : null,
@@ -254,7 +264,8 @@ const linkTypes = { issueLinkTypes: Object.values(LINK_TYPES) };
 const statuses = Object.keys(STATUS).map((name) => ({ ...statusObj(name), statusCategory: CATS[STATUS[name]] }));
 
 for (const site of Object.keys(SITES)) {
-  writeFileSync(join(out, `${site}.json`), JSON.stringify({ generatedOn: GENERATED_ON.toISOString().slice(0, 10), ...build(site), statuses }, null, 2) + "\n");
+  const myself = { ...user(ME), emailAddress: "jonas.berg@example.com", active: true };
+  writeFileSync(join(out, `${site}.json`), JSON.stringify({ generatedOn: GENERATED_ON.toISOString().slice(0, 10), ...build(site), statuses, myself }, null, 2) + "\n");
 }
 writeFileSync(join(out, "linkTypes.json"), JSON.stringify(linkTypes, null, 2) + "\n");
 console.log("wrote", Object.keys(SITES).map((s) => `${s}.json`).join(", "), "linkTypes.json");

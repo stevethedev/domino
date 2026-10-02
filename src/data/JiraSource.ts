@@ -1,4 +1,4 @@
-import type { RawIssue, RawIssueChangeLog, RawLinkType, RawRemoteLink, RawStatusDef } from "./jiraTypes";
+import type { RawIssue, RawIssueChangeLog, RawLinkType, RawRemoteLink, RawStatusDef, RawUser } from "./jiraTypes";
 
 /** Raw, Jira-shaped data access for one site at a time. */
 export interface JiraSource {
@@ -12,4 +12,6 @@ export interface JiraSource {
   /** Status changes for these issues (Jira ids), all pages merged. */
   fetchStatusHistory(siteId: string, issueIds: readonly string[]): Promise<RawIssueChangeLog[]>;
   fetchStatuses(siteId: string): Promise<RawStatusDef[]>;
+  /** The signed-in user on this site (`GET /myself`). */
+  fetchMyself(siteId: string): Promise<RawUser>;
 }

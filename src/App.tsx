@@ -2,11 +2,13 @@ import { ReactFlowProvider } from "@xyflow/react";
 import { prefersReducedMotion } from "./lib/motion";
 import { useCallback, useEffect, useMemo, useState, type ReactElement } from "react";
 import { summaryUid } from "./graph/collapse";
-import { computeInsights } from "./graph/insights";
+import { computeInsights, type Highlight, type HighlightScope } from "./graph/insights";
+import { myIssues } from "./graph/mine";
 import { configStore, jiraSource, openExternal } from "./platform";
 import { DEFAULT_REFRESH_MINUTES, parseRefreshMinutes, REFRESH_MINUTES_KEY } from "./state/refresh";
 import { useAutoRefresh } from "./state/useAutoRefresh";
 import { useDomino } from "./state/useDomino";
+import { useMyself } from "./state/useMyself";
 import { DEFAULT_ESTIMATE_SETTINGS, ESTIMATE_SETTINGS_KEY, parseEstimateSettings } from "./state/estimateSettings";
 import { oneOf, usePersistentState } from "./state/storage";
 import { parseSavedViews, SAVED_VIEWS_KEY, upsertView, type SavedView } from "./state/savedViews";
@@ -18,6 +20,7 @@ import { ChangesPanel } from "./ui/ChangesPanel";
 import { ErrorBanner } from "./ui/ErrorBanner";
 import { FilterPanel } from "./ui/FilterPanel";
 import { FinishFirst, InsightTiles } from "./ui/InsightsBar";
+import { MyGlance } from "./ui/MyGlance";
 import { SidebarSection } from "./ui/SidebarSection";
 import { QuickFind } from "./ui/QuickFind";
 import { Freshness, RefreshButton } from "./ui/Refresh";
@@ -31,7 +34,7 @@ import { isViewMode, ViewToggle, type ViewMode } from "./ui/ViewToggle";
 import { WarningsPanel } from "./ui/WarningsPanel";
 
 const DEFAULT_FILTERS: Filters = { blocks: true, relates: false, duplicates: false, crossSite: true };
-const DEFAULT_VIEW: ViewOptions = { groupBy: "none", highlight: "none", collapseEpics: false };
+const DEFAULT_VIEW: ViewOptions = { groupBy: "none", highlight: "none", highlightScope: "all", collapseEpics: false };
 const parseViewMode = oneOf(isViewMode);
 
 /** Focus a timeline row by uid (the graph view uses React Flow's viewport instead). Returns whether it was found. */
@@ -106,7 +109,12 @@ function Shell(): ReactElement {
   // Only compare once the loaded result belongs to the current scope (not the previous one mid-switch).
   const loadedThisScope = loaded && load.scopeKey === scopeKey;
   const { changes, markSeen } = useChanges(scopeKey, graph, baseInsights, loadedThisScope, history.status === "done");
-  const insights = useMemo(() => ({ ...baseInsights, changed: changes?.byIssue ?? new Map() }), [baseInsights, changes]);
+  const myself = useMyself(jiraSource, domino.selectedSites, config?.backend ?? "none");
+  const mine = useMemo(() => myIssues(graph.nodes, myself.me), [graph.nodes, myself.me]);
+  const insights = useMemo(() => ({ ...baseInsights, changed: changes?.byIssue ?? new Map(), mine }), [baseInsights, changes, mine]);
+  /** Highlight from a tile group: `scope` says whose issues it covers. Clicking the active tile again clears it. */
+  const highlightFor = (scope: HighlightScope): Highlight => (view.highlightScope === scope ? view.highlight : "none");
+  const setHighlight = (scope: HighlightScope) => (highlight: Highlight): void => { setView({ ...view, highlight, highlightScope: highlight === "none" ? "all" : scope }); };
 
   const [savedViews, setSavedViews] = usePersistentState<SavedView[]>(SAVED_VIEWS_KEY, parseSavedViews, []);
   const currentView = (name: string): SavedView => ({
@@ -230,21 +238,34 @@ function Shell(): ReactElement {
                     : ""
               }
               insights={insights}
-              highlight={view.highlight}
-              onHighlight={(highlight) => { setView({ ...view, highlight }); }}
+              highlight={highlightFor("all")}
+              onHighlight={setHighlight("all")}
               onShowCycle={() => {
                 const first = graph.cycles.at(0);
                 if (first) focusIssue(first[0]);
               }}
             />
           </SidebarSection>
+          {loaded && config &&
+            (["assigned", "reported"] as const).map((scope) => (
+              <MyGlance
+                key={scope}
+                scope={scope}
+                insights={insights}
+                nodes={nodesByUid}
+                myself={myself}
+                sites={config.sites}
+                highlight={highlightFor(scope)}
+                onHighlight={setHighlight(scope)}
+              />
+            ))}
           {changes && (
             <SidebarSection id="changes" title="Since you last looked" badge={changes.byIssue.size}>
               <ChangesPanel
                 changes={changes}
                 nodes={nodesByUid}
-                highlight={view.highlight}
-                onHighlight={(highlight) => { setView({ ...view, highlight }); }}
+                highlight={highlightFor("all")}
+                onHighlight={setHighlight("all")}
                 onPick={focusIssue}
                 onMarkSeen={() => {
                   markSeen();

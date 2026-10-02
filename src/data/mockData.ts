@@ -1,6 +1,6 @@
 // Typed view of the shared fixtures. The Rust MockBackend embeds the same JSON files.
 import type { DominoConfig } from "../config/types";
-import type { RawChangeHistory, RawIssue, RawLinkType, RawRemoteLink, RawStatusDef } from "./jiraTypes";
+import type { RawChangeHistory, RawIssue, RawLinkType, RawRemoteLink, RawStatusDef, RawUser } from "./jiraTypes";
 import acme from "../../fixtures/mock/acme.json";
 import partner from "../../fixtures/mock/partner.json";
 import linkTypes from "../../fixtures/mock/linkTypes.json";
@@ -14,6 +14,8 @@ export type MockSite = {
   /** Status changelogs keyed by Jira issue id. */
   changelogs?: Partial<Record<string, RawChangeHistory[]>>;
   statuses?: RawStatusDef[];
+  /** `GET /myself` on this site. */
+  myself?: RawUser;
 };
 
 // JSON imports widen string-literal unions (e.g. statusCategory.key) to `string`, so the fixtures can't be

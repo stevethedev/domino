@@ -17,6 +17,9 @@ export type GraphNode = {
   statusCategory: StatusCategory;
   assigneeName?: string;
   assigneeAvatarUrl?: string;
+  /** Jira account ids, for matching "assigned to me" / "reported by me" against `GET /myself`. */
+  assigneeAccountId?: string;
+  reporterAccountId?: string;
   storyPoints?: number;
   url: string;
   ghost: boolean;

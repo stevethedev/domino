@@ -22,7 +22,11 @@ pub trait JiraBackend: Send + Sync {
     /// `{ "issueLinkTypes": [...] }`
     async fn link_types(&self, site: &SiteConfig) -> JiraResult<Value>;
     /// Ok when the site is reachable and credentials work.
-    async fn health(&self, site: &SiteConfig) -> JiraResult<()>;
+    async fn health(&self, site: &SiteConfig) -> JiraResult<()> {
+        self.myself(site).await.map(|_| ())
+    }
+    /// `GET /rest/api/3/myself`: the signed-in user on this site (`accountId`, `displayName`, ...).
+    async fn myself(&self, site: &SiteConfig) -> JiraResult<Value>;
     /// `{ "issueChangeLogs": [...] }` with status changes for these issue ids, all pages merged.
     async fn status_history(&self, site: &SiteConfig, issue_ids: &[String]) -> JiraResult<Value>;
     /// `GET /rest/api/3/status`: every status with its category.

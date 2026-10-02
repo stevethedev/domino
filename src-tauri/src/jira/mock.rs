@@ -250,8 +250,8 @@ impl JiraBackend for MockBackend {
         Ok(self.link_types.clone())
     }
 
-    async fn health(&self, site: &SiteConfig) -> JiraResult<()> {
-        self.site_data(site).map(|_| ())
+    async fn myself(&self, site: &SiteConfig) -> JiraResult<Value> {
+        Ok(self.site_data(site)?["myself"].clone())
     }
 
     async fn status_history(&self, site: &SiteConfig, issue_ids: &[String]) -> JiraResult<Value> {
@@ -339,6 +339,19 @@ mod tests {
         assert_eq!(logs[0]["issueId"], id.as_str());
         assert!(pay1["fields"]["resolutiondate"].is_string());
         assert!(!b.statuses(partner).await.unwrap().as_array().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn serves_the_signed_in_user_and_reporters() {
+        let b = MockBackend::new(HashSet::new());
+        let c = cfg();
+        for id in ["acme", "partner"] {
+            let me = b.myself(c.site(id).unwrap()).await.unwrap();
+            assert_eq!(me["accountId"], "acc-jonas-berg", "{id}");
+        }
+        assert!(b.health(c.site("acme").unwrap()).await.is_ok());
+        let web1 = b.issue(c.site("acme").unwrap(), "WEB-1").await.unwrap();
+        assert_eq!(web1["fields"]["reporter"]["accountId"], "acc-jonas-berg");
     }
 
     #[tokio::test]

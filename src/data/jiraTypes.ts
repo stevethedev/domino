@@ -10,6 +10,9 @@ export type RawStatus = {
   statusCategory?: { key: RawStatusCategoryKey; name: string; id?: number };
 };
 
+/** A Jira user as embedded in issues (assignee, reporter) and returned by `GET /myself`. */
+export type RawUser = { accountId?: string; displayName: string; avatarUrls?: Record<string, string> };
+
 export type RawIssueType = { id?: string; name: string; iconUrl?: string; hierarchyLevel?: number };
 
 export type RawLinkType = { id: string; name: string; inward: string; outward: string; self?: string };
@@ -41,7 +44,9 @@ export type RawIssue = {
     /** Optional for the same reason as on RawLinkedIssue. */
     issuetype?: RawIssueType;
     status?: RawStatus;
-    assignee: { accountId?: string; displayName: string; avatarUrls?: Record<string, string> } | null;
+    assignee: RawUser | null;
+    /** Optional: older fixtures and restricted issues can omit it. */
+    reporter?: RawUser | null;
     /** "Story point estimate" on Jira Cloud. */
     customfield_10016?: number | null;
     /** Legacy "Epic Link" (older company-managed projects): the epic's key. */

@@ -1,4 +1,4 @@
-import { isHighlight } from "../graph/insights";
+import { isHighlight, isHighlightScope } from "../graph/insights";
 import type { Scope } from "../data/MultiSiteLoader";
 import { isGroupBy, type Filters, type ViewOptions } from "../ui/Canvas";
 import { isViewMode, type ViewMode } from "../ui/ViewToggle";
@@ -43,7 +43,13 @@ function parseView(raw: unknown): SavedView | undefined {
     siteIds: r.siteIds.filter(str),
     scope,
     filters: { blocks: f.blocks, relates: f.relates, duplicates: f.duplicates, crossSite: f.crossSite },
-    view: { groupBy: v.groupBy, highlight: v.highlight, collapseEpics: bool(v.collapseEpics) ? v.collapseEpics : false },
+    view: {
+      groupBy: v.groupBy,
+      highlight: v.highlight,
+      // Views saved before scoped highlights existed highlight everyone's issues.
+      highlightScope: str(v.highlightScope) && isHighlightScope(v.highlightScope) ? v.highlightScope : "all",
+      collapseEpics: bool(v.collapseEpics) ? v.collapseEpics : false,
+    },
     mode: r.mode,
   };
 }

@@ -31,6 +31,18 @@ describe("computeInsights", () => {
     expect([...defined(emphasis("blocked", i), "emphasis").nodes]).toEqual(["a:B-1"]);
     expect([...defined(emphasis("critical", i), "emphasis").edges]).toEqual(["a:link:2"]);
   });
+
+  it("a scoped highlight keeps only the user's issues, and critical links between two of them", () => {
+    const base = computeInsights(sample());
+    const mineOnly = (assigned: string[]): typeof base => ({ ...base, mine: { assigned: new Set(assigned), reported: new Set() } });
+    expect([...defined(emphasis("ready", mineOnly(["a:R-1"]), "assigned"), "ready").nodes]).toEqual(["a:R-1"]);
+    expect([...defined(emphasis("blocked", mineOnly(["a:R-1"]), "assigned"), "blocked").nodes]).toEqual([]);
+    const oneEnd = defined(emphasis("critical", mineOnly(["a:B-1"]), "assigned"), "critical, one end");
+    expect([[...oneEnd.nodes], [...oneEnd.edges]]).toEqual([["a:B-1"], []]);
+    const bothEnds = defined(emphasis("critical", mineOnly(["a:O-1", "a:B-1"]), "assigned"), "critical, both ends");
+    expect([...bothEnds.edges]).toEqual(["a:link:2"]);
+    expect(emphasis("none", mineOnly(["a:R-1"]), "assigned")).toBeNull();
+  });
 });
 
 

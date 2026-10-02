@@ -125,7 +125,7 @@ export function Timeline({
   );
 
   const chain = useMemo(() => (hovered ? blockingChain(graph, hovered) : null), [graph, hovered]);
-  const emphasized = useMemo(() => emphasis(view.highlight, insights), [view.highlight, insights]);
+  const emphasized = useMemo(() => emphasis(view.highlight, insights, view.highlightScope), [view.highlight, view.highlightScope, insights]);
   const criticalEdges = view.highlight === "critical" ? (emphasized?.edges ?? new Set<string>()) : new Set<string>();
 
   const rowY = new Map(rows.map((r) => [r.node.uid, r.y]));
@@ -235,7 +235,7 @@ export function Timeline({
                     flags={{
                       dimmed: chain ? !chain.nodes.has(item.node.uid) : emphasized ? !emphasized.nodes.has(item.node.uid) : false,
                       critical: view.highlight === "critical" && (emphasized?.nodes.has(item.node.uid) ?? false),
-                      ready: view.highlight === "ready" && insights.ready.has(item.node.uid),
+                      ready: view.highlight === "ready" && (emphasized?.nodes.has(item.node.uid) ?? false),
                       aging: insights.aging.get(item.node.uid),
                       change: insights.changed.get(item.node.uid)?.[0],
                     }}

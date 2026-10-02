@@ -1,5 +1,5 @@
 {
-  "generatedOn": "2026-10-01",
+  "generatedOn": "2026-10-02",
   "issues": [
     {
       "id": "106701",
@@ -28,10 +28,15 @@
           "displayName": "Dana Whitfield",
           "avatarUrls": {}
         },
+        "reporter": {
+          "accountId": "acc-dana-whitfield",
+          "displayName": "Dana Whitfield",
+          "avatarUrls": {}
+        },
         "customfield_10016": null,
         "resolutiondate": null,
         "duedate": null,
-        "created": "2026-08-29T09:00:00.000+0000",
+        "created": "2026-08-30T09:00:00.000+0000",
         "issuelinks": []
       }
     },
@@ -62,10 +67,15 @@
           "displayName": "Priya Raman",
           "avatarUrls": {}
         },
+        "reporter": {
+          "accountId": "acc-dana-whitfield",
+          "displayName": "Dana Whitfield",
+          "avatarUrls": {}
+        },
         "customfield_10016": 5,
         "resolutiondate": null,
         "duedate": null,
-        "created": "2026-09-20T09:00:00.000+0000",
+        "created": "2026-09-21T09:00:00.000+0000",
         "issuelinks": [
           {
             "id": "10006",
@@ -132,10 +142,15 @@
           "displayName": "Marcus Lee",
           "avatarUrls": {}
         },
+        "reporter": {
+          "accountId": "acc-dana-whitfield",
+          "displayName": "Dana Whitfield",
+          "avatarUrls": {}
+        },
         "customfield_10016": 2,
         "resolutiondate": null,
         "duedate": null,
-        "created": "2026-09-27T09:00:00.000+0000",
+        "created": "2026-09-28T09:00:00.000+0000",
         "issuelinks": [
           {
             "id": "10004",
@@ -237,10 +252,15 @@
           "displayName": "Dana Whitfield",
           "avatarUrls": {}
         },
+        "reporter": {
+          "accountId": "acc-dana-whitfield",
+          "displayName": "Dana Whitfield",
+          "avatarUrls": {}
+        },
         "customfield_10016": 8,
         "resolutiondate": null,
-        "duedate": "2026-10-05",
-        "created": "2026-09-17T09:00:00.000+0000",
+        "duedate": "2026-10-06",
+        "created": "2026-09-18T09:00:00.000+0000",
         "parent": {
           "id": "106701",
           "key": "CORE-1",
@@ -331,10 +351,15 @@
           "displayName": "Priya Raman",
           "avatarUrls": {}
         },
+        "reporter": {
+          "accountId": "acc-jonas-berg",
+          "displayName": "Jonas Berg",
+          "avatarUrls": {}
+        },
         "customfield_10016": 5,
         "resolutiondate": null,
         "duedate": null,
-        "created": "2026-09-28T09:00:00.000+0000",
+        "created": "2026-09-29T09:00:00.000+0000",
         "parent": {
           "id": "106701",
           "key": "CORE-1",
@@ -495,10 +520,15 @@
           "displayName": "Priya Raman",
           "avatarUrls": {}
         },
+        "reporter": {
+          "accountId": "acc-dana-whitfield",
+          "displayName": "Dana Whitfield",
+          "avatarUrls": {}
+        },
         "customfield_10016": null,
         "resolutiondate": null,
         "duedate": null,
-        "created": "2026-09-22T09:00:00.000+0000",
+        "created": "2026-09-23T09:00:00.000+0000",
         "parent": {
           "id": "106711",
           "key": "CORE-11",
@@ -553,10 +583,15 @@
           "displayName": "Marcus Lee",
           "avatarUrls": {}
         },
+        "reporter": {
+          "accountId": "acc-dana-whitfield",
+          "displayName": "Dana Whitfield",
+          "avatarUrls": {}
+        },
         "customfield_10016": 3,
-        "resolutiondate": "2026-09-04T15:00:00.000+0000",
+        "resolutiondate": "2026-09-05T15:00:00.000+0000",
         "duedate": null,
-        "created": "2026-08-23T09:00:00.000+0000",
+        "created": "2026-08-24T09:00:00.000+0000",
         "issuelinks": [
           {
             "id": "10010",
@@ -619,10 +654,15 @@
           }
         },
         "assignee": null,
+        "reporter": {
+          "accountId": "acc-dana-whitfield",
+          "displayName": "Dana Whitfield",
+          "avatarUrls": {}
+        },
         "customfield_10016": 2,
         "resolutiondate": null,
         "duedate": null,
-        "created": "2026-09-21T09:00:00.000+0000",
+        "created": "2026-09-22T09:00:00.000+0000",
         "issuelinks": [
           {
             "id": "10010",
@@ -689,10 +729,15 @@
           "displayName": "Sofia Alvarez",
           "avatarUrls": {}
         },
+        "reporter": {
+          "accountId": "acc-dana-whitfield",
+          "displayName": "Dana Whitfield",
+          "avatarUrls": {}
+        },
         "customfield_10016": 1,
-        "resolutiondate": "2026-09-19T15:00:00.000+0000",
+        "resolutiondate": "2026-09-20T15:00:00.000+0000",
         "duedate": null,
-        "created": "2026-09-10T09:00:00.000+0000",
+        "created": "2026-09-11T09:00:00.000+0000",
         "issuelinks": [
           {
             "id": "10011",
@@ -759,10 +804,15 @@
           "displayName": "Sofia Alvarez",
           "avatarUrls": {}
         },
+        "reporter": {
+          "accountId": "acc-dana-whitfield",
+          "displayName": "Dana Whitfield",
+          "avatarUrls": {}
+        },
         "customfield_10016": 1,
         "resolutiondate": null,
         "duedate": null,
-        "created": "2026-09-18T09:00:00.000+0000",
+        "created": "2026-09-19T09:00:00.000+0000",
         "issuelinks": [
           {
             "id": "10011",
@@ -829,10 +879,15 @@
           "displayName": "Jonas Berg",
           "avatarUrls": {}
         },
+        "reporter": {
+          "accountId": "acc-dana-whitfield",
+          "displayName": "Dana Whitfield",
+          "avatarUrls": {}
+        },
         "customfield_10016": 5,
         "resolutiondate": null,
         "duedate": null,
-        "created": "2026-09-15T09:00:00.000+0000",
+        "created": "2026-09-16T09:00:00.000+0000",
         "issuelinks": [
           {
             "id": "10007",
@@ -899,10 +954,15 @@
           "displayName": "Jonas Berg",
           "avatarUrls": {}
         },
+        "reporter": {
+          "accountId": "acc-jonas-berg",
+          "displayName": "Jonas Berg",
+          "avatarUrls": {}
+        },
         "customfield_10016": 3,
         "resolutiondate": null,
         "duedate": null,
-        "created": "2026-09-29T09:00:00.000+0000",
+        "created": "2026-09-30T09:00:00.000+0000",
         "issuelinks": [
           {
             "id": "10007",
@@ -969,10 +1029,15 @@
           "displayName": "Alex Kim",
           "avatarUrls": {}
         },
+        "reporter": {
+          "accountId": "acc-jonas-berg",
+          "displayName": "Jonas Berg",
+          "avatarUrls": {}
+        },
         "customfield_10016": 3,
         "resolutiondate": null,
-        "duedate": "2026-10-19",
-        "created": "2026-09-11T09:00:00.000+0000",
+        "duedate": "2026-10-20",
+        "created": "2026-09-12T09:00:00.000+0000",
         "parent": {
           "id": "106701",
           "key": "CORE-1",
@@ -1098,10 +1163,15 @@
           "displayName": "Alex Kim",
           "avatarUrls": {}
         },
+        "reporter": {
+          "accountId": "acc-jonas-berg",
+          "displayName": "Jonas Berg",
+          "avatarUrls": {}
+        },
         "customfield_10016": 2,
         "resolutiondate": null,
-        "duedate": "2026-10-22",
-        "created": "2026-09-25T09:00:00.000+0000",
+        "duedate": "2026-10-23",
+        "created": "2026-09-26T09:00:00.000+0000",
         "parent": {
           "id": "106701",
           "key": "CORE-1",
@@ -1258,10 +1328,15 @@
           }
         },
         "assignee": null,
+        "reporter": {
+          "accountId": "acc-dana-whitfield",
+          "displayName": "Dana Whitfield",
+          "avatarUrls": {}
+        },
         "customfield_10016": 1,
         "resolutiondate": null,
         "duedate": null,
-        "created": "2026-09-21T09:00:00.000+0000",
+        "created": "2026-09-22T09:00:00.000+0000",
         "issuelinks": [
           {
             "id": "10012",
@@ -1328,10 +1403,15 @@
           "displayName": "Alex Kim",
           "avatarUrls": {}
         },
+        "reporter": {
+          "accountId": "acc-dana-whitfield",
+          "displayName": "Dana Whitfield",
+          "avatarUrls": {}
+        },
         "customfield_10016": 1,
-        "resolutiondate": "2026-09-13T15:00:00.000+0000",
+        "resolutiondate": "2026-09-14T15:00:00.000+0000",
         "duedate": null,
-        "created": "2026-09-04T09:00:00.000+0000",
+        "created": "2026-09-05T09:00:00.000+0000",
         "issuelinks": [
           {
             "id": "10012",
@@ -1398,10 +1478,15 @@
           "displayName": "Sofia Alvarez",
           "avatarUrls": {}
         },
+        "reporter": {
+          "accountId": "acc-dana-whitfield",
+          "displayName": "Dana Whitfield",
+          "avatarUrls": {}
+        },
         "customfield_10016": 1,
         "resolutiondate": null,
         "duedate": null,
-        "created": "2026-09-21T09:00:00.000+0000",
+        "created": "2026-09-22T09:00:00.000+0000",
         "issuelinks": [
           {
             "id": "10013",
@@ -1468,10 +1553,15 @@
           "displayName": "Riley Chen",
           "avatarUrls": {}
         },
+        "reporter": {
+          "accountId": "acc-dana-whitfield",
+          "displayName": "Dana Whitfield",
+          "avatarUrls": {}
+        },
         "customfield_10016": 8,
         "resolutiondate": null,
         "duedate": null,
-        "created": "2026-09-19T09:00:00.000+0000",
+        "created": "2026-09-20T09:00:00.000+0000",
         "issuelinks": [
           {
             "id": "10005",
@@ -1581,7 +1671,7 @@
     "106701": [
       {
         "id": "1",
-        "created": "2026-09-05T10:00:00.000+0000",
+        "created": "2026-09-06T10:00:00.000+0000",
         "items": [
           {
             "field": "status",
@@ -1598,7 +1688,7 @@
     "106707": [
       {
         "id": "1",
-        "created": "2026-09-27T10:00:00.000+0000",
+        "created": "2026-09-28T10:00:00.000+0000",
         "items": [
           {
             "field": "status",
@@ -1615,7 +1705,7 @@
     "106712": [
       {
         "id": "1",
-        "created": "2026-08-30T10:00:00.000+0000",
+        "created": "2026-08-31T10:00:00.000+0000",
         "items": [
           {
             "field": "status",
@@ -1630,7 +1720,7 @@
       },
       {
         "id": "2",
-        "created": "2026-09-04T10:00:00.000+0000",
+        "created": "2026-09-05T10:00:00.000+0000",
         "items": [
           {
             "field": "status",
@@ -1647,7 +1737,7 @@
     "106714": [
       {
         "id": "1",
-        "created": "2026-09-17T10:00:00.000+0000",
+        "created": "2026-09-18T10:00:00.000+0000",
         "items": [
           {
             "field": "status",
@@ -1662,7 +1752,7 @@
       },
       {
         "id": "2",
-        "created": "2026-09-19T10:00:00.000+0000",
+        "created": "2026-09-20T10:00:00.000+0000",
         "items": [
           {
             "field": "status",
@@ -1679,7 +1769,7 @@
     "106715": [
       {
         "id": "1",
-        "created": "2026-09-25T10:00:00.000+0000",
+        "created": "2026-09-26T10:00:00.000+0000",
         "items": [
           {
             "field": "status",
@@ -1694,7 +1784,7 @@
       },
       {
         "id": "2",
-        "created": "2026-09-29T10:00:00.000+0000",
+        "created": "2026-09-30T10:00:00.000+0000",
         "items": [
           {
             "field": "status",
@@ -1711,7 +1801,7 @@
     "106716": [
       {
         "id": "1",
-        "created": "2026-09-29T10:00:00.000+0000",
+        "created": "2026-09-30T10:00:00.000+0000",
         "items": [
           {
             "field": "status",
@@ -1728,7 +1818,7 @@
     "106720": [
       {
         "id": "1",
-        "created": "2026-09-22T10:00:00.000+0000",
+        "created": "2026-09-23T10:00:00.000+0000",
         "items": [
           {
             "field": "status",
@@ -1745,7 +1835,7 @@
     "107903": [
       {
         "id": "1",
-        "created": "2026-09-26T10:00:00.000+0000",
+        "created": "2026-09-27T10:00:00.000+0000",
         "items": [
           {
             "field": "status",
@@ -1762,7 +1852,7 @@
     "108704": [
       {
         "id": "1",
-        "created": "2026-09-11T10:00:00.000+0000",
+        "created": "2026-09-12T10:00:00.000+0000",
         "items": [
           {
             "field": "status",
@@ -1777,7 +1867,7 @@
       },
       {
         "id": "2",
-        "created": "2026-09-13T10:00:00.000+0000",
+        "created": "2026-09-14T10:00:00.000+0000",
         "items": [
           {
             "field": "status",
@@ -1853,5 +1943,12 @@
         "colorName": "green"
       }
     }
-  ]
+  ],
+  "myself": {
+    "accountId": "acc-jonas-berg",
+    "displayName": "Jonas Berg",
+    "avatarUrls": {},
+    "emailAddress": "jonas.berg@example.com",
+    "active": true
+  }
 }

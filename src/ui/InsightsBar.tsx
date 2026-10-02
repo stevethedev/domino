@@ -7,6 +7,7 @@ type Tile = { id: Exclude<Highlight, "none" | "changed">; label: string; count: 
 /**
  * The answers Domino exists to give, before any reading: how much is blocked, what can start
  * now, how long the critical chain is, what's aging. Each tile toggles a highlight in the current view.
+ * With `only`, the tiles count just those issues (e.g. the signed-in user's) and cycles are left out.
  */
 export function InsightTiles({
   summary,
@@ -14,19 +15,24 @@ export function InsightTiles({
   highlight,
   onHighlight,
   onShowCycle,
+  only,
 }: {
   /** Load status / counts line, e.g. "12 issues · 6 outside scope · updated 3m ago". */
   summary: ReactNode;
   insights: Insights;
+  /** The active highlight for these tiles ("none" when another tile group's highlight is on). */
   highlight: Highlight;
   onHighlight: (h: Highlight) => void;
-  onShowCycle: () => void;
+  onShowCycle?: () => void;
+  only?: ReadonlySet<string>;
 }): ReactElement {
+  const count = (uids: Iterable<string>): number => (only ? [...uids].filter((u) => only.has(u)).length : [...uids].length);
+  const whose = only ? "of these " : "";
   const tiles: Tile[] = [
-    { id: "blocked", label: "Blocked", count: insights.blocked.size, hint: "open issues waiting on an open blocker" },
-    { id: "ready", label: "Ready", count: insights.ready.size, hint: "open issues with nothing in the way" },
-    { id: "critical", label: "Critical path", count: insights.critical.nodes.length, hint: "issues in the longest open blocking chain" },
-    { id: "aging", label: "Aging", count: insights.aging.size, hint: "issues stuck past twice their estimate, or blocked with no change for a week" },
+    { id: "blocked", label: "Blocked", count: count(insights.blocked), hint: `${whose}open issues waiting on an open blocker` },
+    { id: "ready", label: "Ready", count: count(insights.ready), hint: `${whose}open issues with nothing in the way` },
+    { id: "critical", label: "Critical path", count: count(insights.critical.nodes), hint: `${only ? "of these issues" : "issues"} in the longest open blocking chain` },
+    { id: "aging", label: "Aging", count: count(insights.aging.keys()), hint: `${only ? "of these issues" : "issues"} stuck past twice their estimate, or blocked with no change for a week` },
   ];
   const active = tiles.find((t) => t.id === highlight);
   return (
@@ -48,7 +54,7 @@ export function InsightTiles({
             <span className="insight-label">{t.label}</span>
           </button>
         ))}
-        <button
+        {onShowCycle && <button
           type="button"
           className="insight insight-cycles"
           disabled={insights.cycleCount === 0}
@@ -57,7 +63,7 @@ export function InsightTiles({
         >
           <span className="insight-count">{insights.cycleCount}</span>
           <span className="insight-label">{insights.cycleCount === 1 ? "Cycle" : "Cycles"}</span>
-        </button>
+        </button>}
       </div>
       <p className="hint" aria-live="polite">
         {active ? `Showing ${active.count} ${active.hint}. Click again to clear.` : "Click a number to highlight those issues."}

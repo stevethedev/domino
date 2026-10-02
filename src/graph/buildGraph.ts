@@ -65,6 +65,8 @@ function nodeFromIssue(issue: RawIssue, site: SiteConfig): GraphNode {
     statusCategory: statusCategoryOf(f.status),
     assigneeName: f.assignee?.displayName,
     assigneeAvatarUrl: avatars?.["48x48"] ?? avatars?.["24x24"],
+    assigneeAccountId: f.assignee?.accountId,
+    reporterAccountId: f.reporter?.accountId,
     storyPoints: typeof f.customfield_10016 === "number" ? f.customfield_10016 : undefined,
     url: browseUrl(site.baseUrl, issue.key),
     ghost: false,

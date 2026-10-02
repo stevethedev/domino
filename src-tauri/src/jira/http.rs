@@ -24,6 +24,7 @@ pub const FIELDS: &[&str] = &[
     "issuetype",
     "status",
     "assignee",
+    "reporter",
     "customfield_10016",
     "customfield_10014",
     "parent",
@@ -252,8 +253,8 @@ impl JiraBackend for HttpBackend {
         self.send(site, Method::GET, "/rest/api/3/issueLinkType", None).await
     }
 
-    async fn health(&self, site: &SiteConfig) -> JiraResult<()> {
-        self.send(site, Method::GET, "/rest/api/3/myself", None).await.map(|_| ())
+    async fn myself(&self, site: &SiteConfig) -> JiraResult<Value> {
+        self.send(site, Method::GET, "/rest/api/3/myself", None).await
     }
 
     async fn status_history(&self, site: &SiteConfig, issue_ids: &[String]) -> JiraResult<Value> {

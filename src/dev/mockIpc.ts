@@ -95,6 +95,8 @@ export function installMockIpc(): Promise<void> {
       }
       case "fetch_statuses":
         return wrap(() => source.fetchStatuses(site(siteId).id));
+      case "fetch_myself":
+        return wrap(() => source.fetchMyself(site(siteId).id));
       case "set_secret":
         secrets.add(str("secretRef"));
         return null;

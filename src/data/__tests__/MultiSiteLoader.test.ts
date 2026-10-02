@@ -36,6 +36,7 @@ describe("MultiSiteLoader", () => {
       fetchLinkTypes: (s) => inner.fetchLinkTypes(s),
       fetchStatusHistory: (s, ids) => inner.fetchStatusHistory(s, ids),
       fetchStatuses: (s) => inner.fetchStatuses(s),
+      fetchMyself: (s) => inner.fetchMyself(s),
     };
     await new MultiSiteLoader(spy).load({ mode: "jql", jql: "statusCategory != Done" }, selected, sites);
     expect(seen.sort()).toEqual([
@@ -134,6 +135,7 @@ describe("MultiSiteLoader", () => {
       fetchLinkTypes: (s) => slow(s, () => inner.fetchLinkTypes(s))(),
       fetchStatusHistory: (s, ids) => slow(s, () => inner.fetchStatusHistory(s, ids))(),
       fetchStatuses: (s) => slow(s, () => inner.fetchStatuses(s))(),
+      fetchMyself: (s) => slow(s, () => inner.fetchMyself(s))(),
     };
     await new MultiSiteLoader(src).load({ mode: "jql", jql: "" }, selected, sites);
     expect(peak).toBeLessThanOrEqual(4);

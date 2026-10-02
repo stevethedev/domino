@@ -108,6 +108,12 @@ pub async fn fetch_status_history(
 }
 
 #[tauri::command]
+pub async fn fetch_myself(state: State<'_, AppState>, site_id: String) -> Result<Value, String> {
+    let site = state.site(&site_id, true)?;
+    state.backend().myself(&site).await
+}
+
+#[tauri::command]
 pub async fn fetch_statuses(state: State<'_, AppState>, site_id: String) -> Result<Value, String> {
     let site = state.site(&site_id, true)?;
     state.backend().statuses(&site).await
