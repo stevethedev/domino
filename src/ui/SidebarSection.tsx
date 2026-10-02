@@ -13,6 +13,7 @@ export function SidebarSection({
   id,
   title,
   badge,
+  badgeLabel,
   tone,
   defaultOpen = true,
   children,
@@ -21,6 +22,8 @@ export function SidebarSection({
   title: string;
   /** Count shown next to the title (hidden when undefined). */
   badge?: number;
+  /** What the count means, for the accessible name and tooltip (e.g. "issues hidden by filters"). */
+  badgeLabel?: string;
   /** Colors the title and badge for sections that need attention. */
   tone?: "warn";
   defaultOpen?: boolean;
@@ -37,7 +40,7 @@ export function SidebarSection({
           aria-expanded={open}
           aria-controls={bodyId}
           // Starts with the visible title, so voice control ("click Warnings") still matches.
-          aria-label={badge !== undefined ? `${title}, ${badge}` : undefined}
+          aria-label={badge !== undefined ? `${title}, ${badge}${badgeLabel ? ` ${badgeLabel}` : ""}` : undefined}
           onClick={() => {
             setOpen(!open);
           }}
@@ -45,7 +48,7 @@ export function SidebarSection({
           <span className="sb-chevron" aria-hidden="true" />
           <span className="sb-title">{title}</span>
           {badge !== undefined && (
-            <span className="sb-badge" aria-hidden="true">
+            <span className="sb-badge" aria-hidden="true" title={badgeLabel ? `${badge} ${badgeLabel}` : undefined}>
               {badge}
             </span>
           )}

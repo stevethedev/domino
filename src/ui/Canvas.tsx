@@ -4,14 +4,15 @@ import { blockingChain } from "../graph/analysis";
 import { collapseEpics, shownEdgeId } from "../graph/collapse";
 import { emphasis, type Highlight, type HighlightScope, type Insights } from "../graph/insights";
 import { CARD_HEIGHT, CARD_WIDTH, computeLayout, laneByAssignee, laneByEpic, laneBySite, type LaneFn, type Layout } from "../graph/layout";
-import type { Graph, LinkKind } from "../graph/types";
-import { visibleSubgraph } from "../graph/visible";
+import type { Graph } from "../graph/types";
+import { visibleSubgraph, type ViewFilters } from "../graph/visible";
 import { openExternal } from "../platform";
 import { LinkEdge, type LinkFlowEdge } from "./edges/LinkEdge";
 import { IssueCard, SiteGroup, type IssueFlowNode, type SiteGroupNode } from "./IssueCard";
 import { isOneOf } from "../lib/guards";
 
-export type Filters = Record<LinkKind, boolean> & { crossSite: boolean };
+/** Link and issue filters (display only; see visibleSubgraph). */
+export type Filters = ViewFilters;
 const GROUP_BY = ["none", "site", "epic", "assignee"] as const;
 export type GroupBy = (typeof GROUP_BY)[number];
 export const isGroupBy = isOneOf(GROUP_BY);

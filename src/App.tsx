@@ -4,6 +4,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type ReactEl
 import { summaryUid } from "./graph/collapse";
 import { computeInsights, isHighlightScope, type Highlight, type HighlightScope } from "./graph/insights";
 import { myIssues } from "./graph/mine";
+import { NO_ISSUE_FILTERS, passesIssueFilters } from "./graph/visible";
 import { configStore, jiraSource, openExternal } from "./platform";
 import { DEFAULT_REFRESH_MINUTES, parseRefreshMinutes, REFRESH_MINUTES_KEY } from "./state/refresh";
 import { useAutoRefresh } from "./state/useAutoRefresh";
@@ -37,7 +38,7 @@ import { Icon } from "./ui/Icon";
 const Timeline = lazy(() => import("./ui/timeline/Timeline").then((m) => ({ default: m.Timeline })));
 const SettingsDialog = lazy(() => import("./ui/Settings/SettingsDialog").then((m) => ({ default: m.SettingsDialog })));
 
-const DEFAULT_FILTERS: Filters = { blocks: true, relates: false, duplicates: false, crossSite: true };
+const DEFAULT_FILTERS: Filters = { blocks: true, relates: false, duplicates: false, crossSite: true, issues: NO_ISSUE_FILTERS };
 const DEFAULT_VIEW: ViewOptions = { groupBy: "none", highlight: "none", highlightScope: "all", collapseEpics: false };
 const parseViewMode = oneOf(isViewMode);
 const GLANCE_SCOPE_KEY = "domino.glanceScope";
@@ -157,6 +158,11 @@ function Shell(): ReactElement {
     setViewMode(v.mode);
   };
   const nodesByUid = useMemo(() => new Map(graph.nodes.map((n) => [n.uid, n])), [graph]);
+  const loadedIssues = useMemo(() => graph.nodes.filter((n) => !n.ghost), [graph]);
+  const hiddenIssueCount = useMemo(
+    () => loadedIssues.filter((n) => !passesIssueFilters(n, filters.issues)).length,
+    [loadedIssues, filters.issues],
+  );
   const [expandedEpics, setExpandedEpics] = useState<ReadonlySet<string>>(new Set());
   const toggleEpic = useCallback((epicUid: string) => {
     setExpandedEpics((cur) => {
@@ -200,7 +206,27 @@ function Shell(): ReactElement {
       });
     }, settleMs);
   };
-  const focusIssue = viewMode === "graph" ? focusInGraph : focusInTimeline;
+  const focusInView = viewMode === "graph" ? focusInGraph : focusInTimeline;
+  /** An issue hidden by the issue filters is revealed by clearing them first (as lanes are expanded). */
+  const focusIssue = (uid: string): void => {
+    const node = nodesByUid.get(uid);
+    if (!node || passesIssueFilters(node, filters.issues)) {
+      focusInView(uid);
+      return;
+    }
+    setFilters({ ...filters, issues: NO_ISSUE_FILTERS });
+    // Layout runs off the main thread: wait until the issue (or the epic card or lane row it sits
+    // in) is on screen, then focus it once; the focus helpers handle collapsed epics and lanes.
+    const epicUid = node.epic?.uid;
+    const selectors = [`[data-id="${CSS.escape(uid)}"]`, `[data-tl-uid="${CSS.escape(uid)}"]`];
+    if (epicUid) selectors.push(`[data-id="${CSS.escape(summaryUid(epicUid))}"]`);
+    let tries = 0;
+    const whenDrawn = (): void => {
+      if (document.querySelector(selectors.join(","))) focusInView(uid);
+      else if (++tries < 25) setTimeout(whenDrawn, 80);
+    };
+    setTimeout(whenDrawn, 80);
+  };
   useViewHotkeys(setViewMode);
 
   const errors = load.status === "done" ? load.result.errors : [];
@@ -317,8 +343,15 @@ function Shell(): ReactElement {
           <SidebarSection id="finish-first" title="Finish first" badge={insights.unblockers.length || undefined}>
             <FinishFirst insights={insights} nodes={nodesByUid} onPick={focusIssue} />
           </SidebarSection>
-          <SidebarSection id="display" title="Display">
-            <FilterPanel filters={filters} onFilters={setFilters} view={view} onView={setView} epicMapAvailable={viewMode === "graph"} />
+          <SidebarSection id="display" title="Display" badge={hiddenIssueCount || undefined} badgeLabel="issues hidden by filters">
+            <FilterPanel
+              filters={filters}
+              onFilters={setFilters}
+              view={view}
+              onView={setView}
+              epicMapAvailable={viewMode === "graph"}
+              issues={loadedIssues}
+            />
           </SidebarSection>
           <SidebarSection id="legend" title="Legend" defaultOpen={false}>
             <Legend />

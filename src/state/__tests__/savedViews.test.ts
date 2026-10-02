@@ -6,7 +6,13 @@ const view = (name: string): SavedView => ({
   name,
   siteIds: ["acme"],
   scope: { mode: "epic", siteId: "acme", key: "CORE-1" },
-  filters: { blocks: true, relates: false, duplicates: false, crossSite: true },
+  filters: {
+    blocks: true,
+    relates: false,
+    duplicates: false,
+    crossSite: true,
+    issues: { hiddenCategories: ["done"], hiddenTypes: [], hiddenAssignees: [""] },
+  },
   view: { groupBy: "assignee", highlight: "blocked", highlightScope: "assigned", collapseEpics: false },
   mode: "timeline",
 });
@@ -32,6 +38,15 @@ describe("saved views", () => {
   it("defaults collapseEpics for views saved before the epic map existed", () => {
     const old = { ...view("Old"), view: { groupBy: "none", highlight: "none" } };
     expect(defined(parseSavedViews([old]), "parsed views")[0].view.collapseEpics).toBe(false);
+  });
+
+  it("shows every issue for views saved before issue filters existed", () => {
+    const old = { ...view("Old"), filters: { blocks: true, relates: false, duplicates: false, crossSite: true } };
+    expect(defined(parseSavedViews([old]), "parsed views")[0].filters.issues).toEqual({
+      hiddenCategories: [],
+      hiddenTypes: [],
+      hiddenAssignees: [],
+    });
   });
 
   it("defaults highlightScope to everyone's issues for views saved before scoped highlights", () => {

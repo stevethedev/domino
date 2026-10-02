@@ -791,3 +791,83 @@ kbd {
 .auto-refresh-select {
   max-width: 240px;
 }
+
+/* Issue filters (Display section): status toggles and per-field menus. */
+.status-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
+}
+.status-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: var(--badge-h-compact);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+/* Shown categories keep their status colours (pill-* classes); hidden ones go neutral and struck. */
+.status-toggle[aria-pressed="false"] {
+  background: var(--surface);
+  color: var(--muted);
+  border-color: var(--border);
+  text-decoration: line-through;
+}
+.status-toggle:hover:not(:disabled) {
+  filter: brightness(0.96);
+}
+.status-toggle-count {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+.filter-menu {
+  position: relative;
+  margin-bottom: var(--space-1_5);
+}
+.filter-menu summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1_5);
+  min-height: var(--control-h);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  cursor: pointer;
+}
+.filter-menu summary::-webkit-details-marker {
+  display: none;
+}
+.filter-menu-state {
+  flex: 1;
+  color: var(--muted);
+}
+.filter-menu-state.active {
+  color: var(--accent);
+  font-weight: var(--weight-semibold);
+}
+/* The sidebar scrolls (and so clips), so these menus span the sidebar's width instead of the
+   default popover min-width. */
+.filter-menu .popover {
+  right: 0;
+  min-width: 0;
+  max-height: 50vh;
+  overflow: auto;
+}
+.filter-menu .check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1_5);
+}
+.filter-menu-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

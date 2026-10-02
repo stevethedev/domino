@@ -1,5 +1,8 @@
 import { isHighlight, isHighlightScope } from "../graph/insights";
 import type { Scope } from "../data/MultiSiteLoader";
+import type { StatusCategory } from "../graph/types";
+import { NO_ISSUE_FILTERS, type IssueFilters } from "../graph/visible";
+import { isOneOf } from "../lib/guards";
 import { isGroupBy, type Filters, type ViewOptions } from "../ui/Canvas";
 import { isViewMode, type ViewMode } from "../ui/ViewToggle";
 
@@ -30,6 +33,21 @@ function parseScope(raw: unknown): Scope | undefined {
   return undefined;
 }
 
+const CATEGORIES: readonly StatusCategory[] = ["todo", "inprogress", "done", "unknown"];
+const isCategory = isOneOf(CATEGORIES);
+const strings = (raw: unknown): string[] => (Array.isArray(raw) ? raw.filter(str) : []);
+
+/** Views saved before issue filters existed (or with malformed ones) show every issue. */
+function parseIssueFilters(raw: unknown): IssueFilters {
+  const r = record(raw);
+  if (!r) return NO_ISSUE_FILTERS;
+  return {
+    hiddenCategories: strings(r.hiddenCategories).filter(isCategory),
+    hiddenTypes: strings(r.hiddenTypes),
+    hiddenAssignees: strings(r.hiddenAssignees),
+  };
+}
+
 function parseView(raw: unknown): SavedView | undefined {
   const r = record(raw);
   const scope = parseScope(r?.scope);
@@ -43,7 +61,13 @@ function parseView(raw: unknown): SavedView | undefined {
     name: r.name.trim(),
     siteIds: r.siteIds.filter(str),
     scope,
-    filters: { blocks: f.blocks, relates: f.relates, duplicates: f.duplicates, crossSite: f.crossSite },
+    filters: {
+      blocks: f.blocks,
+      relates: f.relates,
+      duplicates: f.duplicates,
+      crossSite: f.crossSite,
+      issues: parseIssueFilters(f.issues),
+    },
     view: {
       groupBy: v.groupBy,
       highlight: v.highlight,
