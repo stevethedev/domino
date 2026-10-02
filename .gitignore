@@ -6,3 +6,6 @@ src-tauri/gen/schemas/
 *.local
 .env*
 .playwright-mcp/
+
+# JetBrains IDE settings (per developer)
+.idea/
