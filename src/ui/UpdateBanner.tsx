@@ -3,14 +3,14 @@ import type { AppUpdate } from "../state/useAppUpdate";
 
 /**
  * "Domino 0.2.0 is available": install now (the app restarts) or later. "Later" hides it for this
- * version until the next launch; a newer version shows again. Shows download progress and install
- * failures.
+ * version (offer or failed install) until the next launch; a newer version shows again. Shows
+ * download progress and install failures.
  */
 export function UpdateBanner({ updates }: { updates: AppUpdate }): ReactElement | null {
   const { state } = updates;
   const [dismissed, setDismissed] = useState<string | null>(null);
   const update = state.status === "available" || state.status === "installing" || state.status === "failed" ? state.update : undefined;
-  if (!update || (state.status === "available" && dismissed === update.version)) return null;
+  if (!update || (state.status !== "installing" && dismissed === update.version)) return null;
 
   if (state.status === "installing") {
     const percent = state.progress === null ? null : Math.round(state.progress * 100);
@@ -39,16 +39,14 @@ export function UpdateBanner({ updates }: { updates: AppUpdate }): ReactElement 
         <button type="button" className="primary" onClick={updates.install}>
           {state.status === "failed" ? "Try again" : "Install and restart"}
         </button>
-        {state.status === "available" && (
-          <button
-            type="button"
-            onClick={() => {
-              setDismissed(update.version);
-            }}
-          >
-            Later
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => {
+            setDismissed(update.version);
+          }}
+        >
+          Later
+        </button>
       </div>
     </div>
   );

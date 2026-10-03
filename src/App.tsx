@@ -127,7 +127,8 @@ function Shell(): ReactElement {
   useAutoRefresh(domino.refresh, refreshMinutes * 60_000, domino.background.lastUpdated);
   const [notifyUnblocked, setNotifyUnblocked] = usePersistentState(NOTIFY_UNBLOCKED_KEY, parseBool, false);
   const [autoUpdateCheck, setAutoUpdateCheck] = usePersistentState(AUTO_UPDATE_CHECK_KEY, parseBool, true);
-  const updates = useAppUpdate(autoUpdateCheck);
+  // Dev builds don't check on their own (Check now still works).
+  const updates = useAppUpdate(autoUpdateCheck && !import.meta.env.DEV);
   const { config, load, graph } = domino;
   // Status history feeds aging in both views and the Timeline; one bulk request per site per load.
   const loadedScopeKey = load.status === "done" ? load.scopeKey : null;

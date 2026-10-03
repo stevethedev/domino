@@ -32,20 +32,32 @@ export type AppUpdate = Readonly<{
  */
 export function useAppUpdate(autoCheck: boolean): AppUpdate {
   const [state, setState] = useState<UpdateState>({ status: "idle" });
-  const busy = useRef(false);
+  // Separate flags: a check never interrupts an install (its result is dropped), and an install
+  // isn't blocked by a check that happens to be in flight.
+  const checking = useRef(false);
+  const installing = useRef(false);
+  // Someone asked (Check now) during the current check: report its failure too.
+  const asked = useRef(false);
 
   const run = useCallback((manual: boolean) => {
-    if (busy.current) return;
-    busy.current = true;
-    if (manual) setState({ status: "checking" });
+    if (installing.current) return;
+    if (manual) {
+      asked.current = true;
+      setState({ status: "checking" });
+    }
+    if (checking.current) return; // the check in flight answers this request
+    checking.current = true;
     checkForUpdate().then(
       (update) => {
-        busy.current = false;
-        setState(update ? { status: "available", update } : { status: "current" });
+        checking.current = false;
+        asked.current = false;
+        if (!installing.current) setState(update ? { status: "available", update } : { status: "current" });
       },
       (e: unknown) => {
-        busy.current = false;
-        if (manual) setState({ status: "failed", message: `Couldn't check for updates: ${errorMessage(e)}` });
+        checking.current = false;
+        const report = asked.current;
+        asked.current = false;
+        if (report && !installing.current) setState({ status: "failed", message: `Couldn't check for updates: ${errorMessage(e)}` });
       },
     );
   }, []);
@@ -66,8 +78,8 @@ export function useAppUpdate(autoCheck: boolean): AppUpdate {
 
   const install = (): void => {
     const update = state.status === "available" || (state.status === "failed" && state.update) ? state.update : undefined;
-    if (!update || busy.current) return;
-    busy.current = true;
+    if (!update || installing.current) return;
+    installing.current = true;
     setState({ status: "installing", update, progress: 0 });
     update
       .install((progress) => {
@@ -75,7 +87,7 @@ export function useAppUpdate(autoCheck: boolean): AppUpdate {
       })
       .catch((e: unknown) => {
         // Installing restarts the app on success, so only a failure lands here.
-        busy.current = false;
+        installing.current = false;
         setState({ status: "failed", message: `The update didn't install: ${errorMessage(e)}`, update });
       });
   };

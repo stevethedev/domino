@@ -220,7 +220,7 @@ The release build signs the update artifacts. One-time setup:
 3. Add two repository secrets: `TAURI_SIGNING_PRIVATE_KEY` (the contents of `~/.tauri/domino.key`) and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, e.g.
    `gh secret set TAURI_SIGNING_PRIVATE_KEY < ~/.tauri/domino.key`.
 
-Signed artifacts are only built in the release workflow (`--config src-tauri/tauri.release.conf.json`), and only once `TAURI_SIGNING_PRIVATE_KEY` is set; until then releases still build, just without update files. A local `npm run tauri build` works without the key. To preview the prompt in `npm run dev:web`, set `localStorage["domino.dev.fakeUpdate"] = "0.9.0"` and reload.
+Signed artifacts are only built in the release workflow (`--config src-tauri/tauri.release.conf.json`), and only once `TAURI_SIGNING_PRIVATE_KEY` is set; until then releases still build, just without update files. A local `npm run tauri build` works without the key. Dev builds (`npm run dev`, `npm run dev:web`) don't check automatically; use _Check now_. To preview the prompt in `npm run dev:web`, set `localStorage["domino.dev.fakeUpdate"] = "0.9.0"`, reload, then _Check now_.
 
 CI (`.github/workflows/typescript.yml` and `rust.yml`) runs `npm run check`, the Vitest suite, `cargo fmt --check`, `cargo clippy -D warnings` and `cargo test` on every push to `main` and on every PR.
 
