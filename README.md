@@ -31,7 +31,7 @@ In Settings (&#9881;):
 
 For the OAuth app, create an OAuth 2.0 integration at [developer.atlassian.com/console/myapps](https://developer.atlassian.com/console/myapps/) with the Jira scopes `read:jira-work`, `read:jira-user` and `offline_access`, and the callback `http://127.0.0.1:53682/callback`.
 
-Domino only reads from Jira; it never changes anything there. Credentials live in the OS keychain, never in the config or the UI. An environment variable named after the secret (like `DOMINO_ACME_TOKEN`) overrides it, which is handy in development.
+Domino only reads from Jira; it never changes anything there. The credentials you enter go straight to the OS keychain; they never end up in the config file, and the UI never reads them back. An environment variable named after the secret (like `DOMINO_ACME_TOKEN`) overrides the keychain, which is handy in development.
 
 Each site can **Always filter by** some JQL (like `project in (CORE, WEB)`), ANDed onto every search on it.
 
@@ -81,14 +81,14 @@ Settings writes `domino.config.json` in the OS app-config folder (`~/Library/App
 
 **Keys.** I wanted to be able to walk a chain from the keyboard the same way I'd trace it with my finger on a diagram.
 
-| Key                       | Does                                                    |
-| ------------------------- | ------------------------------------------------------- |
-| `/` or &#8984;K           | Find a ticket                                           |
-| `g` / `t`                 | Graph / Timeline                                        |
-| Tab, Enter, Esc           | Move between tickets, open details, close them          |
-| &larr; / &rarr;           | Follow blocking links back / forward                    |
-| &uarr; / &darr;           | Other tickets at that step, then the next in the column |
-| &#8984;/Ctrl+Enter, click | Open in Jira                                            |
+| Key                                      | Does                                                    |
+| ---------------------------------------- | ------------------------------------------------------- |
+| `/` or &#8984;K                          | Find a ticket                                           |
+| `g` / `t`                                | Graph / Timeline                                        |
+| Tab, Enter, Esc                          | Move between tickets, open details, close them          |
+| &larr; / &rarr;                          | Follow blocking links back / forward                    |
+| &uarr; / &darr;                          | Other tickets at that step, then the next in the column |
+| &#8984;/Ctrl+Enter or &#8984;/Ctrl+click | Open in Jira                                            |
 
 The cards &larr; and &rarr; would go to are outlined first.
 

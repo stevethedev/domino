@@ -1,6 +1,6 @@
 # Working on Domino
 
-Domino is a Tauri 2 app: a React + TypeScript UI on a Rust core. Config, secrets and Jira calls all go through Rust over IPC, so the UI never sees credentials.
+Domino is a Tauri 2 app: a React + TypeScript UI on a Rust core. Config, secrets and Jira calls all go through Rust over IPC. Credentials only pass through the UI while you type them; Rust stores them in the keychain and never hands them back.
 
 ```
 React UI  --invoke()-->  Rust core (src-tauri)  -->  MockBackend (fixtures) or HttpBackend (Jira REST v3)
@@ -34,7 +34,7 @@ To fake an outage, run `DOMINO_MOCK_FAIL_SITES=partner npm run dev`, or add `?fa
 | `src/graph/`     | Pure, tested logic: graph building, cycles, layout (ELK in a Web Worker), insights, schedule, releases, traversal, folding |
 | `src/data/`      | Loading across sites, through Tauri or fixtures                                                                            |
 | `src/state/`     | Hooks and saved preferences                                                                                                |
-| `src/ui/`        | React components, which only use `src/graph/types.ts`                                                                      |
+| `src/ui/`        | React components: the canvas, timeline, sidebar panels, details and Settings                                               |
 | `src/styles/`    | `tokens.css` (every colour, size and shadow, light and dark) and a stylesheet per surface                                  |
 | `src-tauri/src/` | Rust: config, keychain, IPC commands, `jira/{http,mock,oauth}.rs`                                                          |
 
@@ -44,7 +44,7 @@ A few rules the graph follows:
 - Links are read from both ends and deduped.
 - A remote link to `{baseUrl}/browse/{KEY}` on a configured site becomes an edge.
 - Layout only uses blocking links, so blockers end up on the left.
-- Story points come from `customfield_10016`. For another field, change `FIELDS` in `src-tauri/src/jira/http.rs` and `nodeFromIssue` in `src/graph/buildGraph.ts`.
+- Story points come from `customfield_10016`. For another field, change `FIELDS` in `src-tauri/src/jira/http.rs`, `RawIssue.fields` in `src/data/jiraTypes.ts` and `nodeFromIssue` in `src/graph/buildGraph.ts`.
 
 ## Styling
 
