@@ -208,6 +208,20 @@ Versioning and releases use [Changesets](https://github.com/changesets/changeset
 - Merging to `main` adds it to an auto-maintained "Version Packages" PR.
 - Merging that PR tags the release and starts a cross-platform build (macOS, Linux, Windows) that attaches installers to a draft GitHub Release.
 
+### In-app updates
+
+Domino checks for a newer release shortly after launch and every 6 hours. You can turn that off in Settings → _App version_, which also has _Check now_. When an update is out, a banner offers **Install and restart**; **Later** hides it until the next launch. The updater (`tauri-plugin-updater`) reads `latest.json` from the latest **published** GitHub release, so publishing the draft release is what ships an update. It verifies each download's signature against the public key in `src-tauri/tauri.conf.json` (`plugins.updater.pubkey`) before installing.
+
+The release build signs the update artifacts. One-time setup:
+
+1. Generate a key pair (keep the private key and its password safe; losing them means existing installs can't verify future updates):
+   `npx tauri signer generate -w ~/.tauri/domino.key`
+2. Put the contents of `~/.tauri/domino.key.pub` in `plugins.updater.pubkey` in `src-tauri/tauri.conf.json`.
+3. Add two repository secrets: `TAURI_SIGNING_PRIVATE_KEY` (the contents of `~/.tauri/domino.key`) and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, e.g.
+   `gh secret set TAURI_SIGNING_PRIVATE_KEY < ~/.tauri/domino.key`.
+
+Signed artifacts are only built in the release workflow (`--config src-tauri/tauri.release.conf.json`), and only once `TAURI_SIGNING_PRIVATE_KEY` is set; until then releases still build, just without update files. A local `npm run tauri build` works without the key. To preview the prompt in `npm run dev:web`, set `localStorage["domino.dev.fakeUpdate"] = "0.9.0"` and reload.
+
 CI (`.github/workflows/typescript.yml` and `rust.yml`) runs `npm run check`, the Vitest suite, `cargo fmt --check`, `cargo clippy -D warnings` and `cargo test` on every push to `main` and on every PR.
 
 ## Styling

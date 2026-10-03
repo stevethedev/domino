@@ -4,6 +4,8 @@ import { errorMessage } from "../../data/errors";
 import type { Domino } from "../../state/useDomino";
 import type { RefreshMinutes } from "../../state/refresh";
 import { AutoRefreshField } from "../Refresh";
+import type { AppUpdate } from "../../state/useAppUpdate";
+import { AppUpdatesSection } from "./AppUpdatesSection";
 import { BackendSection } from "./BackendSection";
 import { blankSite, SiteForm, type SiteFormResult } from "./SiteForm";
 import { SiteRow } from "./SiteRow";
@@ -19,6 +21,9 @@ export function SettingsDialog({
   onRefreshMinutes,
   notifyUnblocked,
   onNotifyUnblocked,
+  updates,
+  autoUpdateCheck,
+  onAutoUpdateCheck,
 }: {
   domino: Domino;
   open: boolean;
@@ -27,6 +32,9 @@ export function SettingsDialog({
   onRefreshMinutes: (m: RefreshMinutes) => void;
   notifyUnblocked: boolean;
   onNotifyUnblocked: (on: boolean) => void;
+  updates: AppUpdate;
+  autoUpdateCheck: boolean;
+  onAutoUpdateCheck: (on: boolean) => void;
 }): ReactElement | null {
   const ref = useRef<HTMLDialogElement>(null);
   const [editing, setEditing] = useState<Editing>(null);
@@ -118,6 +126,7 @@ export function SettingsDialog({
         notifyUnblocked={notifyUnblocked}
         onNotifyUnblocked={onNotifyUnblocked}
       />
+      <AppUpdatesSection updates={updates} autoCheck={autoUpdateCheck} onAutoCheck={onAutoUpdateCheck} />
       <div className="section-row">
         <h3 className="section-h">Sites</h3>
         {editing?.kind !== "new" && (

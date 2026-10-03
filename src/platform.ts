@@ -78,3 +78,67 @@ export async function saveFile(suggestedName: string, data: Blob | string, filte
 export function copyImage(png: Promise<Blob>): Promise<void> {
   return navigator.clipboard.write([new ClipboardItem({ "image/png": png })]);
 }
+
+/** A newer release, ready to download and install. */
+export type AvailableUpdate = Readonly<{
+  version: string;
+  currentVersion: string;
+  /** Release notes, as written on the GitHub release. */
+  notes?: string;
+  /** Downloads and installs it, reporting progress (0..1, or null while the size is unknown), then restarts the app. */
+  install: (onProgress: (fraction: number | null) => void) => Promise<void>;
+}>;
+
+/** In the browser preview, `localStorage["domino.dev.fakeUpdate"] = "0.9.0"` pretends that version is out. */
+const FAKE_UPDATE_KEY = "domino.dev.fakeUpdate";
+
+function fakeUpdate(): AvailableUpdate | null {
+  const version = localStorage.getItem(FAKE_UPDATE_KEY);
+  if (!version) return null;
+  return {
+    version,
+    currentVersion: "0.1.0",
+    notes: "Preview of the update prompt (browser preview only).",
+    install: async (onProgress) => {
+      for (const step of [0.25, 0.5, 0.75, 1]) {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        onProgress(step);
+      }
+      localStorage.removeItem(FAKE_UPDATE_KEY);
+      window.location.reload();
+    },
+  };
+}
+
+/**
+ * Asks the release feed (the latest published GitHub release) whether there's a newer version;
+ * null when this is the newest. The updater verifies the download's signature before installing.
+ */
+export async function checkForUpdate(): Promise<AvailableUpdate | null> {
+  if (inBrowserPreview) return fakeUpdate();
+  const [{ check }, { relaunch }] = await Promise.all([import("@tauri-apps/plugin-updater"), import("@tauri-apps/plugin-process")]);
+  const update = await check();
+  if (!update) return null;
+  return {
+    version: update.version,
+    currentVersion: update.currentVersion,
+    notes: update.body,
+    install: async (onProgress) => {
+      let total: number | undefined;
+      let received = 0;
+      await update.downloadAndInstall((event) => {
+        if (event.event === "Started") total = event.data.contentLength;
+        if (event.event === "Progress") received += event.data.chunkLength;
+        onProgress(total ? Math.min(1, received / total) : null);
+      });
+      await relaunch();
+    },
+  };
+}
+
+/** The running app's version (from the bundle); "dev" in the browser preview. */
+export async function appVersion(): Promise<string> {
+  if (inBrowserPreview) return "dev";
+  const { getVersion } = await import("@tauri-apps/api/app");
+  return getVersion();
+}

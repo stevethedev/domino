@@ -120,6 +120,38 @@
   background: var(--error-bg);
   color: var(--error-fg);
 }
+/* In-app update offer: message, optional notes, actions on one row when there's room. */
+.banner.update {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+.banner.update.error {
+  background: var(--error-bg);
+}
+.banner.update progress {
+  width: 160px;
+}
+.update-notes summary {
+  cursor: pointer;
+}
+.update-notes p {
+  margin: var(--space-1) 0 0;
+  max-width: 70ch;
+  white-space: pre-line;
+}
+.update-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+.update-check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
 
 .site-selector {
   position: relative;

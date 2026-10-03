@@ -36,10 +36,15 @@ pub fn try_run() -> tauri::Result<()> {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(tauri_plugin_log::Builder::default().level(log::LevelFilter::Info).build())?;
             }
+            // In-app updates: checks the latest GitHub release's latest.json, verified against the
+            // public key in tauri.conf.json (plugins.updater).
+            #[cfg(desktop)]
+            app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
             let dir = app.path().app_config_dir()?;
             let config = Arc::new(ConfigHandle::load(ConfigFile::new(&dir)).map_err(|e| -> Box<dyn std::error::Error> { e.into() })?);
             log::info!("config: {}", dir.join("domino.config.json").display());

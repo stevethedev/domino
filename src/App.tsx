@@ -20,6 +20,7 @@ import { saveQuery, scopeKeyOf, selectedSitesOf } from "./state/useDomino";
 import { useChanges } from "./state/useChanges";
 import { useStatusHistory } from "./state/useStatusHistory";
 import { useForecast } from "./state/useForecast";
+import { useAppUpdate } from "./state/useAppUpdate";
 import { epicLaneId, foldedEpicUids, withEpicFolds } from "./graph/layout";
 import { Canvas, lanesFor, useFocusNode, type Filters, type ViewOptions } from "./ui/Canvas";
 import { ChangesPanel } from "./ui/ChangesPanel";
@@ -27,6 +28,7 @@ import { ErrorBanner } from "./ui/ErrorBanner";
 import { FilterPanel } from "./ui/FilterPanel";
 import { FinishFirst } from "./ui/InsightsBar";
 import { ReleasesPanel } from "./ui/ReleasesPanel";
+import { UpdateBanner } from "./ui/UpdateBanner";
 import { BrandMark } from "./ui/BrandMark";
 import { IssueDetail, type IssueDetailData } from "./ui/IssueDetail";
 import { Glance } from "./ui/Glance";
@@ -59,6 +61,7 @@ const NO_FOLDED_EPICS: ReadonlySet<string> = new Set();
 const parseViewMode = oneOf(isViewMode);
 const GLANCE_SCOPE_KEY = "domino.glanceScope";
 const NOTIFY_UNBLOCKED_KEY = "domino.notifyUnblocked";
+const AUTO_UPDATE_CHECK_KEY = "domino.autoUpdateCheck";
 const parseBool = (raw: unknown): boolean | undefined => (typeof raw === "boolean" ? raw : undefined);
 const parseGlanceScope = oneOf(isHighlightScope);
 
@@ -123,6 +126,8 @@ function Shell(): ReactElement {
   const [refreshMinutes, setRefreshMinutes] = usePersistentState(REFRESH_MINUTES_KEY, parseRefreshMinutes, DEFAULT_REFRESH_MINUTES);
   useAutoRefresh(domino.refresh, refreshMinutes * 60_000, domino.background.lastUpdated);
   const [notifyUnblocked, setNotifyUnblocked] = usePersistentState(NOTIFY_UNBLOCKED_KEY, parseBool, false);
+  const [autoUpdateCheck, setAutoUpdateCheck] = usePersistentState(AUTO_UPDATE_CHECK_KEY, parseBool, true);
+  const updates = useAppUpdate(autoUpdateCheck);
   const { config, load, graph } = domino;
   // Status history feeds aging in both views and the Timeline; one bulk request per site per load.
   const loadedScopeKey = load.status === "done" ? load.scopeKey : null;
@@ -469,6 +474,7 @@ function Shell(): ReactElement {
           Could not load configuration: {domino.configError}
         </div>
       )}
+      <UpdateBanner updates={updates} />
       {config && <ErrorBanner errors={errors} sites={config.sites} attempted={domino.selectedSites.length} />}
 
       <main className="workspace">
@@ -630,6 +636,9 @@ function Shell(): ReactElement {
             onRefreshMinutes={setRefreshMinutes}
             notifyUnblocked={notifyUnblocked}
             onNotifyUnblocked={setNotifyUnblocked}
+            updates={updates}
+            autoUpdateCheck={autoUpdateCheck}
+            onAutoUpdateCheck={setAutoUpdateCheck}
           />
         </Suspense>
       )}
