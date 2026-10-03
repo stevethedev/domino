@@ -16,7 +16,7 @@ import { useUnblockedNotifications } from "./state/useUnblockedNotifications";
 import { DEFAULT_ESTIMATE_SETTINGS, ESTIMATE_SETTINGS_KEY, parseEstimateSettings } from "./state/estimateSettings";
 import { oneOf, usePersistentState } from "./state/storage";
 import { mergeViews, parseSavedViews, SAVED_VIEWS_KEY, upsertView, type EpicFolds, type SavedView } from "./state/savedViews";
-import { saveQuery, scopeKeyOf } from "./state/useDomino";
+import { saveQuery, scopeKeyOf, selectedSitesOf } from "./state/useDomino";
 import { useChanges } from "./state/useChanges";
 import { useStatusHistory } from "./state/useStatusHistory";
 import { useForecast } from "./state/useForecast";
@@ -228,18 +228,24 @@ function Shell(): ReactElement {
   const [foldAllOnLoad, setFoldAllOnLoad] = useState<string | null>(null);
   const applyEpicFolds = (v: SavedView): void => {
     if (v.epicFolds === "all") {
-      const sites = config?.sites.filter((s) => s.enabled && v.siteIds.includes(s.id)) ?? [];
-      setFoldAllOnLoad(scopeKeyOf(sites, v.scope));
+      // The same key the load will carry (the Views menu only shows once config has loaded).
+      setFoldAllOnLoad(scopeKeyOf(selectedSitesOf(config?.sites ?? [], v.siteIds), v.scope));
     } else if (v.epicFolds) {
       setFoldAllOnLoad(null);
       setCollapsedLanes(withEpicFolds(collapsedLanes, v.epicFolds));
     }
   };
   useEffect(() => {
-    if (foldAllOnLoad === null || foldAllOnLoad !== loadedScopeKey) return;
-    setFoldAllOnLoad(null);
-    setCollapsedLanes(withEpicFolds(collapsedLanes, epicUids));
-  }, [foldAllOnLoad, loadedScopeKey, epicUids]);
+    if (foldAllOnLoad === null) return;
+    // Moved on to another scope before this one loaded: drop the fold, or it would fire whenever
+    // the scope comes back. (The requested scope, not the loaded one, which lags behind.)
+    if (scopeKey !== foldAllOnLoad) {
+      setFoldAllOnLoad(null);
+    } else if (loadedScopeKey === foldAllOnLoad) {
+      setFoldAllOnLoad(null);
+      setCollapsedLanes(withEpicFolds(collapsedLanes, epicUids));
+    }
+  }, [foldAllOnLoad, scopeKey, loadedScopeKey, epicUids]);
   const toggleLane = (laneId: string): void => {
     const next = new Set(collapsedLanes);
     if (!next.delete(laneId)) next.add(laneId);

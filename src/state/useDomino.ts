@@ -26,6 +26,10 @@ export const saveQuery = (q: string): void => {
   writeStored(QUERY_KEY, q);
 };
 
+/** The configured sites a selection of ids loads: enabled ones only. */
+export const selectedSitesOf = (sites: readonly SiteConfig[], ids: readonly string[]): SiteConfig[] =>
+  sites.filter((s) => s.enabled && ids.includes(s.id));
+
 /** Stable identity of a scope: the selected sites plus the query or mode. */
 export const scopeKeyOf = (sites: readonly SiteConfig[], scope: Scope): string =>
   JSON.stringify({ sites: sites.map((s) => s.id).sort(), scope });
@@ -99,7 +103,7 @@ export function useDomino(store: ConfigStore, source: JiraSource): Domino {
     });
   }, [config]);
 
-  const selectedSites = useMemo(() => (config ? config.sites.filter((s) => s.enabled && selected.includes(s.id)) : []), [config, selected]);
+  const selectedSites = useMemo(() => (config ? selectedSitesOf(config.sites, selected) : []), [config, selected]);
 
   useEffect(() => {
     if (!config) return;
