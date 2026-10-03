@@ -11,6 +11,7 @@ import {
   type Layout,
   epicLaneId,
   foldedEpicUids,
+  withEpicFolds,
 } from "../layout";
 import { mockConfig, mockLinkTypes, mockSites } from "../../data/mockData";
 import type { GraphEdge, GraphNode } from "../types";
@@ -171,5 +172,15 @@ describe("epic lane ids", () => {
     expect(foldedEpicUids(["epic:a:E-1", "site:a", "assignee:Noor", "epic:~none", "epic:~ghost", "epic:b:E-2"])).toEqual(
       new Set(["a:E-1", "b:E-2"]),
     );
+  });
+});
+
+describe("withEpicFolds", () => {
+  it("replaces the epic folds and keeps every other collapsed lane", () => {
+    const lanes = ["epic:a:E-1", "site:a", "epic:~none", "assignee:Noor", "epic:a:E-2"];
+    expect(withEpicFolds(lanes, ["a:E-3", "a:E-2"])).toEqual(
+      new Set(["site:a", "epic:~none", "assignee:Noor", "epic:a:E-3", "epic:a:E-2"]),
+    );
+    expect(withEpicFolds(lanes, [])).toEqual(new Set(["site:a", "epic:~none", "assignee:Noor"]));
   });
 });

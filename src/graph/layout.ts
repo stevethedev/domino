@@ -49,14 +49,24 @@ const CATCH_ALL = "~";
 /** The lane id an epic's issues share when grouped by epic (the Graph and Timeline fold the same ids). */
 export const epicLaneId = (epicUid: string): string => `${EPIC_LANE}${epicUid}`;
 
+/** The epic a lane holds, or undefined for any other lane (including the catch-all epic lanes). */
+function epicOfLane(laneId: string): string | undefined {
+  const epicUid = laneId.startsWith(EPIC_LANE) ? laneId.slice(EPIC_LANE.length) : "";
+  return epicUid && !epicUid.startsWith(CATCH_ALL) ? epicUid : undefined;
+}
+
 /** The epics whose lanes are among `collapsedLanes`. */
 export const foldedEpicUids = (collapsedLanes: Iterable<string>): Set<string> =>
-  new Set(
-    [...collapsedLanes].flatMap((id) => {
-      const epicUid = id.startsWith(EPIC_LANE) ? id.slice(EPIC_LANE.length) : "";
-      return epicUid && !epicUid.startsWith(CATCH_ALL) ? [epicUid] : [];
-    }),
-  );
+  new Set([...collapsedLanes].flatMap((id) => epicOfLane(id) ?? []));
+
+/**
+ * `collapsedLanes` with its epic folds replaced: exactly the epics in `epicUids` folded. Other
+ * collapsed lanes (sites, assignees, the catch-all epic lanes) are kept.
+ */
+export function withEpicFolds(collapsedLanes: Iterable<string>, epicUids: Iterable<string>): Set<string> {
+  const others = [...collapsedLanes].filter((id) => epicOfLane(id) === undefined);
+  return new Set([...others, ...[...epicUids].map(epicLaneId)]);
+}
 
 export const laneByEpic: LaneFn = (n) => {
   if (n.epic) {

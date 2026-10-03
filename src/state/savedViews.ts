@@ -6,6 +6,12 @@ import { isOneOf } from "../lib/guards";
 import { isGroupBy, type Filters, type ViewOptions } from "../ui/Canvas";
 import { isViewMode, type ViewMode } from "../ui/ViewToggle";
 
+/**
+ * Which epics a view folds, saved while it groups by epic: every epic in the scope ("all", so
+ * epics added later fold too), or exactly these epic uids (an empty list unfolds them all).
+ */
+export type EpicFolds = "all" | readonly string[];
+
 /** A named combination of scope and view settings, remembered per viewer. */
 export type SavedView = {
   name: string;
@@ -14,6 +20,8 @@ export type SavedView = {
   filters: Filters;
   view: ViewOptions;
   mode: ViewMode;
+  /** Absent for views saved while not grouped by epic (or before folds were saved): applying leaves folds alone. */
+  epicFolds?: EpicFolds;
 };
 
 export const SAVED_VIEWS_KEY = "domino.savedViews";
@@ -48,6 +56,13 @@ function parseIssueFilters(raw: unknown): IssueFilters {
   };
 }
 
+function parseEpicFolds(raw: unknown, legacyEpicMap: boolean): EpicFolds | undefined {
+  if (raw === "all") return "all";
+  if (Array.isArray(raw)) return raw.filter(str);
+  // The old epic map folded every epic.
+  return legacyEpicMap ? "all" : undefined;
+}
+
 function parseView(raw: unknown): SavedView | undefined {
   const r = record(raw);
   const scope = parseScope(r?.scope);
@@ -57,6 +72,7 @@ function parseView(raw: unknown): SavedView | undefined {
   if (!bool(f.blocks) || !bool(f.relates) || !bool(f.duplicates) || !bool(f.crossSite)) return undefined;
   if (!str(v.groupBy) || !isGroupBy(v.groupBy) || !str(v.highlight) || !isHighlight(v.highlight)) return undefined;
   if (!str(r.mode) || !isViewMode(r.mode)) return undefined;
+  const epicFolds = parseEpicFolds(r.epicFolds, v.collapseEpics === true);
   return {
     name: r.name.trim(),
     siteIds: r.siteIds.filter(str),
@@ -78,6 +94,8 @@ function parseView(raw: unknown): SavedView | undefined {
       highlightScope: str(v.highlightScope) && isHighlightScope(v.highlightScope) ? v.highlightScope : "all",
     },
     mode: r.mode,
+    // Absent stays absent, so views without folds round-trip unchanged.
+    ...(epicFolds === undefined ? {} : { epicFolds }),
   };
 }
 

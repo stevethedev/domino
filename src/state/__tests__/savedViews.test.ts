@@ -36,12 +36,31 @@ describe("saved views", () => {
     expect(parseSavedViews("nope")).toBeUndefined();
   });
 
-  it("opens views saved with the old epic map grouped by epic, and drops the setting", () => {
+  it("opens views saved with the old epic map grouped by epic, with every epic folded", () => {
     const epicMap = { ...view("Epic map"), view: { groupBy: "site", highlight: "none", collapseEpics: true } };
     const plain = { ...view("Plain"), view: { groupBy: "site", highlight: "none", collapseEpics: false } };
     const [a, b] = defined(parseSavedViews([epicMap, plain]), "parsed views");
     expect(a.view).toEqual({ groupBy: "epic", highlight: "none", highlightScope: "all" });
+    expect(a.epicFolds).toBe("all");
     expect(b.view.groupBy).toBe("site");
+    expect(b).not.toHaveProperty("epicFolds");
+  });
+
+  it("round-trips epic folds and ignores malformed ones", () => {
+    const folds = [
+      { ...view("All"), epicFolds: "all" as const },
+      { ...view("Some"), epicFolds: ["acme:CORE-1", "partner:PAY-20"] },
+      { ...view("None"), epicFolds: [] },
+    ];
+    expect(parseSavedViews(JSON.parse(JSON.stringify(folds)))).toEqual(folds);
+    const odd = defined(
+      parseSavedViews([
+        { ...view("Odd"), epicFolds: ["acme:CORE-1", 7] },
+        { ...view("Bad"), epicFolds: "some" },
+      ]),
+      "views",
+    );
+    expect(odd.map((v) => v.epicFolds)).toEqual([["acme:CORE-1"], undefined]);
   });
 
   it("shows every issue for views saved before issue filters existed", () => {

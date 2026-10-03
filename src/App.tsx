@@ -15,12 +15,12 @@ import { useMyself } from "./state/useMyself";
 import { useUnblockedNotifications } from "./state/useUnblockedNotifications";
 import { DEFAULT_ESTIMATE_SETTINGS, ESTIMATE_SETTINGS_KEY, parseEstimateSettings } from "./state/estimateSettings";
 import { oneOf, usePersistentState } from "./state/storage";
-import { mergeViews, parseSavedViews, SAVED_VIEWS_KEY, upsertView, type SavedView } from "./state/savedViews";
+import { mergeViews, parseSavedViews, SAVED_VIEWS_KEY, upsertView, type EpicFolds, type SavedView } from "./state/savedViews";
 import { saveQuery, scopeKeyOf } from "./state/useDomino";
 import { useChanges } from "./state/useChanges";
 import { useStatusHistory } from "./state/useStatusHistory";
 import { useForecast } from "./state/useForecast";
-import { epicLaneId, foldedEpicUids } from "./graph/layout";
+import { epicLaneId, foldedEpicUids, withEpicFolds } from "./graph/layout";
 import { Canvas, lanesFor, useFocusNode, type Filters, type ViewOptions } from "./ui/Canvas";
 import { ChangesPanel } from "./ui/ChangesPanel";
 import { ErrorBanner } from "./ui/ErrorBanner";
@@ -169,15 +169,20 @@ function Shell(): ReactElement {
   const [glanceScope, setGlanceScope] = usePersistentState<HighlightScope>(GLANCE_SCOPE_KEY, parseGlanceScope, "all");
 
   const [savedViews, setSavedViews] = usePersistentState<SavedView[]>(SAVED_VIEWS_KEY, parseSavedViews, []);
-  const currentView = (name: string): SavedView => ({
-    name,
-    siteIds: domino.selected,
-    scope: domino.scope,
-    filters,
-    view,
-    mode: viewMode,
-  });
+  const currentView = (name: string): SavedView => {
+    const epicFolds = currentEpicFolds();
+    return {
+      name,
+      siteIds: domino.selected,
+      scope: domino.scope,
+      filters,
+      view,
+      mode: viewMode,
+      ...(epicFolds === undefined ? {} : { epicFolds }),
+    };
+  };
   const applyView = (v: SavedView): void => {
+    applyEpicFolds(v);
     domino.setSelected(v.siteIds);
     if (v.scope.mode === "jql") saveQuery(v.scope.jql);
     domino.setScope(v.scope);
@@ -209,10 +214,32 @@ function Shell(): ReactElement {
     () => (view.groupBy === "epic" ? foldedEpicUids(collapsedLanes) : NO_FOLDED_EPICS),
     [view.groupBy, collapsedLanes],
   );
-  const epicLaneIds = useMemo(
-    () => new Set(graph.nodes.flatMap((n) => (!n.ghost && n.epic ? [epicLaneId(n.epic.uid)] : []))),
-    [graph.nodes],
-  );
+  const epicUids = useMemo(() => new Set(graph.nodes.flatMap((n) => (!n.ghost && n.epic ? [n.epic.uid] : []))), [graph.nodes]);
+  const epicLaneIds = useMemo(() => new Set([...epicUids].map(epicLaneId)), [epicUids]);
+  /** What a saved view records about folds: only while grouped by epic, and "all" when every epic is folded. */
+  const currentEpicFolds = (): EpicFolds | undefined => {
+    if (view.groupBy !== "epic" || epicUids.size === 0) return undefined;
+    const folded = [...epicUids].filter((uid) => foldedEpics.has(uid));
+    return folded.length === epicUids.size ? "all" : folded;
+  };
+  // Folding "all" epics needs the view's scope loaded (that's when its epics are known): remember
+  // which scope to fold, and fold once it's the loaded one (right away if it already is). The lanes
+  // it reads are the current ones at that moment, so other folds are kept.
+  const [foldAllOnLoad, setFoldAllOnLoad] = useState<string | null>(null);
+  const applyEpicFolds = (v: SavedView): void => {
+    if (v.epicFolds === "all") {
+      const sites = config?.sites.filter((s) => s.enabled && v.siteIds.includes(s.id)) ?? [];
+      setFoldAllOnLoad(scopeKeyOf(sites, v.scope));
+    } else if (v.epicFolds) {
+      setFoldAllOnLoad(null);
+      setCollapsedLanes(withEpicFolds(collapsedLanes, v.epicFolds));
+    }
+  };
+  useEffect(() => {
+    if (foldAllOnLoad === null || foldAllOnLoad !== loadedScopeKey) return;
+    setFoldAllOnLoad(null);
+    setCollapsedLanes(withEpicFolds(collapsedLanes, epicUids));
+  }, [foldAllOnLoad, loadedScopeKey, epicUids]);
   const toggleLane = (laneId: string): void => {
     const next = new Set(collapsedLanes);
     if (!next.delete(laneId)) next.add(laneId);
