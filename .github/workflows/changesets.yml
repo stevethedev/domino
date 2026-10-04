@@ -51,7 +51,7 @@ jobs:
         run: npm ci
 
       # With pending changesets: opens/updates a "Version Packages" PR that
-      # runs `npm run release:version` (bumps package.json + Cargo.toml +
+      # runs `npm run release:version` (bumps package.json + package-lock.json + Cargo.toml +
       # tauri.conf.json together, writes CHANGELOG.md).
       #
       # With no pending changesets (i.e. that PR was just merged): runs

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Keeps src-tauri/Cargo.toml and src-tauri/tauri.conf.json in lockstep with
+// Keeps src-tauri/Cargo.toml, src-tauri/tauri.conf.json, and package-lock.json in lockstep with
 // package.json's version, which `changeset version` is the sole writer of.
 // Run automatically as part of `npm run release:version` (see package.json).
 import { readFileSync, writeFileSync } from "node:fs";
@@ -37,7 +37,20 @@ if (!packageVersionPattern.test(cargoToml)) {
 const updatedCargoToml = cargoToml.replace(packageVersionPattern, `$1${version}$2`);
 writeFileSync(cargoTomlPath, updatedCargoToml);
 
-console.log(`Synced version ${version} to tauri.conf.json and Cargo.toml`);
+// package-lock.json — set only the root project's two version fields. npm writes the
+// lockfile as JSON.stringify(_, null, 2) + "\n", so re-serializing is byte-identical
+// apart from the bump; `npm install` here would also churn dependency resolutions.
+const lockPath = join(rootDir, "package-lock.json");
+const lock = JSON.parse(readFileSync(lockPath, "utf8"));
+const rootPackage = lock.packages?.[""];
+if (!rootPackage) {
+  throw new Error('Failed to update version in package-lock.json — no packages[""] entry.');
+}
+lock.version = version;
+rootPackage.version = version;
+writeFileSync(lockPath, `${JSON.stringify(lock, null, 2)}\n`);
+
+console.log(`Synced version ${version} to tauri.conf.json, Cargo.toml, and package-lock.json`);
 
 // Refresh Cargo.lock's entry for this package so it isn't left stale.
 try {
