@@ -1,5 +1,11 @@
 # domino
 
+## 0.3.0
+
+### Minor Changes
+
+- [#5](https://github.com/stevethedev/domino/pull/5) [`3c4dc54`](https://github.com/stevethedev/domino/commit/3c4dc5435ec44b4b31eb20b7453c5f3c31efd12e) Thanks [@stevethedev](https://github.com/stevethedev)! - **Ticket priority:** cards show each ticket's Jira priority by its key, the details panel lists it, and Display can hide tickets by priority (including those with none). Saved views remember the priority filter.
+
 ## 0.2.0
 
 ### Minor Changes
