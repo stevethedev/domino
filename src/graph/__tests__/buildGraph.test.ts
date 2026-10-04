@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { RawIssue } from "../../data/jiraTypes";
+import type { RawIssue, RawPriority } from "../../data/jiraTypes";
 import { defined } from "../../lib/guards";
 import { buildGraph } from "../buildGraph";
 import { matchRemoteUrl } from "../remoteUrl";
@@ -179,6 +179,15 @@ describe("ghosts", () => {
       ["P-1", false, { name: "High", iconUrl: "https://a.example/high.svg", rank: 1 }],
       ["P-2", true, { name: "Lowest", iconUrl: undefined, rank: 2 }],
     ]);
+  });
+
+  it("skips malformed entries in the site's priority list instead of failing the graph", () => {
+    const priorities: unknown[] = [null, { id: "2", name: "High" }];
+    const g = buildGraph({
+      sites: [A],
+      data: [{ ...data("a", [withPriority("P-1", "2", "High")]), priorities: priorities as RawPriority[] }],
+    });
+    expect(g.nodes[0]?.priority?.rank).toBe(1);
   });
 
   it("leaves the rank unknown when the site's priority list didn't load", () => {

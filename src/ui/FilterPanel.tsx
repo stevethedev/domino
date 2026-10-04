@@ -33,14 +33,16 @@ function tally(nodes: readonly GraphNode[], valueOf: (n: GraphNode) => string): 
  * Priority options in the sites' own order, most severe first (by a name's highest rank on any
  * site), then any whose order didn't load by how common they are, then issues with no priority.
  */
-function byPriority(issues: readonly GraphNode[]): [string, number][] {
+export function byPriority(issues: readonly GraphNode[]): [string, number][] {
   const ranks = new Map<string, number>();
   for (const { priority: p } of issues) {
     if (p?.rank !== undefined) ranks.set(p.name, Math.min(p.rank, ranks.get(p.name) ?? Infinity));
   }
-  const rank = (name: string): number =>
-    name === NO_PRIORITY ? Number.MAX_SAFE_INTEGER : (ranks.get(name) ?? Number.MAX_SAFE_INTEGER - 1);
-  return tally(issues, (n) => n.priority?.name ?? NO_PRIORITY).sort(([a], [b]) => rank(a) - rank(b));
+  // Tiers: ranked by the sites, unranked, then no priority. `tally` already put each tier in count order.
+  const tier = (name: string): number => (name === NO_PRIORITY ? 2 : ranks.has(name) ? 0 : 1);
+  return tally(issues, (n) => n.priority?.name ?? NO_PRIORITY).sort(
+    ([a], [b]) => tier(a) - tier(b) || (ranks.get(a) ?? 0) - (ranks.get(b) ?? 0),
+  );
 }
 
 const toggled = <T,>(list: readonly T[], value: T): T[] => (list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);

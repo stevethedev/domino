@@ -31,8 +31,14 @@ function statusCategoryOf(status: RawStatus | undefined): StatusCategory {
 /** Each priority id's place in the site's order (most severe first). */
 type PriorityRanks = ReadonlyMap<string, number>;
 
-function priorityRanks(priorities: readonly RawPriority[] | undefined): PriorityRanks {
-  return new Map((priorities ?? []).flatMap((p, rank) => (typeof p.id === "string" ? [[p.id, rank] as const] : [])));
+function priorityRanks(priorities: readonly unknown[] | undefined): PriorityRanks {
+  const idOf = (p: unknown): unknown => (p && typeof p === "object" && "id" in p ? p.id : undefined);
+  return new Map(
+    (priorities ?? []).flatMap((p, rank) => {
+      const id = idOf(p);
+      return typeof id === "string" ? [[id, rank] as const] : [];
+    }),
+  );
 }
 
 /** Icons are drawn as <img>; only https and inline images are worth trying. */

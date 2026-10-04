@@ -57,19 +57,21 @@ export function TypeIcon({ type }: { type: string }): ReactElement {
 
 /** The site's own priority icon, or the name's first letter when there's no icon or it fails to load. */
 export function PriorityIcon({ priority }: { priority: Priority }): ReactElement {
-  const [failed, setFailed] = useState(false);
+  // Remember which URL failed, so a different priority (or a fixed URL) after a refresh still gets tried.
+  const [failedUrl, setFailedUrl] = useState<string>();
+  const { iconUrl } = priority;
   const title = `Priority: ${priority.name}`;
-  if (priority.iconUrl && !failed) {
+  if (iconUrl && iconUrl !== failedUrl) {
     return (
       <img
         className="priority-icon"
-        src={priority.iconUrl}
+        src={iconUrl}
         alt=""
         title={title}
         width={16}
         height={16}
         onError={() => {
-          setFailed(true);
+          setFailedUrl(iconUrl);
         }}
       />
     );
