@@ -29,7 +29,7 @@ function statusCategoryOf(status: RawStatus | undefined): StatusCategory {
 }
 
 /** The priority's name, if Jira sent a usable one (the JSON arrives unvalidated). */
-const priorityOf = (p: RawPriority | null | undefined): string | undefined => (typeof p?.name === "string" && p.name ? p.name : undefined);
+const priorityOf = (p: RawPriority | null | undefined): string | undefined => (typeof p?.name === "string" && p.name.trim()) || undefined;
 
 const browseUrl = (baseUrl: string, key: string): string => `${baseUrl.replace(/\/+$/, "")}/browse/${key}`;
 

@@ -185,6 +185,12 @@ describe("ghosts", () => {
     expect(g.nodes.map((n) => n.priority)).toEqual([undefined, undefined]);
   });
 
+  it("treats a blank priority name as none, and trims the spaces around a real one", () => {
+    const named = (key: string, name: string): RawIssue => ({ ...issue(key), fields: { ...issue(key).fields, priority: { name } } });
+    const g = buildGraph({ sites: [A], data: [data("a", [named("P-5", "   "), named("P-6", " High ")])] });
+    expect(g.nodes.map((n) => n.priority)).toEqual([undefined, "High"]);
+  });
+
   it("prefers the loaded issue over a ghost reference", () => {
     const x = issue("X-1");
     const y = issue("X-2");
