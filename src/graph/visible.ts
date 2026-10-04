@@ -11,10 +11,13 @@ export type IssueFilters = Readonly<{
   hiddenTypes: readonly string[];
   /** Assignee display names; `UNASSIGNED` for issues with no assignee. */
   hiddenAssignees: readonly string[];
+  /** Priority names; `NO_PRIORITY` for issues with no priority. */
+  hiddenPriorities: readonly string[];
 }>;
 
 export const UNASSIGNED = "";
-export const NO_ISSUE_FILTERS: IssueFilters = { hiddenCategories: [], hiddenTypes: [], hiddenAssignees: [] };
+export const NO_PRIORITY = "";
+export const NO_ISSUE_FILTERS: IssueFilters = { hiddenCategories: [], hiddenTypes: [], hiddenAssignees: [], hiddenPriorities: [] };
 
 /**
  * `hideImplied`: drop blocking links a longer drawn chain already implies (A→C when A→B→C is drawn).
@@ -22,16 +25,18 @@ export const NO_ISSUE_FILTERS: IssueFilters = { hiddenCategories: [], hiddenType
 export type ViewFilters = LinkFilters & Readonly<{ issues: IssueFilters; hideImplied: boolean }>;
 
 export const hasIssueFilters = (f: IssueFilters): boolean =>
-  f.hiddenCategories.length > 0 || f.hiddenTypes.length > 0 || f.hiddenAssignees.length > 0;
+  f.hiddenCategories.length > 0 || f.hiddenTypes.length > 0 || f.hiddenAssignees.length > 0 || f.hiddenPriorities.length > 0;
 
 /**
  * Whether an issue passes the issue filters. Epic-map summary cards always do (they stand for many
- * issues). Ghosts have no loaded assignee, so only status and type apply to them.
+ * issues). Ghosts have no loaded assignee and often no priority, so only status and type apply to
+ * them (the assignee and priority menus list only loaded issues' values).
  */
 export function passesIssueFilters(n: GraphNode, f: IssueFilters): boolean {
   if (n.rollup) return true;
   if (f.hiddenCategories.includes(n.statusCategory) || f.hiddenTypes.includes(n.issueType)) return false;
-  return n.ghost || !f.hiddenAssignees.includes(n.assigneeName ?? UNASSIGNED);
+  if (n.ghost) return true;
+  return !f.hiddenAssignees.includes(n.assigneeName ?? UNASSIGNED) && !f.hiddenPriorities.includes(n.priority?.name ?? NO_PRIORITY);
 }
 
 /**

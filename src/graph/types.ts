@@ -15,6 +15,8 @@ export type GraphNode = {
   issueType: string;
   statusName: string;
   statusCategory: StatusCategory;
+  /** Absent when the issue has none. */
+  priority?: Priority;
   assigneeName?: string;
   assigneeAvatarUrl?: string;
   /** Jira account ids, for matching "assigned to me" / "reported by me" against `GET /myself`. */
@@ -44,6 +46,12 @@ export type Release = Readonly<{
   date?: string;
   released: boolean;
 }>;
+
+/**
+ * A Jira priority as the site defines it. `rank` is its place in the site's own order (0 = most
+ * severe); unknown when the site's priority list couldn't be loaded.
+ */
+export type Priority = Readonly<{ name: string; iconUrl?: string; rank?: number }>;
 
 export type EpicRef = { uid: string; key: string; summary?: string; url: string };
 

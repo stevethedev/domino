@@ -99,6 +99,12 @@ pub(crate) async fn fetch_link_types(state: State<'_, AppState>, site_id: String
 }
 
 #[tauri::command]
+pub(crate) async fn fetch_priorities(state: State<'_, AppState>, site_id: String) -> Result<Vec<Value>, String> {
+    let site = state.site(&site_id, true)?;
+    state.backend().priorities(&site).await
+}
+
+#[tauri::command]
 pub(crate) async fn fetch_status_history(state: State<'_, AppState>, site_id: String, issue_ids: Vec<String>) -> Result<Value, String> {
     let site = state.site(&site_id, true)?;
     state.backend().status_history(&site, &issue_ids).await

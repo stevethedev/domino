@@ -1,18 +1,19 @@
 import { describe, expect, it } from "vitest";
 import type { RawIssue } from "../../data/jiraTypes";
 import { buildGraph } from "../buildGraph";
-import { NO_ISSUE_FILTERS, passesIssueFilters, UNASSIGNED, visibleSubgraph, type ViewFilters } from "../visible";
+import { NO_ISSUE_FILTERS, NO_PRIORITY, passesIssueFilters, UNASSIGNED, visibleSubgraph, type ViewFilters } from "../visible";
 import { BLOCKS, data, issue, link, site } from "./helpers";
 
 const LINKS = { blocks: true, relates: true, duplicates: true, crossSite: true, hideImplied: false };
-const assigned = (i: RawIssue, name: string | null): RawIssue => ({
+const assigned = (i: RawIssue, name: string | null, priority: string | null = null): RawIssue => ({
   ...i,
-  fields: { ...i.fields, assignee: name ? { accountId: name, displayName: name } : null },
+  fields: { ...i.fields, assignee: name ? { accountId: name, displayName: name } : null, priority: priority ? { name: priority } : null },
 });
 
-// A-1 (done, Ana) blocks A-2 (open, Bo) blocks A-3 (open, unassigned); A-3 blocks X-9, which isn't loaded (a ghost).
-const a1 = assigned(issue("A-1", "done"), "Ana");
-const a2 = assigned(issue("A-2", "indeterminate"), "Bo");
+// A-1 (done, Ana, High) blocks A-2 (open, Bo, Low) blocks A-3 (open, unassigned, no priority);
+// A-3 blocks X-9, which isn't loaded (a ghost).
+const a1 = assigned(issue("A-1", "done"), "Ana", "High");
+const a2 = assigned(issue("A-2", "indeterminate"), "Bo", "Low");
 const a3 = assigned(issue("A-3"), null);
 const x9 = issue("X-9");
 link("1", BLOCKS, a1, a2);
@@ -45,9 +46,15 @@ describe("visibleSubgraph with issue filters", () => {
     expect(keys({ hiddenTypes: ["Story"] })).toEqual([]);
   });
 
-  it("applies assignee filters only to loaded issues (ghosts have no known assignee)", () => {
+  it("hides by priority, with no priority as its own entry", () => {
+    expect(keys({ hiddenPriorities: ["Low"] })).toEqual(["A-1", "A-3", "X-9"]);
+    expect(keys({ hiddenPriorities: [NO_PRIORITY] })).toEqual(["A-1", "A-2"]);
+  });
+
+  it("applies assignee and priority filters only to loaded issues (ghosts have no known assignee)", () => {
     const ghost = graph.nodes.find((n) => n.ghost);
     expect(ghost && passesIssueFilters(ghost, { ...NO_ISSUE_FILTERS, hiddenAssignees: [UNASSIGNED] })).toBe(true);
+    expect(ghost && passesIssueFilters(ghost, { ...NO_ISSUE_FILTERS, hiddenPriorities: [NO_PRIORITY] })).toBe(true);
   });
 });
 
@@ -76,7 +83,6 @@ describe("implied links (transitive reduction of drawn blocking links)", () => {
 
   it("keeps the shortcut when the issue in between is hidden", () => {
     // Hiding A-2 breaks A→A-2→A-3, so A→A-3 is no longer implied (and A→A-4 is now implied via A-3).
-    const hideB = { hiddenCategories: [], hiddenTypes: [], hiddenAssignees: [] as string[] };
     const v = visibleSubgraph(
       buildGraph({
         sites: [site("a")],
@@ -87,7 +93,7 @@ describe("implied links (transitive reduction of drawn blocking links)", () => {
           ),
         ],
       }),
-      { ...LINKS, issues: { ...hideB, hiddenAssignees: ["Hidden"] }, hideImplied: true },
+      { ...LINKS, issues: { ...NO_ISSUE_FILTERS, hiddenAssignees: ["Hidden"] }, hideImplied: true },
     );
     expect(v.edges.map((e) => `${e.source.slice(2)}>${e.target.slice(2)}`).sort()).toEqual(["A-1>A-3", "A-3>A-4"]);
   });

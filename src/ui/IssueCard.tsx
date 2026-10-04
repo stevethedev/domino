@@ -1,10 +1,10 @@
 import { Handle, Position, useStore, type Node, type NodeProps } from "@xyflow/react";
 import { MOVE_KEYS, type Move, type PreviewKey } from "../graph/traverse";
-import { memo, type ReactElement } from "react";
+import { memo, useState, type ReactElement } from "react";
 import { agingLabel, type Aging } from "../graph/aging";
 import { CHANGE_LABEL, type ChangeKind } from "../graph/changes";
 import type { Highlight } from "../graph/insights";
-import type { EpicRollup, GraphNode, StatusCategory } from "../graph/types";
+import type { EpicRollup, GraphNode, Priority, StatusCategory } from "../graph/types";
 import { Icon } from "./Icon";
 
 export type IssueNodeData = {
@@ -51,6 +51,34 @@ export function TypeIcon({ type }: { type: string }): ReactElement {
   return (
     <span className={`type-icon type-${type.toLowerCase()}`} title={type} aria-hidden="true">
       {TYPE_GLYPH[type] ?? (type.charAt(0).toUpperCase() || "?")}
+    </span>
+  );
+}
+
+/** The site's own priority icon, or the name's first letter when there's no icon or it fails to load. */
+export function PriorityIcon({ priority }: { priority: Priority }): ReactElement {
+  // Remember which URL failed, so a different priority (or a fixed URL) after a refresh still gets tried.
+  const [failedUrl, setFailedUrl] = useState<string>();
+  const { iconUrl } = priority;
+  const title = `Priority: ${priority.name}`;
+  if (iconUrl && iconUrl !== failedUrl) {
+    return (
+      <img
+        className="priority-icon"
+        src={iconUrl}
+        alt=""
+        title={title}
+        width={16}
+        height={16}
+        onError={() => {
+          setFailedUrl(iconUrl);
+        }}
+      />
+    );
+  }
+  return (
+    <span className="priority-icon priority-letter" title={title} aria-hidden="true">
+      {priority.name.charAt(0).toUpperCase()}
     </span>
   );
 }
@@ -242,6 +270,7 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
     n.key,
     n.summary,
     `status ${n.statusName}`,
+    n.priority ? `priority ${n.priority.name}` : null,
     showSite || n.ghost ? `site ${n.siteLabel}` : null,
     openBlockers ? `${openBlockers} open blocker${openBlockers === 1 ? "" : "s"}` : null,
     n.ghost ? "outside scope" : null,
@@ -305,6 +334,7 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
           <div className="card-row1">
             <TypeIcon type={n.issueType} />
             <span className="card-key">{n.key}</span>
+            {n.priority && <PriorityIcon priority={n.priority} />}
             <span className={`pill pill-${status}`}>{statusText}</span>
             {(showSite || n.ghost) && (
               <span className="site-badge" style={{ "--site": n.siteColor ?? "#6b7280" }} title={`Site: ${n.siteLabel}`}>

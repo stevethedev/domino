@@ -1,10 +1,10 @@
 import type { SiteConfig } from "../config/types";
-import type { RawIssue, RawLinkedIssue, RawSiteData, RawStatus, RawVersion } from "../data/jiraTypes";
+import type { RawIssue, RawLinkedIssue, RawPriority, RawSiteData, RawStatus, RawVersion } from "../data/jiraTypes";
 import { getOrThrow } from "../lib/guards";
 import { findCycles } from "./cycles";
 import { DEFAULT_LINK_TYPES, kindOf, resolveRelationship } from "./linkTypes";
 import { matchRemoteUrl } from "./remoteUrl";
-import type { EpicRef, Graph, GraphEdge, GraphNode, Release, StatusCategory } from "./types";
+import type { EpicRef, Graph, GraphEdge, GraphNode, Priority, Release, StatusCategory } from "./types";
 import { toDay } from "./schedule";
 import { uidOf } from "./types";
 
@@ -26,6 +26,33 @@ function statusCategoryOf(status: RawStatus | undefined): StatusCategory {
     default:
       return "unknown";
   }
+}
+
+/** Each priority id's place in the site's order (most severe first). */
+type PriorityRanks = ReadonlyMap<string, number>;
+
+function priorityRanks(priorities: readonly unknown[] | undefined): PriorityRanks {
+  const idOf = (p: unknown): unknown => (p && typeof p === "object" && "id" in p ? p.id : undefined);
+  return new Map(
+    (priorities ?? []).flatMap((p, rank) => {
+      const id = idOf(p);
+      return typeof id === "string" ? [[id, rank] as const] : [];
+    }),
+  );
+}
+
+/** Icons are drawn as <img>; only https and inline images are worth trying. */
+const SAFE_ICON = /^(https:|data:image\/)/i;
+
+/** The priority, if Jira sent one with a usable name (the JSON arrives unvalidated). */
+function priorityOf(p: RawPriority | null | undefined, ranks: PriorityRanks): Priority | undefined {
+  const name = typeof p?.name === "string" ? p.name.trim() : "";
+  if (!p || !name) return undefined;
+  return {
+    name,
+    iconUrl: typeof p.iconUrl === "string" && SAFE_ICON.test(p.iconUrl) ? p.iconUrl : undefined,
+    rank: typeof p.id === "string" ? ranks.get(p.id) : undefined,
+  };
 }
 
 const browseUrl = (baseUrl: string, key: string): string => `${baseUrl.replace(/\/+$/, "")}/browse/${key}`;
@@ -66,7 +93,7 @@ function releasesOf(versions: unknown, site: SiteConfig): Release[] | undefined 
   return releases.length > 0 ? releases : undefined;
 }
 
-function nodeFromIssue(issue: RawIssue, site: SiteConfig): GraphNode {
+function nodeFromIssue(issue: RawIssue, site: SiteConfig, ranks: PriorityRanks): GraphNode {
   const f = issue.fields;
   const avatars = f.assignee?.avatarUrls;
   return {
@@ -79,6 +106,7 @@ function nodeFromIssue(issue: RawIssue, site: SiteConfig): GraphNode {
     issueType: f.issuetype?.name ?? "Issue",
     statusName: f.status?.name ?? "Unknown",
     statusCategory: statusCategoryOf(f.status),
+    priority: priorityOf(f.priority, ranks),
     assigneeName: f.assignee?.displayName,
     assigneeAvatarUrl: avatars?.["48x48"] ?? avatars?.["24x24"],
     assigneeAccountId: f.assignee?.accountId,
@@ -96,7 +124,7 @@ function nodeFromIssue(issue: RawIssue, site: SiteConfig): GraphNode {
   };
 }
 
-function ghostFromLinked(ref: RawLinkedIssue, site: SiteConfig): GraphNode {
+function ghostFromLinked(ref: RawLinkedIssue, site: SiteConfig, ranks: PriorityRanks): GraphNode {
   return {
     uid: uidOf(site.id, ref.key),
     siteId: site.id,
@@ -107,6 +135,7 @@ function ghostFromLinked(ref: RawLinkedIssue, site: SiteConfig): GraphNode {
     issueType: ref.fields.issuetype?.name ?? "Issue",
     statusName: ref.fields.status?.name ?? "Unknown",
     statusCategory: statusCategoryOf(ref.fields.status),
+    priority: priorityOf(ref.fields.priority, ranks),
     url: browseUrl(site.baseUrl, ref.key),
     ghost: true,
   };
@@ -154,8 +183,9 @@ export function buildGraph({ sites, data }: BuildInput): Graph {
   for (const d of data) {
     const site = siteById.get(d.siteId);
     if (!site) continue;
+    const ranks = priorityRanks(d.priorities);
     for (const issue of d.issues) {
-      const node = nodeFromIssue(issue, site);
+      const node = nodeFromIssue(issue, site, ranks);
       const epic = directEpic(issue, site);
       if (epic && "viaParent" in epic) pendingEpic.set(node.uid, epic.viaParent);
       else node.epic = epic;
@@ -181,6 +211,7 @@ export function buildGraph({ sites, data }: BuildInput): Graph {
     const site = siteById.get(d.siteId);
     if (!site) continue;
     const linkTypes = d.linkTypes.length ? d.linkTypes : DEFAULT_LINK_TYPES;
+    const ranks = priorityRanks(d.priorities);
 
     for (const issue of d.issues) {
       const self = uidOf(site.id, issue.key);
@@ -189,7 +220,7 @@ export function buildGraph({ sites, data }: BuildInput): Graph {
         const other = link.outwardIssue ?? link.inwardIssue;
         if (!other) continue;
         const otherUid = uidOf(site.id, other.key);
-        addGhost(ghostFromLinked(other, site));
+        addGhost(ghostFromLinked(other, site, ranks));
         const id = `${site.id}:link:${link.id}`;
         if (edges.has(id)) continue;
         // outwardIssue on this issue means "this <outward> other".

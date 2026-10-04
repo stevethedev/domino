@@ -13,6 +13,9 @@ export type RawStatus = {
 /** A Jira user as embedded in issues (assignee, reporter) and returned by `GET /myself`. */
 export type RawUser = { accountId?: string; displayName: string; avatarUrls?: Record<string, string> };
 
+/** As embedded in issues, and as listed by `GET /priority/search`. Optional fields: the JSON arrives unvalidated. */
+export type RawPriority = { id?: string; name?: string; iconUrl?: string };
+
 export type RawIssueType = { id?: string; name: string; iconUrl?: string; hierarchyLevel?: number };
 
 /** A project version (release), as embedded in an issue's `fixVersions`. */
@@ -20,14 +23,14 @@ export type RawVersion = { id: string; name: string; released?: boolean; archive
 
 export type RawLinkType = { id: string; name: string; inward: string; outward: string; self?: string };
 
-/** The linked issue embedded in an issuelink: summary, status and type only. */
+/** The linked issue embedded in an issuelink: summary, status, priority and type only. */
 export type RawLinkedIssue = {
   id: string;
   key: string;
   self?: string;
   // Optional: these arrive unvalidated from Jira (the Rust side passes JSON through), and
   // restricted or partially returned issues can omit them.
-  fields: { summary: string; status?: RawStatus; issuetype?: RawIssueType };
+  fields: { summary: string; status?: RawStatus; priority?: RawPriority | null; issuetype?: RawIssueType };
 };
 
 export type RawIssueLink = {
@@ -47,6 +50,8 @@ export type RawIssue = {
     /** Optional for the same reason as on RawLinkedIssue. */
     issuetype?: RawIssueType;
     status?: RawStatus;
+    /** Null when the issue has none; absent when priority is turned off on the site. */
+    priority?: RawPriority | null;
     assignee: RawUser | null;
     /** Optional: older fixtures and restricted issues can omit it. */
     reporter?: RawUser | null;
@@ -82,6 +87,8 @@ export type RawSiteData = {
   issues: RawIssue[];
   remoteLinks: Record<string, RawRemoteLink[]>;
   linkTypes: RawLinkType[];
+  /** The site's priorities, most severe first; absent or empty when they couldn't be loaded. */
+  priorities?: RawPriority[];
 };
 
 /** One field change inside a changelog entry. Status changes carry status ids in from/to. */

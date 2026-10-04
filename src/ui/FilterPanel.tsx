@@ -1,6 +1,14 @@
 import type { ReactElement } from "react";
 import type { GraphNode, StatusCategory } from "../graph/types";
-import { hasIssueFilters, NO_ISSUE_FILTERS, passesIssueFilters, UNASSIGNED, type IssueFilters, type LinkFilters } from "../graph/visible";
+import {
+  hasIssueFilters,
+  NO_ISSUE_FILTERS,
+  NO_PRIORITY,
+  passesIssueFilters,
+  UNASSIGNED,
+  type IssueFilters,
+  type LinkFilters,
+} from "../graph/visible";
 import { isGroupBy, type Filters, type ViewOptions } from "./Canvas";
 import { Icon } from "./Icon";
 
@@ -19,6 +27,22 @@ function tally(nodes: readonly GraphNode[], valueOf: (n: GraphNode) => string): 
   const counts = new Map<string, number>();
   for (const n of nodes) counts.set(valueOf(n), (counts.get(valueOf(n)) ?? 0) + 1);
   return [...counts].sort(([a, x], [b, y]) => y - x || a.localeCompare(b));
+}
+
+/**
+ * Priority options in the sites' own order, most severe first (by a name's highest rank on any
+ * site), then any whose order didn't load by how common they are, then issues with no priority.
+ */
+export function byPriority(issues: readonly GraphNode[]): [string, number][] {
+  const ranks = new Map<string, number>();
+  for (const { priority: p } of issues) {
+    if (p?.rank !== undefined) ranks.set(p.name, Math.min(p.rank, ranks.get(p.name) ?? Infinity));
+  }
+  // Tiers: ranked by the sites, unranked, then no priority. `tally` already put each tier in count order.
+  const tier = (name: string): number => (name === NO_PRIORITY ? 2 : ranks.has(name) ? 0 : 1);
+  return tally(issues, (n) => n.priority?.name ?? NO_PRIORITY).sort(
+    ([a], [b]) => tier(a) - tier(b) || (ranks.get(a) ?? 0) - (ranks.get(b) ?? 0),
+  );
 }
 
 const toggled = <T,>(list: readonly T[], value: T): T[] => (list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
@@ -127,6 +151,15 @@ export function FilterPanel({
           setIssues({ hiddenAssignees });
         }}
         display={(v) => (v === UNASSIGNED ? "Unassigned" : v)}
+      />
+      <FilterMenu
+        label="Priority"
+        options={byPriority(issues)}
+        hidden={f.hiddenPriorities}
+        onHidden={(hiddenPriorities) => {
+          setIssues({ hiddenPriorities });
+        }}
+        display={(v) => (v === NO_PRIORITY ? "No priority" : v)}
       />
       {hasIssueFilters(f) && (
         <p className="hint" role="status">

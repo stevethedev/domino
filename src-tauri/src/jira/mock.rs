@@ -273,6 +273,10 @@ impl JiraBackend for MockBackend {
     async fn statuses(&self, site: &SiteConfig) -> JiraResult<Value> {
         Ok(self.site_data(site)?.get("statuses").cloned().unwrap_or(Value::Null))
     }
+
+    async fn priorities(&self, site: &SiteConfig) -> JiraResult<Vec<Value>> {
+        Ok(self.site_data(site)?.get("priorities").and_then(Value::as_array).cloned().unwrap_or_default())
+    }
 }
 
 #[cfg(test)]
