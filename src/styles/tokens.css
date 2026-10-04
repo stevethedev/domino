@@ -49,9 +49,6 @@
   --type-task: #2563eb;
   --type-bug: #dc2626;
   --on-type: #ffffff;
-  --priority-highest: #d62d2d;
-  --priority-high: #c2410c;
-  --priority-low: #2563eb;
   --minimap-mask: rgb(240 242 246 / 0.7);
 
   /* Type. One scale for the whole app; 2xs/xs are for dense card metadata, 3xl/4xl for
@@ -157,9 +154,6 @@
     --error-bg: #3d1c1c;
     --error-fg: #ffb4b4;
     --epic: #a78bfa;
-    --priority-highest: #ff6161;
-    --priority-high: #fb923c;
-    --priority-low: #7aa7ff;
     --minimap-mask: rgb(10 12 16 / 0.65);
     --select-caret: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a0a8b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
     /* Shadows need more weight to read on dark surfaces. */

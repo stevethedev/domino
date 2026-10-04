@@ -11,7 +11,6 @@ import {
 } from "../graph/visible";
 import { isGroupBy, type Filters, type ViewOptions } from "./Canvas";
 import { Icon } from "./Icon";
-import { priorityRank } from "./IssueCard";
 
 const LINK_ROWS: { key: keyof LinkFilters; label: string; sample: string }[] = [
   { key: "blocks", label: "Blocks", sample: "solid" },
@@ -30,10 +29,18 @@ function tally(nodes: readonly GraphNode[], valueOf: (n: GraphNode) => string): 
   return [...counts].sort(([a, x], [b, y]) => y - x || a.localeCompare(b));
 }
 
-/** Priorities most severe first (then most common), with issues that have none last. */
-function byPriority(options: [string, number][]): [string, number][] {
-  const rank = (p: string): number => (p === NO_PRIORITY ? Infinity : priorityRank(p));
-  return options.sort(([a], [b]) => rank(a) - rank(b));
+/**
+ * Priority options in the sites' own order, most severe first (by a name's highest rank on any
+ * site), then any whose order didn't load by how common they are, then issues with no priority.
+ */
+function byPriority(issues: readonly GraphNode[]): [string, number][] {
+  const ranks = new Map<string, number>();
+  for (const { priority: p } of issues) {
+    if (p?.rank !== undefined) ranks.set(p.name, Math.min(p.rank, ranks.get(p.name) ?? Infinity));
+  }
+  const rank = (name: string): number =>
+    name === NO_PRIORITY ? Number.MAX_SAFE_INTEGER : (ranks.get(name) ?? Number.MAX_SAFE_INTEGER - 1);
+  return tally(issues, (n) => n.priority?.name ?? NO_PRIORITY).sort(([a], [b]) => rank(a) - rank(b));
 }
 
 const toggled = <T,>(list: readonly T[], value: T): T[] => (list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
@@ -145,7 +152,7 @@ export function FilterPanel({
       />
       <FilterMenu
         label="Priority"
-        options={byPriority(tally(issues, (n) => n.priority ?? NO_PRIORITY))}
+        options={byPriority(issues)}
         hidden={f.hiddenPriorities}
         onHidden={(hiddenPriorities) => {
           setIssues({ hiddenPriorities });

@@ -161,18 +161,43 @@ describe("ghosts", () => {
     expect(g.nodes.find((n) => n.uid === "a:OPS-3")).toMatchObject({ ghost: true, statusCategory: "inprogress" });
   });
 
-  it("reads priority from loaded issues and from the issue embedded in a link (ghosts)", () => {
-    const withPriority = (key: string, name: string): RawIssue => {
-      const i = issue(key);
-      return { ...i, fields: { ...i.fields, priority: { id: "2", name } } };
-    };
-    const [loaded, outside] = [withPriority("P-1", "High"), withPriority("P-2", "Lowest")];
+  const withPriority = (key: string, id: string, name: string, iconUrl?: string): RawIssue => {
+    const i = issue(key);
+    return { ...i, fields: { ...i.fields, priority: { id, name, iconUrl } } };
+  };
+
+  it("reads priority from loaded issues and from the issue embedded in a link (ghosts), ranked in the site's order", () => {
+    const [loaded, outside] = [withPriority("P-1", "2", "High", "https://a.example/high.svg"), withPriority("P-2", "5", "Lowest")];
     link("1", BLOCKS, loaded, outside, { out: true, in: false });
-    const g = buildGraph({ sites: [A], data: [data("a", [loaded])] });
+    const priorities = [
+      { id: "1", name: "Highest" },
+      { id: "2", name: "High" },
+      { id: "5", name: "Lowest" },
+    ];
+    const g = buildGraph({ sites: [A], data: [{ ...data("a", [loaded]), priorities }] });
     expect(g.nodes.map((n) => [n.key, n.ghost, n.priority])).toEqual([
-      ["P-1", false, "High"],
-      ["P-2", true, "Lowest"],
+      ["P-1", false, { name: "High", iconUrl: "https://a.example/high.svg", rank: 1 }],
+      ["P-2", true, { name: "Lowest", iconUrl: undefined, rank: 2 }],
     ]);
+  });
+
+  it("leaves the rank unknown when the site's priority list didn't load", () => {
+    const g = buildGraph({ sites: [A], data: [data("a", [withPriority("P-1", "2", "High")])] });
+    expect(g.nodes[0]?.priority?.rank).toBeUndefined();
+  });
+
+  it("keeps only https and inline image icons", () => {
+    const icons = ["http://a.example/p.svg", "javascript:alert(1)", "data:image/svg+xml,%3Csvg/%3E", "HTTPS://a.example/p.svg"];
+    const g = buildGraph({
+      sites: [A],
+      data: [
+        data(
+          "a",
+          icons.map((url, i) => withPriority(`P-${i}`, "1", "High", url)),
+        ),
+      ],
+    });
+    expect(g.nodes.map((n) => n.priority?.iconUrl)).toEqual([undefined, undefined, icons[2], icons[3]]);
   });
 
   it("leaves priority unset when Jira sends none, or a malformed one", () => {
@@ -188,7 +213,7 @@ describe("ghosts", () => {
   it("treats a blank priority name as none, and trims the spaces around a real one", () => {
     const named = (key: string, name: string): RawIssue => ({ ...issue(key), fields: { ...issue(key).fields, priority: { name } } });
     const g = buildGraph({ sites: [A], data: [data("a", [named("P-5", "   "), named("P-6", " High ")])] });
-    expect(g.nodes.map((n) => n.priority)).toEqual([undefined, "High"]);
+    expect(g.nodes.map((n) => n.priority?.name)).toEqual([undefined, "High"]);
   });
 
   it("prefers the loaded issue over a ghost reference", () => {

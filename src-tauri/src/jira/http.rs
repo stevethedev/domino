@@ -38,6 +38,7 @@ pub(crate) const FIELDS: &[&str] = &[
 /// `changelog/bulkfetch` accepts up to 1000 issues per request.
 const CHANGELOG_BATCH: usize = 1000;
 const PAGE_SIZE: usize = 100;
+const MAX_PRIORITY_PAGES: usize = 10;
 const MAX_RETRIES: u32 = 3;
 const MAX_RETRY_WAIT: Duration = Duration::from_secs(30);
 
@@ -290,6 +291,22 @@ impl JiraBackend for HttpBackend {
     async fn statuses(&self, site: &SiteConfig) -> JiraResult<Value> {
         self.send(site, Method::GET, "/rest/api/3/status", None).await
     }
+
+    async fn priorities(&self, site: &SiteConfig) -> JiraResult<Vec<Value>> {
+        let mut all = Vec::new();
+        // A site has a handful of priorities; the page cap only guards against a server that never says isLast.
+        for _ in 0..MAX_PRIORITY_PAGES {
+            let path = format!("/rest/api/3/priority/search?startAt={}&maxResults={PAGE_SIZE}", all.len());
+            let page = self.send(site, Method::GET, &path, None).await?;
+            let values = page.get("values").and_then(Value::as_array).cloned().unwrap_or_default();
+            let done = values.is_empty() || page.get("isLast").and_then(Value::as_bool).unwrap_or(true);
+            all.extend(values);
+            if done {
+                break;
+            }
+        }
+        Ok(all)
+    }
 }
 
 #[cfg(test)]
@@ -504,6 +521,29 @@ mod tests {
         assert_eq!(logs[0]["changeHistories"].as_array().unwrap().len(), 2);
 
         f.backend.status_history(&acme(&f), &["1; DROP".into()]).await.unwrap_err();
+    }
+
+    #[tokio::test]
+    async fn priorities_page_in_the_sites_order() {
+        let f = fixture().await;
+        let p = |id: &str, name: &str| json!({ "id": id, "name": name });
+        Mock::given(method("GET"))
+            .and(path("/rest/api/3/priority/search"))
+            .and(query_param("startAt", "2"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "values": [p("3", "Low")], "isLast": true })))
+            .mount(&f.server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/rest/api/3/priority/search"))
+            .and(query_param("startAt", "0"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(json!({ "values": [p("1", "High"), p("2", "Medium")], "isLast": false })),
+            )
+            .mount(&f.server)
+            .await;
+        let got = f.backend.priorities(&acme(&f)).await.unwrap();
+        let names: Vec<_> = got.iter().map(|v| v["name"].as_str().unwrap().to_owned()).collect();
+        assert_eq!(names, ["High", "Medium", "Low"]);
     }
 
     #[tokio::test]

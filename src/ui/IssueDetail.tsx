@@ -122,7 +122,7 @@ export function IssueDetail({
     facts.push([
       "Priority",
       <>
-        <PriorityIcon priority={n.priority} /> {n.priority}
+        <PriorityIcon priority={n.priority} /> {n.priority.name}
       </>,
     ]);
   }

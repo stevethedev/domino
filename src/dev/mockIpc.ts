@@ -96,6 +96,8 @@ export function installMockIpc(): Promise<void> {
         const ids = Array.isArray(args.issueIds) ? args.issueIds.filter((x): x is string => typeof x === "string") : [];
         return wrap(async () => ({ issueChangeLogs: await source.fetchStatusHistory(site(siteId).id, ids) }));
       }
+      case "fetch_priorities":
+        return wrap(() => source.fetchPriorities(site(siteId).id));
       case "fetch_statuses":
         return wrap(() => source.fetchStatuses(site(siteId).id));
       case "fetch_myself":

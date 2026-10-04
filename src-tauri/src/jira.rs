@@ -31,6 +31,8 @@ pub(crate) trait JiraBackend: Send + Sync {
     async fn status_history(&self, site: &SiteConfig, issue_ids: &[String]) -> JiraResult<Value>;
     /// `GET /rest/api/3/status`: every status with its category.
     async fn statuses(&self, site: &SiteConfig) -> JiraResult<Value>;
+    /// Every priority (`id`, `name`, `iconUrl`, ...), in the site's configured order: most severe first.
+    async fn priorities(&self, site: &SiteConfig) -> JiraResult<Vec<Value>>;
 }
 
 /// The JQL before any `ORDER BY` (any whitespace around the keywords, like the TS `combineJql`).

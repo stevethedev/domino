@@ -36,7 +36,7 @@ export function passesIssueFilters(n: GraphNode, f: IssueFilters): boolean {
   if (n.rollup) return true;
   if (f.hiddenCategories.includes(n.statusCategory) || f.hiddenTypes.includes(n.issueType)) return false;
   if (n.ghost) return true;
-  return !f.hiddenAssignees.includes(n.assigneeName ?? UNASSIGNED) && !f.hiddenPriorities.includes(n.priority ?? NO_PRIORITY);
+  return !f.hiddenAssignees.includes(n.assigneeName ?? UNASSIGNED) && !f.hiddenPriorities.includes(n.priority?.name ?? NO_PRIORITY);
 }
 
 /**

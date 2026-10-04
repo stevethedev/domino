@@ -1,5 +1,5 @@
 import type { JiraSource } from "./JiraSource";
-import type { RawIssue, RawIssueChangeLog, RawLinkType, RawRemoteLink, RawStatusDef, RawUser } from "./jiraTypes";
+import type { RawIssue, RawIssueChangeLog, RawLinkType, RawPriority, RawRemoteLink, RawStatusDef, RawUser } from "./jiraTypes";
 import type { MockSite } from "./mockData";
 import { combineJql } from "./jqlPresets";
 import { matchesMockJql, parseMockJql } from "./mockJql";
@@ -73,6 +73,10 @@ export class FixtureSource implements JiraSource {
       if (!me) throw new Error(`No signed-in user in the ${siteId} fixtures`);
       return me;
     });
+  }
+
+  fetchPriorities(siteId: string): Promise<RawPriority[]> {
+    return settle(() => this.site(siteId).priorities ?? []);
   }
 
   fetchLinkTypes(siteId: string): Promise<RawLinkType[]> {

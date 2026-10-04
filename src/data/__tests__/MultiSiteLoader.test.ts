@@ -34,6 +34,7 @@ describe("MultiSiteLoader", () => {
       fetchIssue: (s, k) => inner.fetchIssue(s, k),
       fetchRemoteLinks: (s, k) => inner.fetchRemoteLinks(s, k),
       fetchLinkTypes: (s) => inner.fetchLinkTypes(s),
+      fetchPriorities: (s) => inner.fetchPriorities(s),
       fetchStatusHistory: (s, ids) => inner.fetchStatusHistory(s, ids),
       fetchStatuses: (s) => inner.fetchStatuses(s),
       fetchMyself: (s) => inner.fetchMyself(s),
@@ -90,6 +91,28 @@ describe("MultiSiteLoader", () => {
     // The cross-site target on the failed site degrades to a ghost rather than disappearing.
     const g = buildGraph({ sites, data: res.data });
     expect(g.nodes.find((n) => n.uid === "partner:PAY-3")).toMatchObject({ ghost: true });
+  });
+
+  it("loads each site's priorities, and a site whose priorities fail still loads", async () => {
+    const inner = new FixtureSource(mockSites, mockLinkTypes);
+    const source: JiraSource = {
+      fetchByJql: (s, j, m) => inner.fetchByJql(s, j, m),
+      fetchEpic: (s, k, f) => inner.fetchEpic(s, k, f),
+      fetchIssue: (s, k) => inner.fetchIssue(s, k),
+      fetchRemoteLinks: (s, k) => inner.fetchRemoteLinks(s, k),
+      fetchLinkTypes: (s) => inner.fetchLinkTypes(s),
+      fetchPriorities: (s) => (s === "partner" ? Promise.reject(new Error("403")) : inner.fetchPriorities(s)),
+      fetchStatusHistory: (s, ids) => inner.fetchStatusHistory(s, ids),
+      fetchStatuses: (s) => inner.fetchStatuses(s),
+      fetchMyself: (s) => inner.fetchMyself(s),
+    };
+    const res = await new MultiSiteLoader(source).load({ mode: "jql", jql: "" }, selected, sites);
+    if (res.kind !== "ok") throw new Error("expected ok");
+    expect(res.errors).toEqual([]);
+    expect(res.data.map((d) => [d.siteId, d.priorities?.map((p) => p.name)])).toEqual([
+      ["acme", ["Highest", "High", "Medium", "Low", "Lowest"]],
+      ["partner", []],
+    ]);
   });
 
   it("refuses to load more than the node cap, counting ghosts", async () => {
@@ -151,6 +174,7 @@ describe("MultiSiteLoader", () => {
       fetchIssue: (s, k) => slow(s, () => inner.fetchIssue(s, k))(),
       fetchRemoteLinks: (s, k) => slow(s, () => inner.fetchRemoteLinks(s, k))(),
       fetchLinkTypes: (s) => slow(s, () => inner.fetchLinkTypes(s))(),
+      fetchPriorities: (s) => slow(s, () => inner.fetchPriorities(s))(),
       fetchStatusHistory: (s, ids) => slow(s, () => inner.fetchStatusHistory(s, ids))(),
       fetchStatuses: (s) => slow(s, () => inner.fetchStatuses(s))(),
       fetchMyself: (s) => slow(s, () => inner.fetchMyself(s))(),

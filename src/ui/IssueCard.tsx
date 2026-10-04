@@ -1,10 +1,10 @@
 import { Handle, Position, useStore, type Node, type NodeProps } from "@xyflow/react";
 import { MOVE_KEYS, type Move, type PreviewKey } from "../graph/traverse";
-import { memo, type ReactElement } from "react";
+import { memo, useState, type ReactElement } from "react";
 import { agingLabel, type Aging } from "../graph/aging";
 import { CHANGE_LABEL, type ChangeKind } from "../graph/changes";
 import type { Highlight } from "../graph/insights";
-import type { EpicRollup, GraphNode, StatusCategory } from "../graph/types";
+import type { EpicRollup, GraphNode, Priority, StatusCategory } from "../graph/types";
 import { Icon } from "./Icon";
 
 export type IssueNodeData = {
@@ -55,36 +55,28 @@ export function TypeIcon({ type }: { type: string }): ReactElement {
   );
 }
 
-type PriorityLevel = "highest" | "high" | "medium" | "low" | "lowest";
-const PRIORITY_LEVELS: readonly PriorityLevel[] = ["highest", "high", "medium", "low", "lowest"];
-/** Jira's default priority names, and the older Blocker…Trivial scheme. Custom names have no level. */
-const PRIORITY_LEVEL: Partial<Record<string, PriorityLevel>> = {
-  highest: "highest",
-  blocker: "highest",
-  critical: "highest",
-  high: "high",
-  major: "high",
-  medium: "medium",
-  low: "low",
-  minor: "low",
-  lowest: "lowest",
-  trivial: "lowest",
-};
-const PRIORITY_GLYPH: Record<PriorityLevel, string> = { highest: "⇈", high: "↑", medium: "=", low: "↓", lowest: "⇊" };
-
-const priorityLevel = (priority: string): PriorityLevel | undefined => PRIORITY_LEVEL[priority.toLowerCase()];
-
-/** Most to least severe; custom priorities (no known level) sort after the known ones. */
-export function priorityRank(priority: string): number {
-  const level = priorityLevel(priority);
-  return level ? PRIORITY_LEVELS.indexOf(level) : PRIORITY_LEVELS.length;
-}
-
-export function PriorityIcon({ priority }: { priority: string }): ReactElement {
-  const level = priorityLevel(priority);
+/** The site's own priority icon, or the name's first letter when there's no icon or it fails to load. */
+export function PriorityIcon({ priority }: { priority: Priority }): ReactElement {
+  const [failed, setFailed] = useState(false);
+  const title = `Priority: ${priority.name}`;
+  if (priority.iconUrl && !failed) {
+    return (
+      <img
+        className="priority-icon"
+        src={priority.iconUrl}
+        alt=""
+        title={title}
+        width={16}
+        height={16}
+        onError={() => {
+          setFailed(true);
+        }}
+      />
+    );
+  }
   return (
-    <span className={`priority-icon priority-${level ?? "other"}`} title={`Priority: ${priority}`} aria-hidden="true">
-      {level ? PRIORITY_GLYPH[level] : priority.charAt(0).toUpperCase()}
+    <span className="priority-icon priority-letter" title={title} aria-hidden="true">
+      {priority.name.charAt(0).toUpperCase()}
     </span>
   );
 }
@@ -276,7 +268,7 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
     n.key,
     n.summary,
     `status ${n.statusName}`,
-    n.priority ? `priority ${n.priority}` : null,
+    n.priority ? `priority ${n.priority.name}` : null,
     showSite || n.ghost ? `site ${n.siteLabel}` : null,
     openBlockers ? `${openBlockers} open blocker${openBlockers === 1 ? "" : "s"}` : null,
     n.ghost ? "outside scope" : null,

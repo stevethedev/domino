@@ -13,7 +13,7 @@ export type RawStatus = {
 /** A Jira user as embedded in issues (assignee, reporter) and returned by `GET /myself`. */
 export type RawUser = { accountId?: string; displayName: string; avatarUrls?: Record<string, string> };
 
-/** Optional fields: priority can be turned off in Jira, and the JSON arrives unvalidated. */
+/** As embedded in issues, and as listed by `GET /priority/search`. Optional fields: the JSON arrives unvalidated. */
 export type RawPriority = { id?: string; name?: string; iconUrl?: string };
 
 export type RawIssueType = { id?: string; name: string; iconUrl?: string; hierarchyLevel?: number };
@@ -87,6 +87,8 @@ export type RawSiteData = {
   issues: RawIssue[];
   remoteLinks: Record<string, RawRemoteLink[]>;
   linkTypes: RawLinkType[];
+  /** The site's priorities, most severe first; absent or empty when they couldn't be loaded. */
+  priorities?: RawPriority[];
 };
 
 /** One field change inside a changelog entry. Status changes carry status ids in from/to. */

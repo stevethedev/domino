@@ -7,7 +7,7 @@ import { getOrThrow } from "../lib/guards";
 import { errorMessage } from "./errors";
 import { combineJql } from "./jqlPresets";
 import type { JiraSource } from "./JiraSource";
-import type { RawIssue, RawLinkType, RawRemoteLink, RawSiteData } from "./jiraTypes";
+import type { RawIssue, RawLinkType, RawPriority, RawRemoteLink, RawSiteData } from "./jiraTypes";
 
 export type Scope =
   | { mode: "jql"; jql: string } // per-site: (site.baseJql) AND (jql)
@@ -33,6 +33,7 @@ type SiteState = {
   issues: Map<string, RawIssue>;
   remoteLinks: Record<string, RawRemoteLink[]>;
   linkTypes: RawLinkType[];
+  priorities: RawPriority[];
 };
 type Ref = { siteId: string; key: string };
 
@@ -72,6 +73,7 @@ class LoadRun {
   private readonly limits = new Map<string, LimitFunction>();
   private readonly errors = new Map<string, string>();
   private readonly linkTypesLoaded = new Map<string, Promise<void>>();
+  private readonly prioritiesLoaded = new Map<string, Promise<void>>();
 
   constructor(
     private readonly source: JiraSource,
@@ -82,7 +84,7 @@ class LoadRun {
     private readonly batch: number,
   ) {
     for (const site of selected) {
-      this.states.set(site.id, { site, issues: new Map(), remoteLinks: {}, linkTypes: DEFAULT_LINK_TYPES });
+      this.states.set(site.id, { site, issues: new Map(), remoteLinks: {}, linkTypes: DEFAULT_LINK_TYPES, priorities: [] });
       this.limits.set(site.id, pLimit(perSite));
     }
   }
@@ -104,7 +106,13 @@ class LoadRun {
   data(): RawSiteData[] {
     return [...this.states.values()]
       .filter((s) => s.issues.size > 0 || !this.errors.has(s.site.id))
-      .map((s) => ({ siteId: s.site.id, issues: [...s.issues.values()], remoteLinks: s.remoteLinks, linkTypes: s.linkTypes }));
+      .map((s) => ({
+        siteId: s.site.id,
+        issues: [...s.issues.values()],
+        remoteLinks: s.remoteLinks,
+        linkTypes: s.linkTypes,
+        priorities: s.priorities,
+      }));
   }
 
   errorList(): SiteError[] {
@@ -208,7 +216,7 @@ class LoadRun {
 
   private async addFull(siteId: string, issues: readonly RawIssue[]): Promise<void> {
     const st = getOrThrow(this.states, siteId);
-    await this.ensureLinkTypes(siteId);
+    await Promise.all([this.ensureLinkTypes(siteId), this.ensurePriorities(siteId)]);
     const fresh = issues.filter((i) => !st.issues.has(i.key));
     for (const i of fresh) st.issues.set(i.key, i);
     this.checkCap();
@@ -230,6 +238,20 @@ class LoadRun {
         () => undefined, // fall back to Jira's defaults
       );
       this.linkTypesLoaded.set(siteId, p);
+    }
+    return p;
+  }
+
+  private ensurePriorities(siteId: string): Promise<void> {
+    let p = this.prioritiesLoaded.get(siteId);
+    if (!p) {
+      p = this.call(siteId, () => this.source.fetchPriorities(siteId)).then(
+        (priorities) => {
+          getOrThrow(this.states, siteId).priorities = priorities;
+        },
+        () => undefined, // without the site's order, priorities still show; the filter lists them by count
+      );
+      this.prioritiesLoaded.set(siteId, p);
     }
     return p;
   }
