@@ -46,7 +46,7 @@ export function link(
   const ref = (i: RawIssue): RawLinkedIssue => ({
     id: i.id,
     key: i.key,
-    fields: { summary: i.fields.summary, status: i.fields.status, issuetype: i.fields.issuetype },
+    fields: { summary: i.fields.summary, status: i.fields.status, priority: i.fields.priority, issuetype: i.fields.issuetype },
   });
   if (loaded.out) (outward.fields.issuelinks ??= []).push({ id, type, outwardIssue: ref(inward) });
   if (loaded.in) (inward.fields.issuelinks ??= []).push({ id, type, inwardIssue: ref(outward) });

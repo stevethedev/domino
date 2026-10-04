@@ -1,5 +1,5 @@
 import type { SiteConfig } from "../config/types";
-import type { RawIssue, RawLinkedIssue, RawSiteData, RawStatus, RawVersion } from "../data/jiraTypes";
+import type { RawIssue, RawLinkedIssue, RawPriority, RawSiteData, RawStatus, RawVersion } from "../data/jiraTypes";
 import { getOrThrow } from "../lib/guards";
 import { findCycles } from "./cycles";
 import { DEFAULT_LINK_TYPES, kindOf, resolveRelationship } from "./linkTypes";
@@ -27,6 +27,9 @@ function statusCategoryOf(status: RawStatus | undefined): StatusCategory {
       return "unknown";
   }
 }
+
+/** The priority's name, if Jira sent a usable one (the JSON arrives unvalidated). */
+const priorityOf = (p: RawPriority | null | undefined): string | undefined => (typeof p?.name === "string" && p.name ? p.name : undefined);
 
 const browseUrl = (baseUrl: string, key: string): string => `${baseUrl.replace(/\/+$/, "")}/browse/${key}`;
 
@@ -79,6 +82,7 @@ function nodeFromIssue(issue: RawIssue, site: SiteConfig): GraphNode {
     issueType: f.issuetype?.name ?? "Issue",
     statusName: f.status?.name ?? "Unknown",
     statusCategory: statusCategoryOf(f.status),
+    priority: priorityOf(f.priority),
     assigneeName: f.assignee?.displayName,
     assigneeAvatarUrl: avatars?.["48x48"] ?? avatars?.["24x24"],
     assigneeAccountId: f.assignee?.accountId,
@@ -107,6 +111,7 @@ function ghostFromLinked(ref: RawLinkedIssue, site: SiteConfig): GraphNode {
     issueType: ref.fields.issuetype?.name ?? "Issue",
     statusName: ref.fields.status?.name ?? "Unknown",
     statusCategory: statusCategoryOf(ref.fields.status),
+    priority: priorityOf(ref.fields.priority),
     url: browseUrl(site.baseUrl, ref.key),
     ghost: true,
   };

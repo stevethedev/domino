@@ -1,5 +1,5 @@
 {
-  "generatedOn": "2026-10-02",
+  "generatedOn": "2026-10-04",
   "issues": [
     {
       "id": "208020",
@@ -23,6 +23,12 @@
             "colorName": "yellow"
           }
         },
+        "priority": {
+          "self": "https://partner.atlassian.net/rest/api/3/priority/3",
+          "iconUrl": "https://partner.atlassian.net/images/icons/priorities/medium_new.svg",
+          "name": "Medium",
+          "id": "3"
+        },
         "assignee": {
           "accountId": "acc-noor-haddad",
           "displayName": "Noor Haddad",
@@ -36,7 +42,7 @@
         "customfield_10016": null,
         "resolutiondate": null,
         "duedate": null,
-        "created": "2026-09-01T09:00:00.000+0000",
+        "created": "2026-09-03T09:00:00.000+0000",
         "fixVersions": [],
         "issuelinks": []
       }
@@ -63,6 +69,12 @@
             "colorName": "green"
           }
         },
+        "priority": {
+          "self": "https://partner.atlassian.net/rest/api/3/priority/3",
+          "iconUrl": "https://partner.atlassian.net/images/icons/priorities/medium_new.svg",
+          "name": "Medium",
+          "id": "3"
+        },
         "assignee": {
           "accountId": "acc-noor-haddad",
           "displayName": "Noor Haddad",
@@ -74,9 +86,9 @@
           "avatarUrls": {}
         },
         "customfield_10016": 3,
-        "resolutiondate": "2026-09-13T15:00:00.000+0000",
+        "resolutiondate": "2026-09-15T15:00:00.000+0000",
         "duedate": null,
-        "created": "2026-09-01T09:00:00.000+0000",
+        "created": "2026-09-03T09:00:00.000+0000",
         "fixVersions": [],
         "parent": {
           "id": "208020",
@@ -93,6 +105,12 @@
                 "name": "In Progress",
                 "colorName": "yellow"
               }
+            },
+            "priority": {
+              "self": "https://partner.atlassian.net/rest/api/3/priority/3",
+              "iconUrl": "https://partner.atlassian.net/images/icons/priorities/medium_new.svg",
+              "name": "Medium",
+              "id": "3"
             },
             "issuetype": {
               "id": "10000",
@@ -129,6 +147,12 @@
                     "colorName": "yellow"
                   }
                 },
+                "priority": {
+                  "self": "https://partner.atlassian.net/rest/api/3/priority/1",
+                  "iconUrl": "https://partner.atlassian.net/images/icons/priorities/highest_new.svg",
+                  "name": "Highest",
+                  "id": "1"
+                },
                 "issuetype": {
                   "id": "10001",
                   "name": "Story",
@@ -163,6 +187,12 @@
             "colorName": "yellow"
           }
         },
+        "priority": {
+          "self": "https://partner.atlassian.net/rest/api/3/priority/1",
+          "iconUrl": "https://partner.atlassian.net/images/icons/priorities/highest_new.svg",
+          "name": "Highest",
+          "id": "1"
+        },
         "assignee": {
           "accountId": "acc-tom-s-ortega",
           "displayName": "Tomás Ortega",
@@ -176,7 +206,7 @@
         "customfield_10016": 8,
         "resolutiondate": null,
         "duedate": null,
-        "created": "2026-08-30T09:00:00.000+0000",
+        "created": "2026-09-01T09:00:00.000+0000",
         "fixVersions": [
           {
             "self": "https://partner.atlassian.net/rest/api/3/version/40001",
@@ -185,7 +215,7 @@
             "name": "Partner SDK 3.0",
             "archived": false,
             "released": false,
-            "releaseDate": "2026-10-18"
+            "releaseDate": "2026-10-20"
           }
         ],
         "parent": {
@@ -203,6 +233,12 @@
                 "name": "In Progress",
                 "colorName": "yellow"
               }
+            },
+            "priority": {
+              "self": "https://partner.atlassian.net/rest/api/3/priority/3",
+              "iconUrl": "https://partner.atlassian.net/images/icons/priorities/medium_new.svg",
+              "name": "Medium",
+              "id": "3"
             },
             "issuetype": {
               "id": "10000",
@@ -239,6 +275,12 @@
                     "colorName": "green"
                   }
                 },
+                "priority": {
+                  "self": "https://partner.atlassian.net/rest/api/3/priority/3",
+                  "iconUrl": "https://partner.atlassian.net/images/icons/priorities/medium_new.svg",
+                  "name": "Medium",
+                  "id": "3"
+                },
                 "issuetype": {
                   "id": "10001",
                   "name": "Story",
@@ -274,6 +316,12 @@
                     "colorName": "blue-gray"
                   }
                 },
+                "priority": {
+                  "self": "https://partner.atlassian.net/rest/api/3/priority/3",
+                  "iconUrl": "https://partner.atlassian.net/images/icons/priorities/medium_new.svg",
+                  "name": "Medium",
+                  "id": "3"
+                },
                 "issuetype": {
                   "id": "10001",
                   "name": "Story",
@@ -308,6 +356,12 @@
             "colorName": "blue-gray"
           }
         },
+        "priority": {
+          "self": "https://partner.atlassian.net/rest/api/3/priority/3",
+          "iconUrl": "https://partner.atlassian.net/images/icons/priorities/medium_new.svg",
+          "name": "Medium",
+          "id": "3"
+        },
         "assignee": {
           "accountId": "acc-noor-haddad",
           "displayName": "Noor Haddad",
@@ -320,8 +374,8 @@
         },
         "customfield_10016": 5,
         "resolutiondate": null,
-        "duedate": "2026-10-08",
-        "created": "2026-09-23T09:00:00.000+0000",
+        "duedate": "2026-10-10",
+        "created": "2026-09-25T09:00:00.000+0000",
         "fixVersions": [
           {
             "self": "https://partner.atlassian.net/rest/api/3/version/40001",
@@ -330,7 +384,7 @@
             "name": "Partner SDK 3.0",
             "archived": false,
             "released": false,
-            "releaseDate": "2026-10-18"
+            "releaseDate": "2026-10-20"
           }
         ],
         "parent": {
@@ -348,6 +402,12 @@
                 "name": "In Progress",
                 "colorName": "yellow"
               }
+            },
+            "priority": {
+              "self": "https://partner.atlassian.net/rest/api/3/priority/3",
+              "iconUrl": "https://partner.atlassian.net/images/icons/priorities/medium_new.svg",
+              "name": "Medium",
+              "id": "3"
             },
             "issuetype": {
               "id": "10000",
@@ -384,6 +444,12 @@
                     "colorName": "yellow"
                   }
                 },
+                "priority": {
+                  "self": "https://partner.atlassian.net/rest/api/3/priority/1",
+                  "iconUrl": "https://partner.atlassian.net/images/icons/priorities/highest_new.svg",
+                  "name": "Highest",
+                  "id": "1"
+                },
                 "issuetype": {
                   "id": "10001",
                   "name": "Story",
@@ -418,6 +484,12 @@
             "colorName": "blue-gray"
           }
         },
+        "priority": {
+          "self": "https://partner.atlassian.net/rest/api/3/priority/3",
+          "iconUrl": "https://partner.atlassian.net/images/icons/priorities/medium_new.svg",
+          "name": "Medium",
+          "id": "3"
+        },
         "assignee": {
           "accountId": "acc-mei-tanaka",
           "displayName": "Mei Tanaka",
@@ -431,7 +503,7 @@
         "customfield_10016": 2,
         "resolutiondate": null,
         "duedate": null,
-        "created": "2026-09-22T09:00:00.000+0000",
+        "created": "2026-09-24T09:00:00.000+0000",
         "fixVersions": [],
         "issuelinks": [
           {
@@ -459,6 +531,12 @@
                     "name": "In Progress",
                     "colorName": "yellow"
                   }
+                },
+                "priority": {
+                  "self": "https://partner.atlassian.net/rest/api/3/priority/3",
+                  "iconUrl": "https://partner.atlassian.net/images/icons/priorities/medium_new.svg",
+                  "name": "Medium",
+                  "id": "3"
                 },
                 "issuetype": {
                   "id": "10002",
@@ -494,6 +572,12 @@
             "colorName": "yellow"
           }
         },
+        "priority": {
+          "self": "https://partner.atlassian.net/rest/api/3/priority/3",
+          "iconUrl": "https://partner.atlassian.net/images/icons/priorities/medium_new.svg",
+          "name": "Medium",
+          "id": "3"
+        },
         "assignee": {
           "accountId": "acc-tom-s-ortega",
           "displayName": "Tomás Ortega",
@@ -507,7 +591,7 @@
         "customfield_10016": 5,
         "resolutiondate": null,
         "duedate": null,
-        "created": "2026-09-18T09:00:00.000+0000",
+        "created": "2026-09-20T09:00:00.000+0000",
         "fixVersions": [
           {
             "self": "https://partner.atlassian.net/rest/api/3/version/40001",
@@ -516,7 +600,7 @@
             "name": "Partner SDK 3.0",
             "archived": false,
             "released": false,
-            "releaseDate": "2026-10-18"
+            "releaseDate": "2026-10-20"
           }
         ],
         "issuelinks": [
@@ -545,6 +629,12 @@
                     "name": "To Do",
                     "colorName": "blue-gray"
                   }
+                },
+                "priority": {
+                  "self": "https://partner.atlassian.net/rest/api/3/priority/3",
+                  "iconUrl": "https://partner.atlassian.net/images/icons/priorities/medium_new.svg",
+                  "name": "Medium",
+                  "id": "3"
                 },
                 "issuetype": {
                   "id": "10002",
@@ -581,6 +671,12 @@
                     "colorName": "yellow"
                   }
                 },
+                "priority": {
+                  "self": "https://partner.atlassian.net/rest/api/3/priority/3",
+                  "iconUrl": "https://partner.atlassian.net/images/icons/priorities/medium_new.svg",
+                  "name": "Medium",
+                  "id": "3"
+                },
                 "issuetype": {
                   "id": "10001",
                   "name": "Story",
@@ -615,6 +711,12 @@
             "colorName": "green"
           }
         },
+        "priority": {
+          "self": "https://partner.atlassian.net/rest/api/3/priority/3",
+          "iconUrl": "https://partner.atlassian.net/images/icons/priorities/medium_new.svg",
+          "name": "Medium",
+          "id": "3"
+        },
         "assignee": {
           "accountId": "acc-mei-tanaka",
           "displayName": "Mei Tanaka",
@@ -626,9 +728,9 @@
           "avatarUrls": {}
         },
         "customfield_10016": 1,
-        "resolutiondate": "2026-09-03T15:00:00.000+0000",
+        "resolutiondate": "2026-09-05T15:00:00.000+0000",
         "duedate": null,
-        "created": "2026-08-26T09:00:00.000+0000",
+        "created": "2026-08-28T09:00:00.000+0000",
         "fixVersions": [],
         "issuelinks": [
           {
@@ -656,6 +758,12 @@
                     "name": "To Do",
                     "colorName": "blue-gray"
                   }
+                },
+                "priority": {
+                  "self": "https://partner.atlassian.net/rest/api/3/priority/5",
+                  "iconUrl": "https://partner.atlassian.net/images/icons/priorities/lowest_new.svg",
+                  "name": "Lowest",
+                  "id": "5"
                 },
                 "issuetype": {
                   "id": "10002",
@@ -691,6 +799,12 @@
             "colorName": "blue-gray"
           }
         },
+        "priority": {
+          "self": "https://partner.atlassian.net/rest/api/3/priority/5",
+          "iconUrl": "https://partner.atlassian.net/images/icons/priorities/lowest_new.svg",
+          "name": "Lowest",
+          "id": "5"
+        },
         "assignee": null,
         "reporter": {
           "accountId": "acc-noor-haddad",
@@ -700,7 +814,7 @@
         "customfield_10016": 1,
         "resolutiondate": null,
         "duedate": null,
-        "created": "2026-09-22T09:00:00.000+0000",
+        "created": "2026-09-24T09:00:00.000+0000",
         "fixVersions": [],
         "issuelinks": [
           {
@@ -728,6 +842,12 @@
                     "name": "Done",
                     "colorName": "green"
                   }
+                },
+                "priority": {
+                  "self": "https://partner.atlassian.net/rest/api/3/priority/3",
+                  "iconUrl": "https://partner.atlassian.net/images/icons/priorities/medium_new.svg",
+                  "name": "Medium",
+                  "id": "3"
                 },
                 "issuetype": {
                   "id": "10002",
@@ -763,6 +883,12 @@
             "colorName": "blue-gray"
           }
         },
+        "priority": {
+          "self": "https://partner.atlassian.net/rest/api/3/priority/4",
+          "iconUrl": "https://partner.atlassian.net/images/icons/priorities/low_new.svg",
+          "name": "Low",
+          "id": "4"
+        },
         "assignee": {
           "accountId": "acc-tom-s-ortega",
           "displayName": "Tomás Ortega",
@@ -776,7 +902,7 @@
         "customfield_10016": 2,
         "resolutiondate": null,
         "duedate": null,
-        "created": "2026-09-22T09:00:00.000+0000",
+        "created": "2026-09-24T09:00:00.000+0000",
         "fixVersions": [],
         "issuelinks": [
           {
@@ -804,6 +930,12 @@
                     "name": "In Progress",
                     "colorName": "yellow"
                   }
+                },
+                "priority": {
+                  "self": "https://partner.atlassian.net/rest/api/3/priority/2",
+                  "iconUrl": "https://partner.atlassian.net/images/icons/priorities/high_new.svg",
+                  "name": "High",
+                  "id": "2"
                 },
                 "issuetype": {
                   "id": "10003",
@@ -839,6 +971,12 @@
             "colorName": "yellow"
           }
         },
+        "priority": {
+          "self": "https://partner.atlassian.net/rest/api/3/priority/2",
+          "iconUrl": "https://partner.atlassian.net/images/icons/priorities/high_new.svg",
+          "name": "High",
+          "id": "2"
+        },
         "assignee": {
           "accountId": "acc-mei-tanaka",
           "displayName": "Mei Tanaka",
@@ -852,7 +990,7 @@
         "customfield_10016": 2,
         "resolutiondate": null,
         "duedate": null,
-        "created": "2026-09-22T09:00:00.000+0000",
+        "created": "2026-09-24T09:00:00.000+0000",
         "fixVersions": [],
         "issuelinks": [
           {
@@ -880,6 +1018,12 @@
                     "name": "To Do",
                     "colorName": "blue-gray"
                   }
+                },
+                "priority": {
+                  "self": "https://partner.atlassian.net/rest/api/3/priority/4",
+                  "iconUrl": "https://partner.atlassian.net/images/icons/priorities/low_new.svg",
+                  "name": "Low",
+                  "id": "4"
                 },
                 "issuetype": {
                   "id": "10003",
@@ -915,6 +1059,12 @@
             "colorName": "yellow"
           }
         },
+        "priority": {
+          "self": "https://partner.atlassian.net/rest/api/3/priority/3",
+          "iconUrl": "https://partner.atlassian.net/images/icons/priorities/medium_new.svg",
+          "name": "Medium",
+          "id": "3"
+        },
         "assignee": {
           "accountId": "acc-noor-haddad",
           "displayName": "Noor Haddad",
@@ -928,7 +1078,7 @@
         "customfield_10016": 3,
         "resolutiondate": null,
         "duedate": null,
-        "created": "2026-09-17T09:00:00.000+0000",
+        "created": "2026-09-19T09:00:00.000+0000",
         "fixVersions": [],
         "issuelinks": [
           {
@@ -956,6 +1106,12 @@
                     "name": "In Progress",
                     "colorName": "yellow"
                   }
+                },
+                "priority": {
+                  "self": "https://partner.atlassian.net/rest/api/3/priority/3",
+                  "iconUrl": "https://partner.atlassian.net/images/icons/priorities/medium_new.svg",
+                  "name": "Medium",
+                  "id": "3"
                 },
                 "issuetype": {
                   "id": "10002",
@@ -1044,7 +1200,7 @@
     "208001": [
       {
         "id": "1",
-        "created": "2026-09-08T10:00:00.000+0000",
+        "created": "2026-09-10T10:00:00.000+0000",
         "items": [
           {
             "field": "status",
@@ -1059,7 +1215,7 @@
       },
       {
         "id": "2",
-        "created": "2026-09-13T10:00:00.000+0000",
+        "created": "2026-09-15T10:00:00.000+0000",
         "items": [
           {
             "field": "status",
@@ -1076,7 +1232,7 @@
     "208002": [
       {
         "id": "1",
-        "created": "2026-09-06T10:00:00.000+0000",
+        "created": "2026-09-08T10:00:00.000+0000",
         "items": [
           {
             "field": "status",
@@ -1093,7 +1249,7 @@
     "208004": [
       {
         "id": "1",
-        "created": "2026-09-25T10:00:00.000+0000",
+        "created": "2026-09-27T10:00:00.000+0000",
         "items": [
           {
             "field": "status",
@@ -1110,7 +1266,7 @@
     "208005": [
       {
         "id": "1",
-        "created": "2026-09-02T10:00:00.000+0000",
+        "created": "2026-09-04T10:00:00.000+0000",
         "items": [
           {
             "field": "status",
@@ -1125,7 +1281,7 @@
       },
       {
         "id": "2",
-        "created": "2026-09-03T10:00:00.000+0000",
+        "created": "2026-09-05T10:00:00.000+0000",
         "items": [
           {
             "field": "status",
@@ -1142,7 +1298,7 @@
     "208008": [
       {
         "id": "1",
-        "created": "2026-09-29T10:00:00.000+0000",
+        "created": "2026-10-01T10:00:00.000+0000",
         "items": [
           {
             "field": "status",
@@ -1159,7 +1315,7 @@
     "208010": [
       {
         "id": "1",
-        "created": "2026-09-24T10:00:00.000+0000",
+        "created": "2026-09-26T10:00:00.000+0000",
         "items": [
           {
             "field": "status",
@@ -1174,7 +1330,7 @@
       },
       {
         "id": "2",
-        "created": "2026-09-29T10:00:00.000+0000",
+        "created": "2026-10-01T10:00:00.000+0000",
         "items": [
           {
             "field": "status",
@@ -1191,7 +1347,7 @@
     "208020": [
       {
         "id": "1",
-        "created": "2026-09-08T10:00:00.000+0000",
+        "created": "2026-09-10T10:00:00.000+0000",
         "items": [
           {
             "field": "status",

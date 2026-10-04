@@ -15,6 +15,8 @@ export type GraphNode = {
   issueType: string;
   statusName: string;
   statusCategory: StatusCategory;
+  /** Jira priority name ("High"); absent when the issue has none. */
+  priority?: string;
   assigneeName?: string;
   assigneeAvatarUrl?: string;
   /** Jira account ids, for matching "assigned to me" / "reported by me" against `GET /myself`. */

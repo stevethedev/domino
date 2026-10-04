@@ -23,6 +23,7 @@ pub(crate) const FIELDS: &[&str] = &[
     "summary",
     "issuetype",
     "status",
+    "priority",
     "assignee",
     "reporter",
     "customfield_10016",

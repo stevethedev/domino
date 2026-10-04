@@ -1,8 +1,17 @@
 import type { ReactElement } from "react";
 import type { GraphNode, StatusCategory } from "../graph/types";
-import { hasIssueFilters, NO_ISSUE_FILTERS, passesIssueFilters, UNASSIGNED, type IssueFilters, type LinkFilters } from "../graph/visible";
+import {
+  hasIssueFilters,
+  NO_ISSUE_FILTERS,
+  NO_PRIORITY,
+  passesIssueFilters,
+  UNASSIGNED,
+  type IssueFilters,
+  type LinkFilters,
+} from "../graph/visible";
 import { isGroupBy, type Filters, type ViewOptions } from "./Canvas";
 import { Icon } from "./Icon";
+import { priorityRank } from "./IssueCard";
 
 const LINK_ROWS: { key: keyof LinkFilters; label: string; sample: string }[] = [
   { key: "blocks", label: "Blocks", sample: "solid" },
@@ -19,6 +28,12 @@ function tally(nodes: readonly GraphNode[], valueOf: (n: GraphNode) => string): 
   const counts = new Map<string, number>();
   for (const n of nodes) counts.set(valueOf(n), (counts.get(valueOf(n)) ?? 0) + 1);
   return [...counts].sort(([a, x], [b, y]) => y - x || a.localeCompare(b));
+}
+
+/** Priorities most severe first (then most common), with issues that have none last. */
+function byPriority(options: [string, number][]): [string, number][] {
+  const rank = (p: string): number => (p === NO_PRIORITY ? Infinity : priorityRank(p));
+  return options.sort(([a], [b]) => rank(a) - rank(b));
 }
 
 const toggled = <T,>(list: readonly T[], value: T): T[] => (list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
@@ -127,6 +142,15 @@ export function FilterPanel({
           setIssues({ hiddenAssignees });
         }}
         display={(v) => (v === UNASSIGNED ? "Unassigned" : v)}
+      />
+      <FilterMenu
+        label="Priority"
+        options={byPriority(tally(issues, (n) => n.priority ?? NO_PRIORITY))}
+        hidden={f.hiddenPriorities}
+        onHidden={(hiddenPriorities) => {
+          setIssues({ hiddenPriorities });
+        }}
+        display={(v) => (v === NO_PRIORITY ? "No priority" : v)}
       />
       {hasIssueFilters(f) && (
         <p className="hint" role="status">

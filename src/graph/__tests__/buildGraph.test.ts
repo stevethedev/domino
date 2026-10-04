@@ -161,6 +161,30 @@ describe("ghosts", () => {
     expect(g.nodes.find((n) => n.uid === "a:OPS-3")).toMatchObject({ ghost: true, statusCategory: "inprogress" });
   });
 
+  it("reads priority from loaded issues and from the issue embedded in a link (ghosts)", () => {
+    const withPriority = (key: string, name: string): RawIssue => {
+      const i = issue(key);
+      return { ...i, fields: { ...i.fields, priority: { id: "2", name } } };
+    };
+    const [loaded, outside] = [withPriority("P-1", "High"), withPriority("P-2", "Lowest")];
+    link("1", BLOCKS, loaded, outside, { out: true, in: false });
+    const g = buildGraph({ sites: [A], data: [data("a", [loaded])] });
+    expect(g.nodes.map((n) => [n.key, n.ghost, n.priority])).toEqual([
+      ["P-1", false, "High"],
+      ["P-2", true, "Lowest"],
+    ]);
+  });
+
+  it("leaves priority unset when Jira sends none, or a malformed one", () => {
+    const i = issue("P-3");
+    const raw: unknown = { name: 3 };
+    const g = buildGraph({
+      sites: [A],
+      data: [data("a", [i, { ...issue("P-4"), fields: { ...issue("P-4").fields, priority: raw as RawIssue["fields"]["priority"] } }])],
+    });
+    expect(g.nodes.map((n) => n.priority)).toEqual([undefined, undefined]);
+  });
+
   it("prefers the loaded issue over a ghost reference", () => {
     const x = issue("X-1");
     const y = issue("X-2");

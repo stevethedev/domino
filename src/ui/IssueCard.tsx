@@ -55,6 +55,40 @@ export function TypeIcon({ type }: { type: string }): ReactElement {
   );
 }
 
+type PriorityLevel = "highest" | "high" | "medium" | "low" | "lowest";
+const PRIORITY_LEVELS: readonly PriorityLevel[] = ["highest", "high", "medium", "low", "lowest"];
+/** Jira's default priority names, and the older Blocker…Trivial scheme. Custom names have no level. */
+const PRIORITY_LEVEL: Partial<Record<string, PriorityLevel>> = {
+  highest: "highest",
+  blocker: "highest",
+  critical: "highest",
+  high: "high",
+  major: "high",
+  medium: "medium",
+  low: "low",
+  minor: "low",
+  lowest: "lowest",
+  trivial: "lowest",
+};
+const PRIORITY_GLYPH: Record<PriorityLevel, string> = { highest: "⇈", high: "↑", medium: "=", low: "↓", lowest: "⇊" };
+
+const priorityLevel = (priority: string): PriorityLevel | undefined => PRIORITY_LEVEL[priority.toLowerCase()];
+
+/** Most to least severe; custom priorities (no known level) sort after the known ones. */
+export function priorityRank(priority: string): number {
+  const level = priorityLevel(priority);
+  return level ? PRIORITY_LEVELS.indexOf(level) : PRIORITY_LEVELS.length;
+}
+
+export function PriorityIcon({ priority }: { priority: string }): ReactElement {
+  const level = priorityLevel(priority);
+  return (
+    <span className={`priority-icon priority-${level ?? "other"}`} title={`Priority: ${priority}`} aria-hidden="true">
+      {level ? PRIORITY_GLYPH[level] : priority.charAt(0).toUpperCase()}
+    </span>
+  );
+}
+
 function firstName(name?: string): string {
   return name?.split(/\s+/)[0] ?? "Unassigned";
 }
@@ -242,6 +276,7 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
     n.key,
     n.summary,
     `status ${n.statusName}`,
+    n.priority ? `priority ${n.priority}` : null,
     showSite || n.ghost ? `site ${n.siteLabel}` : null,
     openBlockers ? `${openBlockers} open blocker${openBlockers === 1 ? "" : "s"}` : null,
     n.ghost ? "outside scope" : null,
@@ -305,6 +340,7 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
           <div className="card-row1">
             <TypeIcon type={n.issueType} />
             <span className="card-key">{n.key}</span>
+            {n.priority && <PriorityIcon priority={n.priority} />}
             <span className={`pill pill-${status}`}>{statusText}</span>
             {(showSite || n.ghost) && (
               <span className="site-badge" style={{ "--site": n.siteColor ?? "#6b7280" }} title={`Site: ${n.siteLabel}`}>

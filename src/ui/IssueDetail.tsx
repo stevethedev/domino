@@ -3,7 +3,7 @@ import type { Aging } from "../graph/aging";
 import type { ChangeKind } from "../graph/changes";
 import type { Day, StatusChange } from "../graph/schedule";
 import type { Graph, GraphEdge, GraphNode, Release, StatusCategory } from "../graph/types";
-import { AgingBadge, ChangeTag, ISSUE_DETAIL_ID, TypeIcon } from "./IssueCard";
+import { AgingBadge, ChangeTag, ISSUE_DETAIL_ID, PriorityIcon, TypeIcon } from "./IssueCard";
 import { fmtDay } from "./format";
 import { Icon } from "./Icon";
 
@@ -118,6 +118,14 @@ export function IssueDetail({
   const epic = n.epic && n.epic.uid !== n.uid ? nodes.get(n.epic.uid) : undefined;
   const facts: [string, ReactElement | string][] = [];
   if (!n.ghost) facts.push(["Assignee", n.assigneeName ?? "Unassigned"]);
+  if (n.priority) {
+    facts.push([
+      "Priority",
+      <>
+        <PriorityIcon priority={n.priority} /> {n.priority}
+      </>,
+    ]);
+  }
   if (n.storyPoints !== undefined) facts.push(["Estimate", `${n.storyPoints} pts`]);
   if (n.epic && n.epic.uid !== n.uid) {
     facts.push([

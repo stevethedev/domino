@@ -198,6 +198,22 @@ const FIX_VERSIONS = {
   partner: { "PAY-2": ["sdk-3.0"], "PAY-3": ["sdk-3.0"], "PAY-4": ["sdk-3.0"] },
 };
 
+// Jira priorities; anything not listed is Medium. WEB-5 has none, as on projects that leave it unset.
+const PRIORITIES = { Highest: "1", High: "2", Medium: "3", Low: "4", Lowest: "5" };
+const PRIORITY = {
+  acme: {
+    "CORE-7": "High",
+    "CORE-10": "Highest",
+    "CORE-11": "High",
+    "CORE-13": "Low",
+    "CORE-15": "High",
+    "WEB-3": "Highest",
+    "WEB-5": null,
+    "OPS-3": "High",
+  },
+  partner: { "PAY-2": "Highest", "PAY-6": "Lowest", "PAY-7": "Low", "PAY-8": "High" },
+};
+
 const GENERATED_ON = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate()));
 const at = (offsetDays, hour = 15) => new Date(GENERATED_ON.getTime() + offsetDays * 86_400_000 + hour * 3_600_000);
 const jiraDateTime = (d) => d.toISOString().replace("Z", "+0000");
@@ -222,6 +238,18 @@ function statusObj(name) {
   return { name, id: String(1000 + Object.keys(STATUS).indexOf(name)), statusCategory: cat };
 }
 
+function priorityObj(site, key) {
+  const name = PRIORITY[site][key] === undefined ? "Medium" : PRIORITY[site][key];
+  if (!name) return null;
+  const id = PRIORITIES[name];
+  return {
+    self: `${SITES[site]}/rest/api/3/priority/${id}`,
+    iconUrl: `${SITES[site]}/images/icons/priorities/${name.toLowerCase()}_new.svg`,
+    name,
+    id,
+  };
+}
+
 function issueTypeObj(name) {
   return { id: ISSUE_TYPES[name], name, subtask: name === "Sub-task", hierarchyLevel: HIERARCHY[name] ?? 0 };
 }
@@ -244,7 +272,7 @@ function linkedIssueRef(site, row) {
     id: issueId(site, key),
     key,
     self: `${SITES[site]}/rest/api/3/issue/${issueId(site, key)}`,
-    fields: { summary, status: statusObj(status), issuetype: issueTypeObj(type) },
+    fields: { summary, status: statusObj(status), priority: priorityObj(site, key), issuetype: issueTypeObj(type) },
   };
 }
 
@@ -260,6 +288,7 @@ function build(site) {
         summary,
         issuetype: issueTypeObj(type),
         status: statusObj(status),
+        priority: priorityObj(site, key),
         assignee: assignee ? user(assignee) : null,
         reporter: user(REPORTED_BY[site][key] ?? DEFAULT_REPORTER[site]),
         customfield_10016: points,

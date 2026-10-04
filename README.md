@@ -71,7 +71,7 @@ Settings writes `domino.config.json` in the OS app-config folder (`~/Library/App
 
 ![Grouped by epic, with one epic folded into a summary card](docs/images/folded-epics.png)
 
-**Filtering.** **Display** hides tickets by status, type or assignee without reloading, picks which links to draw, and can **Hide implied links** (A&rarr;C when A&rarr;B&rarr;C is drawn).
+**Filtering.** **Display** hides tickets by status, type, assignee or priority without reloading, picks which links to draw, and can **Hide implied links** (A&rarr;C when A&rarr;B&rarr;C is drawn).
 
 **Sharing:**
 

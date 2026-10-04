@@ -53,6 +53,7 @@ function parseIssueFilters(raw: unknown): IssueFilters {
     hiddenCategories: strings(r.hiddenCategories).filter(isCategory),
     hiddenTypes: strings(r.hiddenTypes),
     hiddenAssignees: strings(r.hiddenAssignees),
+    hiddenPriorities: strings(r.hiddenPriorities),
   };
 }
 
