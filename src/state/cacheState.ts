@@ -53,12 +53,12 @@ function keepSites(shown: Shown | null, keep: (siteId: string) => boolean): Show
  * address or account, are dropped. Null when nothing is left (or there was nothing to show).
  * Unchanged input comes back as the same object.
  */
-export const pruneShown = (shown: Shown | null, config: DominoConfig): Shown | null =>
-  keepSites(
-    shown,
-    (siteId) =>
-      shown !== null && Object.hasOwn(shown.fingerprints, siteId) && shown.fingerprints[siteId] === siteFingerprint(config, siteId),
-  );
+export function pruneShown(shown: Shown | null, config: DominoConfig): Shown | null {
+  if (!shown) return null;
+  const fitFor = (siteId: string): boolean =>
+    Object.hasOwn(shown.fingerprints, siteId) && shown.fingerprints[siteId] === siteFingerprint(config, siteId);
+  return keepSites(shown, fitFor);
+}
 
 /**
  * `shown` without the sites `isStale` matches: after a token or sign-in change their tickets may
