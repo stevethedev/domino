@@ -89,6 +89,7 @@ export function Canvas({
   onTraverse,
   linkPreview,
   scopeKey,
+  stale,
 }: {
   graph: Graph;
   insights: Insights;
@@ -107,6 +108,8 @@ export function Canvas({
   linkPreview: LinkPreview;
   /** The scope the graph belongs to: the view fits again when it changes. */
   scopeKey: string | null;
+  /** Another scope is loading: this graph is the previous one, shown faded and not interactive. */
+  stale: boolean;
 }): ReactElement {
   const rf = useReactFlow();
   const [hovered, setHovered] = useState<string | null>(null);
@@ -218,6 +221,7 @@ export function Canvas({
             onTraverse,
             preview: previewOf(linkPreview, n.uid),
             onExpand: n.rollup ? toggleEpic(n.rollup.epicUid) : undefined,
+            stale,
           },
           draggable: false,
           focusable: false, // the card itself is the tab stop
@@ -239,6 +243,7 @@ export function Canvas({
     onSelect,
     onTraverse,
     linkPreview,
+    stale,
   ]);
 
   const flowEdges = useMemo<LinkFlowEdge[]>(() => {
@@ -328,20 +333,29 @@ export function Canvas({
         edgesFocusable={false}
         minZoom={0.1}
         maxZoom={2}
+        // The previous scope's graph, while another loads: a picture, not something to work with.
+        panOnDrag={!stale}
+        zoomOnScroll={!stale}
+        zoomOnPinch={!stale}
+        zoomOnDoubleClick={!stale}
       >
         <Background gap={24} size={1} />
-        <Panel position="top-right">
-          <ExportMenu name="graph" capture={exportGraph} />
-        </Panel>
-        <Controls showInteractive={false} position="bottom-left" />
-        <MiniMap<FlowNode>
-          pannable
-          style={{ width: 170, height: 110 }}
-          zoomable
-          ariaLabel="Minimap, tinted by site"
-          nodeColor={(n) => (n.type === "issue" ? (n.data.node.siteColor ?? "#9ca3af") : "transparent")}
-          nodeStrokeColor={(n) => (n.type === "siteGroup" ? (n.data.color ?? "#9ca3af") : "transparent")}
-        />
+        {!stale && (
+          <>
+            <Panel position="top-right">
+              <ExportMenu name="graph" capture={exportGraph} />
+            </Panel>
+            <Controls showInteractive={false} position="bottom-left" />
+            <MiniMap<FlowNode>
+              pannable
+              style={{ width: 170, height: 110 }}
+              zoomable
+              ariaLabel="Minimap, tinted by site"
+              nodeColor={(n) => (n.type === "issue" ? (n.data.node.siteColor ?? "#9ca3af") : "transparent")}
+              nodeStrokeColor={(n) => (n.type === "siteGroup" ? (n.data.color ?? "#9ca3af") : "transparent")}
+            />
+          </>
+        )}
       </ReactFlow>
     </>
   );

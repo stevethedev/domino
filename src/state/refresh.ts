@@ -70,3 +70,36 @@ export function updatedAgo(lastUpdated: number, now: number): string {
   if (minutes < 60) return `${minutes}m ago`;
   return `at ${new Date(lastUpdated).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
 }
+
+export type FreshnessInput = Readonly<{
+  lastUpdated: number | null;
+  refreshing: boolean;
+  error: string | null;
+  lagging: readonly LaggingSite[];
+  /** A foreground load is running while this scope's tickets are on screen. */
+  updating: boolean;
+  /** When the oldest data on screen was fetched (epoch ms). */
+  shownAt: number | null;
+}>;
+
+/** The freshness line in the At a glance summary; `warn` lines explain why data is older than it seems. */
+export function freshnessOf(
+  f: FreshnessInput,
+  labelOf: (siteId: string) => string,
+  now: number,
+): Readonly<{ text: string; warn: boolean }> | null {
+  if (f.updating) {
+    // Only worth saying how old the tickets on screen are once they're more than a moment old.
+    const from = f.shownAt !== null && now - f.shownAt >= 60_000 ? `from ${ageText(f.shownAt, now)}, ` : "";
+    return { text: `${from}updating…`, warn: false };
+  }
+  if (f.refreshing) return { text: "refreshing…", warn: false };
+  if (f.error) return { text: f.error, warn: true };
+  if (f.lagging.length > 0) return { text: laggingText(f.lagging, labelOf, now), warn: true };
+  if (f.lastUpdated !== null) return { text: `updated ${updatedAgo(f.lastUpdated, now)}`, warn: false };
+  return f.shownAt !== null ? { text: `from ${ageText(f.shownAt, now)}`, warn: false } : null;
+}
+
+/** "Couldn't update (timeout); showing tickets from 2h ago." */
+export const failureText = (message: string, shownAt: number | null, now: number): string =>
+  `Couldn't update (${message}); showing tickets from ${shownAt === null ? "before" : ageText(shownAt, now)}.`;

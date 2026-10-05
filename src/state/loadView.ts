@@ -41,6 +41,12 @@ export const withSiteDone = (progress: SiteProgress, siteId: string, outcome: Si
 export type LoadView = Readonly<{
   shown: Shown | null;
   mode: "empty" | "current" | "other";
+  /**
+   * The previous scope's tickets stand in for a scope being loaded (or that failed to load): fade
+   * them and keep them out of reach. Not set for the moment between asking for a scope and its
+   * load starting, so switching to a remembered scope doesn't flash the old one faded.
+   */
+  stale: boolean;
   busy: boolean;
   progress: SiteProgress | null;
   /** Why the last load failed, while something else stays on screen. */
@@ -53,6 +59,7 @@ export function loadViewOf(load: LoadState, requestedScopeKey: string | null): L
   return {
     shown,
     mode,
+    stale: mode === "other" && load.status !== "done",
     busy: load.status === "loading",
     progress: load.status === "loading" ? load.progress : null,
     failure: load.status === "failed" && shown ? load.message : null,

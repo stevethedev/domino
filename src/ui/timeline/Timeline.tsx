@@ -52,6 +52,8 @@ export function Timeline({
   onSelect,
   onTraverse,
   linkPreview,
+  busy,
+  stale,
 }: {
   graph: Graph;
   insights: Insights;
@@ -70,6 +72,10 @@ export function Timeline({
   onTraverse: (uid: string, move: Move) => boolean;
   /** Where the focused row's ← and → would go. */
   linkPreview: LinkPreview;
+  /** A load is running: an empty timeline is waiting for tickets, not empty (App shows the loading message). */
+  busy: boolean;
+  /** Another scope is loading: these rows are the previous scope's, out of reach. */
+  stale: boolean;
 }): ReactElement {
   const [hovered, setHovered] = useState<string | null>(null);
   const setSettings = (patch: Partial<EstimateSettings>): void => {
@@ -365,6 +371,7 @@ export function Timeline({
                       change: insights.changed.get(item.node.uid)?.[0],
                       preview: previewOf(linkPreview, item.node.uid),
                       missedReleases: missedReleases.get(item.node.uid),
+                      stale,
                     }}
                     selected={item.node.uid === selectedUid}
                     onSelect={onSelect}
@@ -377,7 +384,7 @@ export function Timeline({
             </div>
           </div>
         </div>
-      ) : (
+      ) : busy ? null : (
         <div className="canvas-message" role="status">
           Nothing to schedule in this scope.
         </div>

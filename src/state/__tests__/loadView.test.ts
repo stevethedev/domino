@@ -22,11 +22,22 @@ const progress = pendingProgress([site("a"), site("b")]);
 
 describe("loadViewOf", () => {
   const cases: [string, LoadState, Partial<ReturnType<typeof loadViewOf>>][] = [
-    ["idle", { status: "idle" }, { mode: "empty", busy: false, failure: null }],
+    ["idle", { status: "idle" }, { mode: "empty", stale: false, busy: false, failure: null }],
     ["first load", { status: "loading", scopeKey: "s", shown: null, progress }, { mode: "empty", busy: true, progress }],
     ["cached scope updating", { status: "loading", scopeKey: "s", shown: shown("s"), progress }, { mode: "current", busy: true }],
-    ["previous scope while loading", { status: "loading", scopeKey: "s", shown: shown("old"), progress }, { mode: "other", busy: true }],
-    ["done", { status: "done", ...shown("s") }, { mode: "current", busy: false, progress: null }],
+    [
+      "previous scope while loading",
+      { status: "loading", scopeKey: "s", shown: shown("old"), progress },
+      { mode: "other", stale: true, busy: true },
+    ],
+    [
+      "previous scope after a failed load",
+      { status: "failed", scopeKey: "s", message: "boom", shown: shown("old") },
+      { mode: "other", stale: true },
+    ],
+    // Asked for a new scope, its load not started yet: not faded (it may come from memory at once).
+    ["previous scope before its load starts", { status: "done", ...shown("old") }, { mode: "other", stale: false, busy: false }],
+    ["done", { status: "done", ...shown("s") }, { mode: "current", stale: false, busy: false, progress: null }],
     [
       "failed with tickets kept",
       { status: "failed", scopeKey: "s", message: "boom", shown: shown("s") },

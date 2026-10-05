@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { LoadResult } from "../../data/MultiSiteLoader";
 import { issue } from "../../graph/__tests__/helpers";
 import type { RawSiteData } from "../../data/jiraTypes";
-import { ageText, laggingText, mergeBySite, nextRefreshDelay, parseRefreshMinutes, updatedAgo } from "../refresh";
+import { ageText, failureText, freshnessOf, laggingText, mergeBySite, nextRefreshDelay, parseRefreshMinutes, updatedAgo } from "../refresh";
 
 const ok = (keys: string[], errors: LoadResult["errors"] = []): LoadResult => ({
   kind: "ok",
@@ -113,5 +113,43 @@ describe("updatedAgo", () => {
     expect(updatedAgo(0, 59_000)).toBe("just now");
     expect(updatedAgo(0, 12 * 60_000 + 5)).toBe("12m ago");
     expect(updatedAgo(0, 2 * 3_600_000)).toMatch(/^at \d/);
+  });
+});
+
+describe("freshnessOf", () => {
+  const MIN = 60_000;
+  const base = { lastUpdated: null, refreshing: false, error: null, lagging: [], updating: false, shownAt: null } as const;
+  const labelOf = (id: string): string => id.toUpperCase();
+  const text = (f: Partial<Parameters<typeof freshnessOf>[0]>, now = 0): string | undefined =>
+    freshnessOf({ ...base, ...f }, labelOf, now)?.text;
+
+  it("says how old the tickets are while they update, once they're more than a moment old", () => {
+    expect(text({ updating: true, shownAt: 0 }, 2 * 60 * MIN)).toBe("from 2h ago, updating…");
+    expect(text({ updating: true, shownAt: 0 }, 30_000)).toBe("updating…");
+    expect(text({ updating: true })).toBe("updating…");
+  });
+
+  it("warns about refresh errors and lagging sites", () => {
+    expect(freshnessOf({ ...base, error: "Refresh failed: 500" }, labelOf, 0)).toEqual({ text: "Refresh failed: 500", warn: true });
+    expect(freshnessOf({ ...base, lagging: [{ siteId: "b", takenAt: 0 }] }, labelOf, 5 * MIN)).toEqual({
+      text: "Couldn't update B; showing its tickets from 5m ago.",
+      warn: true,
+    });
+  });
+
+  it("dates confirmed data by its last update, and cached data by when it was fetched", () => {
+    expect(text({ lastUpdated: 0 }, 12 * MIN)).toBe("updated 12m ago");
+    expect(text({ shownAt: 0 }, 3 * 60 * MIN)).toBe("from 3h ago");
+    expect(text({})).toBeUndefined();
+  });
+
+  it("says refreshing during a background refresh", () => {
+    expect(text({ refreshing: true, lastUpdated: 0 })).toBe("refreshing…");
+  });
+});
+
+describe("failureText", () => {
+  it("names the error and how old the tickets kept on screen are", () => {
+    expect(failureText("timeout", 0, 2 * 3_600_000)).toBe("Couldn't update (timeout); showing tickets from 2h ago.");
   });
 });
