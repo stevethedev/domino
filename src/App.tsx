@@ -7,10 +7,11 @@ import { myIssues } from "./graph/mine";
 import { lastDayOf, releaseStatuses } from "./graph/releases";
 import { linkPreview, step, type LinkPreview, type Move, type Trail, type TraverseLayout } from "./graph/traverse";
 import { hasIssueFilters, NO_ISSUE_FILTERS, passesIssueFilters, visibleSubgraph } from "./graph/visible";
-import { configStore, jiraSource, notify, openExternal } from "./platform";
+import { configStore, jiraSource, notify, openExternal, ticketCache } from "./platform";
 import { DEFAULT_REFRESH_MINUTES, parseRefreshMinutes, REFRESH_MINUTES_KEY } from "./state/refresh";
 import { useAutoRefresh } from "./state/useAutoRefresh";
 import { useDomino } from "./state/useDomino";
+import { loadViewOf } from "./state/loadView";
 import { useMyself } from "./state/useMyself";
 import { useUnblockedNotifications } from "./state/useUnblockedNotifications";
 import { DEFAULT_ESTIMATE_SETTINGS, ESTIMATE_SETTINGS_KEY, parseEstimateSettings } from "./state/estimateSettings";
@@ -108,7 +109,7 @@ export function App(): ReactElement {
 }
 
 function Shell(): ReactElement {
-  const domino = useDomino(configStore, jiraSource);
+  const domino = useDomino(configStore, jiraSource, ticketCache);
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [view, setView] = useState(DEFAULT_VIEW);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -125,15 +126,29 @@ function Shell(): ReactElement {
     setCollapsedLaneIds([...next].slice(-MAX_COLLAPSED_LANES));
   };
   const [refreshMinutes, setRefreshMinutes] = usePersistentState(REFRESH_MINUTES_KEY, parseRefreshMinutes, DEFAULT_REFRESH_MINUTES);
-  useAutoRefresh(domino.refresh, refreshMinutes * 60_000, domino.background.lastUpdated);
+  // Paced from the last attempt too: after a failed update the next one isn't due right away.
+  const { lastUpdated, lastAttempt } = domino.background;
+  useAutoRefresh(
+    domino.refresh,
+    refreshMinutes * 60_000,
+    lastUpdated === null && lastAttempt === null ? null : Math.max(lastUpdated ?? 0, lastAttempt ?? 0),
+  );
   const [notifyUnblocked, setNotifyUnblocked] = usePersistentState(NOTIFY_UNBLOCKED_KEY, parseBool, false);
   const [autoUpdateCheck, setAutoUpdateCheck] = usePersistentState(AUTO_UPDATE_CHECK_KEY, parseBool, true);
   // Dev builds don't check on their own (Check now still works).
   const updates = useAppUpdate(autoUpdateCheck && !import.meta.env.DEV);
   const { config, load, graph } = domino;
-  // Status history feeds aging in both views and the Timeline; one bulk request per site per load.
-  const loadedScopeKey = load.status === "done" ? load.scopeKey : null;
-  const history = useStatusHistory(jiraSource, graph, true, loadedScopeKey);
+  // "Since you last looked" is tracked per scope: the selected sites plus the query or mode.
+  const scopeKey = useMemo(
+    () => (domino.selectedSites.length ? scopeKeyOf(domino.selectedSites, domino.scope) : null),
+    [domino.selectedSites, domino.scope],
+  );
+  // What's on screen: this scope (possibly cached, updating), the previous one while loading, or nothing.
+  const loadView = loadViewOf(load, scopeKey);
+  const shownScopeKey = loadView.shown?.scopeKey ?? null;
+  // Status history feeds aging in both views and the Timeline; one bulk request per site per load,
+  // made once the load is done (not for cached tickets about to be replaced).
+  const history = useStatusHistory(jiraSource, graph, load.status !== "loading", shownScopeKey);
   const [estimates, setEstimates] = usePersistentState(ESTIMATE_SETTINGS_KEY, parseEstimateSettings, DEFAULT_ESTIMATE_SETTINGS);
   // The schedule forecast (shared with the timeline) says which releases' work runs late.
   const forecast = useForecast(graph, history, estimates);
@@ -149,14 +164,9 @@ function Shell(): ReactElement {
       ),
     [graph, history, estimates.daysPerPoint, estimates.defaultDays],
   );
-  // "Since you last looked" is tracked per scope: the selected sites plus the query or mode.
-  const scopeKey = useMemo(
-    () => (domino.selectedSites.length ? scopeKeyOf(domino.selectedSites, domino.scope) : null),
-    [domino.selectedSites, domino.scope],
-  );
-  const loaded = load.status === "done" && load.result.kind === "ok";
-  // Only compare once the loaded result belongs to the current scope (not the previous one mid-switch).
-  const loadedThisScope = loaded && load.scopeKey === scopeKey;
+  const loaded = loadView.shown?.result.kind === "ok";
+  // Only compare once the tickets shown belong to the current scope (not the previous one mid-switch).
+  const loadedThisScope = loaded && loadView.mode === "current";
   const { changes, markSeen } = useChanges(scopeKey, graph, baseInsights, loadedThisScope, history.status === "done");
   const myself = useMyself(jiraSource, domino.selectedSites, config?.backend ?? "none", domino.background.lastUpdated);
   const mine = useMemo(() => myIssues(graph.nodes, myself.me), [graph.nodes, myself.me]);
@@ -164,7 +174,9 @@ function Shell(): ReactElement {
     () => ({ ...baseInsights, changed: changes?.byIssue ?? new Map(), mine }),
     [baseInsights, changes, mine],
   );
-  useUnblockedNotifications(notifyUnblocked, loadedScopeKey, graph, insights.blocked, mine.assigned, notify);
+  // Only loads confirmed this session: cached tickets from days ago mustn't announce old unblocks.
+  const confirmedScopeKey = load.status === "done" && load.origin === "network" ? load.scopeKey : null;
+  useUnblockedNotifications(notifyUnblocked, confirmedScopeKey, graph, insights.blocked, mine.assigned, notify);
   /** Highlight from a tile group: `scope` says whose issues it covers. Clicking the active tile again clears it. */
   const highlightFor = (scope: HighlightScope): Highlight => (view.highlightScope === scope ? view.highlight : "none");
   const setHighlight =
@@ -247,11 +259,11 @@ function Shell(): ReactElement {
     // the scope comes back. (The requested scope, not the loaded one, which lags behind.)
     if (scopeKey !== foldAllOnLoad) {
       setFoldAllOnLoad(null);
-    } else if (loadedScopeKey === foldAllOnLoad) {
+    } else if (loadedThisScope && scopeKey === foldAllOnLoad) {
       setFoldAllOnLoad(null);
       setCollapsedLanes(withEpicFolds(collapsedLanes, epicUids));
     }
-  }, [foldAllOnLoad, scopeKey, loadedScopeKey, epicUids]);
+  }, [foldAllOnLoad, scopeKey, loadedThisScope, epicUids]);
   const toggleLane = (laneId: string): void => {
     const next = new Set(collapsedLanes);
     if (!next.delete(laneId)) next.add(laneId);
@@ -589,7 +601,7 @@ function Shell(): ReactElement {
               onSelect={selectIssue}
               onTraverse={onTraverse}
               linkPreview={preview}
-              scopeKey={loadedScopeKey}
+              scopeKey={shownScopeKey}
             />
           ) : (
             <Suspense fallback={<div className="canvas-message">Loading timeline…</div>}>
