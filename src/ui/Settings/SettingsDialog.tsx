@@ -7,6 +7,7 @@ import { AutoRefreshField } from "../Refresh";
 import type { AppUpdate } from "../../state/useAppUpdate";
 import { AppUpdatesSection } from "./AppUpdatesSection";
 import { BackendSection } from "./BackendSection";
+import { CachedTicketsSection } from "./CachedTicketsSection";
 import { blankSite, SiteForm, type SiteFormResult } from "./SiteForm";
 import { SiteRow } from "./SiteRow";
 import { Icon } from "../Icon";
@@ -126,6 +127,7 @@ export function SettingsDialog({
         notifyUnblocked={notifyUnblocked}
         onNotifyUnblocked={onNotifyUnblocked}
       />
+      <CachedTicketsSection onClear={domino.clearCache} />
       <AppUpdatesSection updates={updates} autoCheck={autoUpdateCheck} onAutoCheck={onAutoUpdateCheck} />
       <div className="section-row">
         <h3 className="section-h">Sites</h3>
