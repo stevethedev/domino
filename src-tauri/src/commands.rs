@@ -85,7 +85,7 @@ pub(crate) async fn cache_put(state: State<'_, AppState>, entry: PutEntry) -> Re
 #[tauri::command]
 pub(crate) async fn cache_clear(state: State<'_, AppState>) -> Result<(), String> {
     let cache = Arc::clone(&state.cache);
-    tauri::async_runtime::spawn_blocking(move || cache.clear()).await.map_err(|e| format!("Could not clear the ticket cache: {e}"))
+    tauri::async_runtime::spawn_blocking(move || cache.clear()).await.map_err(|e| format!("Could not clear the ticket cache: {e}"))?
 }
 
 /// Forgets the cached tickets of OAuth sites: signing in or out can switch the Atlassian account.

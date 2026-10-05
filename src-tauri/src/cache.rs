@@ -217,16 +217,21 @@ impl TicketCache {
         }
     }
 
-    /// Generates and stores a new key; existing files (sealed with any other key) are deleted.
-    fn rotate_key(&self) -> KeyState {
+    /// Deletes every file and stores a new key. If the keychain won't take the new key, the old
+    /// one is removed instead (a new one is made next launch), so nothing sealed with it stays
+    /// readable; the cache is disabled until then. Errs only when even that removal fails.
+    fn rotate_key(&self) -> Result<KeyState, String> {
         self.delete_all();
         let stored = new_key()
             .and_then(|(bytes, key)| self.secrets.set(KEY_REF, &base64::engine::general_purpose::STANDARD.encode(bytes)).map(|()| key));
         match stored {
-            Ok(key) => KeyState::Ready(Box::new(key)),
+            Ok(key) => Ok(KeyState::Ready(Box::new(key))),
             Err(e) => {
                 log::warn!("ticket cache disabled: {e}");
-                KeyState::Disabled
+                self.secrets
+                    .set(KEY_REF, "")
+                    .map(|()| KeyState::Disabled)
+                    .map_err(|removal| format!("{e}; the old key couldn't be removed either: {removal}"))
             }
         }
     }
@@ -234,11 +239,17 @@ impl TicketCache {
     /// The key, read from the keychain (or created) on first use.
     fn key<'a>(&self, state: &'a mut Option<KeyState>) -> Option<&'a LessSafeKey> {
         let resolved = state.get_or_insert_with(|| {
+            let rotate = || {
+                self.rotate_key().unwrap_or_else(|e| {
+                    log::warn!("ticket cache: {e}");
+                    KeyState::Disabled
+                })
+            };
             if !self.secrets.is_set(KEY_REF) {
-                return self.rotate_key();
+                return rotate();
             }
             match self.secrets.get(KEY_REF) {
-                Ok(text) => key_from_base64(&text).map_or_else(|| self.rotate_key(), |key| KeyState::Ready(Box::new(key))),
+                Ok(text) => key_from_base64(&text).map_or_else(rotate, |key| KeyState::Ready(Box::new(key))),
                 Err(e) => {
                     // Files sealed with a key we can't read are useless; don't leave them behind.
                     log::warn!("ticket cache disabled: {e}");
@@ -334,10 +345,17 @@ impl TicketCache {
     }
 
     /// Deletes every cached scope and replaces the key, so copies of old files can't be read.
-    pub(crate) fn clear(&self) {
+    /// Errs when the old key may still be readable (the keychain would neither replace nor remove it).
+    pub(crate) fn clear(&self) -> Result<(), String> {
         let mut state = self.lock();
         self.invalidated_at.store(epoch_ms(SystemTime::now()), Ordering::SeqCst);
-        *state = Some(self.rotate_key());
+        let (key, result) = match self.rotate_key() {
+            Ok(key) => (key, Ok(())),
+            Err(e) => (KeyState::Disabled, Err(format!("the cache key couldn't be replaced (the cached tickets were deleted): {e}"))),
+        };
+        *state = Some(key);
+        drop(state);
+        result
     }
 
     /// Drops the cached data of every site `stale` matches, wherever it's cached.
@@ -531,7 +549,7 @@ mod tests {
         let f = fixture();
         f.cache.put(entry(&cfg, "s", vec![put_site(&cfg, "acme", ms(now()), "x")]), &cfg, now()).unwrap();
         let copy = fs::read(f.path.join(file_name("s"))).unwrap();
-        f.cache.clear();
+        f.cache.clear().unwrap();
         fs::create_dir_all(&f.path).unwrap();
         fs::write(f.path.join(file_name("s")), copy).unwrap();
         assert!(f.cache.get("s", &cfg, now()).is_none());
@@ -583,7 +601,7 @@ mod tests {
         let cfg = config();
         f.cache.put(entry(&cfg, "s", vec![put_site(&cfg, "acme", ms(now()), "x")]), &cfg, now()).unwrap();
         let key_before = f.secrets.get(KEY_REF).unwrap();
-        f.cache.clear();
+        f.cache.clear().unwrap();
         assert!(cache_files(&f).is_empty());
         assert_ne!(f.secrets.get(KEY_REF).unwrap(), key_before);
         assert!(f.cache.get("s", &cfg, now()).is_none());
@@ -723,7 +741,7 @@ mod tests {
         let f = fixture();
         let cfg = config();
         let before = ms(now() - Duration::from_secs(5));
-        f.cache.clear();
+        f.cache.clear().unwrap();
         f.cache.put(entry(&cfg, "s", vec![put_site(&cfg, "acme", before, "a")]), &cfg, now()).unwrap();
         assert!(f.cache.get("s", &cfg, now()).is_none(), "cleared tickets came back");
         let after = ms(now() + Duration::from_secs(5));
@@ -733,6 +751,67 @@ mod tests {
         f.cache.forget_sites(|id| id == "partner");
         f.cache.put(entry(&cfg, "t", vec![put_site(&cfg, "partner", before, "p")]), &cfg, now()).unwrap();
         assert!(f.cache.get("t", &cfg, now()).is_none(), "purged tickets came back");
+    }
+
+    /// A keychain that has a key but refuses to store new values; it can delete when `allow_delete`.
+    struct WriteFailingSecrets {
+        inner: MemorySecrets,
+        allow_delete: bool,
+    }
+
+    impl WriteFailingSecrets {
+        fn with_key(allow_delete: bool) -> Self {
+            let inner = MemorySecrets::default();
+            let (bytes, _) = new_key().unwrap();
+            inner.set(KEY_REF, &base64::engine::general_purpose::STANDARD.encode(bytes)).unwrap();
+            Self { inner, allow_delete }
+        }
+    }
+
+    impl SecretStore for WriteFailingSecrets {
+        fn get(&self, name: &str) -> Result<String, String> {
+            self.inner.get(name)
+        }
+        fn set(&self, name: &str, value: &str) -> Result<(), String> {
+            if value.is_empty() && self.allow_delete {
+                return self.inner.set(name, value);
+            }
+            Err("Keychain is read-only".into())
+        }
+        fn is_set(&self, name: &str) -> bool {
+            self.inner.get(name).is_ok()
+        }
+    }
+
+    fn cache_with(secrets: Arc<WriteFailingSecrets>) -> (tempfile::TempDir, PathBuf, TicketCache) {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("ticket-cache");
+        let cache = TicketCache::new(path.clone(), secrets as Arc<dyn SecretStore>);
+        (dir, path, cache)
+    }
+
+    #[test]
+    fn clear_deletes_the_old_key_when_a_new_one_cannot_be_stored() {
+        let secrets = Arc::new(WriteFailingSecrets::with_key(true));
+        let (_dir, path, cache) = cache_with(Arc::clone(&secrets));
+        let cfg = config();
+        cache.put(entry(&cfg, "s", vec![put_site(&cfg, "acme", ms(now()), "a")]), &cfg, now()).unwrap();
+        cache.clear().unwrap(); // the old key is gone, so the clear did what it says
+        assert!(secrets.get(KEY_REF).is_err(), "the old key is still in the keychain");
+        assert_eq!(fs::read_dir(&path).unwrap().count(), 0);
+    }
+
+    #[test]
+    fn clear_reports_when_the_old_key_can_be_neither_replaced_nor_removed() {
+        let secrets = Arc::new(WriteFailingSecrets::with_key(false));
+        let (_dir, path, cache) = cache_with(Arc::clone(&secrets));
+        let cfg = config();
+        cache.put(entry(&cfg, "s", vec![put_site(&cfg, "acme", ms(now()), "a")]), &cfg, now()).unwrap();
+        let err = cache.clear().unwrap_err();
+        assert!(err.contains("couldn't be replaced"), "{err}");
+        assert_eq!(fs::read_dir(&path).unwrap().count(), 0, "the files are deleted all the same");
+        cache.put(entry(&cfg, "s", vec![put_site(&cfg, "acme", ms(now()), "a")]), &cfg, now()).unwrap();
+        assert_eq!(fs::read_dir(&path).unwrap().count(), 0, "nothing is cached with a key that can't be rotated");
     }
 
     #[test]
