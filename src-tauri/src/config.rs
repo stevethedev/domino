@@ -123,7 +123,11 @@ impl DominoConfig {
                 }
                 // The keychain entry the ticket cache keeps its key in: a site token there would clobber it.
                 if secret_ref == crate::cache::KEY_REF {
-                    return Err(format!("Site \"{}\" secretRef {secret_ref} is reserved by Domino; pick another name", s.id));
+                    return Err(format!(
+                        "Site \"{}\" can't use {} as its secretRef: Domino keeps its cache key there; pick another name",
+                        s.id,
+                        crate::cache::KEY_REF
+                    ));
                 }
             }
         }
@@ -311,7 +315,7 @@ mod tests {
         let mut c = seed();
         c.sites[0].auth = SiteAuth::ApiToken { email: "bot@acme.example".into(), secret_ref: crate::cache::KEY_REF.into() };
         let err = c.validated().unwrap_err();
-        assert!(err.contains("reserved"), "{err}");
+        assert!(err.contains("keeps its cache key there"), "unexpected error: {err}");
     }
 
     #[test]
