@@ -5,7 +5,7 @@ import { collapseEpics, shownEdgeId } from "../graph/collapse";
 import { previewOf, type LinkPreview, type Move } from "../graph/traverse";
 import { emphasis, type Highlight, type HighlightScope, type Insights } from "../graph/insights";
 import { CARD_HEIGHT, CARD_WIDTH, computeLayout, laneByAssignee, laneByEpic, laneBySite, type LaneFn, type Layout } from "../graph/layout";
-import type { Graph } from "../graph/types";
+import type { Graph, GraphEdge, GraphNode } from "../graph/types";
 import { visibleSubgraph, type ViewFilters } from "../graph/visible";
 import { openExternal } from "../platform";
 import { LinkEdge, type LinkFlowEdge } from "./edges/LinkEdge";
@@ -13,6 +13,8 @@ import { captureElement } from "./capture";
 import { ExportMenu } from "./ExportMenu";
 import { COMPACT_BELOW_ZOOM, IssueCard, SiteGroup, type IssueFlowNode, type SiteGroupNode } from "./IssueCard";
 import { isOneOf } from "../lib/guards";
+import { prefersReducedMotion } from "../lib/motion";
+import { fitKeyOf } from "./fitKey";
 
 /** Margin around the graph in exports, in CSS pixels. */
 const EXPORT_PADDING = 40;
@@ -38,6 +40,9 @@ export function lanesFor(groupBy: GroupBy, insights: Insights): LaneFn | undefin
       return laneByAssignee(insights.holdingUpByAssignee);
   }
 }
+
+/** A finished layout together with the cards and links it was computed for. */
+type Drawn = Readonly<{ layout: Layout; nodes: readonly GraphNode[]; edges: readonly GraphEdge[] }>;
 
 const nodeTypes = { issue: IssueCard, siteGroup: SiteGroup };
 type FlowNode = IssueFlowNode | SiteGroupNode;
@@ -83,6 +88,7 @@ export function Canvas({
   onSelect,
   onTraverse,
   linkPreview,
+  scopeKey,
 }: {
   graph: Graph;
   insights: Insights;
@@ -99,11 +105,17 @@ export function Canvas({
   onTraverse: (uid: string, move: Move) => boolean;
   /** Where the focused card's ← and → would go. */
   linkPreview: LinkPreview;
+  /** The scope the graph belongs to: the view fits again when it changes. */
+  scopeKey: string | null;
 }): ReactElement {
   const rf = useReactFlow();
   const [hovered, setHovered] = useState<string | null>(null);
-  const [layout, setLayout] = useState<Layout | null>(null);
-  const fittedShape = useRef<string | null>(null);
+  // Cards stay where the last finished layout put them until the next one is ready, so new data
+  // never blanks the canvas while the layout worker runs.
+  const [drawn, setDrawn] = useState<Drawn | null>(null);
+  const fittedKey = useRef<string | null>(null);
+  const fitKey = useRef("");
+  fitKey.current = fitKeyOf(scopeKey, view.groupBy, filters, foldedEpics);
 
   // Folded epics swap in a collapsed graph; everything below draws whichever graph is shown.
   const collapsed = useMemo(
@@ -120,14 +132,13 @@ export function Canvas({
     computeLayout(vNodes, vEdges, graph.brokenEdgeIds, laneOf).then(
       (l) => {
         if (cancelled) return;
-        setLayout(l);
-        // Re-fit only when the set of cards changes; re-layouts for new insights (e.g. status history
-        // arriving) keep the user's viewport. Never zoom past 100%: small graphs stay card-sized.
-        const shape = `${[...l.positions.keys()].sort().join("|")}#${l.groups.map((g) => g.id).join("|")}`;
-        if (shape !== fittedShape.current) {
-          fittedShape.current = shape;
+        setDrawn({ layout: l, nodes: vNodes, edges: vEdges });
+        // Fit once per scope and view settings (see fitKeyOf), when there's something to fit. Never
+        // zoom past 100%: small graphs stay card-sized.
+        if (l.positions.size > 0 && fitKey.current !== fittedKey.current) {
+          fittedKey.current = fitKey.current;
           requestAnimationFrame(() => {
-            void rf.fitView({ padding: 0.2, maxZoom: 1, duration: 250 });
+            void rf.fitView({ padding: 0.2, maxZoom: 1, duration: prefersReducedMotion() ? 0 : 250 });
           });
         }
       },
@@ -151,9 +162,12 @@ export function Canvas({
   }, [view.highlight, view.highlightScope, insights, collapsed, loaded.edges]);
   const chain = useMemo(() => (hovered ? blockingChain(graph, hovered) : null), [graph, hovered]);
   const byUid = useMemo(() => new Map(graph.nodes.map((n) => [n.uid, n])), [graph]);
+  const visibleByUid = useMemo(() => new Map(vNodes.map((n) => [n.uid, n])), [vNodes]);
+  const visibleEdgeById = useMemo(() => new Map(vEdges.map((e) => [e.id, e])), [vEdges]);
 
   const flowNodes = useMemo<FlowNode[]>(() => {
-    if (!layout) return [];
+    if (!drawn) return [];
+    const { layout } = drawn;
     const toggleEpic = (epicUid: string) => (): void => {
       onToggleEpic(epicUid);
     };
@@ -175,7 +189,9 @@ export function Canvas({
       draggable: false,
       zIndex: -1,
     }));
-    const cards: IssueFlowNode[] = vNodes.flatMap((n) => {
+    // Each card shows its latest data; cards the next layout drops stay until it's ready.
+    const cards: IssueFlowNode[] = drawn.nodes.flatMap((laidOut) => {
+      const n = visibleByUid.get(laidOut.uid) ?? laidOut;
       const pos = layout.positions.get(n.uid);
       if (!pos) return [];
       const isEmphasized = emphasized?.nodes.has(n.uid) ?? false;
@@ -210,8 +226,8 @@ export function Canvas({
     });
     return [...groups, ...cards];
   }, [
-    layout,
-    vNodes,
+    drawn,
+    visibleByUid,
     insights,
     showSiteBadges,
     chain,
@@ -226,7 +242,8 @@ export function Canvas({
   ]);
 
   const flowEdges = useMemo<LinkFlowEdge[]>(() => {
-    return vEdges.map((e) => {
+    return (drawn?.edges ?? []).map((laidOut) => {
+      const e = visibleEdgeById.get(laidOut.id) ?? laidOut;
       const inCycle = graph.cycleEdgeIds.has(e.id);
       const isCritical = view.highlight === "critical" && (emphasized?.edges.has(e.id) ?? false);
       return {
@@ -248,7 +265,7 @@ export function Canvas({
         },
       };
     });
-  }, [vEdges, graph.cycleEdgeIds, graph.brokenEdgeIds, byUid, chain, emphasized, view.highlight]);
+  }, [drawn, visibleEdgeById, graph.cycleEdgeIds, graph.brokenEdgeIds, byUid, chain, emphasized, view.highlight]);
 
   // Exports render React Flow's viewport (cards, lanes, edges; not the minimap or controls) framed to
   // the whole graph at real size, whatever the current pan and zoom.
@@ -311,7 +328,6 @@ export function Canvas({
         edgesFocusable={false}
         minZoom={0.1}
         maxZoom={2}
-        fitView
       >
         <Background gap={24} size={1} />
         <Panel position="top-right">

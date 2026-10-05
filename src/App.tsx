@@ -588,6 +588,7 @@ function Shell(): ReactElement {
               onSelect={selectIssue}
               onTraverse={onTraverse}
               linkPreview={preview}
+              scopeKey={loadedScopeKey}
             />
           ) : (
             <Suspense fallback={<div className="canvas-message">Loading timeline…</div>}>
