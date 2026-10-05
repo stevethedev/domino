@@ -45,6 +45,9 @@ function filterSites(store: MockCacheStore, keep: (site: StoredSite, entry: Stor
 }
 
 export class MockTicketCache {
+  /** When the cache was last cleared or had sites purged: data fetched by then is never written (as in Rust). */
+  private invalidatedAt = 0;
+
   constructor(
     private readonly appVersion: string,
     private readonly read: () => MockCacheStore,
@@ -70,6 +73,7 @@ export class MockTicketCache {
 
   put(entry: PutEntry, config: DominoConfig, now: number): void {
     const sites = entry.sites.flatMap((s) => {
+      if (s.takenAt <= this.invalidatedAt) return [];
       const fp = fingerprint(entry.backend, s.baseUrl, s.auth);
       return currentFingerprint(config, s.siteId) === fp ? [{ siteId: s.siteId, fingerprint: fp, takenAt: s.takenAt, data: s.data }] : [];
     });
@@ -81,16 +85,19 @@ export class MockTicketCache {
     this.write(pruneEntries(next, now));
   }
 
-  clear(): void {
+  clear(now: number): void {
+    this.invalidatedAt = now;
     this.write({});
   }
 
-  forgetSites(isStale: (siteId: string) => boolean): void {
+  forgetSites(isStale: (siteId: string) => boolean, now: number): void {
+    this.invalidatedAt = now;
     this.write(filterSites(this.read(), (s) => !isStale(s.siteId)));
   }
 
   /** After a Settings save: drops sites removed or now loading from another backend, address or account. */
-  invalidateChanged(old: DominoConfig, next: DominoConfig): void {
-    this.forgetSites((siteId) => currentFingerprint(old, siteId) !== currentFingerprint(next, siteId));
+  invalidateChanged(old: DominoConfig, next: DominoConfig, now: number): void {
+    const changed = (siteId: string): boolean => currentFingerprint(old, siteId) !== currentFingerprint(next, siteId);
+    if (old.sites.some((s) => changed(s.id))) this.forgetSites(changed, now);
   }
 }

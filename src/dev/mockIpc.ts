@@ -123,7 +123,7 @@ export function installMockIpc(): Promise<void> {
       case "save_config": {
         const parsed = configSchema.safeParse(args.config);
         if (!parsed.success) return rejectLikeTauri(parsed.error.issues[0]?.message ?? "Invalid config");
-        cache.invalidateChanged(config, parsed.data);
+        cache.invalidateChanged(config, parsed.data, Date.now());
         config = parsed.data;
         writeConfig(config);
         return config;
@@ -135,7 +135,7 @@ export function installMockIpc(): Promise<void> {
         cache.put(args.entry as PutEntry, config, Date.now());
         return null;
       case "cache_clear":
-        cache.clear();
+        cache.clear(Date.now());
         return null;
       case "site_health":
         return wrap(async () => void (await source.fetchLinkTypes(site(siteId, false).id)));
@@ -164,7 +164,10 @@ export function installMockIpc(): Promise<void> {
       case "set_secret": {
         const ref = str("secretRef");
         secrets.add(ref);
-        cache.forgetSites((id) => config.sites.some((s) => s.id === id && s.auth.type === "apiToken" && s.auth.secretRef === ref));
+        cache.forgetSites(
+          (id) => config.sites.some((s) => s.id === id && s.auth.type === "apiToken" && s.auth.secretRef === ref),
+          Date.now(),
+        );
         return null;
       }
       case "secret_status":

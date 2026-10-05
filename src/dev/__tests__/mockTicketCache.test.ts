@@ -60,10 +60,26 @@ describe("MockTicketCache", () => {
   it("forgets sites whose account may have changed, and invalidates reconfigured sites on save", () => {
     const { cache } = memoryCache();
     cache.put(entry("s"), config, 1000);
-    cache.forgetSites((id) => id === "a");
+    cache.forgetSites((id) => id === "a", 1500);
     expect(cache.get("s", config, 2000)?.sites.map((s) => s.siteId)).toEqual(["b"]);
-    cache.invalidateChanged(config, { ...config, backend: "jira" });
+    cache.invalidateChanged(config, { ...config, backend: "jira" }, 2000);
     expect(cache.get("s", config, 2000)).toBeNull();
+  });
+});
+
+describe("MockTicketCache invalidation", () => {
+  it("stores nothing fetched before the last clear or purge, like the Rust cache", () => {
+    const { cache } = memoryCache();
+    cache.put(entry("s", 1000), config, 1000);
+    cache.clear(2000);
+    cache.put(entry("s", 1500), config, 2500); // fetched before the clear, written after it
+    expect(cache.get("s", config, 3000)).toBeNull();
+    cache.put(entry("s", 2600), config, 2600); // fetched after it
+    expect(cache.get("s", config, 3000)).not.toBeNull();
+
+    cache.forgetSites((id) => id === "a", 4000);
+    cache.put(entry("t", 3500), config, 4500);
+    expect(cache.get("t", config, 5000)).toBeNull();
   });
 });
 
