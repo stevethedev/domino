@@ -20,6 +20,26 @@ export type LoadResult = { kind: "ok"; data: RawSiteData[]; errors: SiteError[] 
 
 export type LoaderOptions = { maxNodes?: number; perSiteConcurrency?: number; keyBatchSize?: number };
 
+/** How a site's part of a load ended. */
+export type SiteOutcome = "loaded" | "failed";
+
+export type LoadOptions = Readonly<{
+  /** Called once per selected site as soon as its part of the load is known to be done. Must not throw. */
+  onSiteDone?: (siteId: string, outcome: SiteOutcome) => void;
+  /** Aborting stops the load from starting any more requests; `load` then rejects with an AbortError. */
+  signal?: AbortSignal;
+}>;
+
+/** A load stopped by its AbortSignal. */
+class Aborted extends Error {
+  override name = "AbortError";
+  constructor() {
+    super("Load cancelled");
+  }
+}
+
+export const isAbortError = (e: unknown): boolean => e instanceof Error && e.name === "AbortError";
+
 export const ISSUE_KEY_RE = /^[A-Z][A-Z0-9_]*-\d+$/;
 
 class OverCap extends Error {
@@ -56,14 +76,18 @@ export class MultiSiteLoader {
     this.batch = opts.keyBatchSize ?? 50;
   }
 
-  async load(scope: Scope, selected: readonly SiteConfig[], allSites: readonly SiteConfig[]): Promise<LoadResult> {
-    const run = new LoadRun(this.source, selected, allSites, this.maxNodes, this.perSite, this.batch);
+  async load(scope: Scope, selected: readonly SiteConfig[], allSites: readonly SiteConfig[], opts: LoadOptions = {}): Promise<LoadResult> {
+    const run = new LoadRun(this.source, selected, allSites, this.maxNodes, this.perSite, this.batch, opts);
     try {
+      run.throwIfAborted();
       await run.execute(scope);
+      run.throwIfAborted();
     } catch (e) {
+      run.throwIfAborted();
       if (e instanceof OverCap) return { kind: "overCap", count: e.count, errors: run.errorList() };
       throw e;
     }
+    run.finish();
     return { kind: "ok", data: run.data(), errors: run.errorList() };
   }
 }
@@ -74,6 +98,7 @@ class LoadRun {
   private readonly errors = new Map<string, string>();
   private readonly linkTypesLoaded = new Map<string, Promise<void>>();
   private readonly prioritiesLoaded = new Map<string, Promise<void>>();
+  private readonly reported = new Set<string>();
 
   constructor(
     private readonly source: JiraSource,
@@ -82,6 +107,7 @@ class LoadRun {
     private readonly maxNodes: number,
     perSite: number,
     private readonly batch: number,
+    private readonly opts: LoadOptions,
   ) {
     for (const site of selected) {
       this.states.set(site.id, { site, issues: new Map(), remoteLinks: {}, linkTypes: DEFAULT_LINK_TYPES, priorities: [] });
@@ -115,6 +141,25 @@ class LoadRun {
       }));
   }
 
+  /** Reports every site not reported yet as loaded (the load succeeded). */
+  finish(): void {
+    for (const siteId of this.states.keys()) this.report(siteId, "loaded");
+  }
+
+  throwIfAborted(): void {
+    if (this.opts.signal?.aborted) throw new Aborted();
+  }
+
+  private report(siteId: string, outcome: SiteOutcome): void {
+    if (this.reported.has(siteId)) return;
+    this.reported.add(siteId);
+    try {
+      this.opts.onSiteDone?.(siteId, outcome);
+    } catch (e) {
+      console.error("onSiteDone failed", e); // progress is cosmetic; never fail the load over it
+    }
+  }
+
   errorList(): SiteError[] {
     return [...this.errors].map(([siteId, message]) => ({ siteId, message }));
   }
@@ -129,11 +174,13 @@ class LoadRun {
           this.fail(site.id, 'Nothing to load: type a query above, or set this site\'s "Always filter by" JQL in Settings');
           return;
         }
-        await this.guard(site.id, async () => {
+        const ok = await this.guard(site.id, async () => {
           const issues = await this.call(site.id, () => this.source.fetchByJql(site.id, q, this.maxNodes + 1));
           this.checkCap(issues.length);
           await this.addFull(site.id, issues);
         });
+        // JQL loads don't expand into other sites, so this site is done.
+        if (ok) this.report(site.id, "loaded");
       }),
     );
   }
@@ -157,7 +204,10 @@ class LoadRun {
     });
     if (!ok) return;
     let frontier: Ref[] = [{ siteId, key }];
-    for (let d = 1; d <= depth && frontier.length; d++) frontier = await this.expand(frontier);
+    for (let d = 1; d <= depth && frontier.length; d++) {
+      this.throwIfAborted();
+      frontier = await this.expand(frontier);
+    }
   }
 
   /** Loads the not-yet-loaded neighbours of `refs` (restricted to selected sites) as full nodes. Returns them. */
@@ -280,17 +330,22 @@ class LoadRun {
     if (count > this.maxNodes) throw new OverCap(count);
   }
 
+  /** Queues a request for the site; once aborted, queued requests never start. */
   private call<T>(siteId: string, fn: () => Promise<T>): Promise<T> {
-    return getOrThrow(this.limits, siteId)(fn);
+    const limit = getOrThrow(this.limits, siteId);
+    return limit(() => {
+      this.throwIfAborted();
+      return fn();
+    });
   }
 
-  /** Runs `fn`; records a site error on failure. OverCap always propagates. Returns success. */
+  /** Runs `fn`; records a site error on failure. OverCap and aborts always propagate. Returns success. */
   private async guard(siteId: string, fn: () => Promise<void>): Promise<boolean> {
     try {
       await fn();
       return true;
     } catch (e) {
-      if (e instanceof OverCap) throw e;
+      if (e instanceof OverCap || e instanceof Aborted) throw e;
       this.fail(siteId, errorMessage(e));
       return false;
     }
@@ -298,5 +353,6 @@ class LoadRun {
 
   private fail(siteId: string, message: string): void {
     if (!this.errors.has(siteId)) this.errors.set(siteId, message);
+    this.report(siteId, "failed");
   }
 }
