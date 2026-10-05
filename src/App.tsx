@@ -16,7 +16,8 @@ import { useUnblockedNotifications } from "./state/useUnblockedNotifications";
 import { DEFAULT_ESTIMATE_SETTINGS, ESTIMATE_SETTINGS_KEY, parseEstimateSettings } from "./state/estimateSettings";
 import { oneOf, usePersistentState } from "./state/storage";
 import { mergeViews, parseSavedViews, SAVED_VIEWS_KEY, upsertView, type EpicFolds, type SavedView } from "./state/savedViews";
-import { saveQuery, scopeKeyOf, selectedSitesOf } from "./state/useDomino";
+import { saveQuery, selectedSitesOf } from "./state/useDomino";
+import { scopeKeyOf } from "./state/scopeKey";
 import { useChanges } from "./state/useChanges";
 import { useStatusHistory } from "./state/useStatusHistory";
 import { useForecast } from "./state/useForecast";
@@ -189,9 +190,8 @@ function Shell(): ReactElement {
   };
   const applyView = (v: SavedView): void => {
     applyEpicFolds(v);
-    domino.setSelected(v.siteIds);
     if (v.scope.mode === "jql") saveQuery(v.scope.jql);
-    domino.setScope(v.scope);
+    domino.applyScope(v.scope, v.siteIds);
     setFilters(v.filters);
     setView(v.view);
     // Show the tile group the view's highlight belongs to, so its tile is pressed and can clear it.
@@ -442,7 +442,7 @@ function Shell(): ReactElement {
             />
             <SiteSelector sites={config.sites} selected={domino.selected} onChange={domino.setSelected} />
             {/* Remount when a saved view swaps the scope, so the inputs show it. */}
-            <ScopeInputs key={JSON.stringify(domino.scope)} sites={domino.selectedSites} scope={domino.scope} onApply={domino.setScope} />
+            <ScopeInputs key={JSON.stringify(domino.scope)} sites={domino.selectedSites} scope={domino.scope} onApply={domino.applyScope} />
           </>
         )}
         <QuickFind nodes={graph.nodes} showSite={domino.loadedSiteCount > 1} onPick={focusIssue} />
@@ -495,7 +495,8 @@ function Shell(): ReactElement {
                   "Loading…"
                 ) : loaded ? (
                   <>
-                    {full} issues · {graph.nodes.length - full} outside scope · <Freshness background={domino.background} />
+                    {full} issues · {graph.nodes.length - full} outside scope ·{" "}
+                    <Freshness background={domino.background} sites={config?.sites ?? []} />
                   </>
                 ) : (
                   ""

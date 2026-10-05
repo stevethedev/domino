@@ -1,7 +1,8 @@
 import { useEffect, useId, useState, type ReactElement } from "react";
 import { prefersReducedMotion } from "../lib/motion";
 import { requestNotificationPermission } from "../platform";
-import { REFRESH_MINUTES, updatedAgo, type RefreshMinutes } from "../state/refresh";
+import type { SiteConfig } from "../config/types";
+import { laggingText, REFRESH_MINUTES, updatedAgo, type RefreshMinutes } from "../state/refresh";
 import type { BackgroundRefresh } from "../state/useDomino";
 
 /** Re-renders every `ms` so relative times stay current. */
@@ -23,9 +24,9 @@ function useNow(ms: number): number {
  * apply. It sits in a live region, so only errors are announced; the ticking time is hidden from
  * screen readers (the refresh button's label carries the last-updated time instead).
  */
-export function Freshness({ background }: { background: BackgroundRefresh }): ReactElement | null {
+export function Freshness({ background, sites }: { background: BackgroundRefresh; sites: readonly SiteConfig[] }): ReactElement | null {
   const now = useNow(30_000);
-  const { lastUpdated, refreshing, error } = background;
+  const { lastUpdated, refreshing, error, lagging } = background;
   if (refreshing)
     return (
       <span className="freshness" aria-hidden="true">
@@ -33,6 +34,10 @@ export function Freshness({ background }: { background: BackgroundRefresh }): Re
       </span>
     );
   if (error) return <span className="freshness warn">{error}</span>;
+  if (lagging.length > 0) {
+    const labelOf = (id: string): string => sites.find((s) => s.id === id)?.label ?? id;
+    return <span className="freshness warn">{laggingText(lagging, labelOf, now)}</span>;
+  }
   if (lastUpdated === null) return null;
   return (
     <span className="freshness" aria-hidden="true" title={`Last updated ${new Date(lastUpdated).toLocaleString()}`}>
