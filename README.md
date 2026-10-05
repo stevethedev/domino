@@ -37,9 +37,13 @@ Each site can **Always filter by** some JQL (like `project in (CORE, WEB)`), AND
 
 Settings writes `domino.config.json` in the OS app-config folder (`~/Library/Application Support/org.change.domino/` on macOS). You can edit it by hand while the app's closed.
 
+To show tickets right away, Domino keeps the last ones loaded for your 12 most recent scopes, for up to 30 days, in `ticket-cache/` in the OS app-data folder. Each file is encrypted with a key kept in the OS keychain (`DOMINO_CACHE_KEY`). Changing or removing a site, its token or the Atlassian sign-in discards that site's cached tickets, and an app update discards them all. **Settings → Cached tickets** clears the cache and replaces the key.
+
 ## Using it
 
 **Loading.** Pick sites and a mode in the top bar: JQL (with presets), an epic, or **Seed + depth** (a ticket plus everything within N links). Each site runs `(site filter) AND (query)`. Loads stop at 300 tickets.
+
+While a load runs, the last tickets for that scope stay on screen (from this session, or from the cache) under an **Updating…** note, with each site's progress. Switching to a new scope fades the old tickets until the new ones arrive. If a site fails, its last tickets stay, and the sidebar says how old they are.
 
 **The graph.** This is the part I care about most; I want to follow a chain of work from one ticket to the next without opening each one.
 
