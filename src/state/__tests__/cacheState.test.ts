@@ -2,7 +2,15 @@ import { describe, expect, it } from "vitest";
 import type { DominoConfig } from "../../config/types";
 import type { RawSiteData } from "../../data/jiraTypes";
 import { issue } from "../../graph/__tests__/helpers";
-import { fingerprintsOf, pruneShown, rememberScope, type Shown } from "../cacheState";
+import {
+  fingerprintsOf,
+  pruneShown,
+  rememberScope,
+  withoutSites,
+  withoutSitesInLoad,
+  withoutSitesInMemory,
+  type Shown,
+} from "../cacheState";
 
 const config: DominoConfig = {
   sites: [
@@ -55,5 +63,41 @@ describe("rememberScope", () => {
     expect([...lru.keys()]).toEqual(["s2", "s3"]);
     lru = rememberScope(lru, shown("s2"), 2);
     expect([...lru.keys()]).toEqual(["s3", "s2"]);
+  });
+});
+
+describe("withoutSites", () => {
+  it("drops the sites whose account may have changed, keeping the rest", () => {
+    const s = shown();
+    const kept = withoutSites(s, (id) => id === "b");
+    expect(kept?.result.kind === "ok" && kept.result.data.map((d) => d.siteId)).toEqual(["a"]);
+    expect(kept?.ages).toEqual({ a: 1 });
+    expect(kept?.fingerprints).toEqual(fingerprintsOf(config, ["a"]));
+    expect(withoutSites(s, () => false)).toBe(s);
+    expect(withoutSites(s, () => true)).toBeNull();
+  });
+});
+
+describe("withoutSitesInLoad", () => {
+  const stale = (id: string): boolean => id === "b";
+  it("drops the sites from whatever is on screen, in every state", () => {
+    const done = withoutSitesInLoad({ status: "done", ...shown() }, stale);
+    expect(done.status === "done" && done.result.kind === "ok" && done.result.data.map((d) => d.siteId)).toEqual(["a"]);
+    const loading = withoutSitesInLoad({ status: "loading", scopeKey: "s", shown: shown(), progress: {} }, stale);
+    expect(loading.status === "loading" && Object.keys(loading.shown?.ages ?? {})).toEqual(["a"]);
+    expect(withoutSitesInLoad({ status: "done", ...shown() }, () => true)).toEqual({ status: "idle" });
+  });
+});
+
+describe("withoutSitesInMemory", () => {
+  it("drops the sites from every remembered scope, forgetting scopes left empty", () => {
+    const onlyB: Shown = { ...shown("only-b"), result: { kind: "ok", data: [siteData("b")], errors: [] }, ages: { b: 2 } };
+    const lru = new Map([
+      ["s", shown("s")],
+      ["only-b", onlyB],
+    ]);
+    const kept = withoutSitesInMemory(lru, (id) => id === "b");
+    expect([...kept.keys()]).toEqual(["s"]);
+    expect(Object.keys(kept.get("s")?.ages ?? {})).toEqual(["a"]);
   });
 });

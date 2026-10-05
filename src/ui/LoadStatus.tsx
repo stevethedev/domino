@@ -73,7 +73,7 @@ export function SiteProgressList({ sites, progress }: { sites: readonly SiteConf
     <span className="site-progress">
       <span aria-hidden="true">
         {parts.map((p, i) => (
-          <span key={p.label} className={`site-progress-item ${p.state}`}>
+          <span key={p.siteId} className={`site-progress-item ${p.state}`}>
             {i > 0 && " · "}
             {p.label} {MARK[p.state]}
           </span>

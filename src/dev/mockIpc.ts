@@ -12,13 +12,16 @@ import { MockTicketCache, type MockCacheStore } from "./mockTicketCache";
 const KEY = "domino.dev.config";
 const CACHE_KEY = "domino.dev.ticketCache";
 
-/** The mock ticket cache's store: localStorage, or memory when storage is unavailable or full. */
-function cacheStorage(): { read: () => MockCacheStore; write: (store: MockCacheStore) => void } {
+/** The mock ticket cache's store: `storage`, or memory when it's unavailable or full. */
+export function cacheStorage(storage: Pick<Storage, "getItem" | "setItem" | "removeItem"> = localStorage): {
+  read: () => MockCacheStore;
+  write: (store: MockCacheStore) => void;
+} {
   let memory: MockCacheStore = {};
   return {
     read: () => {
       try {
-        const raw = localStorage.getItem(CACHE_KEY);
+        const raw = storage.getItem(CACHE_KEY);
         if (raw) return JSON.parse(raw) as MockCacheStore;
       } catch {
         /* fall back to memory */
@@ -28,9 +31,14 @@ function cacheStorage(): { read: () => MockCacheStore; write: (store: MockCacheS
     write: (store) => {
       memory = store;
       try {
-        localStorage.setItem(CACHE_KEY, JSON.stringify(store));
+        storage.setItem(CACHE_KEY, JSON.stringify(store));
       } catch {
-        localStorage.removeItem(CACHE_KEY); // full: keep it in memory instead
+        // Full or blocked: keep it in memory instead, and drop any stale copy (if storage lets us).
+        try {
+          storage.removeItem(CACHE_KEY);
+        } catch {
+          /* blocked: nothing stored to drop */
+        }
       }
     },
   };

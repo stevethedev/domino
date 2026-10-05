@@ -55,8 +55,22 @@ describe("site progress", () => {
     const next = withSiteDone(withSiteDone(progress, "b", "failed"), "z", "loaded");
     expect(next).toEqual({ a: "pending", b: "failed" });
     expect(progressParts([site("a"), site("b"), site("c")], next)).toEqual([
-      { label: "A", state: "pending" },
-      { label: "B", state: "failed" },
+      { siteId: "a", label: "A", state: "pending" },
+      { siteId: "b", label: "B", state: "failed" },
+    ]);
+  });
+});
+
+describe("progressParts", () => {
+  it("keeps sites with the same label apart, by id", () => {
+    const twins = [
+      { ...site("a"), label: "Jira" },
+      { ...site("b"), label: "Jira" },
+    ];
+    const parts = progressParts(twins, withSiteDone(pendingProgress(twins), "b", "loaded"));
+    expect(parts.map((p) => [p.siteId, p.label, p.state])).toEqual([
+      ["a", "Jira", "pending"],
+      ["b", "Jira", "loaded"],
     ]);
   });
 });

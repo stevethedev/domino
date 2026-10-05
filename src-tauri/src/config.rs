@@ -121,6 +121,10 @@ impl DominoConfig {
                 if !is_secret_ref(secret_ref) {
                     return Err(format!("Site \"{}\" secretRef must be UPPER_SNAKE_CASE", s.id));
                 }
+                // The keychain entry the ticket cache keeps its key in: a site token there would clobber it.
+                if secret_ref == crate::cache::KEY_REF {
+                    return Err(format!("Site \"{}\" secretRef {secret_ref} is reserved by Domino; pick another name", s.id));
+                }
             }
         }
         self.default_site_ids.retain(|id| ids.contains(id));
@@ -300,6 +304,14 @@ mod tests {
         let out = serde_json::to_value(&cfg).unwrap();
         assert_eq!(out["sites"][0]["baseJql"], "project = OLD");
         assert!(out["sites"][0].get("defaultJql").is_none());
+    }
+
+    #[test]
+    fn rejects_the_reserved_cache_key_name_as_a_token_ref() {
+        let mut c = seed();
+        c.sites[0].auth = SiteAuth::ApiToken { email: "bot@acme.example".into(), secret_ref: crate::cache::KEY_REF.into() };
+        let err = c.validated().unwrap_err();
+        assert!(err.contains("reserved"), "{err}");
     }
 
     #[test]

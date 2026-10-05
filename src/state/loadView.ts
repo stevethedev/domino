@@ -67,8 +67,13 @@ export function loadViewOf(load: LoadState, requestedScopeKey: string | null): L
 }
 
 /** Sites in load order with their progress, labelled for display. */
-export function progressParts(sites: readonly SiteConfig[], progress: SiteProgress): { label: string; state: "pending" | SiteOutcome }[] {
-  return sites.flatMap((s) => (Object.hasOwn(progress, s.id) ? [{ label: s.label, state: progress[s.id] ?? "pending" }] : []));
+export function progressParts(
+  sites: readonly SiteConfig[],
+  progress: SiteProgress,
+): { siteId: string; label: string; state: "pending" | SiteOutcome }[] {
+  return sites.flatMap((s) =>
+    Object.hasOwn(progress, s.id) ? [{ siteId: s.id, label: s.label, state: progress[s.id] ?? "pending" }] : [],
+  );
 }
 
 const MAX_LABEL = 40;

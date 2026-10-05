@@ -22,6 +22,7 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -105,6 +106,10 @@ pub(crate) struct TicketCache {
     /// Resolved on first use, so launching never prompts for the keychain by itself. The lock also
     /// serializes file access.
     key: Mutex<Option<KeyState>>,
+    /// When the cache was last cleared or had sites purged (epoch ms, set under the lock). Data
+    /// fetched before then is never written, so a write prepared before a Clear (or before an
+    /// account change) can't bring back what it removed.
+    invalidated_at: AtomicU64,
 }
 
 fn hex(bytes: &[u8]) -> String {
@@ -195,7 +200,7 @@ fn touch(path: &Path, when: SystemTime) {
 
 impl TicketCache {
     pub(crate) fn new(dir: PathBuf, secrets: Arc<dyn SecretStore>) -> Self {
-        Self { dir, secrets, key: Mutex::new(None) }
+        Self { dir, secrets, key: Mutex::new(None), invalidated_at: AtomicU64::new(0) }
     }
 
     fn lock(&self) -> MutexGuard<'_, Option<KeyState>> {
@@ -297,11 +302,15 @@ impl TicketCache {
     }
 
     /// Caches a scope's load. Sites are kept only if they were loaded with the configuration that's
-    /// current now (a Settings change during the load could have switched accounts).
+    /// current now (a Settings change during the load could have switched accounts), and fetched
+    /// after the last clear or purge (a write that raced one mustn't bring back what it removed).
     pub(crate) fn put(&self, entry: PutEntry, cfg: &DominoConfig, now: SystemTime) -> Result<(), String> {
+        let mut state = self.lock();
+        let invalidated_at = self.invalidated_at.load(Ordering::SeqCst);
         let sites: Vec<StoredSite> = entry
             .sites
             .into_iter()
+            .filter(|s| s.taken_at > invalidated_at)
             .filter_map(|s| {
                 let fp = fingerprint(entry.backend, &s.base_url, &s.auth);
                 (current_fingerprint(cfg, &s.site_id).as_deref() == Some(&fp)).then_some(StoredSite {
@@ -315,7 +324,6 @@ impl TicketCache {
         if sites.is_empty() {
             return Ok(());
         }
-        let mut state = self.lock();
         let Some(key) = self.key(&mut state) else { return Ok(()) };
         let name = file_name(&entry.scope_key);
         let stored = Stored { app_version: APP_VERSION.to_owned(), scope_key: entry.scope_key, sites, errors: entry.errors };
@@ -328,12 +336,14 @@ impl TicketCache {
     /// Deletes every cached scope and replaces the key, so copies of old files can't be read.
     pub(crate) fn clear(&self) {
         let mut state = self.lock();
+        self.invalidated_at.store(epoch_ms(SystemTime::now()), Ordering::SeqCst);
         *state = Some(self.rotate_key());
     }
 
     /// Drops the cached data of every site `stale` matches, wherever it's cached.
     pub(crate) fn forget_sites(&self, is_stale: impl Fn(&str) -> bool) {
         let mut state = self.lock();
+        self.invalidated_at.store(epoch_ms(SystemTime::now()), Ordering::SeqCst);
         let Some(key) = self.key(&mut state) else { return };
         for path in self.files() {
             let Some(name) = path.file_name().and_then(|n| n.to_str()).map(str::to_owned) else { continue };
@@ -706,6 +716,23 @@ mod tests {
         removed.sites.retain(|s| s.id != "partner");
         f.cache.invalidate_changed(&cfg, &removed);
         assert_eq!(site_ids(&f.cache.get("s", &cfg, now()).unwrap()), ["acme"]);
+    }
+
+    #[test]
+    fn a_write_of_data_fetched_before_a_clear_or_purge_stores_nothing() {
+        let f = fixture();
+        let cfg = config();
+        let before = ms(now() - Duration::from_secs(5));
+        f.cache.clear();
+        f.cache.put(entry(&cfg, "s", vec![put_site(&cfg, "acme", before, "a")]), &cfg, now()).unwrap();
+        assert!(f.cache.get("s", &cfg, now()).is_none(), "cleared tickets came back");
+        let after = ms(now() + Duration::from_secs(5));
+        f.cache.put(entry(&cfg, "s", vec![put_site(&cfg, "acme", after, "a")]), &cfg, now()).unwrap();
+        assert!(f.cache.get("s", &cfg, now()).is_some(), "data fetched after the clear caches normally");
+
+        f.cache.forget_sites(|id| id == "partner");
+        f.cache.put(entry(&cfg, "t", vec![put_site(&cfg, "partner", before, "p")]), &cfg, now()).unwrap();
+        assert!(f.cache.get("t", &cfg, now()).is_none(), "purged tickets came back");
     }
 
     #[test]

@@ -26,7 +26,9 @@ const authSchema = z.discriminatedUnion("type", [
     secretRef: z
       .string()
       .min(1, "Required")
-      .regex(/^[A-Z][A-Z0-9_]*$/, "Uppercase letters, digits and underscores, e.g. DOMINO_ACME_TOKEN"),
+      .regex(/^[A-Z][A-Z0-9_]*$/, "Uppercase letters, digits and underscores, e.g. DOMINO_ACME_TOKEN")
+      // Where the ticket cache keeps its key (src-tauri/src/cache.rs): a token there would clobber it.
+      .refine((ref) => ref !== "DOMINO_CACHE_KEY", "DOMINO_CACHE_KEY is reserved by Domino; pick another name"),
   }),
   z.object({ type: z.literal("oauth3lo") }),
 ]);

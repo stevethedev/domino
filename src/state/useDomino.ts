@@ -6,7 +6,7 @@ import type { JiraSource } from "../data/JiraSource";
 import { DEFAULT_PRESET_ID, presetById } from "../data/jqlPresets";
 import { isAbortError, MultiSiteLoader, type LoadResult, type Scope } from "../data/MultiSiteLoader";
 import type { TicketCache } from "../data/TicketCache";
-import { fingerprintsOf, pruneShown, rememberScope, type Shown } from "./cacheState";
+import { fingerprintsOf, pruneShown, rememberScope, withoutSitesInLoad, withoutSitesInMemory, type Shown } from "./cacheState";
 import { pendingProgress, shownOf, withSiteDone, type LoadState } from "./loadView";
 import { mergeBySite, type LaggingSite } from "./refresh";
 import { loadKeyOf, scopeKeyOf } from "./scopeKey";
@@ -103,14 +103,18 @@ function withFresh(
   return { next, lagging: merged.lagging };
 }
 
+/** Which sites a credential change affects: those using a token, or every OAuth site. */
+type CredentialChange = Readonly<{ secretRef: string } | { oauth: true }>;
+
 /**
  * New credentials can reach different tickets (or fix a failing site) without changing config,
- * so the scope is loaded again after them. The backend drops their sites' cached tickets.
+ * so after one the affected sites' tickets are forgotten (the backend drops their cached copies)
+ * and the scope is loaded again.
  */
 class ReloadingStore implements ConfigStore {
   constructor(
     private readonly store: ConfigStore,
-    private readonly reload: () => void,
+    private readonly credentialsChanged: (change: CredentialChange) => void,
   ) {}
   load(): Promise<DominoConfig> {
     return this.store.load();
@@ -129,16 +133,16 @@ class ReloadingStore implements ConfigStore {
   }
   async setSecret(secretRef: string, value: string): Promise<void> {
     await this.store.setSecret(secretRef, value);
-    this.reload();
+    this.credentialsChanged({ secretRef });
   }
   async oauthConnect(): Promise<string[]> {
     const sites = await this.store.oauthConnect();
-    this.reload();
+    this.credentialsChanged({ oauth: true });
     return sites;
   }
   async oauthDisconnect(): Promise<void> {
     await this.store.oauthDisconnect();
-    this.reload();
+    this.credentialsChanged({ oauth: true });
   }
 }
 
@@ -335,7 +339,27 @@ export function useDomino(store: ConfigStore, source: JiraSource, cache: TicketC
     setReloadTick((t) => t + 1);
   }, []);
 
-  const credentialStore = useMemo(() => new ReloadingStore(store, reload), [store, reload]);
+  // Their tickets may belong to the previous account, which fingerprints (address, auth type)
+  // can't tell: forget them here as the backend does on disk, so a failing new credential shows
+  // an error rather than the old account's tickets.
+  const credentialsChanged = useCallback(
+    (change: CredentialChange) => {
+      const sites = latest.current.config?.sites ?? [];
+      const affected = new Set(
+        sites
+          .filter((s) =>
+            "oauth" in change ? s.auth.type === "oauth3lo" : s.auth.type === "apiToken" && s.auth.secretRef === change.secretRef,
+          )
+          .map((s) => s.id),
+      );
+      const isStale = (siteId: string): boolean => affected.has(siteId);
+      remembered.current = withoutSitesInMemory(remembered.current, isStale);
+      setLoad((prev) => withoutSitesInLoad(prev, isStale));
+      reload();
+    },
+    [reload],
+  );
+  const credentialStore = useMemo(() => new ReloadingStore(store, credentialsChanged), [store, credentialsChanged]);
 
   const clearCache = useCallback(async () => {
     remembered.current = new Map();
