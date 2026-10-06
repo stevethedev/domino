@@ -7,7 +7,8 @@
 )]
 #![expect(clippy::needless_pass_by_value, reason = "Tauri deserializes command arguments, and injects State, by value")]
 
-use crate::config::{BackendKind, ConfigHandle, DominoConfig, SiteConfig};
+use crate::cache::{CachedScope, PutEntry, TicketCache};
+use crate::config::{BackendKind, ConfigHandle, DominoConfig, SiteAuth, SiteConfig};
 use crate::jira::http::HttpBackend;
 use crate::jira::mock::MockBackend;
 use crate::jira::oauth::{self, OAuth};
@@ -16,7 +17,7 @@ use crate::secrets::SecretStore;
 use serde::Serialize;
 use serde_json::Value;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 use tauri::{AppHandle, State};
 use tauri_plugin_opener::OpenerExt;
 
@@ -26,6 +27,7 @@ pub(crate) struct AppState {
     pub oauth: Arc<OAuth>,
     pub mock: Arc<MockBackend>,
     pub http: Arc<HttpBackend>,
+    pub cache: Arc<TicketCache>,
 }
 
 impl AppState {
@@ -52,9 +54,44 @@ pub(crate) fn get_config(state: State<'_, AppState>) -> DominoConfig {
 
 #[tauri::command]
 pub(crate) fn save_config(state: State<'_, AppState>, config: DominoConfig) -> Result<DominoConfig, String> {
+    let old = state.config.get();
     let saved = state.config.replace(config)?;
     log::info!("config saved ({} sites, backend {:?})", saved.sites.len(), saved.backend);
+    // Removed sites, and sites now loading from another backend, address or account, lose their cached tickets.
+    state.cache.invalidate_changed(&old, &saved);
     Ok(saved)
+}
+
+/// The cached tickets for a scope, if any are still valid (see `TicketCache::get`).
+#[tauri::command]
+pub(crate) async fn cache_get(state: State<'_, AppState>, scope_key: String) -> Result<Option<CachedScope>, String> {
+    let cache = Arc::clone(&state.cache);
+    let cfg = state.config.get();
+    tauri::async_runtime::spawn_blocking(move || cache.get(&scope_key, &cfg, SystemTime::now()))
+        .await
+        .map_err(|e| format!("Could not read the ticket cache: {e}"))
+}
+
+#[tauri::command]
+pub(crate) async fn cache_put(state: State<'_, AppState>, entry: PutEntry) -> Result<(), String> {
+    let cache = Arc::clone(&state.cache);
+    let cfg = state.config.get();
+    tauri::async_runtime::spawn_blocking(move || cache.put(entry, &cfg, SystemTime::now()))
+        .await
+        .map_err(|e| format!("Could not write the ticket cache: {e}"))?
+}
+
+/// Deletes every cached ticket and replaces the cache key.
+#[tauri::command]
+pub(crate) async fn cache_clear(state: State<'_, AppState>) -> Result<(), String> {
+    let cache = Arc::clone(&state.cache);
+    tauri::async_runtime::spawn_blocking(move || cache.clear()).await.map_err(|e| format!("Could not clear the ticket cache: {e}"))?
+}
+
+/// Forgets the cached tickets of OAuth sites: signing in or out can switch the Atlassian account.
+fn forget_oauth_sites(state: &AppState) {
+    let cfg = state.config.get();
+    state.cache.forget_sites(|id| cfg.site(id).is_some_and(|s| matches!(s.auth, SiteAuth::OAuth3lo)));
 }
 
 #[tauri::command]
@@ -130,6 +167,11 @@ pub(crate) fn set_secret(state: State<'_, AppState>, secret_ref: String, value: 
     }
     state.secrets.set(&secret_ref, &value)?;
     log::info!("secret {secret_ref} updated");
+    // A new token can belong to another account: forget what the sites using it cached.
+    let cfg = state.config.get();
+    state
+        .cache
+        .forget_sites(|id| cfg.site(id).is_some_and(|s| matches!(&s.auth, SiteAuth::ApiToken { secret_ref: r, .. } if *r == secret_ref)));
     Ok(())
 }
 
@@ -165,7 +207,8 @@ pub(crate) async fn oauth_connect(app: AppHandle, state: State<'_, AppState>) ->
     let code = oauth::wait_for_callback(listener, &st, Duration::from_secs(300)).await?;
     state.oauth.exchange_code(&code).await?;
     let resources = state.oauth.accessible_resources().await?;
-    for site in state.config.get().sites.iter().filter(|s| matches!(s.auth, crate::config::SiteAuth::OAuth3lo)) {
+    forget_oauth_sites(&state);
+    for site in state.config.get().sites.iter().filter(|s| matches!(s.auth, SiteAuth::OAuth3lo)) {
         if let Some(id) = oauth::cloud_id_for(&site.base_url, &resources) {
             state.config.set_cloud_id(&site.base_url, &id)?;
         }
@@ -176,5 +219,7 @@ pub(crate) async fn oauth_connect(app: AppHandle, state: State<'_, AppState>) ->
 
 #[tauri::command]
 pub(crate) async fn oauth_disconnect(state: State<'_, AppState>) -> Result<(), String> {
-    state.oauth.disconnect().await
+    state.oauth.disconnect().await?;
+    forget_oauth_sites(&state);
+    Ok(())
 }

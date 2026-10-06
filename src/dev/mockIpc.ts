@@ -5,8 +5,53 @@ import { configSchema } from "../config/schema";
 import type { DominoConfig, SiteConfig } from "../config/types";
 import { FixtureSource } from "../data/FixtureSource";
 import { mockConfig, mockLinkTypes, mockSites } from "../data/mockData";
+import type { PutEntry } from "../data/TicketCache";
+import { version } from "../../package.json";
+import { MockTicketCache, type MockCacheStore } from "./mockTicketCache";
 
 const KEY = "domino.dev.config";
+const CACHE_KEY = "domino.dev.ticketCache";
+
+/** The mock ticket cache's store: `storage`, or memory when it's unavailable or full. */
+export function cacheStorage(storage: Pick<Storage, "getItem" | "setItem" | "removeItem"> = localStorage): {
+  read: () => MockCacheStore;
+  write: (store: MockCacheStore) => void;
+} {
+  let memory: MockCacheStore = {};
+  return {
+    read: () => {
+      try {
+        const raw = storage.getItem(CACHE_KEY);
+        if (raw) return JSON.parse(raw) as MockCacheStore;
+      } catch {
+        /* fall back to memory */
+      }
+      return memory;
+    },
+    write: (store) => {
+      memory = store;
+      try {
+        storage.setItem(CACHE_KEY, JSON.stringify(store));
+      } catch {
+        // Full or blocked: keep it in memory instead, and drop any stale copy (if storage lets us).
+        try {
+          storage.removeItem(CACHE_KEY);
+        } catch {
+          /* blocked: nothing stored to drop */
+        }
+      }
+    },
+  };
+}
+
+/**
+ * Extra latency per Jira request, to see the loading states: `?delayMs=1500` for every site,
+ * `?delay.partner=4000` for one.
+ */
+function requestDelay(params: URLSearchParams, siteId: string): number {
+  const ms = Number(params.get(`delay.${siteId}`) ?? params.get("delayMs") ?? 0);
+  return Number.isFinite(ms) && ms > 0 ? ms : 0;
+}
 
 function readConfig(): DominoConfig {
   try {
@@ -34,8 +79,11 @@ const rejectLikeTauri = (reason: unknown): Promise<never> => Promise.reject(reas
 class MockIpcError extends Error {}
 
 export function installMockIpc(): Promise<void> {
-  const failSites = new Set(new URLSearchParams(location.search).getAll("failSite"));
+  const params = new URLSearchParams(location.search);
+  const failSites = new Set(params.getAll("failSite"));
   const source = new FixtureSource(mockSites, mockLinkTypes, failSites);
+  const storage = cacheStorage();
+  const cache = new MockTicketCache(version, storage.read, storage.write);
   const secrets = new Set<string>();
   let config = readConfig();
 
@@ -66,18 +114,29 @@ export function installMockIpc(): Promise<void> {
     };
     const siteId = str("siteId");
     const key = str("key");
-    // small latency so loading states are visible
-    await new Promise((r) => setTimeout(r, 30));
+    // small latency so loading states are visible (more with ?delayMs=)
+    const delay = 30 + (cmd.startsWith("fetch_") ? requestDelay(params, siteId) : 0);
+    await new Promise((r) => setTimeout(r, delay));
     switch (cmd) {
       case "get_config":
         return config;
       case "save_config": {
         const parsed = configSchema.safeParse(args.config);
         if (!parsed.success) return rejectLikeTauri(parsed.error.issues[0]?.message ?? "Invalid config");
+        cache.invalidateChanged(config, parsed.data, Date.now());
         config = parsed.data;
         writeConfig(config);
         return config;
       }
+      case "cache_get":
+        return cache.get(str("scopeKey"), config, Date.now());
+      case "cache_put":
+        // The webview sends exactly what toPutEntry built.
+        cache.put(args.entry as PutEntry, config, Date.now());
+        return null;
+      case "cache_clear":
+        cache.clear(Date.now());
+        return null;
       case "site_health":
         return wrap(async () => void (await source.fetchLinkTypes(site(siteId, false).id)));
       case "fetch_by_jql":
@@ -102,9 +161,15 @@ export function installMockIpc(): Promise<void> {
         return wrap(() => source.fetchStatuses(site(siteId).id));
       case "fetch_myself":
         return wrap(() => source.fetchMyself(site(siteId).id));
-      case "set_secret":
-        secrets.add(str("secretRef"));
+      case "set_secret": {
+        const ref = str("secretRef");
+        secrets.add(ref);
+        cache.forgetSites(
+          (id) => config.sites.some((s) => s.id === id && s.auth.type === "apiToken" && s.auth.secretRef === ref),
+          Date.now(),
+        );
         return null;
+      }
       case "secret_status":
         return secrets.has(str("secretRef"));
       case "oauth_status":

@@ -4,19 +4,23 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type
 import { collapseEpics, summaryUid } from "./graph/collapse";
 import { computeInsights, downstreamOpen, isHighlightScope, type Highlight, type HighlightScope, type Insights } from "./graph/insights";
 import { myIssues } from "./graph/mine";
+import type { GraphNode } from "./graph/types";
 import { lastDayOf, releaseStatuses } from "./graph/releases";
 import { linkPreview, step, type LinkPreview, type Move, type Trail, type TraverseLayout } from "./graph/traverse";
 import { hasIssueFilters, NO_ISSUE_FILTERS, passesIssueFilters, visibleSubgraph } from "./graph/visible";
-import { configStore, jiraSource, notify, openExternal } from "./platform";
+import { configStore, jiraSource, notify, openExternal, ticketCache } from "./platform";
 import { DEFAULT_REFRESH_MINUTES, parseRefreshMinutes, REFRESH_MINUTES_KEY } from "./state/refresh";
 import { useAutoRefresh } from "./state/useAutoRefresh";
 import { useDomino } from "./state/useDomino";
+import { loadViewOf, scopeLabel, type LoadView } from "./state/loadView";
+import { failureText } from "./state/refresh";
 import { useMyself } from "./state/useMyself";
 import { useUnblockedNotifications } from "./state/useUnblockedNotifications";
 import { DEFAULT_ESTIMATE_SETTINGS, ESTIMATE_SETTINGS_KEY, parseEstimateSettings } from "./state/estimateSettings";
 import { oneOf, usePersistentState } from "./state/storage";
 import { mergeViews, parseSavedViews, SAVED_VIEWS_KEY, upsertView, type EpicFolds, type SavedView } from "./state/savedViews";
-import { saveQuery, scopeKeyOf, selectedSitesOf } from "./state/useDomino";
+import { saveQuery, selectedSitesOf } from "./state/useDomino";
+import { scopeKeyOf } from "./state/scopeKey";
 import { useChanges } from "./state/useChanges";
 import { useStatusHistory } from "./state/useStatusHistory";
 import { useForecast } from "./state/useForecast";
@@ -35,6 +39,7 @@ import { Glance } from "./ui/Glance";
 import { SidebarSection } from "./ui/SidebarSection";
 import { QuickFind } from "./ui/QuickFind";
 import { Freshness, RefreshButton } from "./ui/Refresh";
+import { LoadingMessage, LoadPill, useInert } from "./ui/LoadStatus";
 import { ScopeInputs } from "./ui/ScopeInputs";
 import { SavedViewsMenu } from "./ui/SavedViewsMenu";
 import { SiteSelector } from "./ui/SiteSelector";
@@ -58,6 +63,7 @@ const DEFAULT_FILTERS: Filters = {
 };
 const DEFAULT_VIEW: ViewOptions = { groupBy: "none", highlight: "none", highlightScope: "all" };
 const NO_FOLDED_EPICS: ReadonlySet<string> = new Set();
+const NO_NODES: readonly GraphNode[] = [];
 const parseViewMode = oneOf(isViewMode);
 const GLANCE_SCOPE_KEY = "domino.glanceScope";
 const NOTIFY_UNBLOCKED_KEY = "domino.notifyUnblocked";
@@ -107,7 +113,7 @@ export function App(): ReactElement {
 }
 
 function Shell(): ReactElement {
-  const domino = useDomino(configStore, jiraSource);
+  const domino = useDomino(configStore, jiraSource, ticketCache);
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [view, setView] = useState(DEFAULT_VIEW);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -124,15 +130,35 @@ function Shell(): ReactElement {
     setCollapsedLaneIds([...next].slice(-MAX_COLLAPSED_LANES));
   };
   const [refreshMinutes, setRefreshMinutes] = usePersistentState(REFRESH_MINUTES_KEY, parseRefreshMinutes, DEFAULT_REFRESH_MINUTES);
-  useAutoRefresh(domino.refresh, refreshMinutes * 60_000, domino.background.lastUpdated);
+  // Paced from the last attempt too: after a failed update the next one isn't due right away.
+  const { lastUpdated, lastAttempt } = domino.background;
+  useAutoRefresh(
+    domino.refresh,
+    refreshMinutes * 60_000,
+    lastUpdated === null && lastAttempt === null ? null : Math.max(lastUpdated ?? 0, lastAttempt ?? 0),
+  );
   const [notifyUnblocked, setNotifyUnblocked] = usePersistentState(NOTIFY_UNBLOCKED_KEY, parseBool, false);
   const [autoUpdateCheck, setAutoUpdateCheck] = usePersistentState(AUTO_UPDATE_CHECK_KEY, parseBool, true);
   // Dev builds don't check on their own (Check now still works).
   const updates = useAppUpdate(autoUpdateCheck && !import.meta.env.DEV);
   const { config, load, graph } = domino;
-  // Status history feeds aging in both views and the Timeline; one bulk request per site per load.
-  const loadedScopeKey = load.status === "done" ? load.scopeKey : null;
-  const history = useStatusHistory(jiraSource, graph, true, loadedScopeKey);
+  // "Since you last looked" is tracked per scope: the selected sites plus the query or mode.
+  const scopeKey = useMemo(
+    () => (domino.selectedSites.length ? scopeKeyOf(domino.selectedSites, domino.scope) : null),
+    [domino.selectedSites, domino.scope],
+  );
+  // What's on screen: this scope (possibly cached, updating), the previous one while loading, or nothing.
+  const loadView = loadViewOf(load, scopeKey);
+  const shownScopeKey = loadView.shown?.scopeKey ?? null;
+  // The previous scope's tickets, kept while a new scope loads: faded, and out of reach of
+  // pointer, keyboard and screen reader (inert, plus explicit fallbacks where it's unsupported).
+  const stale = loadView.stale;
+  const inertWhileStale = useInert(stale);
+  const shownAges = Object.values(loadView.shown?.ages ?? {});
+  const shownAt = shownAges.length > 0 ? Math.min(...shownAges) : null;
+  // Status history feeds aging in both views and the Timeline; one bulk request per site per load,
+  // made once the load is done (not for cached tickets about to be replaced).
+  const history = useStatusHistory(jiraSource, graph, load.status !== "loading", shownScopeKey);
   const [estimates, setEstimates] = usePersistentState(ESTIMATE_SETTINGS_KEY, parseEstimateSettings, DEFAULT_ESTIMATE_SETTINGS);
   // The schedule forecast (shared with the timeline) says which releases' work runs late.
   const forecast = useForecast(graph, history, estimates);
@@ -148,14 +174,9 @@ function Shell(): ReactElement {
       ),
     [graph, history, estimates.daysPerPoint, estimates.defaultDays],
   );
-  // "Since you last looked" is tracked per scope: the selected sites plus the query or mode.
-  const scopeKey = useMemo(
-    () => (domino.selectedSites.length ? scopeKeyOf(domino.selectedSites, domino.scope) : null),
-    [domino.selectedSites, domino.scope],
-  );
-  const loaded = load.status === "done" && load.result.kind === "ok";
-  // Only compare once the loaded result belongs to the current scope (not the previous one mid-switch).
-  const loadedThisScope = loaded && load.scopeKey === scopeKey;
+  const loaded = loadView.shown?.result.kind === "ok";
+  // Only compare once the tickets shown belong to the current scope (not the previous one mid-switch).
+  const loadedThisScope = loaded && loadView.mode === "current";
   const { changes, markSeen } = useChanges(scopeKey, graph, baseInsights, loadedThisScope, history.status === "done");
   const myself = useMyself(jiraSource, domino.selectedSites, config?.backend ?? "none", domino.background.lastUpdated);
   const mine = useMemo(() => myIssues(graph.nodes, myself.me), [graph.nodes, myself.me]);
@@ -163,7 +184,9 @@ function Shell(): ReactElement {
     () => ({ ...baseInsights, changed: changes?.byIssue ?? new Map(), mine }),
     [baseInsights, changes, mine],
   );
-  useUnblockedNotifications(notifyUnblocked, loadedScopeKey, graph, insights.blocked, mine.assigned, notify);
+  // Only loads confirmed this session: cached tickets from days ago mustn't announce old unblocks.
+  const confirmedScopeKey = load.status === "done" && load.origin === "network" ? load.scopeKey : null;
+  useUnblockedNotifications(notifyUnblocked, confirmedScopeKey, graph, insights.blocked, mine.assigned, notify);
   /** Highlight from a tile group: `scope` says whose issues it covers. Clicking the active tile again clears it. */
   const highlightFor = (scope: HighlightScope): Highlight => (view.highlightScope === scope ? view.highlight : "none");
   const setHighlight =
@@ -189,9 +212,8 @@ function Shell(): ReactElement {
   };
   const applyView = (v: SavedView): void => {
     applyEpicFolds(v);
-    domino.setSelected(v.siteIds);
     if (v.scope.mode === "jql") saveQuery(v.scope.jql);
-    domino.setScope(v.scope);
+    domino.applyScope(v.scope, v.siteIds);
     setFilters(v.filters);
     setView(v.view);
     // Show the tile group the view's highlight belongs to, so its tile is pressed and can clear it.
@@ -247,11 +269,11 @@ function Shell(): ReactElement {
     // the scope comes back. (The requested scope, not the loaded one, which lags behind.)
     if (scopeKey !== foldAllOnLoad) {
       setFoldAllOnLoad(null);
-    } else if (loadedScopeKey === foldAllOnLoad) {
+    } else if (loadedThisScope && scopeKey === foldAllOnLoad) {
       setFoldAllOnLoad(null);
       setCollapsedLanes(withEpicFolds(collapsedLanes, epicUids));
     }
-  }, [foldAllOnLoad, scopeKey, loadedScopeKey, epicUids]);
+  }, [foldAllOnLoad, scopeKey, loadedThisScope, epicUids]);
   const toggleLane = (laneId: string): void => {
     const next = new Set(collapsedLanes);
     if (!next.delete(laneId)) next.add(laneId);
@@ -442,19 +464,19 @@ function Shell(): ReactElement {
             />
             <SiteSelector sites={config.sites} selected={domino.selected} onChange={domino.setSelected} />
             {/* Remount when a saved view swaps the scope, so the inputs show it. */}
-            <ScopeInputs key={JSON.stringify(domino.scope)} sites={domino.selectedSites} scope={domino.scope} onApply={domino.setScope} />
+            <ScopeInputs key={JSON.stringify(domino.scope)} sites={domino.selectedSites} scope={domino.scope} onApply={domino.applyScope} />
           </>
         )}
-        <QuickFind nodes={graph.nodes} showSite={domino.loadedSiteCount > 1} onPick={focusIssue} />
+        <QuickFind nodes={stale ? NO_NODES : graph.nodes} showSite={domino.loadedSiteCount > 1} onPick={focusIssue} />
         <ViewToggle value={viewMode} onChange={setViewMode} />
 
         <RefreshButton
-          refreshing={domino.background.refreshing}
+          refreshing={domino.background.refreshing || load.status === "loading"}
           lastUpdated={domino.background.lastUpdated}
           // With data on screen, refresh in place; otherwise (nothing loaded, or a failed load) load again.
           onRefresh={() => {
             if (load.status === "done") void domino.refresh();
-            else domino.reload();
+            else if (load.status !== "loading") domino.reload();
           }}
         />
         <button
@@ -480,77 +502,82 @@ function Shell(): ReactElement {
 
       <main className="workspace">
         <aside className="sidebar" aria-label="Insights, filters and warnings">
-          <SidebarSection id="glance" title="At a glance">
-            <Glance
-              scope={glanceScope}
-              loaded={loaded}
-              onScope={(scope) => {
-                setGlanceScope(scope);
-                // An active tile highlight follows the switch (Blocked stays Blocked, for the new scope),
-                // so there's always a pressed tile that clears it. "Changed" belongs to its own panel.
-                if (view.highlight !== "none" && view.highlight !== "changed") setView({ ...view, highlightScope: scope });
-              }}
-              everyoneSummary={
-                load.status === "loading" ? (
-                  "Loading…"
-                ) : loaded ? (
-                  <>
-                    {full} issues · {graph.nodes.length - full} outside scope · <Freshness background={domino.background} />
-                  </>
-                ) : (
-                  ""
-                )
-              }
-              insights={insights}
-              nodes={nodesByUid}
-              myself={myself}
-              sites={config?.sites ?? []}
-              highlightFor={highlightFor}
-              onHighlight={(scope, h) => {
-                setHighlight(scope)(h);
-              }}
-            />
-          </SidebarSection>
-          {graph.cycles.length > 0 && (
-            <SidebarSection id="warnings" title="Warnings" badge={graph.cycles.length} tone="warn">
-              <WarningsPanel graph={graph} onFocusNode={focusIssue} />
-            </SidebarSection>
-          )}
-          {changes && (
-            <SidebarSection id="changes" title="Since you last looked" badge={changes.byIssue.size}>
-              <ChangesPanel
-                changes={changes}
+          <div className={stale ? "sidebar-data stale" : "sidebar-data"} ref={inertWhileStale} aria-hidden={stale || undefined}>
+            <SidebarSection id="glance" title="At a glance">
+              <Glance
+                scope={glanceScope}
+                loaded={loaded}
+                onScope={(scope) => {
+                  setGlanceScope(scope);
+                  // An active tile highlight follows the switch (Blocked stays Blocked, for the new scope),
+                  // so there's always a pressed tile that clears it. "Changed" belongs to its own panel.
+                  if (view.highlight !== "none" && view.highlight !== "changed") setView({ ...view, highlightScope: scope });
+                }}
+                everyoneSummary={
+                  stale ? (
+                    `Loading ${scopeLabel(domino.scope)}…`
+                  ) : loaded ? (
+                    <>
+                      {full} issues · {graph.nodes.length - full} outside scope ·{" "}
+                      <Freshness background={domino.background} sites={config?.sites ?? []} updating={loadView.busy} shownAt={shownAt} />
+                    </>
+                  ) : loadView.busy ? (
+                    "Loading tickets…"
+                  ) : (
+                    ""
+                  )
+                }
+                insights={insights}
                 nodes={nodesByUid}
-                highlight={highlightFor("all")}
-                onHighlight={setHighlight("all")}
-                onPick={focusIssue}
-                onMarkSeen={() => {
-                  markSeen();
-                  if (view.highlight === "changed") setView({ ...view, highlight: "none" });
+                myself={myself}
+                sites={config?.sites ?? []}
+                highlightFor={highlightFor}
+                onHighlight={(scope, h) => {
+                  setHighlight(scope)(h);
                 }}
               />
             </SidebarSection>
-          )}
-          <SidebarSection id="finish-first" title="Finish first" badge={insights.unblockers.length || undefined}>
-            <FinishFirst insights={insights} nodes={nodesByUid} onPick={focusIssue} />
-          </SidebarSection>
-          {releases.length > 0 && (
-            <SidebarSection
-              id="releases"
-              title="Releases"
-              badge={atRiskCount || undefined}
-              badgeLabel="issues forecast to miss their release"
-              tone={atRiskCount ? "warn" : undefined}
-            >
-              <ReleasesPanel
-                releases={releases}
-                nodes={nodesByUid}
-                today={forecast.today}
-                showSite={domino.loadedSiteCount > 1}
-                onPick={focusIssue}
-              />
+            {graph.cycles.length > 0 && (
+              <SidebarSection id="warnings" title="Warnings" badge={graph.cycles.length} tone="warn">
+                <WarningsPanel graph={graph} onFocusNode={focusIssue} />
+              </SidebarSection>
+            )}
+            {changes && (
+              <SidebarSection id="changes" title="Since you last looked" badge={changes.byIssue.size}>
+                <ChangesPanel
+                  changes={changes}
+                  nodes={nodesByUid}
+                  highlight={highlightFor("all")}
+                  onHighlight={setHighlight("all")}
+                  onPick={focusIssue}
+                  onMarkSeen={() => {
+                    markSeen();
+                    if (view.highlight === "changed") setView({ ...view, highlight: "none" });
+                  }}
+                />
+              </SidebarSection>
+            )}
+            <SidebarSection id="finish-first" title="Finish first" badge={insights.unblockers.length || undefined}>
+              <FinishFirst insights={insights} nodes={nodesByUid} onPick={focusIssue} />
             </SidebarSection>
-          )}
+            {releases.length > 0 && (
+              <SidebarSection
+                id="releases"
+                title="Releases"
+                badge={atRiskCount || undefined}
+                badgeLabel="issues forecast to miss their release"
+                tone={atRiskCount ? "warn" : undefined}
+              >
+                <ReleasesPanel
+                  releases={releases}
+                  nodes={nodesByUid}
+                  today={forecast.today}
+                  showSite={domino.loadedSiteCount > 1}
+                  onPick={focusIssue}
+                />
+              </SidebarSection>
+            )}
+          </div>
           <SidebarSection id="display" title="Display" badge={hiddenIssueCount || undefined} badgeLabel="issues hidden by filters">
             <FilterPanel
               filters={filters}
@@ -574,43 +601,55 @@ function Shell(): ReactElement {
             <Legend />
           </SidebarSection>
         </aside>
-        <section className="canvas" aria-label={viewMode === "graph" ? "Dependency graph" : "Timeline"}>
-          {viewMode === "graph" ? (
-            <Canvas
-              graph={graph}
-              insights={insights}
-              filters={filters}
-              view={view}
-              showSiteBadges={domino.loadedSiteCount > 1}
-              foldedEpics={foldedEpics}
-              onToggleEpic={toggleEpic}
-              selectedUid={selectedUid}
-              onSelect={selectIssue}
-              onTraverse={onTraverse}
-              linkPreview={preview}
-            />
-          ) : (
-            <Suspense fallback={<div className="canvas-message">Loading timeline…</div>}>
-              <Timeline
+        <section className="canvas" aria-label={viewMode === "graph" ? "Dependency graph" : "Timeline"} aria-busy={loadView.busy}>
+          <div className={stale ? "canvas-body stale" : "canvas-body"} ref={inertWhileStale} aria-hidden={stale || undefined}>
+            {viewMode === "graph" ? (
+              <Canvas
                 graph={graph}
                 insights={insights}
                 filters={filters}
                 view={view}
-                history={history}
-                settings={estimates}
-                onSettings={setEstimates}
-                onOpen={openExternal}
-                collapsedLanes={collapsedLanes}
-                onCollapsedLanes={setCollapsedLanes}
+                showSiteBadges={domino.loadedSiteCount > 1}
+                foldedEpics={foldedEpics}
+                onToggleEpic={toggleEpic}
                 selectedUid={selectedUid}
                 onSelect={selectIssue}
                 onTraverse={onTraverse}
                 linkPreview={preview}
+                scopeKey={shownScopeKey}
+                stale={stale}
               />
-            </Suspense>
-          )}
-          <CanvasMessage domino={domino} />
-          {detail && (
+            ) : (
+              <Suspense fallback={<div className="canvas-message">Loading timeline…</div>}>
+                <Timeline
+                  graph={graph}
+                  insights={insights}
+                  filters={filters}
+                  view={view}
+                  history={history}
+                  settings={estimates}
+                  onSettings={setEstimates}
+                  onOpen={openExternal}
+                  collapsedLanes={collapsedLanes}
+                  onCollapsedLanes={setCollapsedLanes}
+                  selectedUid={selectedUid}
+                  onSelect={selectIssue}
+                  onTraverse={onTraverse}
+                  linkPreview={preview}
+                  busy={loadView.busy}
+                  stale={stale}
+                />
+              </Suspense>
+            )}
+          </div>
+          <LoadPill
+            view={loadView}
+            sites={domino.selectedSites}
+            scopeLabel={scopeLabel(domino.scope)}
+            failureText={loadView.failure === null ? null : failureText(loadView.failure, shownAt, Date.now())}
+          />
+          <CanvasMessage domino={domino} view={loadView} />
+          {detail && !stale && (
             <IssueDetail
               data={detail}
               onSelect={(uid) => {
@@ -647,11 +686,13 @@ function Shell(): ReactElement {
   );
 }
 
-function CanvasMessage({ domino }: { domino: ReturnType<typeof useDomino> }): ReactElement | null {
+function CanvasMessage({ domino, view }: { domino: ReturnType<typeof useDomino>; view: LoadView }): ReactElement | null {
   const { load, selectedSites, graph } = domino;
   let msg: React.ReactNode = null;
   if (selectedSites.length === 0 && domino.config) msg = "Select at least one site, or add one in Settings (the gear button, top right).";
-  else if (load.status === "failed") msg = `Loading failed: ${load.message}`;
+  else if (view.mode === "empty" && view.busy) msg = <LoadingMessage sites={selectedSites} progress={view.progress} />;
+  // With tickets still on screen, the pill reports the failure instead.
+  else if (load.status === "failed" && !view.shown) msg = `Loading failed: ${load.message}`;
   else if (load.status === "done" && load.result.kind === "overCap")
     msg = (
       <>

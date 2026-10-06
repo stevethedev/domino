@@ -1,8 +1,9 @@
 import { useEffect, useId, useState, type ReactElement } from "react";
-import { prefersReducedMotion } from "../lib/motion";
 import { requestNotificationPermission } from "../platform";
-import { REFRESH_MINUTES, updatedAgo, type RefreshMinutes } from "../state/refresh";
+import type { SiteConfig } from "../config/types";
+import { freshnessOf, REFRESH_MINUTES, type RefreshMinutes } from "../state/refresh";
 import type { BackgroundRefresh } from "../state/useDomino";
+import { SpinnerIcon } from "./LoadStatus";
 
 /** Re-renders every `ms` so relative times stay current. */
 function useNow(ms: number): number {
@@ -19,24 +20,32 @@ function useNow(ms: number): number {
 }
 
 /**
- * How fresh the data on screen is ("updated 3m ago"), or why the last background refresh didn't
- * apply. It sits in a live region, so only errors are announced; the ticking time is hidden from
- * screen readers (the refresh button's label carries the last-updated time instead).
+ * How fresh the data on screen is ("updated 3m ago", "from 2h ago, updating…"), or why it's older
+ * than it seems. It sits in a live region, so only warnings are announced; the ticking time is
+ * hidden from screen readers (the refresh button's label carries the last-updated time instead).
  */
-export function Freshness({ background }: { background: BackgroundRefresh }): ReactElement | null {
+export function Freshness({
+  background,
+  sites,
+  updating,
+  shownAt,
+}: {
+  background: BackgroundRefresh;
+  sites: readonly SiteConfig[];
+  /** A load is running while this scope's tickets are on screen. */
+  updating: boolean;
+  /** When the oldest data on screen was fetched. */
+  shownAt: number | null;
+}): ReactElement | null {
   const now = useNow(30_000);
-  const { lastUpdated, refreshing, error } = background;
-  if (refreshing)
-    return (
-      <span className="freshness" aria-hidden="true">
-        refreshing…
-      </span>
-    );
-  if (error) return <span className="freshness warn">{error}</span>;
-  if (lastUpdated === null) return null;
+  const labelOf = (id: string): string => sites.find((s) => s.id === id)?.label ?? id;
+  const f = freshnessOf({ ...background, updating, shownAt }, labelOf, now);
+  if (!f) return null;
+  if (f.warn) return <span className="freshness warn">{f.text}</span>;
+  const title = background.lastUpdated === null ? undefined : `Last updated ${new Date(background.lastUpdated).toLocaleString()}`;
   return (
-    <span className="freshness" aria-hidden="true" title={`Last updated ${new Date(lastUpdated).toLocaleString()}`}>
-      updated {updatedAgo(lastUpdated, now)}
+    <span className="freshness" aria-hidden="true" title={title}>
+      {f.text}
     </span>
   );
 }
@@ -55,27 +64,9 @@ export function RefreshButton({
     lastUpdated === null
       ? "Refresh now"
       : `Refresh now (last updated ${new Date(lastUpdated).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })})`;
-  // Spinning starts with the refresh but stops only at the end of a turn, so a quick refresh
-  // still reads as one full rotation and the icon never snaps back from a tilted angle.
-  const [spinning, setSpinning] = useState(false);
-  useEffect(() => {
-    if (refreshing) setSpinning(true);
-    else if (prefersReducedMotion()) setSpinning(false); // no animation, so no turn ends to wait for
-  }, [refreshing]);
   return (
     <button type="button" className="icon-btn refresh-btn" onClick={onRefresh} aria-label={label} aria-busy={refreshing} title={label}>
-      <svg
-        className={spinning ? "refresh-icon spinning" : "refresh-icon"}
-        viewBox="0 0 24 24"
-        aria-hidden="true"
-        onAnimationIteration={() => {
-          if (!refreshing) setSpinning(false);
-        }}
-      >
-        {/* Drawn around (12, 12), the rotation centre. */}
-        <path d="M20 12a8 8 0 1 1-2.34-5.66" />
-        <path d="M20 4v4.5h-4.5" />
-      </svg>
+      <SpinnerIcon active={refreshing} />
     </button>
   );
 }

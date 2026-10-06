@@ -1,8 +1,10 @@
+mod cache;
 mod commands;
 mod config;
 mod jira;
 mod secrets;
 
+use cache::TicketCache;
 use commands::AppState;
 use config::{ConfigFile, ConfigHandle};
 use jira::http::{http_client, HttpBackend};
@@ -52,7 +54,9 @@ pub fn try_run() -> tauri::Result<()> {
             let http = http_client()?;
             let oauth = Arc::new(OAuth::new(http.clone(), Arc::clone(&secrets)));
             let http_backend = Arc::new(HttpBackend::new(http, Arc::clone(&secrets), Arc::clone(&oauth), Arc::clone(&config)));
-            app.manage(AppState { config, secrets, oauth, mock: Arc::new(MockBackend::from_env()?), http: http_backend });
+            let cache = Arc::new(TicketCache::new(app.path().app_data_dir()?.join("ticket-cache"), Arc::clone(&secrets)));
+            cache.prune(std::time::SystemTime::now());
+            app.manage(AppState { config, secrets, oauth, mock: Arc::new(MockBackend::from_env()?), http: http_backend, cache });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -67,6 +71,9 @@ pub fn try_run() -> tauri::Result<()> {
             commands::fetch_status_history,
             commands::fetch_statuses,
             commands::fetch_priorities,
+            commands::cache_get,
+            commands::cache_put,
+            commands::cache_clear,
             commands::fetch_myself,
             commands::set_secret,
             commands::secret_status,

@@ -1,10 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { buildGraph } from "../../graph/buildGraph";
 import { getOrThrow } from "../../lib/guards";
 import { FixtureSource } from "../FixtureSource";
 import type { JiraSource } from "../JiraSource";
 import { mockConfig, mockLinkTypes, mockSites } from "../mockData";
-import { MultiSiteLoader } from "../MultiSiteLoader";
+import { isAbortError, MultiSiteLoader, type SiteOutcome } from "../MultiSiteLoader";
 
 const sites = mockConfig.sites;
 const selected = sites.filter((s) => mockConfig.defaultSiteIds.includes(s.id));
@@ -182,5 +182,123 @@ describe("MultiSiteLoader", () => {
     await new MultiSiteLoader(src).load({ mode: "jql", jql: "" }, selected, sites);
     expect(peak).toBeLessThanOrEqual(4);
     expect(peak).toBeGreaterThan(1);
+  });
+});
+
+/** A JiraSource over the fixtures that calls `onCall` before each request. */
+function watched(onCall: () => void, failSites: ReadonlySet<string> = new Set()): JiraSource {
+  const inner = new FixtureSource(mockSites, mockLinkTypes, failSites);
+  const via =
+    <A extends unknown[], R>(fn: (...args: A) => Promise<R>) =>
+    (...args: A): Promise<R> => {
+      onCall();
+      return fn(...args);
+    };
+  return {
+    fetchByJql: via((s, j, m) => inner.fetchByJql(s, j, m)),
+    fetchEpic: via((s, k, f) => inner.fetchEpic(s, k, f)),
+    fetchIssue: via((s, k) => inner.fetchIssue(s, k)),
+    fetchRemoteLinks: via((s, k) => inner.fetchRemoteLinks(s, k)),
+    fetchLinkTypes: via((s) => inner.fetchLinkTypes(s)),
+    fetchPriorities: via((s) => inner.fetchPriorities(s)),
+    fetchStatusHistory: via((s, ids) => inner.fetchStatusHistory(s, ids)),
+    fetchStatuses: via((s) => inner.fetchStatuses(s)),
+    fetchMyself: via((s) => inner.fetchMyself(s)),
+  };
+}
+
+describe("MultiSiteLoader progress", () => {
+  const progress = (): { events: [string, SiteOutcome][]; onSiteDone: (siteId: string, outcome: SiteOutcome) => void } => {
+    const events: [string, SiteOutcome][] = [];
+    return { events, onSiteDone: (siteId, outcome) => events.push([siteId, outcome]) };
+  };
+
+  it("reports each site once as it finishes a JQL load", async () => {
+    const { events, onSiteDone } = progress();
+    await new MultiSiteLoader(new FixtureSource(mockSites, mockLinkTypes)).load({ mode: "jql", jql: "" }, selected, sites, { onSiteDone });
+    expect(events.sort()).toEqual([
+      ["acme", "loaded"],
+      ["partner", "loaded"],
+    ]);
+  });
+
+  it("reports a failing site as failed as soon as it fails", async () => {
+    const { events, onSiteDone } = progress();
+    const loader = new MultiSiteLoader(new FixtureSource(mockSites, mockLinkTypes, new Set(["partner"])));
+    await loader.load({ mode: "jql", jql: "" }, selected, sites, { onSiteDone });
+    expect(events.sort()).toEqual([
+      ["acme", "loaded"],
+      ["partner", "failed"],
+    ]);
+  });
+
+  it("reports sites of an epic load once the expansion across sites is done", async () => {
+    let requests = 0;
+    const doneAt: number[] = [];
+    const loader = new MultiSiteLoader(watched(() => requests++));
+    await loader.load({ mode: "epic", siteId: "acme", key: "CORE-1" }, selected, sites, {
+      onSiteDone: () => doneAt.push(requests),
+    });
+    expect(doneAt).toHaveLength(2);
+    expect(doneAt.every((n) => n === requests)).toBe(true); // no request was made after any report
+  });
+
+  it("reports no site as loaded when the load goes over the cap", async () => {
+    const { events, onSiteDone } = progress();
+    const res = await new MultiSiteLoader(new FixtureSource(mockSites, mockLinkTypes), { maxNodes: 3 }).load(
+      { mode: "jql", jql: "" },
+      selected,
+      sites,
+      { onSiteDone },
+    );
+    expect(res.kind).toBe("overCap");
+    expect(events.filter(([, outcome]) => outcome === "loaded").length).toBeLessThan(selected.length);
+  });
+
+  it("never fails a load because the progress callback throws", async () => {
+    const quiet = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const res = await new MultiSiteLoader(new FixtureSource(mockSites, mockLinkTypes)).load({ mode: "jql", jql: "" }, selected, sites, {
+      onSiteDone: () => {
+        throw new Error("UI bug");
+      },
+    });
+    quiet.mockRestore();
+    expect(res.kind).toBe("ok");
+  });
+});
+
+describe("MultiSiteLoader cancellation", () => {
+  it("starts no more requests once aborted, and rejects with an AbortError", async () => {
+    const controller = new AbortController();
+    let afterAbort = 0;
+    const watchedSource = watched(() => {
+      if (controller.signal.aborted) afterAbort++;
+    });
+    const events: [string, SiteOutcome][] = [];
+    // Abort while the first search is in flight: the rest of the load must not start.
+    const source: JiraSource = {
+      ...watchedSource,
+      fetchByJql: (s, j, m) => {
+        const inFlight = watchedSource.fetchByJql(s, j, m);
+        controller.abort();
+        return inFlight;
+      },
+    };
+    const loading = new MultiSiteLoader(source).load({ mode: "jql", jql: "" }, selected, sites, {
+      signal: controller.signal,
+      onSiteDone: (siteId, outcome) => events.push([siteId, outcome]),
+    });
+    await expect(loading).rejects.toSatisfy(isAbortError);
+    expect(afterAbort).toBe(0);
+    expect(events.filter(([, outcome]) => outcome === "failed")).toEqual([]); // an abort isn't a site failure
+  });
+
+  it("rejects right away when the signal is already aborted", async () => {
+    let requests = 0;
+    const loading = new MultiSiteLoader(watched(() => requests++)).load({ mode: "jql", jql: "" }, selected, sites, {
+      signal: AbortSignal.abort(),
+    });
+    await expect(loading).rejects.toSatisfy(isAbortError);
+    expect(requests).toBe(0);
   });
 });

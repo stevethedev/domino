@@ -29,6 +29,8 @@ export type IssueNodeData = {
   preview?: PreviewKey;
   /** Set on epic-map summary nodes: activating the card expands the epic instead. */
   onExpand?: () => void;
+  /** Another scope is loading: the card is the previous scope's, out of keyboard reach. */
+  stale?: boolean;
 };
 export type IssueFlowNode = Node<IssueNodeData, "issue">;
 
@@ -256,6 +258,7 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
     onTraverse,
     preview,
     onExpand,
+    stale,
   } = data;
   const activate = (e: { metaKey: boolean; ctrlKey: boolean }): void => {
     if (onExpand) onExpand();
@@ -289,7 +292,7 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
       // Activating shows the details panel; while it shows this issue, the card controls it.
       aria-expanded={onExpand ? undefined : selected}
       aria-controls={selected ? ISSUE_DETAIL_ID : undefined}
-      tabIndex={0}
+      tabIndex={stale ? -1 : 0}
       aria-label={n.rollup ? rollupLabel(n, n.rollup) : `${label}. Shows details.`}
       aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown"
       data-uid={n.uid}

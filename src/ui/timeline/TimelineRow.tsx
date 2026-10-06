@@ -21,6 +21,8 @@ export type RowFlags = {
   preview?: PreviewKey;
   /** Releases this issue is forecast to finish after. */
   missedReleases?: readonly string[];
+  /** Another scope is loading: the row is out of reach (see the faded view in App). */
+  stale?: boolean;
 };
 
 const missesText = (names: readonly string[]): string =>
@@ -96,7 +98,7 @@ export const TimelineRow = memo(function TimelineRow({
       aria-expanded={selected}
       aria-controls={selected ? ISSUE_DETAIL_ID : undefined}
       // A folded row (collapsed lane) is only kept for the fold animation: out of reach until shown.
-      tabIndex={row.folded ? -1 : 0}
+      tabIndex={row.folded || flags.stale ? -1 : 0}
       aria-hidden={row.folded || undefined}
       aria-label={
         epic

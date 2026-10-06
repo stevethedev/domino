@@ -67,6 +67,83 @@
   pointer-events: auto;
 }
 
+/* Loading. The view (graph or timeline) sits in .canvas-body; while another scope loads, the
+   previous scope's tickets stay there, faded and out of reach (.stale, plus inert in App). */
+.canvas-body {
+  position: absolute;
+  inset: 0;
+}
+.canvas-body,
+.sidebar-data {
+  transition:
+    opacity var(--duration-base) var(--ease),
+    filter var(--duration-base) var(--ease);
+}
+.stale {
+  opacity: 0.45;
+  filter: saturate(0.4);
+  pointer-events: none;
+  user-select: none;
+}
+.load-pill {
+  position: absolute;
+  top: var(--space-3);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--z-popover);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: calc(100% - 2 * var(--space-6));
+  padding: var(--space-1_5) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  color: var(--text);
+  font-size: var(--text-sm);
+  pointer-events: none;
+}
+.load-pill.warn {
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+  border-color: transparent;
+}
+.load-pill.hidden {
+  display: none;
+}
+.load-pill-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.load-pill .site-progress {
+  flex: none;
+}
+.load-pill .refresh-icon {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+.canvas-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+.canvas-loading .refresh-icon {
+  width: 24px;
+  height: 24px;
+}
+.site-progress {
+  color: var(--muted);
+  white-space: nowrap;
+}
+.site-progress-item.failed {
+  color: var(--warn-fg);
+}
+
 .field {
   display: flex;
   align-items: center;

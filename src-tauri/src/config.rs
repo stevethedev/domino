@@ -121,6 +121,14 @@ impl DominoConfig {
                 if !is_secret_ref(secret_ref) {
                     return Err(format!("Site \"{}\" secretRef must be UPPER_SNAKE_CASE", s.id));
                 }
+                // The keychain entry the ticket cache keeps its key in: a site token there would clobber it.
+                if secret_ref == crate::cache::KEY_REF {
+                    return Err(format!(
+                        "Site \"{}\" can't use {} as its secretRef: Domino keeps its cache key there; pick another name",
+                        s.id,
+                        crate::cache::KEY_REF
+                    ));
+                }
             }
         }
         self.default_site_ids.retain(|id| ids.contains(id));
@@ -222,20 +230,31 @@ impl ConfigFile {
         }
     }
 
-    /// Writes to a temp file in the same directory, fsyncs, then renames over the target.
     pub(crate) fn save(&self, config: &DominoConfig) -> Result<(), String> {
-        let dir = self.path.parent().ok_or("config path has no parent")?;
-        fs::create_dir_all(dir).map_err(|e| format!("Could not create {}: {e}", dir.display()))?;
-        let tmp = self.path.with_extension("json.tmp");
-        let body = serde_json::to_string_pretty(config).map_err(|e| e.to_string())?;
-        {
-            let mut f = fs::File::create(&tmp).map_err(|e| format!("Could not write config: {e}"))?;
-            f.write_all(body.as_bytes()).map_err(|e| format!("Could not write config: {e}"))?;
-            f.write_all(b"\n").map_err(|e| format!("Could not write config: {e}"))?;
-            f.sync_all().map_err(|e| format!("Could not write config: {e}"))?;
-        }
-        fs::rename(&tmp, &self.path).map_err(|e| format!("Could not replace config: {e}"))
+        let mut body = serde_json::to_string_pretty(config).map_err(|e| e.to_string())?;
+        body.push('\n');
+        write_atomic(&self.path, body.as_bytes()).map_err(|e| format!("Could not write config: {e}"))
     }
+}
+
+/// Writes `bytes` to a temp file next to `path` (readable by this user only, on unix), fsyncs,
+/// then renames it over `path`, so readers see the old file or the new one, never a partial one.
+pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    let dir = path.parent().ok_or("path has no parent")?;
+    fs::create_dir_all(dir).map_err(|e| format!("could not create {}: {e}", dir.display()))?;
+    let mut tmp = path.as_os_str().to_owned();
+    tmp.push(".tmp");
+    let tmp = PathBuf::from(tmp);
+    {
+        let mut options = fs::OpenOptions::new();
+        options.write(true).create(true).truncate(true);
+        #[cfg(unix)]
+        std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+        let mut f = options.open(&tmp).map_err(|e| e.to_string())?;
+        f.write_all(bytes).map_err(|e| e.to_string())?;
+        f.sync_all().map_err(|e| e.to_string())?;
+    }
+    fs::rename(&tmp, path).map_err(|e| format!("could not replace {}: {e}", path.display()))
 }
 
 #[cfg(test)]
@@ -289,6 +308,14 @@ mod tests {
         let out = serde_json::to_value(&cfg).unwrap();
         assert_eq!(out["sites"][0]["baseJql"], "project = OLD");
         assert!(out["sites"][0].get("defaultJql").is_none());
+    }
+
+    #[test]
+    fn rejects_the_reserved_cache_key_name_as_a_token_ref() {
+        let mut c = seed();
+        c.sites[0].auth = SiteAuth::ApiToken { email: "bot@acme.example".into(), secret_ref: crate::cache::KEY_REF.into() };
+        let err = c.validated().unwrap_err();
+        assert!(err.contains("keeps its cache key there"), "unexpected error: {err}");
     }
 
     #[test]
