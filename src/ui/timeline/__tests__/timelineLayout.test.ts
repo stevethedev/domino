@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { TimelineEntry } from "../../../graph/schedule";
 import type { GraphNode } from "../../../graph/types";
 import type { Lane } from "../../../graph/layout";
+import { ticketComparator } from "../../../graph/sort";
 import { LANE_HEIGHT, layoutRows, ROW_HEIGHT, stackFlags } from "../timelineLayout";
 
 const node = (uid: string, ghost = false): GraphNode => ({
@@ -108,5 +109,79 @@ describe("stackFlags", () => {
       { id: "b", right: 152, width: 50 }, // starts at 102: only 2px after a
     ]);
     expect(lines.get("b")).toBe(1);
+  });
+});
+
+describe("layoutRows with a sort", () => {
+  const byUidDesc = (a: GraphNode, b: GraphNode): number => Number(a.ghost) - Number(b.ghost) || b.uid.localeCompare(a.uid);
+  const rowsOf = (items: ReturnType<typeof layoutRows>["items"]): string[] => items.map((i) => (i.kind === "row" ? i.node.uid : i.lane.id));
+
+  it("orders rows by the sort instead of start date, ghosts still last", () => {
+    const nodes = [node("a1"), node("a3"), node("g", true), node("a2")];
+    const timeline = new Map([
+      ["a1", entry("2026-10-01")],
+      ["a2", entry("2026-10-02")],
+      ["a3", entry("2026-10-03")],
+      ["g", entry("2026-09-01")],
+    ]);
+    expect(rowsOf(layoutRows(nodes, timeline, undefined, new Set(), byUidDesc).items)).toEqual(["a3", "a2", "a1", "g"]);
+  });
+
+  it("falls back to start date on ties", () => {
+    const tie = (): number => 0;
+    const nodes = [node("late"), node("early")];
+    const timeline = new Map([
+      ["late", entry("2026-10-10")],
+      ["early", entry("2026-10-05")],
+    ]);
+    expect(rowsOf(layoutRows(nodes, timeline, undefined, new Set(), tie).items)).toEqual(["early", "late"]);
+  });
+
+  it("with the real comparator, breaks ties by start date before key", () => {
+    // Same priority; key order (A-1, A-2) is the opposite of start order.
+    const nodes = [
+      { ...node("A-1"), key: "A-1", priority: { name: "High", rank: 1 } },
+      { ...node("A-2"), key: "A-2", priority: { name: "High", rank: 1 } },
+    ];
+    const timeline = new Map([
+      ["A-1", entry("2026-10-20")],
+      ["A-2", entry("2026-10-05")],
+    ]);
+    const order = ticketComparator(
+      { key: "priority", reversed: false },
+      { openBlockers: new Map(), downstream: new Map(), forecast: new Map() },
+      { ties: "leave" },
+    );
+    expect(rowsOf(layoutRows(nodes, timeline, undefined, new Set(), order ?? undefined).items)).toEqual(["A-2", "A-1"]);
+  });
+
+  it("with the real comparator, breaks value-and-start ties by natural key (CORE-9 before CORE-10)", () => {
+    const nodes = [
+      { ...node("a:CORE-10"), key: "CORE-10", priority: { name: "High", rank: 1 } },
+      { ...node("a:CORE-9"), key: "CORE-9", priority: { name: "High", rank: 1 } },
+    ];
+    const timeline = new Map([
+      ["a:CORE-10", entry("2026-10-05")],
+      ["a:CORE-9", entry("2026-10-05")],
+    ]);
+    const order = ticketComparator(
+      { key: "priority", reversed: false },
+      { openBlockers: new Map(), downstream: new Map(), forecast: new Map() },
+      { ties: "leave" },
+    );
+    expect(rowsOf(layoutRows(nodes, timeline, undefined, new Set(), order ?? undefined).items)).toEqual(["a:CORE-9", "a:CORE-10"]);
+  });
+
+  it("orders lanes by their first row under the sort, catch-alls last", () => {
+    const laneOf = (n: GraphNode): Lane =>
+      n.uid.startsWith("z") ? { id: "lane:none", label: "None", last: true } : { id: `lane:${n.uid[0]}`, label: n.uid[0] };
+    const nodes = [node("a1"), node("b1"), node("z9")];
+    const timeline = new Map([
+      ["a1", entry("2026-10-01")],
+      ["b1", entry("2026-10-05")],
+      ["z9", entry("2026-09-01")],
+    ]);
+    const lanes = layoutRows(nodes, timeline, laneOf, new Set(), byUidDesc).items.flatMap((i) => (i.kind === "lane" ? [i.lane.id] : []));
+    expect(lanes).toEqual(["lane:b", "lane:a", "lane:none"]);
   });
 });

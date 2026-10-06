@@ -1,5 +1,6 @@
-import type { Lane, LaneFn } from "../../graph/layout";
-import { addDays, daysBetween, maxDay, minDay, type Day, type Span, type TimelineEntry } from "../../graph/schedule";
+import type { CardOrder, Lane, LaneFn } from "../../graph/layout";
+import { addDays, daysBetween, entryEnd, maxDay, minDay, type Day, type Span, type TimelineEntry } from "../../graph/schedule";
+import { naturalCompare } from "../../graph/sort";
 import type { GraphNode } from "../../graph/types";
 import { isOneOf } from "../../lib/guards";
 
@@ -31,11 +32,7 @@ export type TimelineRowData = { node: GraphNode; entry: TimelineEntry };
 
 export const isLate = (r: TimelineRowData): boolean => !r.node.ghost && !isEpicNode(r.node) && r.entry.varianceDays > 0;
 
-/** The latest day any bar or marker for this entry reaches. */
-export function entryEnd(e: TimelineEntry): Day {
-  const p = e.progress;
-  return maxDay(e.projected.end, p.state === "done" ? p.actual.end : p.forecast.end);
-}
+export { entryEnd };
 
 function entryStart(e: TimelineEntry): Day {
   const p = e.progress;
@@ -46,7 +43,9 @@ function entryStart(e: TimelineEntry): Day {
 /**
  * Rows grouped into lanes (or one unlabeled lane), each lane sorted by projected start so
  * dependency arrows mostly run down and to the right. Lanes order by their earliest start,
- * with catch-all lanes last. A collapsed lane takes only its header's height; its rows come back
+ * with catch-all lanes last. With `order` (the user's sort), rows follow it instead, and lanes
+ * order by their first row under it; pass a comparator that leaves ties (see `ticketComparator`)
+ * so start date breaks them. A collapsed lane takes only its header's height; its rows come back
  * `folded` at the header's y. Returns items with their y offsets, the total height, and every
  * row (collapsed or not) for date ranges and counts.
  */
@@ -55,6 +54,7 @@ export function layoutRows(
   timeline: ReadonlyMap<string, TimelineEntry>,
   laneOf: LaneFn | undefined,
   collapsed: ReadonlySet<string> = new Set(),
+  order?: CardOrder,
 ): { items: TimelineItem[]; height: number; all: TimelineRowData[] } {
   type Row = TimelineRowData;
   const lanes = new Map<string, { lane: Lane; rows: Row[] }>();
@@ -70,13 +70,21 @@ export function layoutRows(
   // Ghosts have no loaded dates, so they go last instead of sorting by an invented start.
   const byStart = (a: Row, b: Row): number =>
     Number(a.node.ghost) - Number(b.node.ghost) || startOf(a).localeCompare(startOf(b)) || a.node.uid.localeCompare(b.node.uid);
+  // Sorted: the sort, then start date, then natural key (CORE-9 before CORE-10). The natural order
+  // (no sort) keeps its original start-then-uid ties.
+  const bySort =
+    (o: CardOrder) =>
+    (a: Row, b: Row): number =>
+      o(a.node, b.node) ||
+      startOf(a).localeCompare(startOf(b)) ||
+      naturalCompare(a.node.key, b.node.key) ||
+      a.node.uid.localeCompare(b.node.uid);
+  const byRow = order ? bySort(order) : byStart;
+  const byFirstRow = order ? bySort(order) : (a: Row, b: Row): number => startOf(a).localeCompare(startOf(b));
   const ordered = [...lanes.values()]
-    .map((l) => ({ ...l, rows: [...l.rows].sort(byStart) }))
+    .map((l) => ({ ...l, rows: [...l.rows].sort(byRow) }))
     .sort(
-      (a, b) =>
-        Number(!!a.lane.last) - Number(!!b.lane.last) ||
-        startOf(a.rows[0]).localeCompare(startOf(b.rows[0])) ||
-        a.lane.id.localeCompare(b.lane.id),
+      (a, b) => Number(!!a.lane.last) - Number(!!b.lane.last) || byFirstRow(a.rows[0], b.rows[0]) || a.lane.id.localeCompare(b.lane.id),
     );
 
   const items: TimelineItem[] = [];

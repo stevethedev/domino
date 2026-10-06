@@ -40,6 +40,22 @@ const ROOT_OPTIONS: Record<string, string> = {
   "elk.spacing.componentComponent": "60",
 };
 
+/**
+ * With a sort, each column keeps the sorted order exactly instead of treating it as a hint. That
+ * needs one layout for the whole graph: separately laid-out components would be packed side by
+ * side, each in its own order.
+ */
+const SORTED_OPTIONS: Record<string, string> = {
+  ...ROOT_OPTIONS,
+  "elk.layered.crossingMinimization.forceNodeModelOrder": "true",
+  "elk.separateConnectedComponents": "false",
+};
+
+const byUid: CardOrder = (a, b) => a.uid.localeCompare(b.uid);
+
+/** Orders cards (and lanes, by their first card) when the user sorts; see `ticketComparator`. */
+export type CardOrder = (a: GraphNode, b: GraphNode) => number;
+
 export const laneBySite: LaneFn = (n) => ({ id: `site:${n.siteId}`, label: n.siteLabel, color: n.siteColor });
 
 const EPIC_LANE = "epic:";
@@ -113,9 +129,10 @@ export async function computeLayout(
   edges: readonly GraphEdge[],
   brokenEdgeIds: ReadonlySet<string>,
   laneOf?: LaneFn,
+  order?: CardOrder,
 ): Promise<Layout> {
   const visible = new Set(nodes.map((n) => n.uid));
-  const sorted = [...nodes].sort((a, b) => a.uid.localeCompare(b.uid));
+  const sorted = [...nodes].sort(order ?? byUid);
   const layoutEdges: ElkExtendedEdge[] = edges
     .filter(
       (e) => e.kind === "blocks" && !brokenEdgeIds.has(e.id) && visible.has(e.source) && visible.has(e.target) && e.source !== e.target,
@@ -123,16 +140,36 @@ export async function computeLayout(
     .map((e) => ({ id: e.id, sources: [e.source], targets: [e.target] }));
   const root: ElkNode = {
     id: "root",
-    layoutOptions: ROOT_OPTIONS,
+    layoutOptions: order ? SORTED_OPTIONS : ROOT_OPTIONS,
     children: sorted.map((n) => ({ id: n.uid, width: CARD_WIDTH, height: CARD_HEIGHT })),
     edges: layoutEdges,
   };
   const out = await (await getElk()).layout(root);
-  const flat = new Map((out.children ?? []).map((c) => [c.id, { x: c.x ?? 0, y: c.y ?? 0 }]));
+  const placed = new Map((out.children ?? []).map((c) => [c.id, { x: c.x ?? 0, y: c.y ?? 0 }]));
+  const flat = order ? inColumnOrder(placed, sorted) : placed;
   if (!laneOf) return { positions: flat, groups: [] };
   // Edges drawn straight between cards; cycle-breaking back edges loop around the row instead.
   const links = edges.filter((e) => !brokenEdgeIds.has(e.id) && visible.has(e.source) && visible.has(e.target) && e.source !== e.target);
-  return swimlanes(sorted, links, flat, laneOf);
+  return swimlanes(sorted, links, flat, laneOf, order);
+}
+
+/**
+ * Each column's cards top to bottom in `sorted` order. ELK's forced model order gets close, but
+ * later phases can still swap cards; this hands each column's own slots out in order. Cards are
+ * one size, so swapping slots can't make them overlap, and links are drawn to wherever they land.
+ */
+function inColumnOrder(placed: Map<string, { x: number; y: number }>, sorted: readonly GraphNode[]): Map<string, { x: number; y: number }> {
+  const columns = new Map<number, string[]>(); // x -> uids in sorted order
+  for (const n of sorted) {
+    const { x } = getOrThrow(placed, n.uid);
+    columns.set(x, [...(columns.get(x) ?? []), n.uid]);
+  }
+  const out = new Map<string, { x: number; y: number }>();
+  for (const [x, uids] of columns) {
+    const slots = uids.map((uid) => getOrThrow(placed, uid).y).sort((a, b) => a - b);
+    uids.forEach((uid, i) => out.set(uid, { x, y: slots[i] ?? 0 }));
+  }
+  return out;
 }
 
 function swimlanes(
@@ -140,6 +177,7 @@ function swimlanes(
   links: readonly GraphEdge[],
   flat: Map<string, { x: number; y: number }>,
   laneOf: LaneFn,
+  order?: CardOrder,
 ): Layout {
   const byLane = new Map<string, { lane: Lane; members: GraphNode[] }>();
   for (const n of nodes) {
@@ -148,11 +186,12 @@ function swimlanes(
     if (!entry) byLane.set(lane.id, (entry = { lane, members: [] }));
     entry.members.push(n);
   }
-  // Lanes in order of their topmost card in the flat layout, so the picture stays familiar;
-  // catch-all lanes ("No epic", "Outside scope") go last.
+  // Lanes in order of their topmost card in the flat layout, so the picture stays familiar, or,
+  // when sorted, of their first card under the sort; catch-all lanes ("No epic", "Outside scope") go last.
   const topY = (members: GraphNode[]): number => Math.min(...members.map((n) => getOrThrow(flat, n.uid).y));
+  const byPlace = (a: GraphNode[], b: GraphNode[]): number => (order ? order(a[0], b[0]) : topY(a) - topY(b));
   const lanes = [...byLane.values()].sort(
-    (a, b) => Number(!!a.lane.last) - Number(!!b.lane.last) || topY(a.members) - topY(b.members) || a.lane.id.localeCompare(b.lane.id),
+    (a, b) => Number(!!a.lane.last) - Number(!!b.lane.last) || byPlace(a.members, b.members) || a.lane.id.localeCompare(b.lane.id),
   );
   const positions: Layout["positions"] = new Map();
   const groups: LayoutGroup[] = [];

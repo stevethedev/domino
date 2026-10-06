@@ -3,6 +3,7 @@ import { prefersReducedMotion } from "../../lib/motion";
 import { blockingChain } from "../../graph/analysis";
 import { emphasis, type Insights } from "../../graph/insights";
 import { releaseStatuses } from "../../graph/releases";
+import type { CardOrder } from "../../graph/layout";
 import type { TimelineEntry } from "../../graph/schedule";
 import type { Graph } from "../../graph/types";
 import { previewOf, type LinkPreview, type Move } from "../../graph/traverse";
@@ -13,6 +14,7 @@ import type { HistoryState } from "../../state/useStatusHistory";
 import { getOrThrow } from "../../lib/guards";
 import { lanesFor, type Filters, type ViewOptions } from "../Canvas";
 import { NumberField } from "../NumberField";
+import { SortChip } from "../SortChip";
 import { flagWidth, releaseX, TimeAxis, TimeGrid, type ReleaseMarker } from "./TimeAxis";
 import { arrowAnchors, isViolated, TimelineArrows, type ArrowModel } from "./TimelineArrows";
 import {
@@ -54,6 +56,8 @@ export function Timeline({
   linkPreview,
   busy,
   stale,
+  order,
+  onClearSort,
 }: {
   graph: Graph;
   insights: Insights;
@@ -76,6 +80,10 @@ export function Timeline({
   busy: boolean;
   /** Another scope is loading: these rows are the previous scope's, out of reach. */
   stale: boolean;
+  /** The user's sort (see `ticketComparator`); null keeps rows by start date. */
+  order: CardOrder | null;
+  /** Back to the natural order (the sort chip's ✕). */
+  onClearSort: () => void;
 }): ReactElement {
   const [hovered, setHovered] = useState<string | null>(null);
   const setSettings = (patch: Partial<EstimateSettings>): void => {
@@ -103,20 +111,22 @@ export function Timeline({
 
   const { nodes, edges } = useMemo(() => visibleSubgraph(graph, filters), [graph, filters]);
   const { items, height, all } = useMemo(
-    () => layoutRows(nodes, placed, lanesFor(view.groupBy, insights), collapsedLanes),
-    [nodes, placed, view.groupBy, insights, collapsedLanes],
+    () => layoutRows(nodes, placed, lanesFor(view.groupBy, insights), collapsedLanes, order ?? undefined),
+    [nodes, placed, view.groupBy, insights, collapsedLanes, order],
   );
   // Rows on screen; folded rows (in collapsed lanes) stay mounted only so folding can animate.
   const rows = items.filter((i): i is TimelineRowModel => i.kind === "row" && !i.folded);
   const lanes = items.filter((i) => i.kind === "lane");
-  // While lanes fold, rows slide but arrows jump to their final positions; hide arrows until rows
-  // land. Keyed on the collapsed set itself, so every source of a fold (toggles, Collapse all,
-  // revealing an issue from Quick Find) gets it. A layout effect, so arrows never paint early.
+  // While lanes fold or the sort changes, rows slide but arrows jump to their final positions;
+  // hide arrows until rows land. Keyed on the collapsed set itself, so every source of a fold
+  // (toggles, Collapse all, revealing an issue from Quick Find) gets it. A layout effect, so
+  // arrows never paint early.
   const [settling, setSettling] = useState(false);
-  const prevCollapsed = useRef(collapsedLanes);
+  const prevArrangement = useRef({ collapsedLanes, order });
   useLayoutEffect(() => {
-    if (prevCollapsed.current === collapsedLanes) return;
-    prevCollapsed.current = collapsedLanes;
+    const prev = prevArrangement.current;
+    if (prev.collapsedLanes === collapsedLanes && prev.order === order) return;
+    prevArrangement.current = { collapsedLanes, order };
     if (prefersReducedMotion()) return;
     setSettling(true);
     const timer = setTimeout(() => {
@@ -125,7 +135,7 @@ export function Timeline({
     return (): void => {
       clearTimeout(timer);
     };
-  }, [collapsedLanes]);
+  }, [collapsedLanes, order]);
   const toggleLane = (id: string): void => {
     const next = new Set(collapsedLanes);
     if (!next.delete(id)) next.add(id);
@@ -316,6 +326,7 @@ export function Timeline({
           </button>
         )}
         {range && <ExportMenu name="timeline" capture={exportTimeline} />}
+        <SortChip sort={view.sort} onClear={onClearSort} />
         <span className="status-text" aria-live="polite">
           {history.status === "loading" ? "Loading status history…" : `${late} late`}
         </span>

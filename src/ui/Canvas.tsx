@@ -4,17 +4,32 @@ import { blockingChain } from "../graph/analysis";
 import { collapseEpics, shownEdgeId } from "../graph/collapse";
 import { previewOf, type LinkPreview, type Move } from "../graph/traverse";
 import { emphasis, type Highlight, type HighlightScope, type Insights } from "../graph/insights";
-import { CARD_HEIGHT, CARD_WIDTH, computeLayout, laneByAssignee, laneByEpic, laneBySite, type LaneFn, type Layout } from "../graph/layout";
+import {
+  CARD_HEIGHT,
+  CARD_WIDTH,
+  computeLayout,
+  laneByAssignee,
+  laneByEpic,
+  laneBySite,
+  type CardOrder,
+  type LaneFn,
+  type Layout,
+} from "../graph/layout";
+import { orderWithSummaries, type SortBy } from "../graph/sort";
 import type { Graph, GraphEdge, GraphNode } from "../graph/types";
 import { visibleSubgraph, type ViewFilters } from "../graph/visible";
 import { openExternal } from "../platform";
 import { LinkEdge, type LinkFlowEdge } from "./edges/LinkEdge";
 import { captureElement } from "./capture";
 import { ExportMenu } from "./ExportMenu";
+import { SortChip } from "./SortChip";
 import { COMPACT_BELOW_ZOOM, IssueCard, SiteGroup, type IssueFlowNode, type SiteGroupNode } from "./IssueCard";
 import { isOneOf } from "../lib/guards";
 import { prefersReducedMotion } from "../lib/motion";
 import { fitKeyOf } from "./fitKey";
+
+/** How long cards may slide after a sort change; longer than `--duration-base` so the slide finishes. */
+const RESORT_MS = 400;
 
 /** Margin around the graph in exports, in CSS pixels. */
 const EXPORT_PADDING = 40;
@@ -24,8 +39,11 @@ export type Filters = ViewFilters;
 const GROUP_BY = ["none", "site", "epic", "assignee"] as const;
 export type GroupBy = (typeof GROUP_BY)[number];
 export const isGroupBy = isOneOf(GROUP_BY);
-/** `highlightScope` narrows the highlight to the signed-in user's issues ("At a glance" for me). */
-export type ViewOptions = { groupBy: GroupBy; highlight: Highlight; highlightScope: HighlightScope };
+/**
+ * `highlightScope` narrows the highlight to the signed-in user's issues ("At a glance" for me).
+ * `sort` orders cards within each column (and lanes), and Timeline rows.
+ */
+export type ViewOptions = { groupBy: GroupBy; highlight: Highlight; highlightScope: HighlightScope; sort: SortBy };
 
 /** The lane function for a Group by choice; assignee lanes need the insights for their labels. */
 export function lanesFor(groupBy: GroupBy, insights: Insights): LaneFn | undefined {
@@ -90,6 +108,8 @@ export function Canvas({
   linkPreview,
   scopeKey,
   stale,
+  order,
+  onClearSort,
 }: {
   graph: Graph;
   insights: Insights;
@@ -110,6 +130,10 @@ export function Canvas({
   scopeKey: string | null;
   /** Another scope is loading: this graph is the previous one, shown faded and not interactive. */
   stale: boolean;
+  /** The user's sort (see `ticketComparator`); null keeps the dependency layout's own order. */
+  order: CardOrder | null;
+  /** Back to the natural order (the sort chip's ✕). */
+  onClearSort: () => void;
 }): ReactElement {
   const rf = useReactFlow();
   const [hovered, setHovered] = useState<string | null>(null);
@@ -117,8 +141,28 @@ export function Canvas({
   // never blanks the canvas while the layout worker runs.
   const [drawn, setDrawn] = useState<Drawn | null>(null);
   const fittedKey = useRef<string | null>(null);
+  // Cards slide to their new places when the sort changes (not on other re-layouts); the global
+  // reduced-motion rule makes it instant. Each re-sort restarts the timer, so a quick second
+  // change still slides for the full time.
+  const [resorts, setResorts] = useState(0);
+  const [resorting, setResorting] = useState(false);
+  const resortPending = useRef(false);
+  const lastOrder = useRef(order);
+  if (lastOrder.current !== order) {
+    lastOrder.current = order;
+    resortPending.current = true;
+  }
+  useEffect(() => {
+    if (resorts === 0) return;
+    const timer = setTimeout(() => {
+      setResorting(false);
+    }, RESORT_MS);
+    return (): void => {
+      clearTimeout(timer);
+    };
+  }, [resorts]);
   const fitKey = useRef("");
-  fitKey.current = fitKeyOf(scopeKey, view.groupBy, filters, foldedEpics);
+  fitKey.current = fitKeyOf(scopeKey, view.groupBy, filters, foldedEpics, view.sort);
 
   // Folded epics swap in a collapsed graph; everything below draws whichever graph is shown.
   const collapsed = useMemo(
@@ -129,13 +173,23 @@ export function Canvas({
   const laneOf = useMemo(() => lanesFor(view.groupBy, insights), [view.groupBy, insights]);
 
   const { nodes: vNodes, edges: vEdges } = useMemo(() => visibleSubgraph(graph, filters), [graph, filters]);
+  // A folded epic's summary card sorts as its best ticket (it has no fields of its own).
+  const layoutOrder = useMemo(
+    () => (order && collapsed ? orderWithSummaries(order, new Map(loaded.nodes.map((n) => [n.uid, n]))) : order),
+    [order, collapsed, loaded.nodes],
+  );
 
   useEffect(() => {
     let cancelled = false;
-    computeLayout(vNodes, vEdges, graph.brokenEdgeIds, laneOf).then(
+    computeLayout(vNodes, vEdges, graph.brokenEdgeIds, laneOf, layoutOrder ?? undefined).then(
       (l) => {
         if (cancelled) return;
         setDrawn({ layout: l, nodes: vNodes, edges: vEdges });
+        if (resortPending.current) {
+          resortPending.current = false;
+          setResorting(true);
+          setResorts((n) => n + 1);
+        }
         // Fit once per scope and view settings (see fitKeyOf), when there's something to fit. Never
         // zoom past 100%: small graphs stay card-sized.
         if (l.positions.size > 0 && fitKey.current !== fittedKey.current) {
@@ -153,7 +207,7 @@ export function Canvas({
     return (): void => {
       cancelled = true;
     };
-  }, [vNodes, vEdges, graph.brokenEdgeIds, laneOf, rf]);
+  }, [vNodes, vEdges, graph.brokenEdgeIds, laneOf, layoutOrder, rf]);
 
   // Highlights are computed on loaded issues; folded epics light up the summary each issue is shown as.
   const emphasized = useMemo(() => {
@@ -326,6 +380,7 @@ export function Canvas({
         edges={flowEdges}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
+        className={resorting ? "resorting" : undefined}
         nodesConnectable={false}
         nodesDraggable={false}
         elementsSelectable={false}
@@ -344,6 +399,9 @@ export function Canvas({
           <>
             <Panel position="top-right">
               <ExportMenu name="graph" capture={exportGraph} />
+            </Panel>
+            <Panel position="top-left">
+              <SortChip sort={view.sort} onClear={onClearSort} />
             </Panel>
             <Controls showInteractive={false} position="bottom-left" />
             <MiniMap<FlowNode>
