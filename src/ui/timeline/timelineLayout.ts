@@ -208,3 +208,16 @@ export function drawnBar(
     };
   return { entry, positionless: node.ghost || isEpicNode(node) };
 }
+
+/**
+ * Whether any row that's in both layouts sits at a different height (row uid -> y): rows slide
+ * there (their `top` transitions), so the arrows, which jump, are hidden until they land. Rows
+ * added or removed don't slide.
+ */
+export function rowsMoved(prev: ReadonlyMap<string, number>, next: ReadonlyMap<string, number>): boolean {
+  for (const [uid, y] of next) {
+    const before = prev.get(uid);
+    if (before !== undefined && before !== y) return true;
+  }
+  return false;
+}

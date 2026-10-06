@@ -26,6 +26,7 @@ import {
   isLate,
   LABEL_WIDTH,
   layoutRows,
+  rowsMoved,
   type TimelineRowModel,
   PX_PER_DAY,
   SCALES,
@@ -117,19 +118,16 @@ export function Timeline({
   // Rows on screen; folded rows (in collapsed lanes) stay mounted only so folding can animate.
   const rows = items.filter((i): i is TimelineRowModel => i.kind === "row" && !i.folded);
   const lanes = items.filter((i) => i.kind === "lane");
-  // While lanes fold or the sort changes, rows slide but arrows jump to their final positions;
-  // hide arrows until rows land. Keyed on the collapsed set itself, so every source of a fold
-  // (toggles, Collapse all, revealing an issue from Quick Find) gets it. A layout effect, so
-  // arrows never paint early.
+  // Rows slide whenever they move (lane folds, sort changes, refreshed data), but arrows jump to
+  // their final positions: hide the arrows until the rows land. A layout effect, so arrows never
+  // paint early.
   const [settling, setSettling] = useState(false);
-  // The sort setting, not the comparator (rebuilt whenever the data it reads changes).
-  const sortId = `${view.sort.key}:${String(view.sort.reversed)}`;
-  const prevArrangement = useRef({ collapsedLanes, sortId });
+  const rowPositions = useMemo(() => new Map(items.flatMap((i) => (i.kind === "row" ? [[i.node.uid, i.y] as const] : []))), [items]);
+  const prevPositions = useRef(rowPositions);
   useLayoutEffect(() => {
-    const prev = prevArrangement.current;
-    if (prev.collapsedLanes === collapsedLanes && prev.sortId === sortId) return;
-    prevArrangement.current = { collapsedLanes, sortId };
-    if (prefersReducedMotion()) return;
+    const moved = rowsMoved(prevPositions.current, rowPositions);
+    prevPositions.current = rowPositions;
+    if (!moved || prefersReducedMotion()) return;
     setSettling(true);
     const timer = setTimeout(() => {
       setSettling(false);
@@ -137,7 +135,7 @@ export function Timeline({
     return (): void => {
       clearTimeout(timer);
     };
-  }, [collapsedLanes, sortId]);
+  }, [rowPositions]);
   const toggleLane = (id: string): void => {
     const next = new Set(collapsedLanes);
     if (!next.delete(id)) next.add(id);
