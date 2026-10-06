@@ -60,7 +60,7 @@ describe("ticketComparator", () => {
       node("N-4", { priority: { name: "Highest", rank: 0 } }),
     ];
     expect(order({ key: "priority", reversed: false }, nodes)).toEqual(["N-4", "N-2", "N-3", "N-1"]);
-    expect(order({ key: "priority", reversed: true }, nodes)).toEqual(["N-3", "N-2", "N-4", "N-1"]);
+    expect(order({ key: "priority", reversed: true }, nodes)).toEqual(["N-2", "N-4", "N-3", "N-1"]);
   });
 
   it("orders keys naturally and breaks ties by key", () => {
@@ -117,6 +117,41 @@ describe("ticketComparator", () => {
       node("R-4", { releases: [rel("v1", "2026-10-20")] }),
     ];
     expect(order({ key: "release", reversed: false }, nodes)).toEqual(["R-4", "R-1", "R-2", "R-3"]);
+  });
+});
+
+describe("ticketComparator, leaving ties", () => {
+  it("returns 0 for equal values (out-of-scope and missing still last), so a view can break ties its own way", () => {
+    const compare = ticketComparator({ key: "status", reversed: false }, ctx(), { ties: "leave" });
+    if (!compare) throw new Error("expected a comparator");
+    expect(compare(node("A-1"), node("A-2"))).toBe(0);
+    expect(compare(node("A-1"), node("G-1", { ghost: true }))).toBeLessThan(0);
+    expect(compare(node("A-1", { statusCategory: "done" }), node("A-2"))).toBeGreaterThan(0);
+  });
+});
+
+describe("ticketComparator, reversed", () => {
+  const rel = (name: string, date?: string): Release => ({ uid: name, siteId: "a", name, date, released: false });
+
+  it("keeps known-but-unordered values after real ones and before missing ones, in either direction", () => {
+    const status = [node("S-1", { statusCategory: "unknown" }), node("S-2", { statusCategory: "done" }), node("S-3")];
+    expect(order({ key: "status", reversed: true }, status)).toEqual(["S-2", "S-3", "S-1"]);
+
+    const releases = [
+      node("R-1", { releases: [rel("next")] }),
+      node("R-2", { releases: [rel("v1", "2026-10-20")] }),
+      node("R-3"),
+      node("R-4", { releases: [rel("v2", "2026-12-01")] }),
+    ];
+    expect(order({ key: "release", reversed: true }, releases)).toEqual(["R-4", "R-2", "R-1", "R-3"]);
+
+    const priorities = [
+      node("P-1", { priority: { name: "Custom" } }),
+      node("P-2", { priority: { name: "Low", rank: 3 } }),
+      node("P-3"),
+      node("P-4", { priority: { name: "Highest", rank: 0 } }),
+    ];
+    expect(order({ key: "priority", reversed: true }, priorities)).toEqual(["P-2", "P-4", "P-1", "P-3"]);
   });
 });
 

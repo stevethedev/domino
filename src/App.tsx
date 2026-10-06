@@ -350,11 +350,15 @@ function Shell(): ReactElement {
     setDetailFocusRequest((n) => n + 1);
   }, []);
   const downstream = useMemo(() => downstreamOpen(graph), [graph]);
-  // The user's sort, shared by the Graph (within columns) and the Timeline (rows); null keeps each view's own order.
-  const order = useMemo(
-    () => ticketComparator(sort, { openBlockers: insights.openBlockers, downstream, forecast: forecast.timeline }),
-    [sort, insights.openBlockers, downstream, forecast.timeline],
+  // The user's sort, shared by the Graph (within columns) and the Timeline (rows); null keeps each
+  // view's own order. The Graph breaks ties by key; the Timeline by start date (tidier arrows).
+  const sortContext = useMemo(
+    () => ({ openBlockers: insights.openBlockers, downstream, forecast: forecast.timeline }),
+    [insights.openBlockers, downstream, forecast.timeline],
   );
+  const order = useMemo(() => ticketComparator(sort, sortContext), [sort, sortContext]);
+  const rowOrder = useMemo(() => ticketComparator(sort, sortContext, { ties: "leave" }), [sort, sortContext]);
+
   const selectedNode = selectedUid ? nodesByUid.get(selectedUid) : undefined;
   const selectedEntry = selectedNode && selectedNode.statusCategory !== "done" ? forecast.timeline.get(selectedNode.uid) : undefined;
   const detail: IssueDetailData | null = selectedNode
@@ -658,7 +662,7 @@ function Shell(): ReactElement {
                   linkPreview={preview}
                   busy={loadView.busy}
                   stale={stale}
-                  order={order}
+                  order={rowOrder}
                   onClearSort={clearSort}
                 />
               </Suspense>

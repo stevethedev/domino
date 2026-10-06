@@ -42,8 +42,9 @@ function entryStart(e: TimelineEntry): Day {
 /**
  * Rows grouped into lanes (or one unlabeled lane), each lane sorted by projected start so
  * dependency arrows mostly run down and to the right. Lanes order by their earliest start,
- * with catch-all lanes last. With `order` (the user's sort), rows follow it instead (start date
- * breaks ties) and lanes order by their first row under it. A collapsed lane takes only its header's height; its rows come back
+ * with catch-all lanes last. With `order` (the user's sort), rows follow it instead, and lanes
+ * order by their first row under it; pass a comparator that leaves ties (see `ticketComparator`)
+ * so start date breaks them. A collapsed lane takes only its header's height; its rows come back
  * `folded` at the header's y. Returns items with their y offsets, the total height, and every
  * row (collapsed or not) for date ranges and counts.
  */
@@ -69,7 +70,7 @@ export function layoutRows(
   const byStart = (a: Row, b: Row): number =>
     Number(a.node.ghost) - Number(b.node.ghost) || startOf(a).localeCompare(startOf(b)) || a.node.uid.localeCompare(b.node.uid);
   const byRow = (a: Row, b: Row): number => (order ? order(a.node, b.node) : 0) || byStart(a, b);
-  const byFirstRow = (a: Row, b: Row): number => (order ? order(a.node, b.node) : startOf(a).localeCompare(startOf(b)));
+  const byFirstRow = (a: Row, b: Row): number => (order ? order(a.node, b.node) : 0) || startOf(a).localeCompare(startOf(b));
   const ordered = [...lanes.values()]
     .map((l) => ({ ...l, rows: [...l.rows].sort(byRow) }))
     .sort(

@@ -326,6 +326,7 @@ export function Timeline({
           </button>
         )}
         {range && <ExportMenu name="timeline" capture={exportTimeline} />}
+        <SortChip sort={view.sort} onClear={onClearSort} />
         <span className="status-text" aria-live="polite">
           {history.status === "loading" ? "Loading status history…" : `${late} late`}
         </span>
@@ -340,9 +341,7 @@ export function Timeline({
         <div className="tl-scroll">
           <div className="tl-inner" style={{ width: LABEL_WIDTH + Math.max(chartWidth, lastBarX + 140) }}>
             <div className={`tl-axis${releaseLines ? " with-releases" : ""}`} style={{ "--release-lines": releaseLines }}>
-              <div className="tl-corner">
-                Issue <SortChip sort={view.sort} onClear={onClearSort} />
-              </div>
+              <div className="tl-corner">Issue</div>
               <TimeAxis range={range} scale={settings.scale} today={today} releases={releaseMarkers} />
             </div>
             <div className={`tl-body${settling ? " settling" : ""}`} style={{ height }}>

@@ -64,46 +64,49 @@ const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "bas
 /** Issue keys and names in reading order: CORE-9 before CORE-10. */
 export const naturalCompare = (a: string, b: string): number => collator.compare(a, b);
 
-const STATUS_ORDER: Readonly<Record<StatusCategory, number>> = { todo: 0, inprogress: 1, done: 2, unknown: 3 };
+const STATUS_ORDER: Readonly<Record<Exclude<StatusCategory, "unknown">, number>> = { todo: 0, inprogress: 1, done: 2 };
 
 type Value = number | string;
 
-/** Sorts after any real "YYYY-MM-DD" date. */
-const UNDATED = "9999-12-31";
-
 /**
- * Each key's value for a ticket, in its natural direction (smaller sorts first), or undefined when
- * the ticket has none (no due date, no priority, ...). "Most first" keys are negated.
+ * A ticket's sort value. `unordered` marks a value the ticket has but that has no place in the
+ * order (an unknown status, a release with no date, a priority whose site order didn't load):
+ * those sort after every ordered value whichever the direction, and before tickets with none.
  */
-function valueOf(key: Exclude<SortKey, "natural">, n: GraphNode, ctx: SortContext): Value | undefined {
+type Sortable = Readonly<{ value: Value; unordered?: true }>;
+
+const ordered = (value: Value | undefined): Sortable | undefined => (value === undefined ? undefined : { value });
+const UNORDERED: Sortable = { value: 0, unordered: true };
+
+/** Each key's value for a ticket, in its natural direction (smaller sorts first; "most first" keys are negated), or undefined when it has none. */
+function valueOf(key: Exclude<SortKey, "natural">, n: GraphNode, ctx: SortContext): Sortable | undefined {
   switch (key) {
     case "priority":
-      // Ranked by the site's own order; a named priority whose order didn't load comes after those.
-      return n.priority ? (n.priority.rank ?? Number.MAX_SAFE_INTEGER) : undefined;
+      if (!n.priority) return undefined;
+      return n.priority.rank === undefined ? UNORDERED : { value: n.priority.rank };
     case "status":
-      return STATUS_ORDER[n.statusCategory];
+      return n.statusCategory === "unknown" ? UNORDERED : { value: STATUS_ORDER[n.statusCategory] };
     case "key":
-      return n.key;
+      return { value: n.key };
     case "assignee":
-      return n.assigneeName;
+      return ordered(n.assigneeName);
     case "points":
-      return n.storyPoints === undefined ? undefined : -n.storyPoints;
+      return ordered(n.storyPoints === undefined ? undefined : -n.storyPoints);
     case "due":
-      return n.dates?.due;
+      return ordered(n.dates?.due);
     case "finish": {
       const entry = ctx.forecast.get(n.uid);
-      return entry && entryEnd(entry);
+      return ordered(entry && entryEnd(entry));
     }
     case "unblocks":
-      return -(ctx.downstream.get(n.uid)?.size ?? 0);
+      return { value: -(ctx.downstream.get(n.uid)?.size ?? 0) };
     case "blockers":
-      return -(ctx.openBlockers.get(n.uid) ?? 0);
+      return { value: -(ctx.openBlockers.get(n.uid) ?? 0) };
     case "release": {
       const upcoming = (n.releases ?? []).filter((r) => !r.released);
       if (upcoming.length === 0) return undefined;
-      // Dated releases by date; an undated one after every date.
-      const dates = upcoming.map((r) => r.date ?? UNDATED);
-      return dates.reduce((a, b) => (b < a ? b : a));
+      const dates = upcoming.flatMap((r) => (r.date ? [r.date] : []));
+      return dates.length > 0 ? { value: dates.reduce((a, b) => (b < a ? b : a)) } : UNORDERED;
     }
   }
 }
@@ -112,11 +115,16 @@ const compareValues = (a: Value, b: Value): number =>
   typeof a === "number" && typeof b === "number" ? a - b : naturalCompare(String(a), String(b));
 
 /**
- * Orders tickets by `sort`: out-of-scope tickets last, then tickets missing the value last
- * (whichever direction), then the value, then the key. Null for the natural order, which each
+ * Orders tickets by `sort`: out-of-scope tickets last, then tickets missing the value, then those
+ * whose value has no place in the order (both whichever the direction), then the value, then the key. Null for the natural order, which each
  * view keeps as it is.
  */
-export function ticketComparator(sort: SortBy, ctx: SortContext): ((a: GraphNode, b: GraphNode) => number) | null {
+export function ticketComparator(
+  sort: SortBy,
+  ctx: SortContext,
+  /** "leave": equal values compare as 0, for views that break ties their own way (the Timeline, by start date). */
+  { ties = "by key" }: Readonly<{ ties?: "by key" | "leave" }> = {},
+): ((a: GraphNode, b: GraphNode) => number) | null {
   if (sort.key === "natural") return null;
   const key = sort.key;
   const direction = sort.reversed ? -1 : 1;
@@ -126,10 +134,12 @@ export function ticketComparator(sort: SortBy, ctx: SortContext): ((a: GraphNode
     const vb = valueOf(key, b, ctx);
     if (va === undefined || vb === undefined) {
       if (va !== vb) return va === undefined ? 1 : -1;
+    } else if (!!va.unordered !== !!vb.unordered) {
+      return va.unordered ? 1 : -1;
     } else {
-      const byValue = compareValues(va, vb);
+      const byValue = compareValues(va.value, vb.value);
       if (byValue !== 0) return direction * byValue;
     }
-    return naturalCompare(a.key, b.key) || a.uid.localeCompare(b.uid);
+    return ties === "leave" ? 0 : naturalCompare(a.key, b.key) || a.uid.localeCompare(b.uid);
   };
 }

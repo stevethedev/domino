@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { TimelineEntry } from "../../../graph/schedule";
 import type { GraphNode } from "../../../graph/types";
 import type { Lane } from "../../../graph/layout";
+import { ticketComparator } from "../../../graph/sort";
 import { LANE_HEIGHT, layoutRows, ROW_HEIGHT, stackFlags } from "../timelineLayout";
 
 const node = (uid: string, ghost = false): GraphNode => ({
@@ -134,6 +135,24 @@ describe("layoutRows with a sort", () => {
       ["early", entry("2026-10-05")],
     ]);
     expect(rowsOf(layoutRows(nodes, timeline, undefined, new Set(), tie).items)).toEqual(["early", "late"]);
+  });
+
+  it("with the real comparator, breaks ties by start date before key", () => {
+    // Same priority; key order (A-1, A-2) is the opposite of start order.
+    const nodes = [
+      { ...node("A-1"), key: "A-1", priority: { name: "High", rank: 1 } },
+      { ...node("A-2"), key: "A-2", priority: { name: "High", rank: 1 } },
+    ];
+    const timeline = new Map([
+      ["A-1", entry("2026-10-20")],
+      ["A-2", entry("2026-10-05")],
+    ]);
+    const order = ticketComparator(
+      { key: "priority", reversed: false },
+      { openBlockers: new Map(), downstream: new Map(), forecast: new Map() },
+      { ties: "leave" },
+    );
+    expect(rowsOf(layoutRows(nodes, timeline, undefined, new Set(), order ?? undefined).items)).toEqual(["A-2", "A-1"]);
   });
 
   it("orders lanes by their first row under the sort, catch-alls last", () => {
