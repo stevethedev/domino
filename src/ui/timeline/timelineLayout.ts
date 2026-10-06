@@ -1,5 +1,5 @@
 import type { Lane, LaneFn } from "../../graph/layout";
-import { addDays, daysBetween, maxDay, minDay, type Day, type Span, type TimelineEntry } from "../../graph/schedule";
+import { addDays, daysBetween, entryEnd, maxDay, minDay, type Day, type Span, type TimelineEntry } from "../../graph/schedule";
 import type { GraphNode } from "../../graph/types";
 import { isOneOf } from "../../lib/guards";
 
@@ -31,11 +31,7 @@ export type TimelineRowData = { node: GraphNode; entry: TimelineEntry };
 
 export const isLate = (r: TimelineRowData): boolean => !r.node.ghost && !isEpicNode(r.node) && r.entry.varianceDays > 0;
 
-/** The latest day any bar or marker for this entry reaches. */
-export function entryEnd(e: TimelineEntry): Day {
-  const p = e.progress;
-  return maxDay(e.projected.end, p.state === "done" ? p.actual.end : p.forecast.end);
-}
+export { entryEnd };
 
 function entryStart(e: TimelineEntry): Day {
   const p = e.progress;

@@ -52,6 +52,12 @@ export function toDay(value: string | number | Date): Day {
 export const addDays = (d: Day, n: number): Day => format(parse(d) + n * DAY_MS);
 export const daysBetween = (a: Day, b: Day): number => Math.round((parse(b) - parse(a)) / DAY_MS);
 export const maxDay = (...days: Day[]): Day => days.reduce((a, b) => (b > a ? b : a));
+
+/** The latest day any bar or marker for this entry reaches: its forecast (or actual) finish. */
+export function entryEnd(e: TimelineEntry): Day {
+  const p = e.progress;
+  return maxDay(e.projected.end, p.state === "done" ? p.actual.end : p.forecast.end);
+}
 export const minDay = (...days: Day[]): Day => days.reduce((a, b) => (b < a ? b : a));
 
 /** The day itself if it's a workday, else the following Monday. */
