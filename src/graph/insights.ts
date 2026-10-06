@@ -24,6 +24,8 @@ export type Insights = {
   ready: ReadonlySet<string>;
   critical: Chain;
   openBlockers: ReadonlyMap<string, number>;
+  /** Per issue: the open issues downstream of it (see `downstreamOpen`). */
+  downstream: ReadonlyMap<string, ReadonlySet<string>>;
   /** Open issues whose completion unblocks the most open work, biggest impact first. */
   unblockers: readonly Unblocker[];
   /** Per assignee name: distinct open issues of *other* people waiting downstream of theirs. */
@@ -112,6 +114,7 @@ export function computeInsights(graph: Graph, opts?: InsightOptions): Insights {
     ready: readyIssues(graph),
     critical: criticalPath(graph),
     openBlockers,
+    downstream,
     unblockers: rankUnblockers(graph, downstream),
     holdingUpByAssignee: holdingUp(graph, downstream),
     aging: opts ? computeAging(graph, opts.history, openBlockers, { ...opts, ...AGING_DEFAULTS }) : new Map(),
