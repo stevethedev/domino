@@ -22,10 +22,14 @@ import { openExternal } from "../platform";
 import { LinkEdge, type LinkFlowEdge } from "./edges/LinkEdge";
 import { captureElement } from "./capture";
 import { ExportMenu } from "./ExportMenu";
+import { SortChip } from "./SortChip";
 import { COMPACT_BELOW_ZOOM, IssueCard, SiteGroup, type IssueFlowNode, type SiteGroupNode } from "./IssueCard";
 import { isOneOf } from "../lib/guards";
 import { prefersReducedMotion } from "../lib/motion";
 import { fitKeyOf } from "./fitKey";
+
+/** How long cards may slide after a sort change; longer than `--duration-base` so the slide finishes. */
+const RESORT_MS = 400;
 
 /** Margin around the graph in exports, in CSS pixels. */
 const EXPORT_PADDING = 40;
@@ -105,6 +109,7 @@ export function Canvas({
   scopeKey,
   stale,
   order,
+  onClearSort,
 }: {
   graph: Graph;
   insights: Insights;
@@ -127,6 +132,8 @@ export function Canvas({
   stale: boolean;
   /** The user's sort (see `ticketComparator`); null keeps the dependency layout's own order. */
   order: CardOrder | null;
+  /** Back to the natural order (the sort chip's ✕). */
+  onClearSort: () => void;
 }): ReactElement {
   const rf = useReactFlow();
   const [hovered, setHovered] = useState<string | null>(null);
@@ -134,6 +141,24 @@ export function Canvas({
   // never blanks the canvas while the layout worker runs.
   const [drawn, setDrawn] = useState<Drawn | null>(null);
   const fittedKey = useRef<string | null>(null);
+  // Cards slide to their new places when the sort changes (not on other re-layouts); the global
+  // reduced-motion rule makes it instant.
+  const [resorting, setResorting] = useState(false);
+  const resortPending = useRef(false);
+  const lastOrder = useRef(order);
+  if (lastOrder.current !== order) {
+    lastOrder.current = order;
+    resortPending.current = true;
+  }
+  useEffect(() => {
+    if (!resorting) return;
+    const timer = setTimeout(() => {
+      setResorting(false);
+    }, RESORT_MS);
+    return (): void => {
+      clearTimeout(timer);
+    };
+  }, [resorting]);
   const fitKey = useRef("");
   fitKey.current = fitKeyOf(scopeKey, view.groupBy, filters, foldedEpics, view.sort);
 
@@ -153,6 +178,10 @@ export function Canvas({
       (l) => {
         if (cancelled) return;
         setDrawn({ layout: l, nodes: vNodes, edges: vEdges });
+        if (resortPending.current) {
+          resortPending.current = false;
+          setResorting(true);
+        }
         // Fit once per scope and view settings (see fitKeyOf), when there's something to fit. Never
         // zoom past 100%: small graphs stay card-sized.
         if (l.positions.size > 0 && fitKey.current !== fittedKey.current) {
@@ -343,6 +372,7 @@ export function Canvas({
         edges={flowEdges}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
+        className={resorting ? "resorting" : undefined}
         nodesConnectable={false}
         nodesDraggable={false}
         elementsSelectable={false}
@@ -361,6 +391,9 @@ export function Canvas({
           <>
             <Panel position="top-right">
               <ExportMenu name="graph" capture={exportGraph} />
+            </Panel>
+            <Panel position="top-left">
+              <SortChip sort={view.sort} onClear={onClearSort} />
             </Panel>
             <Controls showInteractive={false} position="bottom-left" />
             <MiniMap<FlowNode>

@@ -577,3 +577,8 @@
   top: -20px;
   font-size: 22px;
 }
+
+/* Cards slide to their new places when the sort changes (Canvas sets .resorting briefly). */
+.react-flow.resorting .react-flow__node {
+  transition: transform var(--duration-base) var(--ease);
+}

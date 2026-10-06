@@ -121,6 +121,9 @@ function Shell(): ReactElement {
   const [viewRest, setViewRest] = useState(DEFAULT_VIEW);
   const [sort, setSort] = usePersistentState(SORT_KEY, parseSortBy, NATURAL_SORT);
   const view = useMemo<ViewOptions>(() => ({ ...viewRest, sort }), [viewRest, sort]);
+  const clearSort = (): void => {
+    setSort(NATURAL_SORT);
+  };
   const setView = (next: ViewOptions): void => {
     const { sort: nextSort, ...rest } = next;
     setViewRest(rest);
@@ -634,6 +637,7 @@ function Shell(): ReactElement {
                 scopeKey={shownScopeKey}
                 stale={stale}
                 order={order}
+                onClearSort={clearSort}
               />
             ) : (
               <Suspense fallback={<div className="canvas-message">Loading timeline…</div>}>
@@ -655,6 +659,7 @@ function Shell(): ReactElement {
                   busy={loadView.busy}
                   stale={stale}
                   order={order}
+                  onClearSort={clearSort}
                 />
               </Suspense>
             )}

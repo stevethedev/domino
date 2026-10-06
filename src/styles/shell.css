@@ -1236,3 +1236,46 @@ kbd {
 .epic-folds .hint {
   margin: 0;
 }
+
+/* "Sorted by …  ✕": shown while the view is sorted (top-left of the Graph, in the Timeline's Issue header). */
+.sort-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 100%;
+  padding: var(--space-0_5) var(--space-0_5) var(--space-0_5) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+  color: var(--text);
+  font-size: var(--text-xs);
+  font-weight: normal;
+  white-space: nowrap;
+}
+.sort-chip > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sort-chip-clear {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.sort-chip-clear:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.sort-chip-clear .icon {
+  width: 12px;
+  height: 12px;
+}
