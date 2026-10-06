@@ -1,5 +1,5 @@
 import { isOneOf } from "../lib/guards";
-import { entryEnd, type TimelineEntry } from "./schedule";
+import type { TimelineEntry } from "./schedule";
 import type { GraphNode, StatusCategory } from "./types";
 
 /** What tickets can be sorted by. "natural" keeps each view's own order (dependencies, start date). */
@@ -95,8 +95,9 @@ function valueOf(key: Exclude<SortKey, "natural">, n: GraphNode, ctx: SortContex
     case "due":
       return ordered(n.dates?.due);
     case "finish": {
-      const entry = ctx.forecast.get(n.uid);
-      return ordered(entry && entryEnd(entry));
+      // When it finished, or is forecast to: not the bar's extent, which also covers the projected end.
+      const p = ctx.forecast.get(n.uid)?.progress;
+      return ordered(p && (p.state === "done" ? p.actual.end : p.forecast.end));
     }
     case "unblocks":
       return { value: -(ctx.downstream.get(n.uid)?.size ?? 0) };
@@ -142,4 +143,27 @@ export function ticketComparator(
     }
     return ties === "leave" ? 0 : naturalCompare(a.key, b.key) || a.uid.localeCompare(b.uid);
   };
+}
+
+/**
+ * `order` for a graph with folded epics: a folded epic's summary card has no fields of its own,
+ * so it sorts as its best member (under `order`), the way lanes order by their first ticket.
+ * `members` looks up the epic's loaded tickets by uid.
+ */
+export function orderWithSummaries(
+  order: (a: GraphNode, b: GraphNode) => number,
+  members: ReadonlyMap<string, GraphNode>,
+): (a: GraphNode, b: GraphNode) => number {
+  const representatives = new Map<string, GraphNode>();
+  const representative = (n: GraphNode): GraphNode => {
+    if (!n.rollup) return n;
+    const known = representatives.get(n.uid);
+    if (known) return known;
+    const best = n.rollup.members
+      .flatMap((uid) => members.get(uid) ?? [])
+      .reduce<GraphNode | undefined>((top, m) => (top === undefined || order(m, top) < 0 ? m : top), undefined);
+    representatives.set(n.uid, best ?? n);
+    return best ?? n;
+  };
+  return (a, b) => order(representative(a), representative(b));
 }

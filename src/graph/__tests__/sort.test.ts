@@ -4,6 +4,7 @@ import {
   naturalCompare,
   NATURAL_SORT,
   orderText,
+  orderWithSummaries,
   parseSortBy,
   SORT_INFO,
   SORT_KEYS,
@@ -97,6 +98,19 @@ describe("ticketComparator", () => {
     expect(order({ key: "finish", reversed: false }, f, ctx({ forecast }))).toEqual(["F-2", "F-1"]);
   });
 
+  it("sorts by forecast finish using the actual finish of done tickets, not the projected end", () => {
+    const done = {
+      projected: { start: "2026-09-01", end: "2026-12-31" },
+      progress: { state: "done", actual: { start: "2026-09-01", end: "2026-10-02" } },
+      varianceDays: 0,
+    } as unknown as TimelineEntry;
+    const forecast = new Map([
+      ["a:F-2", entry("2026-10-15")],
+      ["a:F-3", done],
+    ]);
+    expect(order({ key: "finish", reversed: false }, [node("F-2"), node("F-3")], ctx({ forecast }))).toEqual(["F-3", "F-2"]);
+  });
+
   it("sorts by impact, most first", () => {
     const nodes = [node("I-1"), node("I-2"), node("I-3")];
     const downstream = new Map([
@@ -117,6 +131,20 @@ describe("ticketComparator", () => {
       node("R-4", { releases: [rel("v1", "2026-10-20")] }),
     ];
     expect(order({ key: "release", reversed: false }, nodes)).toEqual(["R-4", "R-1", "R-2", "R-3"]);
+  });
+});
+
+describe("orderWithSummaries", () => {
+  it("sorts a folded epic's summary card as its best member", () => {
+    const high = node("E-1", { priority: { name: "Highest", rank: 0 } });
+    const low = node("E-2", { priority: { name: "Low", rank: 3 } });
+    const summary = node("EPIC-1", { rollup: { epicUid: "a:EPIC-1", members: [low.uid, high.uid], done: 0, blocked: 0, aging: 0 } });
+    const medium = node("M-1", { priority: { name: "Medium", rank: 2 } });
+    const compare = ticketComparator({ key: "priority", reversed: false }, ctx());
+    if (!compare) throw new Error("expected a comparator");
+    const withSummaries = orderWithSummaries(compare, new Map([high, low, medium].map((n) => [n.uid, n])));
+    expect([medium, summary].sort(withSummaries).map((n) => n.key)).toEqual(["EPIC-1", "M-1"]);
+    expect([medium, summary].sort(compare).map((n) => n.key)).toEqual(["M-1", "EPIC-1"]); // without it, the summary has no priority
   });
 });
 

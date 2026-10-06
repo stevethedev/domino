@@ -155,6 +155,23 @@ describe("layoutRows with a sort", () => {
     expect(rowsOf(layoutRows(nodes, timeline, undefined, new Set(), order ?? undefined).items)).toEqual(["A-2", "A-1"]);
   });
 
+  it("with the real comparator, breaks value-and-start ties by natural key (CORE-9 before CORE-10)", () => {
+    const nodes = [
+      { ...node("a:CORE-10"), key: "CORE-10", priority: { name: "High", rank: 1 } },
+      { ...node("a:CORE-9"), key: "CORE-9", priority: { name: "High", rank: 1 } },
+    ];
+    const timeline = new Map([
+      ["a:CORE-10", entry("2026-10-05")],
+      ["a:CORE-9", entry("2026-10-05")],
+    ]);
+    const order = ticketComparator(
+      { key: "priority", reversed: false },
+      { openBlockers: new Map(), downstream: new Map(), forecast: new Map() },
+      { ties: "leave" },
+    );
+    expect(rowsOf(layoutRows(nodes, timeline, undefined, new Set(), order ?? undefined).items)).toEqual(["a:CORE-9", "a:CORE-10"]);
+  });
+
   it("orders lanes by their first row under the sort, catch-alls last", () => {
     const laneOf = (n: GraphNode): Lane =>
       n.uid.startsWith("z") ? { id: "lane:none", label: "None", last: true } : { id: `lane:${n.uid[0]}`, label: n.uid[0] };

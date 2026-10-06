@@ -15,7 +15,7 @@ import {
   type LaneFn,
   type Layout,
 } from "../graph/layout";
-import type { SortBy } from "../graph/sort";
+import { orderWithSummaries, type SortBy } from "../graph/sort";
 import type { Graph, GraphEdge, GraphNode } from "../graph/types";
 import { visibleSubgraph, type ViewFilters } from "../graph/visible";
 import { openExternal } from "../platform";
@@ -142,7 +142,9 @@ export function Canvas({
   const [drawn, setDrawn] = useState<Drawn | null>(null);
   const fittedKey = useRef<string | null>(null);
   // Cards slide to their new places when the sort changes (not on other re-layouts); the global
-  // reduced-motion rule makes it instant.
+  // reduced-motion rule makes it instant. Each re-sort restarts the timer, so a quick second
+  // change still slides for the full time.
+  const [resorts, setResorts] = useState(0);
   const [resorting, setResorting] = useState(false);
   const resortPending = useRef(false);
   const lastOrder = useRef(order);
@@ -151,14 +153,14 @@ export function Canvas({
     resortPending.current = true;
   }
   useEffect(() => {
-    if (!resorting) return;
+    if (resorts === 0) return;
     const timer = setTimeout(() => {
       setResorting(false);
     }, RESORT_MS);
     return (): void => {
       clearTimeout(timer);
     };
-  }, [resorting]);
+  }, [resorts]);
   const fitKey = useRef("");
   fitKey.current = fitKeyOf(scopeKey, view.groupBy, filters, foldedEpics, view.sort);
 
@@ -171,16 +173,22 @@ export function Canvas({
   const laneOf = useMemo(() => lanesFor(view.groupBy, insights), [view.groupBy, insights]);
 
   const { nodes: vNodes, edges: vEdges } = useMemo(() => visibleSubgraph(graph, filters), [graph, filters]);
+  // A folded epic's summary card sorts as its best ticket (it has no fields of its own).
+  const layoutOrder = useMemo(
+    () => (order && collapsed ? orderWithSummaries(order, new Map(loaded.nodes.map((n) => [n.uid, n]))) : order),
+    [order, collapsed, loaded.nodes],
+  );
 
   useEffect(() => {
     let cancelled = false;
-    computeLayout(vNodes, vEdges, graph.brokenEdgeIds, laneOf, order ?? undefined).then(
+    computeLayout(vNodes, vEdges, graph.brokenEdgeIds, laneOf, layoutOrder ?? undefined).then(
       (l) => {
         if (cancelled) return;
         setDrawn({ layout: l, nodes: vNodes, edges: vEdges });
         if (resortPending.current) {
           resortPending.current = false;
           setResorting(true);
+          setResorts((n) => n + 1);
         }
         // Fit once per scope and view settings (see fitKeyOf), when there's something to fit. Never
         // zoom past 100%: small graphs stay card-sized.
@@ -199,7 +207,7 @@ export function Canvas({
     return (): void => {
       cancelled = true;
     };
-  }, [vNodes, vEdges, graph.brokenEdgeIds, laneOf, order, rf]);
+  }, [vNodes, vEdges, graph.brokenEdgeIds, laneOf, layoutOrder, rf]);
 
   // Highlights are computed on loaded issues; folded epics light up the summary each issue is shown as.
   const emphasized = useMemo(() => {

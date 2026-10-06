@@ -1,5 +1,6 @@
 import type { CardOrder, Lane, LaneFn } from "../../graph/layout";
 import { addDays, daysBetween, entryEnd, maxDay, minDay, type Day, type Span, type TimelineEntry } from "../../graph/schedule";
+import { naturalCompare } from "../../graph/sort";
 import type { GraphNode } from "../../graph/types";
 import { isOneOf } from "../../lib/guards";
 
@@ -69,8 +70,17 @@ export function layoutRows(
   // Ghosts have no loaded dates, so they go last instead of sorting by an invented start.
   const byStart = (a: Row, b: Row): number =>
     Number(a.node.ghost) - Number(b.node.ghost) || startOf(a).localeCompare(startOf(b)) || a.node.uid.localeCompare(b.node.uid);
-  const byRow = (a: Row, b: Row): number => (order ? order(a.node, b.node) : 0) || byStart(a, b);
-  const byFirstRow = (a: Row, b: Row): number => (order ? order(a.node, b.node) : 0) || startOf(a).localeCompare(startOf(b));
+  // Sorted: the sort, then start date, then natural key (CORE-9 before CORE-10). The natural order
+  // (no sort) keeps its original start-then-uid ties.
+  const bySort =
+    (o: CardOrder) =>
+    (a: Row, b: Row): number =>
+      o(a.node, b.node) ||
+      startOf(a).localeCompare(startOf(b)) ||
+      naturalCompare(a.node.key, b.node.key) ||
+      a.node.uid.localeCompare(b.node.uid);
+  const byRow = order ? bySort(order) : byStart;
+  const byFirstRow = order ? bySort(order) : (a: Row, b: Row): number => startOf(a).localeCompare(startOf(b));
   const ordered = [...lanes.values()]
     .map((l) => ({ ...l, rows: [...l.rows].sort(byRow) }))
     .sort(
