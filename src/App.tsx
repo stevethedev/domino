@@ -18,6 +18,7 @@ import { useMyself } from "./state/useMyself";
 import { useUnblockedNotifications } from "./state/useUnblockedNotifications";
 import { DEFAULT_ESTIMATE_SETTINGS, ESTIMATE_SETTINGS_KEY, parseEstimateSettings } from "./state/estimateSettings";
 import { oneOf, usePersistentState } from "./state/storage";
+import { NATURAL_SORT, parseSortBy, ticketComparator } from "./graph/sort";
 import { mergeViews, parseSavedViews, SAVED_VIEWS_KEY, upsertView, type EpicFolds, type SavedView } from "./state/savedViews";
 import { saveQuery, selectedSitesOf } from "./state/useDomino";
 import { scopeKeyOf } from "./state/scopeKey";
@@ -61,7 +62,8 @@ const DEFAULT_FILTERS: Filters = {
   issues: NO_ISSUE_FILTERS,
   hideImplied: true,
 };
-const DEFAULT_VIEW: ViewOptions = { groupBy: "none", highlight: "none", highlightScope: "all" };
+const DEFAULT_VIEW: Omit<ViewOptions, "sort"> = { groupBy: "none", highlight: "none", highlightScope: "all" };
+const SORT_KEY = "domino.sortBy";
 const NO_FOLDED_EPICS: ReadonlySet<string> = new Set();
 const NO_NODES: readonly GraphNode[] = [];
 const parseViewMode = oneOf(isViewMode);
@@ -115,7 +117,15 @@ export function App(): ReactElement {
 function Shell(): ReactElement {
   const domino = useDomino(configStore, jiraSource, ticketCache);
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
-  const [view, setView] = useState(DEFAULT_VIEW);
+  // The sort is remembered between launches (the rest of the view only through saved views).
+  const [viewRest, setViewRest] = useState(DEFAULT_VIEW);
+  const [sort, setSort] = usePersistentState(SORT_KEY, parseSortBy, NATURAL_SORT);
+  const view = useMemo<ViewOptions>(() => ({ ...viewRest, sort }), [viewRest, sort]);
+  const setView = (next: ViewOptions): void => {
+    const { sort: nextSort, ...rest } = next;
+    setViewRest(rest);
+    setSort(nextSort);
+  };
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Settings is code-split: mount it on first open, then keep it mounted like before.
   const [settingsEverOpened, setSettingsEverOpened] = useState(false);
@@ -337,6 +347,11 @@ function Shell(): ReactElement {
     setDetailFocusRequest((n) => n + 1);
   }, []);
   const downstream = useMemo(() => downstreamOpen(graph), [graph]);
+  // The user's sort, shared by the Graph (within columns) and the Timeline (rows); null keeps each view's own order.
+  const order = useMemo(
+    () => ticketComparator(sort, { openBlockers: insights.openBlockers, downstream, forecast: forecast.timeline }),
+    [sort, insights.openBlockers, downstream, forecast.timeline],
+  );
   const selectedNode = selectedUid ? nodesByUid.get(selectedUid) : undefined;
   const selectedEntry = selectedNode && selectedNode.statusCategory !== "done" ? forecast.timeline.get(selectedNode.uid) : undefined;
   const detail: IssueDetailData | null = selectedNode
@@ -618,6 +633,7 @@ function Shell(): ReactElement {
                 linkPreview={preview}
                 scopeKey={shownScopeKey}
                 stale={stale}
+                order={order}
               />
             ) : (
               <Suspense fallback={<div className="canvas-message">Loading timeline…</div>}>
@@ -638,6 +654,7 @@ function Shell(): ReactElement {
                   linkPreview={preview}
                   busy={loadView.busy}
                   stale={stale}
+                  order={order}
                 />
               </Suspense>
             )}

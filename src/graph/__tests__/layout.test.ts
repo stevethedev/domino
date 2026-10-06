@@ -184,3 +184,65 @@ describe("withEpicFolds", () => {
     expect(withEpicFolds(lanes, [])).toEqual(new Set(["site:a", "epic:~none", "assignee:Noor"]));
   });
 });
+
+describe("computeLayout with a sort", () => {
+  // Reverse natural key order: easy to tell apart from the default uid order.
+  const order = (a: GraphNode, b: GraphNode): number =>
+    b.key.localeCompare(a.key, undefined, { numeric: true }) || b.uid.localeCompare(a.uid);
+
+  /** Absolute card positions, grouped by column (x), each column top to bottom. */
+  const columns = (layout: Layout): GraphNode[][] => {
+    const groupPos = new Map(layout.groups.map((gr) => [gr.id, gr]));
+    const abs = (uid: string): { x: number; y: number } => {
+      const p = getOrThrow(layout.positions, uid);
+      const parent = p.parent ? getOrThrow(groupPos, p.parent) : { x: 0, y: 0 };
+      return { x: p.x + parent.x, y: p.y + parent.y };
+    };
+    const byX = new Map<number, GraphNode[]>();
+    for (const n of g.nodes) byX.set(abs(n.uid).x, [...(byX.get(abs(n.uid).x) ?? []), n]);
+    return [...byX.values()].map((col) => col.sort((a, b) => abs(a.uid).y - abs(b.uid).y));
+  };
+
+  it.each(MODES)("keeps every column in sorted order (group by %s)", async (_mode, laneOf) => {
+    const layout = await computeLayout(g.nodes, g.edges, g.brokenEdgeIds, laneOf, order);
+    for (const col of columns(layout)) {
+      // Within a lane (or the whole graph), top to bottom follows the sort.
+      const byLane = new Map<string, GraphNode[]>();
+      for (const n of col) {
+        const lane = getOrThrow(layout.positions, n.uid).parent ?? "all";
+        byLane.set(lane, [...(byLane.get(lane) ?? []), n]);
+      }
+      for (const cards of byLane.values()) expect(cards.map((n) => n.uid)).toEqual([...cards].sort(order).map((n) => n.uid));
+    }
+  });
+
+  it.each(MODES)("still puts blockers left of what they block, without overlaps (group by %s)", async (_mode, laneOf) => {
+    const layout = await computeLayout(g.nodes, g.edges, g.brokenEdgeIds, laneOf, order);
+    const groupPos = new Map(layout.groups.map((gr) => [gr.id, gr]));
+    const abs = (uid: string): { x: number; y: number } => {
+      const p = getOrThrow(layout.positions, uid);
+      const parent = p.parent ? getOrThrow(groupPos, p.parent) : { x: 0, y: 0 };
+      return { x: p.x + parent.x, y: p.y + parent.y };
+    };
+    for (const e of g.edges) {
+      if (e.kind === "blocks" && !g.brokenEdgeIds.has(e.id)) expect(abs(e.source).x).toBeLessThan(abs(e.target).x);
+    }
+    const boxes = g.nodes.map((n) => ({ uid: n.uid, ...abs(n.uid) }));
+    for (const [i, a] of boxes.entries()) {
+      for (const b of boxes.slice(i + 1)) {
+        const overlap = a.x < b.x + CARD_WIDTH && b.x < a.x + CARD_WIDTH && a.y < b.y + CARD_HEIGHT && b.y < a.y + CARD_HEIGHT;
+        expect(overlap, `${a.uid} overlaps ${b.uid}`).toBe(false);
+      }
+    }
+  });
+
+  it("orders lanes by their first card under the sort, catch-alls last", async () => {
+    const layout = await computeLayout(g.nodes, g.edges, g.brokenEdgeIds, laneByEpic, order);
+    const lanes = layout.groups.filter((gr) => !gr.last);
+    const firstOf = (groupId: string): GraphNode =>
+      [...g.nodes].filter((n) => getOrThrow(layout.positions, n.uid).parent === groupId).sort(order)[0];
+    const firsts = lanes.map((gr) => firstOf(gr.id));
+    expect(firsts.map((n) => n.uid)).toEqual([...firsts].sort(order).map((n) => n.uid));
+    expect(layout.groups.slice(-2).every((gr) => gr.last)).toBe(true);
+  });
+});

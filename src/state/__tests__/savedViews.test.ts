@@ -14,7 +14,7 @@ const view = (name: string): SavedView => ({
     issues: { hiddenCategories: ["done"], hiddenTypes: [], hiddenAssignees: [""], hiddenPriorities: ["Low"] },
     hideImplied: false,
   },
-  view: { groupBy: "assignee", highlight: "blocked", highlightScope: "assigned" },
+  view: { groupBy: "assignee", highlight: "blocked", highlightScope: "assigned", sort: { key: "priority", reversed: true } },
   mode: "timeline",
 });
 
@@ -40,7 +40,7 @@ describe("saved views", () => {
     const epicMap = { ...view("Epic map"), view: { groupBy: "site", highlight: "none", collapseEpics: true } };
     const plain = { ...view("Plain"), view: { groupBy: "site", highlight: "none", collapseEpics: false } };
     const [a, b] = defined(parseSavedViews([epicMap, plain]), "parsed views");
-    expect(a.view).toEqual({ groupBy: "epic", highlight: "none", highlightScope: "all" });
+    expect(a.view).toEqual({ groupBy: "epic", highlight: "none", highlightScope: "all", sort: { key: "natural", reversed: false } });
     expect(a.epicFolds).toBe("all");
     expect(b.view.groupBy).toBe("site");
     expect(b).not.toHaveProperty("epicFolds");
@@ -77,6 +77,11 @@ describe("saved views", () => {
     const { hiddenPriorities: _, ...issues } = view("Old").filters.issues;
     const old = { ...view("Old"), filters: { ...view("Old").filters, issues } };
     expect(defined(parseSavedViews([old]), "parsed views")[0].filters.issues).toEqual({ ...issues, hiddenPriorities: [] });
+  });
+
+  it("keeps the natural order for views saved before sorting existed", () => {
+    const old = { ...view("Old"), view: { groupBy: "none", highlight: "none", highlightScope: "all" } };
+    expect(defined(parseSavedViews([old]), "parsed views")[0].view.sort).toEqual({ key: "natural", reversed: false });
   });
 
   it("defaults highlightScope to everyone's issues for views saved before scoped highlights", () => {

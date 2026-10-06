@@ -1,4 +1,4 @@
-import type { Lane, LaneFn } from "../../graph/layout";
+import type { CardOrder, Lane, LaneFn } from "../../graph/layout";
 import { addDays, daysBetween, entryEnd, maxDay, minDay, type Day, type Span, type TimelineEntry } from "../../graph/schedule";
 import type { GraphNode } from "../../graph/types";
 import { isOneOf } from "../../lib/guards";
@@ -42,7 +42,8 @@ function entryStart(e: TimelineEntry): Day {
 /**
  * Rows grouped into lanes (or one unlabeled lane), each lane sorted by projected start so
  * dependency arrows mostly run down and to the right. Lanes order by their earliest start,
- * with catch-all lanes last. A collapsed lane takes only its header's height; its rows come back
+ * with catch-all lanes last. With `order` (the user's sort), rows follow it instead (start date
+ * breaks ties) and lanes order by their first row under it. A collapsed lane takes only its header's height; its rows come back
  * `folded` at the header's y. Returns items with their y offsets, the total height, and every
  * row (collapsed or not) for date ranges and counts.
  */
@@ -51,6 +52,7 @@ export function layoutRows(
   timeline: ReadonlyMap<string, TimelineEntry>,
   laneOf: LaneFn | undefined,
   collapsed: ReadonlySet<string> = new Set(),
+  order?: CardOrder,
 ): { items: TimelineItem[]; height: number; all: TimelineRowData[] } {
   type Row = TimelineRowData;
   const lanes = new Map<string, { lane: Lane; rows: Row[] }>();
@@ -66,13 +68,12 @@ export function layoutRows(
   // Ghosts have no loaded dates, so they go last instead of sorting by an invented start.
   const byStart = (a: Row, b: Row): number =>
     Number(a.node.ghost) - Number(b.node.ghost) || startOf(a).localeCompare(startOf(b)) || a.node.uid.localeCompare(b.node.uid);
+  const byRow = (a: Row, b: Row): number => (order ? order(a.node, b.node) : 0) || byStart(a, b);
+  const byFirstRow = (a: Row, b: Row): number => (order ? order(a.node, b.node) : startOf(a).localeCompare(startOf(b)));
   const ordered = [...lanes.values()]
-    .map((l) => ({ ...l, rows: [...l.rows].sort(byStart) }))
+    .map((l) => ({ ...l, rows: [...l.rows].sort(byRow) }))
     .sort(
-      (a, b) =>
-        Number(!!a.lane.last) - Number(!!b.lane.last) ||
-        startOf(a.rows[0]).localeCompare(startOf(b.rows[0])) ||
-        a.lane.id.localeCompare(b.lane.id),
+      (a, b) => Number(!!a.lane.last) - Number(!!b.lane.last) || byFirstRow(a.rows[0], b.rows[0]) || a.lane.id.localeCompare(b.lane.id),
     );
 
   const items: TimelineItem[] = [];

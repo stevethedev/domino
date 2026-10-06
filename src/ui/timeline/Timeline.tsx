@@ -3,6 +3,7 @@ import { prefersReducedMotion } from "../../lib/motion";
 import { blockingChain } from "../../graph/analysis";
 import { emphasis, type Insights } from "../../graph/insights";
 import { releaseStatuses } from "../../graph/releases";
+import type { CardOrder } from "../../graph/layout";
 import type { TimelineEntry } from "../../graph/schedule";
 import type { Graph } from "../../graph/types";
 import { previewOf, type LinkPreview, type Move } from "../../graph/traverse";
@@ -54,6 +55,7 @@ export function Timeline({
   linkPreview,
   busy,
   stale,
+  order,
 }: {
   graph: Graph;
   insights: Insights;
@@ -76,6 +78,8 @@ export function Timeline({
   busy: boolean;
   /** Another scope is loading: these rows are the previous scope's, out of reach. */
   stale: boolean;
+  /** The user's sort (see `ticketComparator`); null keeps rows by start date. */
+  order: CardOrder | null;
 }): ReactElement {
   const [hovered, setHovered] = useState<string | null>(null);
   const setSettings = (patch: Partial<EstimateSettings>): void => {
@@ -103,8 +107,8 @@ export function Timeline({
 
   const { nodes, edges } = useMemo(() => visibleSubgraph(graph, filters), [graph, filters]);
   const { items, height, all } = useMemo(
-    () => layoutRows(nodes, placed, lanesFor(view.groupBy, insights), collapsedLanes),
-    [nodes, placed, view.groupBy, insights, collapsedLanes],
+    () => layoutRows(nodes, placed, lanesFor(view.groupBy, insights), collapsedLanes, order ?? undefined),
+    [nodes, placed, view.groupBy, insights, collapsedLanes, order],
   );
   // Rows on screen; folded rows (in collapsed lanes) stay mounted only so folding can animate.
   const rows = items.filter((i): i is TimelineRowModel => i.kind === "row" && !i.folded);

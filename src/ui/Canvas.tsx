@@ -4,7 +4,18 @@ import { blockingChain } from "../graph/analysis";
 import { collapseEpics, shownEdgeId } from "../graph/collapse";
 import { previewOf, type LinkPreview, type Move } from "../graph/traverse";
 import { emphasis, type Highlight, type HighlightScope, type Insights } from "../graph/insights";
-import { CARD_HEIGHT, CARD_WIDTH, computeLayout, laneByAssignee, laneByEpic, laneBySite, type LaneFn, type Layout } from "../graph/layout";
+import {
+  CARD_HEIGHT,
+  CARD_WIDTH,
+  computeLayout,
+  laneByAssignee,
+  laneByEpic,
+  laneBySite,
+  type CardOrder,
+  type LaneFn,
+  type Layout,
+} from "../graph/layout";
+import type { SortBy } from "../graph/sort";
 import type { Graph, GraphEdge, GraphNode } from "../graph/types";
 import { visibleSubgraph, type ViewFilters } from "../graph/visible";
 import { openExternal } from "../platform";
@@ -24,8 +35,11 @@ export type Filters = ViewFilters;
 const GROUP_BY = ["none", "site", "epic", "assignee"] as const;
 export type GroupBy = (typeof GROUP_BY)[number];
 export const isGroupBy = isOneOf(GROUP_BY);
-/** `highlightScope` narrows the highlight to the signed-in user's issues ("At a glance" for me). */
-export type ViewOptions = { groupBy: GroupBy; highlight: Highlight; highlightScope: HighlightScope };
+/**
+ * `highlightScope` narrows the highlight to the signed-in user's issues ("At a glance" for me).
+ * `sort` orders cards within each column (and lanes), and Timeline rows.
+ */
+export type ViewOptions = { groupBy: GroupBy; highlight: Highlight; highlightScope: HighlightScope; sort: SortBy };
 
 /** The lane function for a Group by choice; assignee lanes need the insights for their labels. */
 export function lanesFor(groupBy: GroupBy, insights: Insights): LaneFn | undefined {
@@ -90,6 +104,7 @@ export function Canvas({
   linkPreview,
   scopeKey,
   stale,
+  order,
 }: {
   graph: Graph;
   insights: Insights;
@@ -110,6 +125,8 @@ export function Canvas({
   scopeKey: string | null;
   /** Another scope is loading: this graph is the previous one, shown faded and not interactive. */
   stale: boolean;
+  /** The user's sort (see `ticketComparator`); null keeps the dependency layout's own order. */
+  order: CardOrder | null;
 }): ReactElement {
   const rf = useReactFlow();
   const [hovered, setHovered] = useState<string | null>(null);
@@ -118,7 +135,7 @@ export function Canvas({
   const [drawn, setDrawn] = useState<Drawn | null>(null);
   const fittedKey = useRef<string | null>(null);
   const fitKey = useRef("");
-  fitKey.current = fitKeyOf(scopeKey, view.groupBy, filters, foldedEpics);
+  fitKey.current = fitKeyOf(scopeKey, view.groupBy, filters, foldedEpics, view.sort);
 
   // Folded epics swap in a collapsed graph; everything below draws whichever graph is shown.
   const collapsed = useMemo(
@@ -132,7 +149,7 @@ export function Canvas({
 
   useEffect(() => {
     let cancelled = false;
-    computeLayout(vNodes, vEdges, graph.brokenEdgeIds, laneOf).then(
+    computeLayout(vNodes, vEdges, graph.brokenEdgeIds, laneOf, order ?? undefined).then(
       (l) => {
         if (cancelled) return;
         setDrawn({ layout: l, nodes: vNodes, edges: vEdges });
@@ -153,7 +170,7 @@ export function Canvas({
     return (): void => {
       cancelled = true;
     };
-  }, [vNodes, vEdges, graph.brokenEdgeIds, laneOf, rf]);
+  }, [vNodes, vEdges, graph.brokenEdgeIds, laneOf, order, rf]);
 
   // Highlights are computed on loaded issues; folded epics light up the summary each issue is shown as.
   const emphasized = useMemo(() => {

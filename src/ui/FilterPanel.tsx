@@ -9,6 +9,7 @@ import {
   type IssueFilters,
   type LinkFilters,
 } from "../graph/visible";
+import { isSortKey, orderText, SORT_INFO, SORT_KEYS, type SortBy, type SortGroup } from "../graph/sort";
 import { isGroupBy, type Filters, type ViewOptions } from "./Canvas";
 import { Icon } from "./Icon";
 
@@ -86,6 +87,58 @@ function FilterMenu({
         ))}
       </fieldset>
     </details>
+  );
+}
+
+const SORT_GROUPS: readonly SortGroup[] = ["Ticket", "Dates", "Impact", "Release"];
+
+/**
+ * Sort by: a key (grouped), and beside it the order in words ("Most severe first"), which
+ * reverses it. The natural order is each view's own: dependencies in the Graph, start date in the Timeline.
+ */
+function SortField({ sort, onSort }: { sort: SortBy; onSort: (next: SortBy) => void }): ReactElement {
+  const order = orderText(sort);
+  return (
+    <div className="field sort-by">
+      <label className="field">
+        <span>Sort by</span>
+        <select
+          value={sort.key}
+          title={sort.key === "natural" ? "Graph: by dependencies; Timeline: by start date" : undefined}
+          onChange={(e) => {
+            if (isSortKey(e.target.value)) onSort({ key: e.target.value, reversed: false });
+          }}
+        >
+          <option value="natural">Natural order</option>
+          {SORT_GROUPS.map((group) => (
+            <optgroup key={group} label={group}>
+              {SORT_KEYS.flatMap((key) =>
+                key !== "natural" && SORT_INFO[key].group === group
+                  ? [
+                      <option key={key} value={key}>
+                        {SORT_INFO[key].label}
+                      </option>,
+                    ]
+                  : [],
+              )}
+            </optgroup>
+          ))}
+        </select>
+      </label>
+      {sort.key !== "natural" && (
+        <button
+          type="button"
+          className="link-btn sort-order"
+          aria-label={`Order: ${order}. Reverses it.`}
+          title="Reverse the order"
+          onClick={() => {
+            onSort({ ...sort, reversed: !sort.reversed });
+          }}
+        >
+          {order} <span aria-hidden="true">⇅</span>
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -216,6 +269,12 @@ export function FilterPanel({
           <option value="assignee">Assignee</option>
         </select>
       </label>
+      <SortField
+        sort={view.sort}
+        onSort={(sort) => {
+          onView({ ...view, sort });
+        }}
+      />
       {epicFolds && (
         <div className="epic-folds">
           <p className="hint">

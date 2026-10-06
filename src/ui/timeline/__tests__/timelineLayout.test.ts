@@ -110,3 +110,42 @@ describe("stackFlags", () => {
     expect(lines.get("b")).toBe(1);
   });
 });
+
+describe("layoutRows with a sort", () => {
+  const byUidDesc = (a: GraphNode, b: GraphNode): number => Number(a.ghost) - Number(b.ghost) || b.uid.localeCompare(a.uid);
+  const rowsOf = (items: ReturnType<typeof layoutRows>["items"]): string[] => items.map((i) => (i.kind === "row" ? i.node.uid : i.lane.id));
+
+  it("orders rows by the sort instead of start date, ghosts still last", () => {
+    const nodes = [node("a1"), node("a3"), node("g", true), node("a2")];
+    const timeline = new Map([
+      ["a1", entry("2026-10-01")],
+      ["a2", entry("2026-10-02")],
+      ["a3", entry("2026-10-03")],
+      ["g", entry("2026-09-01")],
+    ]);
+    expect(rowsOf(layoutRows(nodes, timeline, undefined, new Set(), byUidDesc).items)).toEqual(["a3", "a2", "a1", "g"]);
+  });
+
+  it("falls back to start date on ties", () => {
+    const tie = (): number => 0;
+    const nodes = [node("late"), node("early")];
+    const timeline = new Map([
+      ["late", entry("2026-10-10")],
+      ["early", entry("2026-10-05")],
+    ]);
+    expect(rowsOf(layoutRows(nodes, timeline, undefined, new Set(), tie).items)).toEqual(["early", "late"]);
+  });
+
+  it("orders lanes by their first row under the sort, catch-alls last", () => {
+    const laneOf = (n: GraphNode): Lane =>
+      n.uid.startsWith("z") ? { id: "lane:none", label: "None", last: true } : { id: `lane:${n.uid[0]}`, label: n.uid[0] };
+    const nodes = [node("a1"), node("b1"), node("z9")];
+    const timeline = new Map([
+      ["a1", entry("2026-10-01")],
+      ["b1", entry("2026-10-05")],
+      ["z9", entry("2026-09-01")],
+    ]);
+    const lanes = layoutRows(nodes, timeline, laneOf, new Set(), byUidDesc).items.flatMap((i) => (i.kind === "lane" ? [i.lane.id] : []));
+    expect(lanes).toEqual(["lane:b", "lane:a", "lane:none"]);
+  });
+});

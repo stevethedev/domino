@@ -1,4 +1,5 @@
 import { isHighlight, isHighlightScope } from "../graph/insights";
+import { parseSortBy } from "../graph/sort";
 import type { Scope } from "../data/MultiSiteLoader";
 import type { StatusCategory } from "../graph/types";
 import { NO_ISSUE_FILTERS, type IssueFilters } from "../graph/visible";
@@ -93,6 +94,8 @@ function parseView(raw: unknown): SavedView | undefined {
       highlight: v.highlight,
       // Views saved before scoped highlights existed highlight everyone's issues.
       highlightScope: str(v.highlightScope) && isHighlightScope(v.highlightScope) ? v.highlightScope : "all",
+      // Views saved before sorting existed keep the natural order.
+      sort: parseSortBy(v.sort),
     },
     mode: r.mode,
     // Absent stays absent, so views without folds round-trip unchanged.
