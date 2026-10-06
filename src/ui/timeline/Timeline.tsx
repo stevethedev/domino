@@ -122,11 +122,13 @@ export function Timeline({
   // (toggles, Collapse all, revealing an issue from Quick Find) gets it. A layout effect, so
   // arrows never paint early.
   const [settling, setSettling] = useState(false);
-  const prevArrangement = useRef({ collapsedLanes, order });
+  // The sort setting, not the comparator (rebuilt whenever the data it reads changes).
+  const sortId = `${view.sort.key}:${String(view.sort.reversed)}`;
+  const prevArrangement = useRef({ collapsedLanes, sortId });
   useLayoutEffect(() => {
     const prev = prevArrangement.current;
-    if (prev.collapsedLanes === collapsedLanes && prev.order === order) return;
-    prevArrangement.current = { collapsedLanes, order };
+    if (prev.collapsedLanes === collapsedLanes && prev.sortId === sortId) return;
+    prevArrangement.current = { collapsedLanes, sortId };
     if (prefersReducedMotion()) return;
     setSettling(true);
     const timer = setTimeout(() => {
@@ -135,7 +137,7 @@ export function Timeline({
     return (): void => {
       clearTimeout(timer);
     };
-  }, [collapsedLanes, order]);
+  }, [collapsedLanes, sortId]);
   const toggleLane = (id: string): void => {
     const next = new Set(collapsedLanes);
     if (!next.delete(id)) next.add(id);

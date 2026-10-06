@@ -147,9 +147,12 @@ export function Canvas({
   const [resorts, setResorts] = useState(0);
   const [resorting, setResorting] = useState(false);
   const resortPending = useRef(false);
-  const lastOrder = useRef(order);
-  if (lastOrder.current !== order) {
-    lastOrder.current = order;
+  // Keyed on the sort setting, not the comparator, which is rebuilt whenever the data it reads
+  // changes (status history arriving, a refresh): those re-layouts don't slide.
+  const sortId = `${view.sort.key}:${String(view.sort.reversed)}`;
+  const lastSortId = useRef(sortId);
+  if (lastSortId.current !== sortId) {
+    lastSortId.current = sortId;
     resortPending.current = true;
   }
   useEffect(() => {
