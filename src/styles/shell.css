@@ -744,6 +744,17 @@ kbd {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.saved-view-confirm {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1_5);
+  padding: var(--space-1) var(--space-1_5);
+}
+.saved-view-confirm > span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .saved-view-delete {
   font-size: var(--text-lg);
   padding: var(--space-0_5) var(--space-2);

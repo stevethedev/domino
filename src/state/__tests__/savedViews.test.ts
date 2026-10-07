@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { defined } from "../../lib/guards";
-import { mergeViews, parseSavedViews, readViewsFile, upsertView, viewsFile, type SavedView } from "../savedViews";
+import {
+  canSaveView,
+  MAX_SAVED_VIEWS,
+  mergeViews,
+  parseSavedViews,
+  readViewsFile,
+  upsertView,
+  viewsFile,
+  type SavedView,
+} from "../savedViews";
 
 const view = (name: string): SavedView => ({
   name,
@@ -89,6 +98,15 @@ describe("saved views", () => {
     expect(defined(parseSavedViews([old]), "parsed views")[0].view.highlightScope).toBe("all");
   });
 
+  it("can always update a view, but adds new ones only below the limit", () => {
+    const full = Array.from({ length: MAX_SAVED_VIEWS }, (_, i) => view(`V${i}`));
+    expect(canSaveView(full, "v3")).toBe(true);
+    expect(canSaveView(full, "Another")).toBe(false);
+    expect(canSaveView(full.slice(1), "Another")).toBe(true);
+    // Upserting never trims: whatever was there stays.
+    expect(upsertView(full, view("V0")).length).toBe(MAX_SAVED_VIEWS);
+  });
+
   it("upsert replaces a same-named view (case-insensitive) and puts it first", () => {
     const next = upsertView([view("Standup"), view("Partner")], { ...view("standup"), mode: "graph" });
     expect(next.map((v) => [v.name, v.mode])).toEqual([
@@ -117,10 +135,25 @@ describe("sharing saved views", () => {
 
   it("merges imported views, replacing same-named ones and keeping import order first", () => {
     const merged = mergeViews([view("Standup"), view("Mine")], [{ ...view("standup"), mode: "graph" }, view("Partner")]);
-    expect(merged.map((v) => [v.name, v.mode])).toEqual([
+    expect(merged.views.map((v) => [v.name, v.mode])).toEqual([
       ["standup", "graph"],
       ["Partner", "timeline"],
       ["Mine", "timeline"],
     ]);
+    expect(merged).toMatchObject({ added: ["Partner"], replaced: ["standup"], skipped: [] });
+  });
+
+  it("never drops existing views to make room: imports past the limit are skipped and reported", () => {
+    const mine = Array.from({ length: MAX_SAVED_VIEWS - 1 }, (_, i) => view(`Mine ${i}`));
+    const merged = mergeViews(mine, [view("New 1"), view("Mine 3"), view("New 2")]);
+    expect(merged.views).toHaveLength(MAX_SAVED_VIEWS);
+    expect(merged.views.map((v) => v.name)).toEqual(expect.arrayContaining(mine.map((v) => v.name)));
+    expect(merged).toMatchObject({ added: ["New 1"], replaced: ["Mine 3"], skipped: ["New 2"] });
+  });
+
+  it("takes the first of a name repeated in the file", () => {
+    const merged = mergeViews([], [{ ...view("Dup"), mode: "graph" }, view("dup")]);
+    expect(merged.views.map((v) => [v.name, v.mode])).toEqual([["Dup", "graph"]]);
+    expect(merged.added).toEqual(["Dup"]);
   });
 });

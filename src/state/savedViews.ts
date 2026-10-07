@@ -26,7 +26,8 @@ export type SavedView = {
 };
 
 export const SAVED_VIEWS_KEY = "domino.savedViews";
-const MAX_SAVED_VIEWS = 30;
+/** The most views kept. Reaching it blocks adding more; nothing already saved is ever dropped. */
+export const MAX_SAVED_VIEWS = 100;
 
 const str = (v: unknown): v is string => typeof v === "string";
 const bool = (v: unknown): v is boolean => typeof v === "boolean";
@@ -109,10 +110,15 @@ export function parseSavedViews(raw: unknown): SavedView[] | undefined {
   return raw.flatMap((v) => parseView(v) ?? []).slice(0, MAX_SAVED_VIEWS);
 }
 
-/** Adds a view, replacing one with the same name (case-insensitive), newest first. */
+const sameName = (a: string, b: string): boolean => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+/** Whether a view named `name` can be saved: it updates an existing one, or there's room for another. */
+export const canSaveView = (views: readonly SavedView[], name: string): boolean =>
+  views.length < MAX_SAVED_VIEWS || views.some((v) => sameName(v.name, name));
+
+/** Adds a view, replacing one with the same name (case-insensitive), newest first. Check `canSaveView` first. */
 export function upsertView(views: readonly SavedView[], view: SavedView): SavedView[] {
-  const key = view.name.trim().toLowerCase();
-  return [view, ...views.filter((v) => v.name.toLowerCase() !== key)].slice(0, MAX_SAVED_VIEWS);
+  return [view, ...views.filter((v) => !sameName(v.name, view.name))];
 }
 
 /** The shareable file: a small envelope so other JSON isn't mistaken for views. */
@@ -138,6 +144,28 @@ export function readViewsFile(text: string): SavedView[] {
   return views;
 }
 
-/** Adds imported views to the current ones; an imported view replaces one with the same name. */
-export const mergeViews = (current: readonly SavedView[], imported: readonly SavedView[]): SavedView[] =>
-  [...imported].reverse().reduce<SavedView[]>((acc, v) => upsertView(acc, v), [...current]);
+/** What an import did, by view name. */
+export type ImportReport = Readonly<{ views: SavedView[]; added: string[]; replaced: string[]; skipped: string[] }>;
+
+/**
+ * Adds imported views to the current ones, the imported first and in file order. An imported view
+ * replaces one with the same name; new ones past `MAX_SAVED_VIEWS` are skipped, never squeezing
+ * out views already saved.
+ */
+export function mergeViews(current: readonly SavedView[], imported: readonly SavedView[]): ImportReport {
+  const report = { views: [...current], added: [] as string[], replaced: [] as string[], skipped: [] as string[] };
+  const accepted: SavedView[] = [];
+  // A name repeated within the file: the first one wins.
+  const unique = imported.filter((v, i) => imported.findIndex((w) => sameName(w.name, v.name)) === i);
+  for (const v of unique) {
+    if (current.some((c) => sameName(c.name, v.name))) report.replaced.push(v.name);
+    else if (current.length + report.added.length < MAX_SAVED_VIEWS) report.added.push(v.name);
+    else {
+      report.skipped.push(v.name);
+      continue;
+    }
+    accepted.push(v);
+  }
+  report.views = [...accepted].reverse().reduce<SavedView[]>((acc, v) => upsertView(acc, v), [...current]);
+  return report;
+}

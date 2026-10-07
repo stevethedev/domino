@@ -483,7 +483,9 @@ function Shell(): ReactElement {
                 setSavedViews(savedViews.filter((v) => v.name !== name));
               }}
               onImport={(imported) => {
-                setSavedViews(mergeViews(savedViews, imported));
+                const report = mergeViews(savedViews, imported);
+                setSavedViews(report.views);
+                return report;
               }}
             />
             <SiteSelector sites={config.sites} selected={domino.selected} onChange={domino.setSelected} />
