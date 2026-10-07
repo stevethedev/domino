@@ -287,7 +287,9 @@ export function Timeline({
     if (scrolledFor.current !== scopeKey) {
       scrolledFor.current = scopeKey;
       setCentreDay(null); // a new scope: no room kept for the last one's centre
+      leftEdge.current = { start: range.start, px: 0, scale: settings.scale }; // nor its left edge (set below)
       el.scrollLeft = scrollLeftFor(range.start, today, settings.scale, visibleWidth(el), 0.25);
+      leftEdge.current = { start: range.start, px: el.scrollLeft, scale: settings.scale };
     } else if (keep?.scale === settings.scale) {
       el.scrollLeft = scrollLeftFor(range.start, keep.day, settings.scale, visibleWidth(el), 0.5);
     } else if (scrolledFrom.current && scrolledFrom.current !== range.start && leftEdge.current?.scale === settings.scale) {
