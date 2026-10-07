@@ -242,24 +242,25 @@ pub(crate) fn oauth_cancel(state: State<'_, AppState>) {
 /// Returns the Atlassian sites the account can access.
 #[tauri::command]
 pub(crate) async fn oauth_connect(app: AppHandle, state: State<'_, AppState>) -> Result<Vec<String>, String> {
-    // Listening for Cancel from the start, so a click while the browser opens isn't lost; it
-    // covers the whole exchange (a cloudId missed that way is discovered on first use).
+    // Listening for Cancel from the start, so a click while the browser opens isn't lost. It
+    // covers only the wait for the browser: once the code is back, the exchange runs to the end,
+    // so a late cancel can't leave tokens stored behind a "cancelled" message.
     let cancelled = state.oauth_cancel.notified();
     tokio::pin!(cancelled);
     cancelled.as_mut().enable();
-    let sign_in = async {
+    let browser = async {
         let st = oauth::random_state()?;
         let url = state.oauth.authorize_url(&st)?;
         let listener = oauth::bind_callback().await?;
         app.opener().open_url(url, None::<&str>).map_err(|e| format!("Could not open the browser: {e}"))?;
-        let code = oauth::wait_for_callback(listener, &st, OAUTH_WAIT).await?;
-        state.oauth.exchange_code(&code).await?;
-        state.oauth.accessible_resources().await
+        oauth::wait_for_callback(listener, &st, OAUTH_WAIT).await
     };
-    let resources = tokio::select! {
-        resources = sign_in => resources?,
+    let code = tokio::select! {
+        code = browser => code?,
         () = cancelled => return Err(SIGN_IN_CANCELLED.to_owned()),
     };
+    state.oauth.exchange_code(&code).await?;
+    let resources = state.oauth.accessible_resources().await?;
     forget_oauth_sites(&state);
     for site in state.config.get().sites.iter().filter(|s| matches!(s.auth, SiteAuth::OAuth3lo)) {
         if let Some(id) = oauth::cloud_id_for(&site.base_url, &resources) {
