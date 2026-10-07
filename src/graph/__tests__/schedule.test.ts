@@ -165,6 +165,9 @@ describe("computeTimeline", () => {
     const t = computeTimeline(g, new Map(), opts());
     expect(getOrThrow(t, "a:X-1").progress.state).toBe("unknown");
     expect(getOrThrow(t, "a:X-2").progress).toEqual({ state: "not-started", forecast: { start: "2026-10-05", end: "2026-10-06" } });
+    // The baseline agrees: no phantom 5-day estimate ahead of it, so no bogus "under estimate".
+    expect(getOrThrow(t, "a:X-2").projected).toEqual({ start: "2026-10-05", end: "2026-10-06" });
+    expect(getOrThrow(t, "a:X-2").varianceDays).toBe(0);
   });
 
   it("in progress or done without history is 'unknown', not invented", () => {

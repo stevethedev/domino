@@ -133,10 +133,11 @@ export function projectSchedule(graph: Graph, opts: ScheduleOptions, history: St
   for (const uid of topoOrder(graph, blockers)) {
     const node = getOrThrow(byUid, uid);
     const started = actualStart(history.get(uid));
-    // Done with no history: its resolved day is all that's known, and better than an estimate laid out from today.
-    const resolved = node.statusCategory === "done" && !started ? node.dates?.resolved : undefined;
-    if (resolved) {
-      spans.set(uid, { start: resolved, end: addDays(resolved, 1) });
+    // Done with no history: its resolved day is all that's known, and better than an estimate laid
+    // out from today. With no dates at all it's simply done, holding nothing up (as in the forecast).
+    if (node.statusCategory === "done" && !started) {
+      const resolved = node.dates?.resolved;
+      spans.set(uid, resolved ? { start: resolved, end: addDays(resolved, 1) } : { start: opts.planStart, end: opts.planStart });
       continue;
     }
     const after = (blockers.get(uid) ?? []).map((b) => getOrThrow(spans, b).end);

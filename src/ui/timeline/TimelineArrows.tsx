@@ -44,9 +44,12 @@ export function arrowAnchors(
 
 /** True when the blocked issue started before its blocker finished. */
 export function isViolated(blocker: TimelineEntry, blocked: TimelineEntry): boolean {
+  // A done issue with no history has only its resolved day, not a start: nothing to compare.
   const started =
     blocked.progress.state === "done"
-      ? blocked.progress.actual.start
+      ? blocked.progress.startUnknown
+        ? undefined
+        : blocked.progress.actual.start
       : blocked.progress.state === "started"
         ? blocked.progress.actualStart
         : undefined;

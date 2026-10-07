@@ -230,13 +230,22 @@
   padding: 0 var(--space-3);
   font-weight: var(--weight-bold);
   font-size: var(--text-md);
-  background: var(--surface-2);
+  /* A light tint, so arrows into a folded lane (which end on its line) show through it; only the
+     title below is opaque. */
+  background: color-mix(in srgb, var(--surface-2) 45%, transparent);
+  border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
   z-index: var(--z-sticky);
 }
 .tl-lane > :first-child {
   position: sticky;
   left: 12px;
+  /* Above the folded lane's summary bar, which can scroll under it, and opaque over arrows. */
+  z-index: 1;
+  padding: var(--space-0_5) var(--space-1_5);
+  margin-left: calc(-1 * var(--space-1_5));
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
 }
 .tl-row {
   position: absolute;

@@ -1,8 +1,11 @@
 import type { ReactElement } from "react";
-import { addDays, type Day } from "../../graph/schedule";
+import { addDays, type Day, type Span } from "../../graph/schedule";
 import { fmtDay } from "../format";
 import { LABEL_WIDTH, LANE_HEIGHT, xOf, type Scale, type TimelineLaneModel } from "./timelineLayout";
 import { Icon } from "../Icon";
+
+/** "Sep 8 – Oct 14": a span's first and last days. */
+const spanLabel = (s: Span): string => `${fmtDay(s.start)} – ${fmtDay(addDays(s.end, -1))}`;
 
 /** A swimlane header: a disclosure toggle for the lane's rows, its title (epic lanes link to Jira) and counts. */
 export function TimelineLane({
@@ -30,7 +33,8 @@ export function TimelineLane({
           className="tl-lane-toggle"
           aria-expanded={!collapsed}
           onClick={onToggle}
-          aria-label={`${lane.label}, ${counts}`}
+          // Folded, the summary bar's dates are said here too (the bar itself is decorative).
+          aria-label={`${lane.label}, ${counts}${collapsed && span ? `, ${spanLabel(span)}` : ""}`}
           title={collapsed ? "Show issues" : "Hide issues"}
         >
           <span className="sb-chevron" aria-hidden="true" />
@@ -61,7 +65,7 @@ export function TimelineLane({
             left: LABEL_WIDTH + xOf(rangeStart, span.start, scale),
             width: Math.max(4, xOf(span.start, span.end, scale)),
           }}
-          title={`${lane.label}: ${fmtDay(span.start)} – ${fmtDay(addDays(span.end, -1))}`}
+          title={`${lane.label}: ${spanLabel(span)}`}
           aria-hidden="true"
         />
       )}
