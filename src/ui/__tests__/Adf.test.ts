@@ -106,6 +106,25 @@ describe("AdfDocument", () => {
     expect(html(null)).toBe("");
   });
 
+  it("ignores out-of-range dates instead of throwing", () => {
+    for (const timestamp of ["1e16", "-1e16", "NaN", "soon"]) {
+      expect(() => html(doc(p({ type: "date", attrs: { timestamp } })))).not.toThrow();
+    }
+  });
+
+  it("only uses known panel types as classes", () => {
+    const panel = (panelType: string): string => html(doc({ type: "panel", attrs: { panelType }, content: [p(text("x"))] }));
+    expect(panel("warning")).toContain('class="adf-panel adf-panel-warning"');
+    expect(panel("detail-description expanded")).toContain('class="adf-panel adf-panel-info"');
+  });
+
+  it("stops after a node budget, so a huge document can't freeze the panel", () => {
+    const many = Array.from({ length: 50_000 }, (_, i) => p(text(`n${i}`)));
+    const out = html(doc(...many));
+    expect(out).toContain("n0");
+    expect(out).not.toContain("n49999");
+  });
+
   it("stops at a nesting limit instead of overflowing the stack", () => {
     let deep: unknown = text("bottom");
     for (let i = 0; i < 5000; i++) deep = { type: "blockquote", content: [deep] };
@@ -137,5 +156,13 @@ describe("hasContent", () => {
     expect(hasContent(doc(p(text("  "))))).toBe(false);
     expect(hasContent(doc(p(text("x"))))).toBe(true);
     expect(hasContent(doc({ type: "mediaSingle", content: [{ type: "media", attrs: {} }] }))).toBe(true);
+    // Empty containers have nothing to show either.
+    expect(hasContent(doc({ type: "heading", attrs: { level: 2 }, content: [] }))).toBe(false);
+    expect(hasContent(doc({ type: "bulletList", content: [{ type: "listItem", content: [p()] }] }))).toBe(false);
+    expect(hasContent(doc({ type: "table", content: [{ type: "tableRow", content: [{ type: "tableCell", content: [p()] }] }] }))).toBe(
+      false,
+    );
+    expect(hasContent(doc({ type: "rule" }))).toBe(true);
+    expect(hasContent(doc(p({ type: "mention", attrs: { text: "@A" } })))).toBe(true);
   });
 });

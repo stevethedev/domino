@@ -84,11 +84,6 @@ function LinkList({
 }
 
 /**
- * Details for the selected issue, from what's already loaded: status and badges, people, dates,
- * what blocks it and what it blocks (each a link that moves the panel there), and its status
- * history. Esc or the close button closes it; "Open in Jira" leaves the app.
- */
-/**
  * The issue's description: loading, missing, failed (with Retry) or shown. A long one is clipped
  * until "Show more"; keyed by issue, so each opens clipped.
  */
@@ -105,9 +100,21 @@ function Description({
   const [expanded, setExpanded] = useState(false);
   const [overflows, setOverflows] = useState(false);
   const doc = state.status === "loaded" ? state.doc : null;
+  // Measured again whenever the clipped box or its content changes size (a resize, a <details>
+  // opening, fonts arriving), so "Show more" appears exactly when something is cut off.
   useLayoutEffect(() => {
     const el = bodyRef.current;
-    setOverflows(el !== null && el.scrollHeight > el.clientHeight + 1);
+    if (!el) return;
+    const measure = (): void => {
+      setOverflows(el.scrollHeight > el.clientHeight + 1);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    for (const child of el.children) observer.observe(child);
+    return (): void => {
+      observer.disconnect();
+    };
   }, [doc]);
 
   let body: ReactElement;
@@ -152,6 +159,11 @@ function Description({
   );
 }
 
+/**
+ * Details for the selected issue, from what's already loaded: status and badges, people, dates,
+ * its description, what blocks it and what it blocks (each a link that moves the panel there), and its status
+ * history. Esc or the close button closes it; "Open in Jira" leaves the app.
+ */
 export function IssueDetail({
   data,
   onSelect,

@@ -15,6 +15,9 @@ type AdfNode = Readonly<{
 
 /** Deeper than any real description; past it, content is dropped rather than overflowing the stack. */
 const MAX_DEPTH = 64;
+/** Far more nodes than any real description; past it, the rest is dropped rather than freezing the panel. */
+const MAX_NODES = 20_000;
+const PANEL_TYPES = new Set(["info", "note", "warning", "success", "error"]);
 
 const isRecord = (v: unknown): v is Readonly<Record<string, unknown>> => typeof v === "object" && v !== null && !Array.isArray(v);
 
@@ -43,7 +46,8 @@ export function safeHref(url: string): string | null {
   }
 }
 
-type Ctx = Readonly<{ onOpen: (url: string) => void }>;
+/** `budget` is the one mutable part: nodes left to render, shared by a single render pass. */
+type Ctx = Readonly<{ onOpen: (url: string) => void; budget: { left: number } }>;
 
 function Link({ href, children, ctx }: { href: string; children: ReactNode; ctx: Ctx }): ReactElement {
   const safe = safeHref(href);
@@ -55,6 +59,11 @@ function Link({ href, children, ctx }: { href: string; children: ReactNode; ctx:
       onClick={(e) => {
         e.preventDefault();
         ctx.onOpen(safe);
+      }}
+      // A middle click would otherwise go to the webview instead of the system browser.
+      onAuxClick={(e) => {
+        e.preventDefault();
+        if (e.button === 1) ctx.onOpen(safe);
       }}
     >
       {children}
@@ -97,13 +106,14 @@ function children(n: AdfNode, ctx: Ctx, depth: number): ReactNode {
 
 /** A date node's calendar day. Jira stores it as UTC midnight, so it's read in UTC, not local time. */
 function dateText(attrs: AdfNode["attrs"]): string {
-  const ms = Number(str(attrs, "timestamp"));
-  return Number.isFinite(ms) && ms > 0 ? fmtDay(new Date(ms).toISOString().slice(0, 10), true) : "";
+  const date = new Date(Number(str(attrs, "timestamp")));
+  return Number.isNaN(date.getTime()) ? "" : fmtDay(date.toISOString().slice(0, 10), true);
 }
 
 function render(raw: unknown, ctx: Ctx, depth: number): ReactNode {
   const n = asNode(raw);
-  if (!n || depth > MAX_DEPTH) return null;
+  if (!n || depth > MAX_DEPTH || ctx.budget.left <= 0) return null;
+  ctx.budget.left--;
   const kids = (): ReactNode => children(n, ctx, depth);
   switch (n.type) {
     case "doc":
@@ -153,8 +163,10 @@ function render(raw: unknown, ctx: Ctx, depth: number): ReactNode {
       return <blockquote>{kids()}</blockquote>;
     case "rule":
       return <hr />;
-    case "panel":
-      return <div className={`adf-panel adf-panel-${str(n.attrs, "panelType") || "info"}`}>{kids()}</div>;
+    case "panel": {
+      const panelType = str(n.attrs, "panelType");
+      return <div className={`adf-panel adf-panel-${PANEL_TYPES.has(panelType) ? panelType : "info"}`}>{kids()}</div>;
+    }
     case "expand":
     case "nestedExpand":
       return (
@@ -208,16 +220,29 @@ function render(raw: unknown, ctx: Ctx, depth: number): ReactNode {
   }
 }
 
-/** Whether a description has anything to show (text, or media standing in for it). */
+/** Nodes that show something without any text inside them. */
+const SELF_CONTAINED = new Set([
+  "rule",
+  "media",
+  "mediaInline",
+  "mention",
+  "emoji",
+  "status",
+  "date",
+  "inlineCard",
+  "blockCard",
+  "embedCard",
+]);
+
+/** Whether a description has anything to show: some text, or a node that stands on its own (a rule, an image, a mention). */
 export function hasContent(doc: unknown, depth = 0): boolean {
   const n = asNode(doc);
   if (!n || depth > MAX_DEPTH) return false;
   if (n.type === "text") return n.text.trim() !== "";
-  if (n.type === "paragraph" || n.type === "doc" || n.type === "listItem") return n.content.some((c) => hasContent(c, depth + 1));
-  if (n.type === "hardBreak") return false;
-  return true;
+  if (SELF_CONTAINED.has(n.type)) return true;
+  return n.content.some((c) => hasContent(c, depth + 1));
 }
 
 export function AdfDocument({ doc, onOpen }: { doc: unknown; onOpen: (url: string) => void }): ReactElement {
-  return <>{render(doc, { onOpen }, 0)}</>;
+  return <>{render(doc, { onOpen, budget: { left: MAX_NODES } }, 0)}</>;
 }
