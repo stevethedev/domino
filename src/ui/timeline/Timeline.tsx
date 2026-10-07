@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState, type ReactElement } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { prefersReducedMotion } from "../../lib/motion";
 import { blockingChain } from "../../graph/analysis";
 import { emphasis, type Insights } from "../../graph/insights";
@@ -26,6 +26,7 @@ import {
   isLate,
   LABEL_WIDTH,
   layoutRows,
+  rowsMoved,
   type TimelineRowModel,
   PX_PER_DAY,
   SCALES,
@@ -117,25 +118,31 @@ export function Timeline({
   // Rows on screen; folded rows (in collapsed lanes) stay mounted only so folding can animate.
   const rows = items.filter((i): i is TimelineRowModel => i.kind === "row" && !i.folded);
   const lanes = items.filter((i) => i.kind === "lane");
-  // While lanes fold or the sort changes, rows slide but arrows jump to their final positions;
-  // hide arrows until rows land. Keyed on the collapsed set itself, so every source of a fold
-  // (toggles, Collapse all, revealing an issue from Quick Find) gets it. A layout effect, so
-  // arrows never paint early.
+  // Rows slide whenever they move (lane folds, sort changes, refreshed data), but arrows jump to
+  // their final positions: hide the arrows until the rows land. A layout effect, so arrows never
+  // paint early.
   const [settling, setSettling] = useState(false);
-  const prevArrangement = useRef({ collapsedLanes, order });
+  // Bumped on every move; the timer below restarts with it. Kept out of the detecting effect,
+  // which also re-runs for rebuilt-but-unmoved rows and would cancel a pending timer.
+  const [moves, setMoves] = useState(0);
+  const rowPositions = useMemo(() => new Map(items.flatMap((i) => (i.kind === "row" ? [[i.node.uid, i.y] as const] : []))), [items]);
+  const prevPositions = useRef(rowPositions);
   useLayoutEffect(() => {
-    const prev = prevArrangement.current;
-    if (prev.collapsedLanes === collapsedLanes && prev.order === order) return;
-    prevArrangement.current = { collapsedLanes, order };
-    if (prefersReducedMotion()) return;
+    const moved = rowsMoved(prevPositions.current, rowPositions);
+    prevPositions.current = rowPositions;
+    if (!moved || prefersReducedMotion()) return;
     setSettling(true);
+    setMoves((n) => n + 1);
+  }, [rowPositions]);
+  useEffect(() => {
+    if (moves === 0) return;
     const timer = setTimeout(() => {
       setSettling(false);
     }, FOLD_MS);
     return (): void => {
       clearTimeout(timer);
     };
-  }, [collapsedLanes, order]);
+  }, [moves]);
   const toggleLane = (id: string): void => {
     const next = new Set(collapsedLanes);
     if (!next.delete(id)) next.add(id);

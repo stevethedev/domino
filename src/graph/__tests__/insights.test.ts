@@ -116,3 +116,13 @@ describe("laneByAssignee", () => {
     ).toMatchObject({ label: "Unassigned", last: true });
   });
 });
+
+describe("computeInsights downstream", () => {
+  it("exposes the open work downstream of each issue, so callers needn't traverse the graph again", () => {
+    const [a, b, c] = ["A-1", "A-2", "A-3"].map((k) => issue(k));
+    link("1", BLOCKS, a, b);
+    link("2", BLOCKS, b, c);
+    const g = buildGraph({ sites: [A], data: [data("a", [a, b, c])] });
+    expect(computeInsights(g).downstream).toEqual(downstreamOpen(g));
+  });
+});

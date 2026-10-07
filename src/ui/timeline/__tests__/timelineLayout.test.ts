@@ -3,7 +3,7 @@ import type { TimelineEntry } from "../../../graph/schedule";
 import type { GraphNode } from "../../../graph/types";
 import type { Lane } from "../../../graph/layout";
 import { ticketComparator } from "../../../graph/sort";
-import { LANE_HEIGHT, layoutRows, ROW_HEIGHT, stackFlags } from "../timelineLayout";
+import { LANE_HEIGHT, layoutRows, ROW_HEIGHT, rowsMoved, stackFlags } from "../timelineLayout";
 
 const node = (uid: string, ghost = false): GraphNode => ({
   uid,
@@ -183,5 +183,55 @@ describe("layoutRows with a sort", () => {
     ]);
     const lanes = layoutRows(nodes, timeline, laneOf, new Set(), byUidDesc).items.flatMap((i) => (i.kind === "lane" ? [i.lane.id] : []));
     expect(lanes).toEqual(["lane:b", "lane:a", "lane:none"]);
+  });
+});
+
+describe("rowsMoved", () => {
+  const at = (entries: [string, number][]): ReadonlyMap<string, number> => new Map(entries);
+  it("is true when a row that's in both layouts is at a new height", () => {
+    expect(
+      rowsMoved(
+        at([
+          ["a", 0],
+          ["b", 40],
+        ]),
+        at([
+          ["a", 40],
+          ["b", 0],
+        ]),
+      ),
+    ).toBe(true);
+  });
+  it("is false when rows stay put, even if rows were added or removed", () => {
+    expect(
+      rowsMoved(
+        at([
+          ["a", 0],
+          ["b", 40],
+        ]),
+        at([
+          ["a", 0],
+          ["b", 40],
+        ]),
+      ),
+    ).toBe(false);
+    expect(
+      rowsMoved(
+        at([["a", 0]]),
+        at([
+          ["a", 0],
+          ["c", 40],
+        ]),
+      ),
+    ).toBe(false);
+    expect(
+      rowsMoved(
+        at([
+          ["a", 0],
+          ["b", 40],
+        ]),
+        at([["a", 0]]),
+      ),
+    ).toBe(false);
   });
 });

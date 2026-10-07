@@ -190,6 +190,10 @@ describe("parseSortBy and orderText", () => {
     for (const bad of [null, "priority", { key: "type" }, { reversed: true }]) expect(parseSortBy(bad)).toEqual(NATURAL_SORT);
   });
 
+  it("has one natural order: a stored direction on it is dropped", () => {
+    expect(parseSortBy({ key: "natural", reversed: true })).toEqual(NATURAL_SORT);
+  });
+
   it("describes each key's order in words, both ways", () => {
     expect(orderText({ key: "priority", reversed: false })).toBe("Most severe first");
     expect(orderText({ key: "priority", reversed: true })).toBe("Least severe first");

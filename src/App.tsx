@@ -2,7 +2,7 @@ import { ReactFlowProvider } from "@xyflow/react";
 import { prefersReducedMotion } from "./lib/motion";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { collapseEpics, summaryUid } from "./graph/collapse";
-import { computeInsights, downstreamOpen, isHighlightScope, type Highlight, type HighlightScope, type Insights } from "./graph/insights";
+import { computeInsights, isHighlightScope, type Highlight, type HighlightScope, type Insights } from "./graph/insights";
 import { myIssues } from "./graph/mine";
 import type { GraphNode } from "./graph/types";
 import { lastDayOf, releaseStatuses } from "./graph/releases";
@@ -349,7 +349,8 @@ function Shell(): ReactElement {
     setSelectedUid(uid);
     setDetailFocusRequest((n) => n + 1);
   }, []);
-  const downstream = useMemo(() => downstreamOpen(graph), [graph]);
+  // From the insights, which already traverse the graph for it.
+  const downstream = baseInsights.downstream;
   // The user's sort, shared by the Graph (within columns) and the Timeline (rows); null keeps each
   // view's own order. The Graph breaks ties by key; the Timeline by start date (tidier arrows).
   const sortContext = useMemo(
