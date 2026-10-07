@@ -30,7 +30,7 @@ export function SiteRow({
   }, [confirming]);
 
   return (
-    <tr ref={rowRef} className={highlight ? "row-new" : undefined}>
+    <tr ref={rowRef} className={highlight ? "row-new" : undefined} data-site-id={site.id}>
       <th scope="row">
         <span className="chip" style={{ "--site": site.color }}>
           <span className="dot" aria-hidden="true" />

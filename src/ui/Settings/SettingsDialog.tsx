@@ -278,12 +278,15 @@ export function SettingsDialog({
                   .then(() => {
                     // The row (and the focused Confirm button) is gone: focus a neighbour, or Add site.
                     requestAnimationFrame(() => {
-                      // Matched by label text, not a selector, so any characters in a label are fine.
-                      const target = next
-                        ? [...(ref.current?.querySelectorAll<HTMLElement>("button[aria-label]") ?? [])].find(
-                            (b) => b.getAttribute("aria-label") === `Edit ${next.label}`,
-                          )
-                        : ref.current?.querySelector<HTMLElement>("#add-site");
+                      // The neighbour by site id (labels can repeat), matched without building a
+                      // selector from it; with no neighbour, Add site, or the open form if it's
+                      // showing instead, or at least the dialog's close button.
+                      const rows = [...(ref.current?.querySelectorAll<HTMLElement>("tr[data-site-id]") ?? [])];
+                      const row = next && rows.find((r) => r.dataset.siteId === next.id);
+                      const target =
+                        row?.querySelector<HTMLElement>('button[aria-label^="Edit "]') ??
+                        ref.current?.querySelector<HTMLElement>("#add-site, .site-form input") ??
+                        ref.current?.querySelector<HTMLElement>('button[aria-label="Close settings"]');
                       target?.focus();
                     });
                   })
