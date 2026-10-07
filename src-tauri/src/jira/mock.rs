@@ -10,10 +10,13 @@ use std::collections::{HashMap, HashSet};
 const ACME: &str = include_str!("../../../fixtures/mock/acme.json");
 const PARTNER: &str = include_str!("../../../fixtures/mock/partner.json");
 const LINK_TYPES: &str = include_str!("../../../fixtures/mock/linkTypes.json");
+/// Descriptions by site and key, apart from the issues: Jira searches don't return them either.
+const DESCRIPTIONS: &str = include_str!("../../../fixtures/mock/descriptions.json");
 
 pub(crate) struct MockBackend {
     sites: HashMap<&'static str, Value>,
     link_types: Value,
+    descriptions: Value,
     fail_sites: HashSet<String>,
 }
 
@@ -24,6 +27,7 @@ impl MockBackend {
         Ok(Self {
             sites: HashMap::from([("acme", serde_json::from_str(ACME)?), ("partner", serde_json::from_str(PARTNER)?)]),
             link_types: serde_json::from_str(LINK_TYPES)?,
+            descriptions: serde_json::from_str(DESCRIPTIONS)?,
             fail_sites,
         })
     }
@@ -247,6 +251,11 @@ impl JiraBackend for MockBackend {
             .ok_or_else(|| format!("Issue {key} does not exist or you do not have permission to see it"))
     }
 
+    async fn description(&self, site: &SiteConfig, key: &str) -> JiraResult<Value> {
+        self.issue(site, key).await?;
+        Ok(self.descriptions.get(site.id.as_str()).and_then(|d| d.get(key)).cloned().unwrap_or(Value::Null))
+    }
+
     async fn remote_links(&self, site: &SiteConfig, key: &str) -> JiraResult<Vec<Value>> {
         let data = self.site_data(site)?;
         Ok(data.get("remoteLinks").and_then(|links| links.get(key)).and_then(Value::as_array).cloned().unwrap_or_default())
@@ -337,6 +346,9 @@ mod tests {
         let filtered = b.epic(acme, "CORE-1", Some("project = WEB")).await.unwrap();
         assert_eq!(filtered["children"].as_array().unwrap().len(), 2);
         assert_eq!(b.remote_links(partner, "PAY-3").await.unwrap().len(), 1);
+        assert_eq!(b.description(acme, "CORE-7").await.unwrap()["type"], "doc");
+        assert_eq!(b.description(acme, "CORE-10").await.unwrap(), Value::Null, "no description");
+        assert!(b.description(acme, "CORE-999").await.is_err(), "unknown issues fail like Jira");
         assert_eq!(b.search(acme, "key in (CORE-7, WEB-1)", Some(1)).await.unwrap().len(), 1);
     }
 

@@ -7,6 +7,8 @@ export interface JiraSource {
   /** The epic itself plus its children (`parent = KEY`, ANDed with `filter` when given). */
   fetchEpic(siteId: string, key: string, filter?: string): Promise<{ epic: RawIssue; children: RawIssue[] }>;
   fetchIssue(siteId: string, key: string): Promise<RawIssue>;
+  /** The issue's description (Atlassian Document Format, unvalidated), or null when it has none. */
+  fetchDescription(siteId: string, key: string): Promise<unknown>;
   fetchRemoteLinks(siteId: string, key: string): Promise<RawRemoteLink[]>;
   fetchLinkTypes(siteId: string): Promise<RawLinkType[]>;
   /** Every priority, in the site's configured order (most severe first). */

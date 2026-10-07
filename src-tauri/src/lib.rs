@@ -80,6 +80,7 @@ pub fn try_run() -> tauri::Result<()> {
             commands::reload_config,
             commands::reveal_config,
             commands::fetch_issue,
+            commands::fetch_description,
             commands::fetch_remote_links,
             commands::fetch_link_types,
             commands::fetch_status_history,

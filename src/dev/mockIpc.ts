@@ -162,6 +162,8 @@ export function installMockIpc(): Promise<void> {
         return wrap(() => source.fetchEpic(site(siteId).id, key, optStr("filter")));
       case "fetch_issue":
         return wrap(() => source.fetchIssue(site(siteId).id, key));
+      case "fetch_description":
+        return wrap(() => source.fetchDescription(site(siteId).id, key));
       case "fetch_remote_links":
         return wrap(() => source.fetchRemoteLinks(site(siteId).id, key));
       case "fetch_link_types":

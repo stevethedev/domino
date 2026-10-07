@@ -248,6 +248,12 @@ impl JiraBackend for HttpBackend {
         self.send(site, Method::GET, &format!("/rest/api/3/issue/{key}?fields={}", FIELDS.join(",")), None).await
     }
 
+    async fn description(&self, site: &SiteConfig, key: &str) -> JiraResult<Value> {
+        check_key(key)?;
+        let v = self.send(site, Method::GET, &format!("/rest/api/3/issue/{key}?fields=description"), None).await?;
+        Ok(v.pointer("/fields/description").cloned().unwrap_or(Value::Null))
+    }
+
     async fn remote_links(&self, site: &SiteConfig, key: &str) -> JiraResult<Vec<Value>> {
         check_key(key)?;
         let v = self.send(site, Method::GET, &format!("/rest/api/3/issue/{key}/remotelink"), None).await?;
@@ -465,6 +471,26 @@ mod tests {
             .mount(&f.server)
             .await;
         assert_eq!(f.backend.issue(&acme(&f), "CORE-7").await.unwrap()["key"], "CORE-7");
+    }
+
+    #[tokio::test]
+    async fn description_requests_only_the_description() {
+        let f = fixture().await;
+        let doc = json!({ "type": "doc", "version": 1, "content": [] });
+        Mock::given(method("GET"))
+            .and(path("/rest/api/3/issue/CORE-7"))
+            .and(query_param("fields", "description"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "key": "CORE-7", "fields": { "description": doc } })))
+            .mount(&f.server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/rest/api/3/issue/CORE-8"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "key": "CORE-8", "fields": { "description": null } })))
+            .mount(&f.server)
+            .await;
+        assert_eq!(f.backend.description(&acme(&f), "CORE-7").await.unwrap(), doc);
+        assert_eq!(f.backend.description(&acme(&f), "CORE-8").await.unwrap(), Value::Null);
+        assert!(f.backend.description(&acme(&f), "CORE-7?x=1").await.is_err(), "keys are validated");
     }
 
     #[tokio::test]

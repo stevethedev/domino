@@ -13,6 +13,9 @@ export class TauriSource implements JiraSource {
   fetchIssue(siteId: string, key: string): Promise<RawIssue> {
     return invoke("fetch_issue", { siteId, key });
   }
+  fetchDescription(siteId: string, key: string): Promise<unknown> {
+    return invoke("fetch_description", { siteId, key });
+  }
   fetchRemoteLinks(siteId: string, key: string): Promise<RawRemoteLink[]> {
     return invoke("fetch_remote_links", { siteId, key });
   }

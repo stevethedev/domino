@@ -41,6 +41,8 @@ export type Domino = {
   configFile: ConfigFileStatus | null;
   /** Reads the config file again (after a hand fix); rejects with why it still can't be used. */
   reloadConfigFile: () => Promise<void>;
+  /** Bumped whenever a token or the Atlassian sign-in changes: data keyed by it is from before. */
+  credentialEpoch: number;
   selected: string[];
   setSelected: Dispatch<SetStateAction<string[]>>;
   selectedSites: SiteConfig[];
@@ -171,6 +173,7 @@ export function useDomino(store: ConfigStore, source: JiraSource, cache: TicketC
   const [scope, setScope] = useState<Scope>(() => ({ mode: "jql", jql: loadQuery() }));
   const [load, setLoad] = useState<LoadState>({ status: "idle" });
   const [health, setHealth] = useState<Record<string, HealthStatus>>({});
+  const [credentialEpoch, setCredentialEpoch] = useState(0);
   const [reloadTick, setReloadTick] = useState(0);
   const loader = useMemo(() => new MultiSiteLoader(source), [source]);
   const prevEnabled = useRef<Set<string> | null>(null);
@@ -387,6 +390,7 @@ export function useDomino(store: ConfigStore, source: JiraSource, cache: TicketC
       const isStale = (siteId: string): boolean => affected.has(siteId);
       remembered.current = withoutSitesInMemory(remembered.current, isStale);
       setLoad((prev) => withoutSitesInLoad(prev, isStale));
+      setCredentialEpoch((n) => n + 1);
       reload();
     },
     [reload],
@@ -428,6 +432,7 @@ export function useDomino(store: ConfigStore, source: JiraSource, cache: TicketC
     configError,
     configFile,
     reloadConfigFile,
+    credentialEpoch,
     selected,
     setSelected,
     selectedSites,

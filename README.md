@@ -67,7 +67,7 @@ While a load runs, the last tickets for that scope stay on screen (from this ses
 
 ![The timeline: projected, actual and forecast bars, due dates, and two releases, one at risk](docs/images/timeline.png)
 
-**Details.** Click a card or row for its status, people, dates, release, links and status history. &#8984;/Ctrl+click opens it in Jira.
+**Details.** Click a card or row for its status, people, dates, release, description, links and status history. The description is fetched when you open the ticket; for images and attachments, open it in Jira. &#8984;/Ctrl+click opens it in Jira.
 
 ![The details panel for a ticket forecast to miss its release](docs/images/details.png)
 

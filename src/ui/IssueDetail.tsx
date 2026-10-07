@@ -1,8 +1,10 @@
-import { useEffect, useRef, type ReactElement } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactElement } from "react";
 import type { Aging } from "../graph/aging";
 import type { ChangeKind } from "../graph/changes";
 import type { Day, StatusChange } from "../graph/schedule";
 import type { Graph, GraphEdge, GraphNode, Release, StatusCategory } from "../graph/types";
+import type { DescriptionState } from "../state/useDescription";
+import { AdfDocument, hasContent } from "./Adf";
 import { AgingBadge, ChangeTag, ISSUE_DETAIL_ID, PriorityIcon, TypeIcon } from "./IssueCard";
 import { fmtDay } from "./format";
 import { Icon } from "./Icon";
@@ -84,8 +86,114 @@ function LinkList({
 }
 
 /**
+ * The issue's description: loading, missing, failed (with Retry) or shown. A long one is clipped
+ * until "Show more"; keyed by issue, so each opens clipped.
+ */
+function Description({
+  state,
+  onOpen,
+  onRetry,
+}: {
+  state: DescriptionState;
+  onOpen: (url: string) => void;
+  onRetry: () => void;
+}): ReactElement {
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+  const doc = state.status === "loaded" ? state.doc : null;
+  // Measured again whenever the clipped box or its content changes size (a resize, a <details>
+  // opening, fonts arriving), so "Show more" appears exactly when something is cut off.
+  useLayoutEffect(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    const measure = (): void => {
+      setOverflows(el.scrollHeight > el.clientHeight + 1);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    for (const child of el.children) observer.observe(child);
+    return (): void => {
+      observer.disconnect();
+    };
+  }, [doc]);
+
+  let body: ReactElement;
+  if (state.status === "loading") body = <p className="muted">Loading the description…</p>;
+  else if (state.status === "error") {
+    body = (
+      <p className="detail-description-error">
+        Couldn't load the description: {state.message}{" "}
+        <button type="button" className="link-btn" onClick={onRetry}>
+          Retry
+        </button>
+      </p>
+    );
+  } else if (!hasContent(state.doc)) body = <p className="muted">No description.</p>;
+  else {
+    body = (
+      <>
+        <div
+          ref={bodyRef}
+          id="detail-description-body"
+          // Tabbing to a link below the cut would focus something out of sight: open it up first.
+          // Only then: a visible link (or a click on one) leaves the layout alone.
+          onFocus={(e) => {
+            if (expanded || !overflows) return;
+            const box = e.currentTarget;
+            // In content coordinates, so a scroll the browser already made to reveal it doesn't hide
+            // the answer; the faded last 3em counts as out of sight.
+            const bottom = e.target.getBoundingClientRect().bottom - box.getBoundingClientRect().top + box.scrollTop;
+            const fade = 3 * parseFloat(getComputedStyle(box).fontSize);
+            if (box.scrollTop > 0 || bottom > box.clientHeight - fade) {
+              box.scrollTop = 0;
+              setExpanded(true);
+            }
+          }}
+          className={`detail-description${expanded ? " expanded" : overflows ? " clipped" : ""}`}
+        >
+          <AdfDocument doc={state.doc} onOpen={onOpen} />
+        </div>
+        {(overflows || expanded) && (
+          <button
+            type="button"
+            className="link-btn"
+            aria-expanded={expanded}
+            aria-controls="detail-description-body"
+            onClick={() => {
+              setExpanded(!expanded);
+            }}
+          >
+            {expanded ? "Show less" : "Show more"}
+          </button>
+        )}
+      </>
+    );
+  }
+  // Focus stays on the title while this arrives: say how it went (not the text itself, which can be long).
+  const announcement =
+    state.status === "loading"
+      ? ""
+      : state.status === "error"
+        ? "Couldn't load the description."
+        : hasContent(state.doc)
+          ? "Description loaded."
+          : "No description.";
+  return (
+    <section className="detail-section" aria-busy={state.status === "loading"}>
+      <h3 className="subhead">Description</h3>
+      <p className="sr-only" role="status">
+        {announcement}
+      </p>
+      {body}
+    </section>
+  );
+}
+
+/**
  * Details for the selected issue, from what's already loaded: status and badges, people, dates,
- * what blocks it and what it blocks (each a link that moves the panel there), and its status
+ * its description, what blocks it and what it blocks (each a link that moves the panel there), and its status
  * history. Esc or the close button closes it; "Open in Jira" leaves the app.
  */
 export function IssueDetail({
@@ -95,6 +203,8 @@ export function IssueDetail({
   onClose,
   focusRequest,
   onShowHidden,
+  description,
+  onRetryDescription,
 }: {
   data: IssueDetailData;
   onSelect: (uid: string) => void;
@@ -107,6 +217,9 @@ export function IssueDetail({
   focusRequest: number;
   /** Brings a filtered-out issue back into view (clearing the filters, with an undo). */
   onShowHidden: () => void;
+  /** Null when there's nothing to fetch it from. */
+  description: DescriptionState | null;
+  onRetryDescription: () => void;
 }): ReactElement {
   const { node: n, graph, unblocks, openBlockers, aging, changes, history, releases, forecastDone } = data;
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -231,6 +344,7 @@ export function IssueDetail({
           ))}
         </dl>
       )}
+      {description && <Description key={n.uid} state={description} onOpen={onOpen} onRetry={onRetryDescription} />}
       <LinkList title="Blocked by" edges={blockedBy} otherEnd={(e) => e.source} nodes={nodes} onSelect={onSelect} />
       <LinkList title="Blocks" edges={blocks} otherEnd={(e) => e.target} nodes={nodes} onSelect={onSelect} />
       <LinkList

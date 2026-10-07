@@ -154,6 +154,12 @@ pub(crate) async fn fetch_issue(state: State<'_, AppState>, site_id: String, key
 }
 
 #[tauri::command]
+pub(crate) async fn fetch_description(state: State<'_, AppState>, site_id: String, key: String) -> Result<Value, String> {
+    let site = state.site(&site_id, true)?;
+    state.backend().description(&site, &key).await
+}
+
+#[tauri::command]
 pub(crate) async fn fetch_remote_links(state: State<'_, AppState>, site_id: String, key: String) -> Result<Vec<Value>, String> {
     let site = state.site(&site_id, true)?;
     state.backend().remote_links(&site, &key).await
