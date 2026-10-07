@@ -564,7 +564,8 @@ function Shell(): ReactElement {
       {config && (
         <ErrorBanner
           errors={errors}
-          lagging={domino.background.lagging}
+          // Only sites still selected: a deselected one's failure isn't news.
+          lagging={domino.background.lagging.filter((l) => domino.selected.includes(l.siteId))}
           sites={config.sites}
           attempted={domino.selectedSites.length}
           now={Date.now()}

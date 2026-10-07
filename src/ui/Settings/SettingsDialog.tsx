@@ -46,6 +46,8 @@ export function SettingsDialog({
   /** What to do once the user agrees to discard those edits (closing the form or the dialog). */
   const [pendingDiscard, setPendingDiscard] = useState<(() => void) | null>(null);
   const config = domino.config;
+  // A discard prompt outlives nothing: once the form is saved, cancelled or closed, drop it.
+  if (pendingDiscard && !formDirty) setPendingDiscard(null);
   /** Runs `then` now, or after a confirm when it would throw away an edited site form. */
   const guard = (then: () => void): void => {
     if (formDirty) setPendingDiscard(() => then);

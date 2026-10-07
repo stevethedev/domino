@@ -180,6 +180,8 @@ describe("viewSites", () => {
   it("can't use an epic or seed scope on a site you don't have", () => {
     expect(viewSites({ siteIds: ["acme"], scope: { mode: "epic", siteId: "theirs", key: "X-1" } }, sites).scopeUsable).toBe(false);
     expect(viewSites({ siteIds: ["acme"], scope: { mode: "seed", siteId: "acme", key: "X-1", depth: 2 } }, sites).scopeUsable).toBe(true);
+    // The scope's site must be among the view's own sites: loading runs only on the selected ones.
+    expect(viewSites({ siteIds: ["partner"], scope: { mode: "epic", siteId: "acme", key: "X-1" } }, sites).scopeUsable).toBe(false);
   });
 });
 

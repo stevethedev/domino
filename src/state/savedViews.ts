@@ -198,7 +198,9 @@ export function viewSites(
       const s = sites.find((x) => x.id === id);
       return s ? `${s.label} (turned off)` : id;
     });
-  return { siteIds: view.siteIds.filter(usable), missing, scopeUsable: view.scope.mode === "jql" || usable(view.scope.siteId) };
+  const siteIds = view.siteIds.filter(usable);
+  // An epic or seed loads from its own site, which must be among the sites being loaded.
+  return { siteIds, missing, scopeUsable: view.scope.mode === "jql" || siteIds.includes(view.scope.siteId) };
 }
 
 /**
