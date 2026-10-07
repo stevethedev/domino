@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { mockSites } from "../../data/mockData";
-import { AdfDocument, hasContent } from "../Adf";
+import { AdfDocument, hasContent, safeHref } from "../Adf";
 import { fmtDay } from "../format";
 
 const html = (doc: unknown): string => renderToStaticMarkup(createElement(AdfDocument, { doc, onOpen: () => undefined }));
@@ -43,6 +43,20 @@ describe("AdfDocument", () => {
       expect(out).not.toContain("<a");
       expect(out).toContain("here");
     }
+  });
+
+  it("returns links in the form the opener accepts", () => {
+    expect(safeHref("https:example.com")).toBe("https://example.com/");
+    expect(safeHref("  https://example.com/a ")).toBe("https://example.com/a");
+    expect(safeHref("http://example.com")).toBeNull();
+  });
+
+  it("makes one link of text with several link marks (no nested anchors opening twice)", () => {
+    const out = html(
+      doc(p(text("x", { type: "link", attrs: { href: "https://a.example" } }, { type: "link", attrs: { href: "https://b.example" } }))),
+    );
+    expect(out.match(/<a /g)).toHaveLength(1);
+    expect(out).toContain("https://a.example");
   });
 
   it("renders lists, code, quotes, tables and task items", () => {

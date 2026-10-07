@@ -37,10 +37,11 @@ const str = (attrs: AdfNode["attrs"], name: string): string => {
   return typeof v === "string" ? v : "";
 };
 
-/** The URL if it may be opened (https only), else null. */
+/** The URL, normalized (so the opener's https:// check agrees), if it may be opened (https only); else null. */
 export function safeHref(url: string): string | null {
   try {
-    return new URL(url).protocol === "https:" ? url : null;
+    const parsed = new URL(url.trim());
+    return parsed.protocol === "https:" ? parsed.href : null;
   } catch {
     return null;
   }
@@ -100,7 +101,12 @@ function Link({ href, children, ctx }: { href: string; children: ReactNode; ctx:
 
 /** Wraps text in its marks, innermost first. */
 function marked(n: AdfNode, ctx: Ctx): ReactNode {
-  return mapWithin(n.marks.slice(0, MAX_MARKS), ctx.budget, (m) => m).reduce<ReactNode>((inner, m) => {
+  // Several link marks would nest anchors (invalid, and one click would open each): keep the first.
+  // (Within the first MAX_MARKS only, so a huge marks array is never read past them.)
+  const capped = n.marks.slice(0, MAX_MARKS);
+  const firstLink = capped.findIndex((m) => asNode(m)?.type === "link");
+  const marks = capped.filter((m, i) => asNode(m)?.type !== "link" || i === firstLink);
+  return mapWithin(marks, ctx.budget, (m) => m).reduce<ReactNode>((inner, m) => {
     const mark = asNode(m);
     switch (mark?.type) {
       case "strong":
