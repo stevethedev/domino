@@ -406,6 +406,8 @@ function Shell(): ReactElement {
           misses: releases.some((s) => s.release.uid === release.uid && s.atRisk.includes(selectedNode.uid)),
         })),
         forecastDone: selectedEntry && lastDayOf(selectedEntry),
+        // `visibleSubgraph` drops an issue only for the issue filters or, for one outside the scope,
+        // because no shown link kind reaches it: so whichever clearing the issue filters doesn't fix.
         hiddenBy: drawnUids.has(selectedNode.uid) ? undefined : revealableUids.has(selectedNode.uid) ? "issue filters" : "link filters",
       }
     : null;
@@ -712,8 +714,9 @@ function Shell(): ReactElement {
           // panel handles its own Esc.)
           onKeyDown={(e) => {
             if (e.key !== "Escape" || e.defaultPrevented) return;
-            // Only from a card or row: Esc in a toolbar field or menu is that control's own business.
-            if (!(e.target instanceof Element) || !e.target.closest("[data-uid], [data-tl-uid]")) return;
+            // Not from a field, menu or dialog: Esc there is that control's own business.
+            if (e.target instanceof Element && e.target.closest("input, select, textarea, details, [role=menu], [role=listbox], dialog"))
+              return;
             if (selectedUid) closeDetail();
             else if (shownView.highlight !== "none") setView({ ...view, highlight: "none", highlightScope: "all" });
             else return;
