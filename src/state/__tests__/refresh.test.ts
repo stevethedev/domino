@@ -45,7 +45,7 @@ describe("mergeBySite", () => {
     const merged = mergeBySite({ result: current, ages: { a: 100, b: 200 } }, next, 500);
     expect(merged.result).toEqual({ kind: "ok", data: [site("a", ["A-1", "A-2"]), site("b", ["B-1"])], errors: [] });
     expect(merged.ages).toEqual({ a: 500, b: 200 });
-    expect(merged.lagging).toEqual([{ siteId: "b", takenAt: 200 }]);
+    expect(merged.lagging).toEqual([{ siteId: "b", takenAt: 200, message: "timeout" }]);
   });
 
   it("prefers a failing site's complete shown data over the partial data its failed load returned", () => {
@@ -82,13 +82,15 @@ describe("ageText", () => {
 describe("laggingText", () => {
   const labelOf = (id: string): string => id.toUpperCase();
   it("names the site and its age", () => {
-    expect(laggingText([{ siteId: "b", takenAt: 0 }], labelOf, 2 * 3_600_000)).toBe("Couldn't update B; showing its tickets from 2h ago.");
+    expect(laggingText([{ siteId: "b", takenAt: 0, message: "timeout" }], labelOf, 2 * 3_600_000)).toBe(
+      "Couldn't update B; showing its tickets from 2h ago.",
+    );
   });
 
   it("names every lagging site and the oldest age", () => {
     const lagging = [
-      { siteId: "a", takenAt: 50 * 60_000 },
-      { siteId: "b", takenAt: 0 },
+      { siteId: "a", takenAt: 50 * 60_000, message: "timeout" },
+      { siteId: "b", takenAt: 0, message: "timeout" },
     ];
     expect(laggingText(lagging, labelOf, 60 * 60_000)).toBe("Couldn't update A, B; showing their tickets from 1h ago.");
   });
@@ -131,7 +133,7 @@ describe("freshnessOf", () => {
 
   it("warns about refresh errors and lagging sites", () => {
     expect(freshnessOf({ ...base, error: "Refresh failed: 500" }, labelOf, 0)).toEqual({ text: "Refresh failed: 500", warn: true });
-    expect(freshnessOf({ ...base, lagging: [{ siteId: "b", takenAt: 0 }] }, labelOf, 5 * MIN)).toEqual({
+    expect(freshnessOf({ ...base, lagging: [{ siteId: "b", takenAt: 0, message: "timeout" }] }, labelOf, 5 * MIN)).toEqual({
       text: "Couldn't update B; showing its tickets from 5m ago.",
       warn: true,
     });

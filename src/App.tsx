@@ -556,7 +556,19 @@ function Shell(): ReactElement {
         />
       )}
       <UpdateBanner updates={updates} />
-      {config && <ErrorBanner errors={errors} sites={config.sites} attempted={domino.selectedSites.length} />}
+      {config && (
+        <ErrorBanner
+          errors={errors}
+          lagging={domino.background.lagging}
+          sites={config.sites}
+          attempted={domino.selectedSites.length}
+          now={Date.now()}
+          onRetry={domino.reload}
+          onOpenSettings={() => {
+            setSettingsOpen(true);
+          }}
+        />
+      )}
 
       <main className="workspace">
         <aside className="sidebar" aria-label="Insights, filters and warnings">
