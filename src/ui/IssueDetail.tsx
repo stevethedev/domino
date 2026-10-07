@@ -1,8 +1,10 @@
-import { useEffect, useRef, type ReactElement } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactElement } from "react";
 import type { Aging } from "../graph/aging";
 import type { ChangeKind } from "../graph/changes";
 import type { Day, StatusChange } from "../graph/schedule";
 import type { Graph, GraphEdge, GraphNode, Release, StatusCategory } from "../graph/types";
+import type { DescriptionState } from "../state/useDescription";
+import { AdfDocument, hasContent } from "./Adf";
 import { AgingBadge, ChangeTag, ISSUE_DETAIL_ID, PriorityIcon, TypeIcon } from "./IssueCard";
 import { fmtDay } from "./format";
 import { Icon } from "./Icon";
@@ -86,12 +88,78 @@ function LinkList({
  * what blocks it and what it blocks (each a link that moves the panel there), and its status
  * history. Esc or the close button closes it; "Open in Jira" leaves the app.
  */
+/**
+ * The issue's description: loading, missing, failed (with Retry) or shown. A long one is clipped
+ * until "Show more"; keyed by issue, so each opens clipped.
+ */
+function Description({
+  state,
+  onOpen,
+  onRetry,
+}: {
+  state: DescriptionState;
+  onOpen: (url: string) => void;
+  onRetry: () => void;
+}): ReactElement {
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+  const doc = state.status === "loaded" ? state.doc : null;
+  useLayoutEffect(() => {
+    const el = bodyRef.current;
+    setOverflows(el !== null && el.scrollHeight > el.clientHeight + 1);
+  }, [doc]);
+
+  let body: ReactElement;
+  if (state.status === "loading") body = <p className="muted">Loading the description…</p>;
+  else if (state.status === "error") {
+    body = (
+      <p className="detail-description-error">
+        Couldn't load the description: {state.message}{" "}
+        <button type="button" className="link-btn" onClick={onRetry}>
+          Retry
+        </button>
+      </p>
+    );
+  } else if (!hasContent(state.doc)) body = <p className="muted">No description.</p>;
+  else {
+    body = (
+      <>
+        <div ref={bodyRef} id="detail-description-body" className={`detail-description${expanded ? " expanded" : ""}`}>
+          <AdfDocument doc={state.doc} onOpen={onOpen} />
+        </div>
+        {(overflows || expanded) && (
+          <button
+            type="button"
+            className="link-btn"
+            aria-expanded={expanded}
+            aria-controls="detail-description-body"
+            onClick={() => {
+              setExpanded(!expanded);
+            }}
+          >
+            {expanded ? "Show less" : "Show more"}
+          </button>
+        )}
+      </>
+    );
+  }
+  return (
+    <section className="detail-section" aria-busy={state.status === "loading"}>
+      <h3 className="subhead">Description</h3>
+      {body}
+    </section>
+  );
+}
+
 export function IssueDetail({
   data,
   onSelect,
   onOpen,
   onClose,
   focusRequest,
+  description,
+  onRetryDescription,
 }: {
   data: IssueDetailData;
   onSelect: (uid: string) => void;
@@ -102,6 +170,9 @@ export function IssueDetail({
    * not when arrow keys follow links on the cards, which keeps focus there.
    */
   focusRequest: number;
+  /** Null when there's nothing to fetch it from. */
+  description: DescriptionState | null;
+  onRetryDescription: () => void;
 }): ReactElement {
   const { node: n, graph, unblocks, openBlockers, aging, changes, history, releases, forecastDone } = data;
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -217,6 +288,7 @@ export function IssueDetail({
           ))}
         </dl>
       )}
+      {description && <Description key={n.uid} state={description} onOpen={onOpen} onRetry={onRetryDescription} />}
       <LinkList title="Blocked by" edges={blockedBy} otherEnd={(e) => e.source} nodes={nodes} onSelect={onSelect} />
       <LinkList title="Blocks" edges={blocks} otherEnd={(e) => e.target} nodes={nodes} onSelect={onSelect} />
       <LinkList

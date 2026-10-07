@@ -66,6 +66,7 @@ pub fn try_run() -> tauri::Result<()> {
             commands::fetch_by_jql,
             commands::fetch_epic,
             commands::fetch_issue,
+            commands::fetch_description,
             commands::fetch_remote_links,
             commands::fetch_link_types,
             commands::fetch_status_history,

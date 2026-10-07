@@ -49,6 +49,11 @@ export class FixtureSource implements JiraSource {
     });
   }
 
+  async fetchDescription(siteId: string, key: string): Promise<unknown> {
+    await this.fetchIssue(siteId, key);
+    return this.site(siteId).descriptions?.[key] ?? null;
+  }
+
   fetchRemoteLinks(siteId: string, key: string): Promise<RawRemoteLink[]> {
     return settle(() => this.site(siteId).remoteLinks[key] ?? []);
   }
