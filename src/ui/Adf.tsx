@@ -104,8 +104,10 @@ function marked(n: AdfNode, ctx: Ctx): ReactNode {
   // Several link marks would nest anchors (invalid, and one click would open each): keep the first.
   // (Within the first MAX_MARKS only, so a huge marks array is never read past them.)
   const capped = n.marks.slice(0, MAX_MARKS);
-  const firstLink = capped.findIndex((m) => asNode(m)?.type === "link");
-  const marks = capped.filter((m, i) => asNode(m)?.type !== "link" || i === firstLink);
+  const isLink = (m: unknown): boolean => asNode(m)?.type === "link";
+  const safeLink = capped.findIndex((m) => isLink(m) && safeHref(str(asNode(m)?.attrs ?? {}, "href")) !== null);
+  const firstLink = safeLink === -1 ? capped.findIndex(isLink) : safeLink; // a live one if there is one
+  const marks = capped.filter((m, i) => !isLink(m) || i === firstLink);
   return mapWithin(marks, ctx.budget, (m) => m).reduce<ReactNode>((inner, m) => {
     const mark = asNode(m);
     switch (mark?.type) {

@@ -57,6 +57,11 @@ describe("AdfDocument", () => {
     );
     expect(out.match(/<a /g)).toHaveLength(1);
     expect(out).toContain("https://a.example");
+    // An unsafe first link doesn't shadow a safe second one.
+    const mixed = html(
+      doc(p(text("x", { type: "link", attrs: { href: "javascript:alert(1)" } }, { type: "link", attrs: { href: "https://b.example" } }))),
+    );
+    expect(mixed).toContain('href="https://b.example/"');
   });
 
   it("renders lists, code, quotes, tables and task items", () => {
