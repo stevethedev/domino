@@ -76,13 +76,13 @@ h3 {
   padding: 0 var(--space-3);
   font-weight: var(--weight-semibold);
 }
-:where(button:hover:not(:disabled)) {
+:where(button:hover:not(:disabled, [aria-disabled="true"])) {
   background: var(--surface-2);
 }
-:where(button:active:not(:disabled)) {
+:where(button:active:not(:disabled, [aria-disabled="true"])) {
   filter: brightness(0.96);
 }
-:where(button:disabled) {
+:where(button:disabled, button[aria-disabled="true"]) {
   opacity: 0.55;
   cursor: default;
 }
@@ -97,7 +97,7 @@ h3 {
 }
 :where(button.danger) {
   border-color: var(--cycle);
-  color: var(--cycle);
+  color: var(--error-text);
 }
 :where(.icon-btn) {
   min-width: var(--control-h);

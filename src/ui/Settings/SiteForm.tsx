@@ -1,11 +1,12 @@
 import { useEffect, useId, useMemo, useRef, useState, type ReactElement } from "react";
 import type { ConfigStore } from "../../config/ConfigStore";
 import { validateSite } from "../../config/schema";
-import { API_TOKEN_URL, applyUrl, parseJiraUrl, suggestedSecretRef } from "../../config/siteDraft";
+import { API_TOKEN_URL, applyUrl, draftChanged, parseJiraUrl, suggestedSecretRef } from "../../config/siteDraft";
 import type { BackendKind, SiteConfig } from "../../config/types";
 import { errorMessage } from "../../data/errors";
 import { openExternal } from "../../platform";
 import { Icon } from "../Icon";
+import { prefersReducedMotion } from "../../lib/motion";
 
 export type SiteFormResult = { site: SiteConfig; isDefault: boolean; token: string; test: boolean };
 
@@ -41,6 +42,8 @@ export function SiteForm({
   onSwitchToLive,
   onSubmit,
   onCancel,
+  onDismiss,
+  onDirty,
 }: {
   initial: SiteConfig;
   initialDefault: boolean;
@@ -50,7 +53,12 @@ export function SiteForm({
   backend: BackendKind;
   onSwitchToLive: () => void;
   onSubmit: (r: SiteFormResult) => Promise<void>;
+  /** The Cancel button: a deliberate choice, so it closes at once. */
   onCancel: () => void;
+  /** Esc: closes the form, after a confirm when it has unsaved changes (the caller asks). */
+  onDismiss: () => void;
+  /** Reports whether the form holds anything closing it would lose. */
+  onDirty: (dirty: boolean) => void;
 }): ReactElement {
   const uid = useId();
   const formRef = useRef<HTMLFormElement>(null);
@@ -65,6 +73,17 @@ export function SiteForm({
   const [saving, setSaving] = useState(false);
   const [secretSet, setSecretSet] = useState<boolean | null>(null);
   const [oauthConnected, setOauthConnected] = useState<boolean | null>(null);
+
+  const dirty = draftChanged({ initial, draft, initialDefault, isDefault, token });
+  useEffect(() => {
+    onDirty(dirty);
+  }, [dirty, onDirty]);
+  useEffect(
+    () => (): void => {
+      onDirty(false); // closed: nothing left to lose
+    },
+    [onDirty],
+  );
 
   const takenIds = useMemo(() => others.map((o) => o.id), [others]);
   const secretRef = draft.auth.type === "apiToken" ? draft.auth.secretRef : "";
@@ -81,7 +100,7 @@ export function SiteForm({
   };
 
   useEffect(() => {
-    formRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+    formRef.current?.scrollIntoView({ block: "start", behavior: prefersReducedMotion() ? "auto" : "smooth" });
     formRef.current?.querySelector<HTMLInputElement>("input")?.focus({ preventScroll: true });
   }, []);
 
@@ -200,7 +219,7 @@ export function SiteForm({
         if (e.key === "Escape") {
           e.stopPropagation(); // close the form, not the whole dialog
           e.preventDefault();
-          onCancel();
+          onDismiss();
         }
       }}
     >

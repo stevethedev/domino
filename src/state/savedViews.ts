@@ -1,5 +1,6 @@
 import { isHighlight, isHighlightScope } from "../graph/insights";
 import { parseSortBy } from "../graph/sort";
+import type { SiteConfig } from "../config/types";
 import type { Scope } from "../data/MultiSiteLoader";
 import type { StatusCategory } from "../graph/types";
 import { NO_ISSUE_FILTERS, type IssueFilters } from "../graph/visible";
@@ -26,7 +27,8 @@ export type SavedView = {
 };
 
 export const SAVED_VIEWS_KEY = "domino.savedViews";
-const MAX_SAVED_VIEWS = 30;
+/** The most views kept. Reaching it blocks adding more; nothing already saved is ever dropped. */
+export const MAX_SAVED_VIEWS = 100;
 
 const str = (v: unknown): v is string => typeof v === "string";
 const bool = (v: unknown): v is boolean => typeof v === "boolean";
@@ -103,16 +105,25 @@ function parseView(raw: unknown): SavedView | undefined {
   };
 }
 
-/** Stored views, validated one by one; invalid entries are dropped rather than failing the list. */
-export function parseSavedViews(raw: unknown): SavedView[] | undefined {
+/**
+ * Views validated one by one; invalid entries are dropped rather than failing the list. Stored
+ * lists keep at most `max`; a shared file is read whole (`max` Infinity), so `mergeViews` can say
+ * what didn't fit instead of it vanishing here.
+ */
+export function parseSavedViews(raw: unknown, max = MAX_SAVED_VIEWS): SavedView[] | undefined {
   if (!Array.isArray(raw)) return undefined;
-  return raw.flatMap((v) => parseView(v) ?? []).slice(0, MAX_SAVED_VIEWS);
+  return raw.flatMap((v) => parseView(v) ?? []).slice(0, max);
 }
 
-/** Adds a view, replacing one with the same name (case-insensitive), newest first. */
+const sameName = (a: string, b: string): boolean => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+/** Whether a view named `name` can be saved: it updates an existing one, or there's room for another. */
+export const canSaveView = (views: readonly SavedView[], name: string): boolean =>
+  views.length < MAX_SAVED_VIEWS || views.some((v) => sameName(v.name, name));
+
+/** Adds a view, replacing one with the same name (case-insensitive), newest first. Check `canSaveView` first. */
 export function upsertView(views: readonly SavedView[], view: SavedView): SavedView[] {
-  const key = view.name.trim().toLowerCase();
-  return [view, ...views.filter((v) => v.name.toLowerCase() !== key)].slice(0, MAX_SAVED_VIEWS);
+  return [view, ...views.filter((v) => !sameName(v.name, view.name))];
 }
 
 /** The shareable file: a small envelope so other JSON isn't mistaken for views. */
@@ -133,11 +144,76 @@ export function readViewsFile(text: string): SavedView[] {
   }
   const r = record(raw);
   const list = Array.isArray(raw) ? raw : r?.format === FILE_FORMAT ? r.views : undefined;
-  const views = parseSavedViews(list);
+  const views = parseSavedViews(list, Number.POSITIVE_INFINITY);
   if (!views || views.length === 0) throw new Error("That file doesn't contain Domino saved views.");
   return views;
 }
 
-/** Adds imported views to the current ones; an imported view replaces one with the same name. */
-export const mergeViews = (current: readonly SavedView[], imported: readonly SavedView[]): SavedView[] =>
-  [...imported].reverse().reduce<SavedView[]>((acc, v) => upsertView(acc, v), [...current]);
+/** What an import did, by view name. */
+export type ImportReport = Readonly<{ views: SavedView[]; added: string[]; replaced: string[]; skipped: string[] }>;
+
+/**
+ * Adds imported views to the current ones, the imported first and in file order. An imported view
+ * replaces one with the same name; new ones past `MAX_SAVED_VIEWS` are skipped, never squeezing
+ * out views already saved.
+ */
+export function mergeViews(current: readonly SavedView[], imported: readonly SavedView[]): ImportReport {
+  const report = { views: [...current], added: [] as string[], replaced: [] as string[], skipped: [] as string[] };
+  const accepted: SavedView[] = [];
+  // A name repeated within the file: the first one wins (one pass, so big files stay cheap).
+  const seen = new Set<string>();
+  const unique = imported.filter((v) => {
+    const key = v.name.trim().toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  for (const v of unique) {
+    if (current.some((c) => sameName(c.name, v.name))) report.replaced.push(v.name);
+    else if (current.length + report.added.length < MAX_SAVED_VIEWS) report.added.push(v.name);
+    else {
+      report.skipped.push(v.name);
+      continue;
+    }
+    accepted.push(v);
+  }
+  report.views = [...accepted].reverse().reduce<SavedView[]>((acc, v) => upsertView(acc, v), [...current]);
+  return report;
+}
+
+/**
+ * Which of a view's sites can be used here (they exist and are turned on), and the others by name
+ * ("Legacy (turned off)", or the bare id of a site this config doesn't have), so a view shared by
+ * someone with other sites applies what it can and says what it couldn't. `scopeUsable` is false
+ * for an epic or seed scope on a site that can't be used.
+ */
+export function viewSites(
+  view: Pick<SavedView, "siteIds" | "scope">,
+  sites: readonly SiteConfig[],
+): { siteIds: string[]; missing: string[]; scopeUsable: boolean } {
+  const usable = (id: string): boolean => sites.some((s) => s.id === id && s.enabled);
+  const missing = view.siteIds
+    .filter((id) => !usable(id))
+    .map((id) => {
+      const s = sites.find((x) => x.id === id);
+      return s ? `${s.label} (turned off)` : id;
+    });
+  const siteIds = view.siteIds.filter(usable);
+  // An epic or seed loads from its own site, which must be among the sites being loaded.
+  return { siteIds, missing, scopeUsable: view.scope.mode === "jql" || siteIds.includes(view.scope.siteId) };
+}
+
+/**
+ * What applying a view couldn't do, in a sentence, or null when it applied in full. `savedSites` is
+ * how many sites the view was saved with; `sites` is `viewSites`' answer for this config.
+ */
+export function viewNotice(name: string, savedSites: number, sites: ReturnType<typeof viewSites>): string | null {
+  const { siteIds, missing, scopeUsable } = sites;
+  if (savedSites === 0) {
+    return `“${name}” was saved with no sites selected, so your sites and query stay as they were; its filters and layout were applied.`;
+  }
+  if (siteIds.length === 0 || !scopeUsable) {
+    return `“${name}” uses sites you don't have here (${missing.join(", ") || "its scope's site"}), so your sites and query stay as they were; its filters and layout were applied.`;
+  }
+  return missing.length > 0 ? `“${name}” also uses ${missing.join(", ")}, which you don't have here; it's showing the rest.` : null;
+}

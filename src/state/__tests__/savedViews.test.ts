@@ -1,6 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { defined } from "../../lib/guards";
-import { mergeViews, parseSavedViews, readViewsFile, upsertView, viewsFile, type SavedView } from "../savedViews";
+import {
+  canSaveView,
+  MAX_SAVED_VIEWS,
+  mergeViews,
+  parseSavedViews,
+  readViewsFile,
+  upsertView,
+  viewNotice,
+  viewSites,
+  viewsFile,
+  type SavedView,
+} from "../savedViews";
+import type { SiteConfig } from "../../config/types";
 
 const view = (name: string): SavedView => ({
   name,
@@ -89,6 +101,15 @@ describe("saved views", () => {
     expect(defined(parseSavedViews([old]), "parsed views")[0].view.highlightScope).toBe("all");
   });
 
+  it("can always update a view, but adds new ones only below the limit", () => {
+    const full = Array.from({ length: MAX_SAVED_VIEWS }, (_, i) => view(`V${i}`));
+    expect(canSaveView(full, "v3")).toBe(true);
+    expect(canSaveView(full, "Another")).toBe(false);
+    expect(canSaveView(full.slice(1), "Another")).toBe(true);
+    // Upserting never trims: whatever was there stays.
+    expect(upsertView(full, view("V0")).length).toBe(MAX_SAVED_VIEWS);
+  });
+
   it("upsert replaces a same-named view (case-insensitive) and puts it first", () => {
     const next = upsertView([view("Standup"), view("Partner")], { ...view("standup"), mode: "graph" });
     expect(next.map((v) => [v.name, v.mode])).toEqual([
@@ -117,10 +138,86 @@ describe("sharing saved views", () => {
 
   it("merges imported views, replacing same-named ones and keeping import order first", () => {
     const merged = mergeViews([view("Standup"), view("Mine")], [{ ...view("standup"), mode: "graph" }, view("Partner")]);
-    expect(merged.map((v) => [v.name, v.mode])).toEqual([
+    expect(merged.views.map((v) => [v.name, v.mode])).toEqual([
       ["standup", "graph"],
       ["Partner", "timeline"],
       ["Mine", "timeline"],
     ]);
+    expect(merged).toMatchObject({ added: ["Partner"], replaced: ["standup"], skipped: [] });
+  });
+
+  it("never drops existing views to make room: imports past the limit are skipped and reported", () => {
+    const mine = Array.from({ length: MAX_SAVED_VIEWS - 1 }, (_, i) => view(`Mine ${i}`));
+    const merged = mergeViews(mine, [view("New 1"), view("Mine 3"), view("New 2")]);
+    expect(merged.views).toHaveLength(MAX_SAVED_VIEWS);
+    expect(merged.views.map((v) => v.name)).toEqual(expect.arrayContaining(mine.map((v) => v.name)));
+    expect(merged).toMatchObject({ added: ["New 1"], replaced: ["Mine 3"], skipped: ["New 2"] });
+  });
+
+  it("takes the first of a name repeated in the file", () => {
+    const merged = mergeViews([], [{ ...view("Dup"), mode: "graph" }, view("dup")]);
+    expect(merged.views.map((v) => [v.name, v.mode])).toEqual([["Dup", "graph"]]);
+    expect(merged.added).toEqual(["Dup"]);
+  });
+});
+
+describe("viewSites", () => {
+  const site = (id: string, enabled = true): SiteConfig => ({
+    id,
+    label: id.toUpperCase(),
+    baseUrl: `https://${id}.atlassian.net`,
+    auth: { type: "oauth3lo" },
+    color: "#000000",
+    enabled,
+  });
+  const sites = [site("acme"), site("partner"), site("legacy", false)];
+
+  it("keeps the view's sites you have, and names the ones you don't", () => {
+    const r = viewSites({ siteIds: ["acme", "legacy", "theirs"], scope: { mode: "jql", jql: "" } }, sites);
+    expect(r).toEqual({ siteIds: ["acme"], missing: ["LEGACY (turned off)", "theirs"], scopeUsable: true });
+  });
+
+  it("can't use an epic or seed scope on a site you don't have", () => {
+    expect(viewSites({ siteIds: ["acme"], scope: { mode: "epic", siteId: "theirs", key: "X-1" } }, sites).scopeUsable).toBe(false);
+    expect(viewSites({ siteIds: ["acme"], scope: { mode: "seed", siteId: "acme", key: "X-1", depth: 2 } }, sites).scopeUsable).toBe(true);
+    // The scope's site must be among the view's own sites: loading runs only on the selected ones.
+    expect(viewSites({ siteIds: ["partner"], scope: { mode: "epic", siteId: "acme", key: "X-1" } }, sites).scopeUsable).toBe(false);
+  });
+});
+
+describe("importing past the limit", () => {
+  it("reports every entry a big file couldn't add, and still applies updates near its end", () => {
+    const mine = [view("Keep me")];
+    const file = viewsFile([
+      ...Array.from({ length: MAX_SAVED_VIEWS + 19 }, (_, i) => view(`New ${i}`)),
+      { ...view("Keep me"), mode: "graph" },
+    ]);
+    const merged = mergeViews(mine, readViewsFile(file));
+    expect(merged.views).toHaveLength(MAX_SAVED_VIEWS);
+    expect(merged.replaced).toEqual(["Keep me"]);
+    expect(merged.added).toHaveLength(MAX_SAVED_VIEWS - 1);
+    expect(merged.skipped).toHaveLength(20);
+    expect(merged.views.find((v) => v.name === "Keep me")?.mode).toBe("graph");
+  });
+});
+
+describe("viewNotice", () => {
+  it("says nothing when the view applied in full", () => {
+    expect(viewNotice("Standup", 1, { siteIds: ["acme"], missing: [], scopeUsable: true })).toBeNull();
+  });
+
+  it("explains a view saved with no sites", () => {
+    expect(viewNotice("Empty", 0, { siteIds: [], missing: [], scopeUsable: true })).toBe(
+      "“Empty” was saved with no sites selected, so your sites and query stay as they were; its filters and layout were applied.",
+    );
+  });
+
+  it("names the sites it couldn't use", () => {
+    expect(viewNotice("Theirs", 1, { siteIds: [], missing: ["theirs"], scopeUsable: true })).toContain(
+      "uses sites you don't have here (theirs)",
+    );
+    expect(viewNotice("Mixed", 2, { siteIds: ["acme"], missing: ["theirs"], scopeUsable: true })).toBe(
+      "“Mixed” also uses theirs, which you don't have here; it's showing the rest.",
+    );
   });
 });

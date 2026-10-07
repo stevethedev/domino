@@ -86,6 +86,12 @@ export function installMockIpc(): Promise<void> {
   const cache = new MockTicketCache(version, storage.read, storage.write);
   const secrets = new Set<string>();
   let config = readConfig();
+  // `?brokenConfig` previews a config file that couldn't be read: the app starts empty until the
+  // file is "fixed" (Reload) or Settings saves over it, as in the desktop app.
+  let configProblem = params.has("brokenConfig") ? "domino.config.json is invalid: expected value at line 3 column 5" : null;
+  const savedConfig = config;
+  if (configProblem) config = { sites: [], defaultSiteIds: [], backend: "jira" };
+  const CONFIG_PATH = "~/Library/Application Support/org.change.domino/domino.config.json";
 
   const site = (id: string, requireEnabled = true): SiteConfig => {
     const s = config.sites.find((x) => x.id === id);
@@ -126,8 +132,17 @@ export function installMockIpc(): Promise<void> {
         cache.invalidateChanged(config, parsed.data, Date.now());
         config = parsed.data;
         writeConfig(config);
+        configProblem = null;
         return config;
       }
+      case "config_status":
+        return { problem: configProblem, path: CONFIG_PATH };
+      case "reload_config":
+        config = savedConfig;
+        configProblem = null;
+        return config;
+      case "reveal_config":
+        return null;
       case "cache_get":
         return cache.get(str("scopeKey"), config, Date.now());
       case "cache_put":
@@ -179,6 +194,7 @@ export function installMockIpc(): Promise<void> {
       case "oauth_connect":
         return rejectLikeTauri("Atlassian sign-in needs the desktop app (npm run dev)");
       case "oauth_disconnect":
+      case "oauth_cancel":
         return null;
       case "plugin:opener|open_url":
         window.open(str("url"), "_blank", "noopener,noreferrer");

@@ -1,0 +1,55 @@
+import { useState, type ReactElement } from "react";
+import type { ConfigFileStatus } from "../config/types";
+
+/**
+ * Shown while the config file couldn't be used and the app is running on an empty config: what's
+ * wrong and where the file is, with the ways out: fix it by hand and reload it, or set sites up
+ * again in Settings (saving there replaces the file).
+ */
+export function ConfigProblemBanner({
+  status,
+  onReload,
+  onReveal,
+  onOpenSettings,
+}: {
+  status: ConfigFileStatus;
+  onReload: () => Promise<void>;
+  onReveal: () => void;
+  onOpenSettings: () => void;
+}): ReactElement | null {
+  const [reloading, setReloading] = useState(false);
+  if (status.problem === null) return null;
+  return (
+    <div className="banner error actionable" role="alert">
+      <div className="banner-text">
+        <strong>Domino couldn't read its settings file, so it started with no sites.</strong> {status.problem}
+        <div className="muted small">
+          Fix <code>{status.path}</code> and reload it, or add your sites again in Settings (saving there replaces the file).
+        </div>
+      </div>
+      <div className="banner-actions">
+        <button
+          type="button"
+          disabled={reloading}
+          onClick={() => {
+            setReloading(true);
+            // A failure updates `status.problem`, which this banner shows.
+            onReload()
+              .catch(() => undefined)
+              .finally(() => {
+                setReloading(false);
+              });
+          }}
+        >
+          {reloading ? "Reloading…" : "Reload file"}
+        </button>
+        <button type="button" onClick={onReveal}>
+          Show file
+        </button>
+        <button type="button" onClick={onOpenSettings}>
+          Open Settings
+        </button>
+      </div>
+    </div>
+  );
+}

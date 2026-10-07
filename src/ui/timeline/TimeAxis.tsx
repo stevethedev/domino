@@ -1,5 +1,6 @@
 import { memo } from "react";
 import type { Day } from "../../graph/schedule";
+import { fmtDay } from "../format";
 import { PX_PER_DAY, ticks, xOf, type Scale } from "./timelineLayout";
 
 /**
@@ -56,7 +57,11 @@ export const TimeAxis = memo(function TimeAxis({
           {t.label}
         </span>
       ))}
-      <span className="tl-today-flag" style={{ left: xOf(range.start, today, scale) + PX_PER_DAY[scale] / 2 }}>
+      <span
+        className="tl-today-flag"
+        style={{ left: xOf(range.start, today, scale) + PX_PER_DAY[scale] / 2 }}
+        title={`Today, ${fmtDay(today, true)}`}
+      >
         Today
       </span>
     </div>

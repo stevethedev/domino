@@ -95,11 +95,13 @@ export function LoadPill({
   sites,
   scopeLabel,
   failureText,
+  onRetry,
 }: {
   view: LoadView;
   sites: readonly SiteConfig[];
   scopeLabel: string;
   failureText: string | null;
+  onRetry: () => void;
 }): ReactElement {
   const updating = useDelayed(view.busy && view.mode !== "empty", 200);
   const failed = !view.busy && failureText !== null;
@@ -113,7 +115,14 @@ export function LoadPill({
           {view.progress && <SiteProgressList sites={sites} progress={view.progress} />}
         </>
       )}
-      {failed && <span className="load-pill-text">{failureText}</span>}
+      {failed && (
+        <>
+          <span className="load-pill-text">{failureText}</span>
+          <button type="button" className="link-btn" onClick={onRetry}>
+            Retry
+          </button>
+        </>
+      )}
     </div>
   );
 }

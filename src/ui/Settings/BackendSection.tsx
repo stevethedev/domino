@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useState, type ReactElement } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type ReactElement } from "react";
 import type { BackendKind, DominoConfig, OAuthStatus } from "../../config/types";
 import { errorMessage } from "../../data/errors";
 import type { Domino } from "../../state/useDomino";
@@ -15,7 +15,10 @@ export function BackendSection({ domino, config }: { domino: Domino; config: Dom
   const [clientSecret, setClientSecret] = useState("");
   const [busy, setBusy] = useState<"save" | "connect" | "disconnect" | "backend" | null>(null);
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
-  const hasOAuthSites = config.sites.some((s) => s.auth.type === "oauth3lo");
+  const oauthSites = config.sites.filter((s) => s.auth.type === "oauth3lo").map((s) => s.label);
+  const hasOAuthSites = oauthSites.length > 0;
+  const [confirmDisconnect, setConfirmDisconnect] = useState(false);
+  const disconnectRef = useRef<HTMLButtonElement>(null);
 
   const refresh = useCallback(() => {
     store.oauthStatus().then(setStatus, () => {
@@ -57,7 +60,13 @@ export function BackendSection({ domino, config }: { domino: Domino; config: Dom
 
   const connect = (): void => {
     void run("connect", async () => {
-      const sites = await store.oauthConnect();
+      let sites: string[];
+      try {
+        sites = await store.oauthConnect();
+      } catch (e) {
+        if (errorMessage(e) === "Sign-in cancelled") return "Sign-in cancelled."; // asked for, not a failure
+        throw e;
+      }
       await domino.refreshConfig(); // pick up discovered cloudIds
       return `Connected. Your account can access ${sites.length} site${sites.length === 1 ? "" : "s"}: ${sites.join(", ") || "none"}.`;
     });
@@ -148,21 +157,76 @@ export function BackendSection({ domino, config }: { domino: Domino; config: Dom
           {status?.connected ? (
             <button
               type="button"
+              ref={disconnectRef}
               onClick={() => {
-                void run("disconnect", async () => {
-                  await store.oauthDisconnect();
-                  return "Disconnected.";
-                });
+                setConfirmDisconnect(true);
               }}
-              disabled={busy !== null}
+              disabled={busy !== null || confirmDisconnect}
             >
               {busy === "disconnect" ? "Disconnecting…" : "Disconnect"}
             </button>
           ) : null}
-          <button type="button" className="primary" onClick={connect} disabled={busy !== null || !status?.appConfigured}>
-            {busy === "connect" ? "Waiting for browser sign-in…" : status?.connected ? "Reconnect" : "Connect with Atlassian"}
-          </button>
+          {busy === "connect" ? (
+            <button
+              type="button"
+              onClick={() => {
+                store.oauthCancel().catch(() => undefined); // the waiting connect reports the outcome
+              }}
+            >
+              Cancel sign-in
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="primary"
+              onClick={connect}
+              // Not while Disconnect awaits its confirm: the two would race to update the sign-in.
+              disabled={busy !== null || !status?.appConfigured || confirmDisconnect}
+            >
+              {status?.connected ? "Reconnect" : "Connect with Atlassian"}
+            </button>
+          )}
         </div>
+        {busy === "connect" && (
+          <p className="hint" role="status">
+            Sign in to Atlassian in the browser window that opened. Domino waits up to 5 minutes.
+          </p>
+        )}
+        {confirmDisconnect && (
+          <div className="banner warn actionable" role="alertdialog" aria-label="Disconnect from Atlassian">
+            <div className="banner-text">
+              Disconnect from Atlassian?{" "}
+              {hasOAuthSites
+                ? `${oauthSites.join(", ")} will stop loading until you connect again, and ${oauthSites.length === 1 ? "its" : "their"} cached tickets are discarded.`
+                : "No site uses it right now."}
+            </div>
+            <div className="banner-actions">
+              <button
+                type="button"
+                className="danger"
+                onClick={() => {
+                  setConfirmDisconnect(false);
+                  void run("disconnect", async () => {
+                    await store.oauthDisconnect();
+                    return "Disconnected.";
+                  });
+                }}
+              >
+                Disconnect
+              </button>
+              <button
+                type="button"
+                autoFocus
+                onClick={() => {
+                  setConfirmDisconnect(false);
+                  disconnectRef.current?.focus(); // back where they were, not lost with this button
+                }}
+              >
+                Keep connected
+              </button>
+            </div>
+          </div>
+        )}
       </details>
       {message && (
         <p className={message.kind === "error" ? "field-error" : "hint"} role={message.kind === "error" ? "alert" : "status"}>

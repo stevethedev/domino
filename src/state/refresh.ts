@@ -11,8 +11,8 @@ export const parseRefreshMinutes = (raw: unknown): RefreshMinutes | undefined =>
 /** When each site's data on screen was fetched (epoch ms), by site id. */
 export type SiteAges = Readonly<Record<string, number>>;
 
-/** A site whose latest load failed, still shown with the data fetched at `takenAt`. */
-export type LaggingSite = Readonly<{ siteId: string; takenAt: number }>;
+/** A site whose latest load failed (`message` says why), still shown with the data fetched at `takenAt`. */
+export type LaggingSite = Readonly<{ siteId: string; takenAt: number; message: string }>;
 
 export type Shown = Readonly<{ result: LoadResult; ages: SiteAges }>;
 
@@ -36,7 +36,8 @@ export function mergeBySite(current: Shown | null, next: LoadResult, now: number
   const data = [...next.data.filter((d) => !keptIds.has(d.siteId)), ...kept];
   const result: LoadResult = { kind: "ok", data, errors: next.errors.filter((e) => !keptIds.has(e.siteId)) };
   const ages = Object.fromEntries(data.map((d) => [d.siteId, (keptIds.has(d.siteId) ? shownAt(d.siteId) : undefined) ?? now]));
-  const lagging = kept.map((d) => ({ siteId: d.siteId, takenAt: shownAt(d.siteId) ?? now }));
+  const why = (siteId: string): string => next.errors.find((e) => e.siteId === siteId)?.message ?? "unknown error";
+  const lagging = kept.map((d) => ({ siteId: d.siteId, takenAt: shownAt(d.siteId) ?? now, message: why(d.siteId) }));
   const unchanged = before !== null && JSON.stringify(result) === JSON.stringify(before);
   return { result: unchanged ? before : result, ages, lagging };
 }
@@ -99,6 +100,10 @@ export function freshnessOf(
   if (f.lastUpdated !== null) return { text: `updated ${updatedAgo(f.lastUpdated, now)}`, warn: false };
   return f.shownAt !== null ? { text: `from ${ageText(f.shownAt, now)}`, warn: false } : null;
 }
+
+/** A new scope that failed to load while the previous scope's tickets stay up. */
+export const otherScopeFailureText = (scope: string, message: string): string =>
+  `Couldn't load ${scope} (${message}). Still showing the earlier tickets.`;
 
 /** "Couldn't update (timeout); showing tickets from 2h ago." */
 export const failureText = (message: string, shownAt: number | null, now: number): string =>

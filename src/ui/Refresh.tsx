@@ -6,7 +6,7 @@ import type { BackgroundRefresh } from "../state/useDomino";
 import { SpinnerIcon } from "./LoadStatus";
 
 /** Re-renders every `ms` so relative times stay current. */
-function useNow(ms: number): number {
+export function useNow(ms: number): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const id = setInterval(() => {
@@ -135,7 +135,7 @@ export function AutoRefreshField({
       <p className={permissionDenied ? "field-error" : "hint"} id={`${id}-notify-hint`} role={permissionDenied ? "alert" : undefined}>
         {permissionDenied
           ? "Notifications aren't allowed for Domino. Turn them on in your system settings, then try again."
-          : "When a refresh finds that an issue assigned to you is no longer blocked. Needs auto-refresh, or a manual refresh."}
+          : "When a refresh finds that a ticket assigned to you is no longer blocked. Needs auto-refresh, or a manual refresh."}
       </p>
     </section>
   );

@@ -46,6 +46,8 @@
   flex: 1;
   overflow: auto;
   position: relative;
+  /* Scrolling a bar into view keeps it clear of the sticky label column (LABEL_WIDTH). */
+  scroll-padding-left: calc(320px + var(--space-4));
 }
 .tl-inner {
   position: relative;
@@ -79,7 +81,7 @@
 }
 .tl-tick {
   position: absolute;
-  top: 8px;
+  top: 13px;
   font-size: var(--text-xs);
   color: var(--muted);
   white-space: nowrap;
@@ -114,7 +116,7 @@
   cursor: default;
 }
 .tl-release-flag.at-risk {
-  color: var(--accent-text);
+  color: var(--on-cycle);
   background: var(--cycle);
 }
 .tl-release-flag.released {
@@ -127,6 +129,8 @@
   position: absolute;
   top: 0;
   transform: translateX(-50%);
+  /* Its own 12px line above the ticks (which start at 13px), so it never covers today's label. */
+  line-height: 12px;
   font-size: var(--text-2xs);
   font-weight: var(--weight-bold);
   color: var(--accent-text);
@@ -201,6 +205,10 @@
 .tl-arrow.cross-site {
   stroke-dasharray: 5 3;
 }
+.tl-arrow.early-start {
+  stroke-dasharray: 1.5 3;
+  stroke-linecap: round;
+}
 .tl-arrow.dimmed {
   opacity: 0.15;
 }
@@ -222,13 +230,22 @@
   padding: 0 var(--space-3);
   font-weight: var(--weight-bold);
   font-size: var(--text-md);
-  background: var(--surface-2);
+  /* A light tint, so arrows into a folded lane (which end on its line) show through it; only the
+     title below is opaque. */
+  background: color-mix(in srgb, var(--surface-2) 45%, transparent);
+  border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
   z-index: var(--z-sticky);
 }
 .tl-lane > :first-child {
   position: sticky;
   left: 12px;
+  /* Above the folded lane's summary bar, which can scroll under it, and opaque over arrows. */
+  z-index: 1;
+  padding: var(--space-0_5) var(--space-1_5);
+  margin-left: calc(-1 * var(--space-1_5));
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
 }
 .tl-row {
   position: absolute;
@@ -363,8 +380,65 @@
   border: 2px dotted var(--inprogress);
   border-radius: var(--radius-xs);
 }
+/* The toolbar's keys show both colours each bar comes in: done or in progress, started or not. */
+.tl-legend .tl-key.tl-actual {
+  background: linear-gradient(to right, var(--done) 50%, var(--inprogress) 50%);
+}
+.tl-legend .tl-key.tl-forecast {
+  border-color: var(--inprogress) var(--todo) var(--todo) var(--inprogress);
+}
+/* The full key in the sidebar (TimelineLegend). */
+.tl-legend-full .tl-key {
+  flex: none;
+  width: 22px;
+  height: 10px;
+}
+.tl-legend-full .tl-key.key-epic {
+  height: 6px;
+}
+.tl-key.key-done {
+  background: var(--done);
+}
+.tl-key.key-inprogress {
+  background: var(--inprogress);
+}
+.tl-key.tl-forecast.key-todo {
+  border-color: var(--todo);
+}
+.tl-key.key-epic {
+  background: color-mix(in srgb, var(--epic) 70%, var(--surface));
+}
+.key-glyph {
+  width: 22px;
+  text-align: center;
+  color: var(--text);
+}
+.key-glyph.past {
+  color: var(--cycle);
+}
+.key-release {
+  width: 12px;
+  height: 14px;
+  border-left: 2px dashed var(--release);
+  margin-left: 10px;
+  flex: none;
+}
+.key-weekend {
+  width: 22px;
+  height: 14px;
+  background: color-mix(in srgb, var(--muted) 14%, transparent);
+  flex: none;
+}
+.legend-early-start {
+  border-top: 2px dotted var(--cycle);
+}
+.legend-stub {
+  width: 12px;
+  margin-right: 14px;
+}
 .tl-due {
   position: absolute;
+  z-index: calc(var(--z-raised) + 1); /* above the variance badge, should they ever meet */
   top: 11px;
   transform: translateX(-50%);
   font-size: var(--text-base);
@@ -398,6 +472,15 @@
   height: 22px;
   border: 1.5px dashed color-mix(in srgb, var(--epic) 60%, transparent);
   background: color-mix(in srgb, var(--epic) 6%, transparent);
+}
+/* A folded lane's issues, as one bar on its header (TimelineLane). */
+.tl-lane-span {
+  position: absolute;
+  top: calc(50% - 4px);
+  height: 8px;
+  border-radius: var(--radius-xs);
+  /* Translucent, so an arrowhead ending inside it still shows. */
+  background: color-mix(in srgb, var(--muted) 45%, transparent);
 }
 .tl-epic-work {
   top: 16px;
@@ -501,6 +584,12 @@
 .tl-row.selected .tl-label {
   background: color-mix(in srgb, var(--accent) 10%, var(--surface));
   box-shadow: inset 3px 0 0 var(--accent);
+}
+/* Both marks: the critical-path bar, then the selection's beside it. */
+.tl-row.selected.critical:not(:focus-visible) .tl-label {
+  box-shadow:
+    inset 4px 0 0 var(--critical),
+    inset 7px 0 0 var(--accent);
 }
 
 /* Where the focused row's ← or → would go (see .traverse-hint in graph.css). */

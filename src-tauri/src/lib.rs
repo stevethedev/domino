@@ -48,15 +48,26 @@ pub fn try_run() -> tauri::Result<()> {
             #[cfg(desktop)]
             app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
             let dir = app.path().app_config_dir()?;
-            let config = Arc::new(ConfigHandle::load(ConfigFile::new(&dir)).map_err(|e| -> Box<dyn std::error::Error> { e.into() })?);
+            let config = Arc::new(ConfigHandle::load(ConfigFile::new(&dir)));
             log::info!("config: {}", dir.join("domino.config.json").display());
+            if let Some(problem) = config.problem() {
+                log::error!("config not loaded, starting empty: {problem}");
+            }
             let secrets: Arc<dyn SecretStore> = Arc::new(CachedSecrets::new(Keychain));
             let http = http_client()?;
             let oauth = Arc::new(OAuth::new(http.clone(), Arc::clone(&secrets)));
             let http_backend = Arc::new(HttpBackend::new(http, Arc::clone(&secrets), Arc::clone(&oauth), Arc::clone(&config)));
             let cache = Arc::new(TicketCache::new(app.path().app_data_dir()?.join("ticket-cache"), Arc::clone(&secrets)));
             cache.prune(std::time::SystemTime::now());
-            app.manage(AppState { config, secrets, oauth, mock: Arc::new(MockBackend::from_env()?), http: http_backend, cache });
+            app.manage(AppState {
+                config,
+                secrets,
+                oauth,
+                mock: Arc::new(MockBackend::from_env()?),
+                http: http_backend,
+                cache,
+                oauth_cancel: Arc::new(tokio::sync::Notify::new()),
+            });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -65,6 +76,9 @@ pub fn try_run() -> tauri::Result<()> {
             commands::site_health,
             commands::fetch_by_jql,
             commands::fetch_epic,
+            commands::config_status,
+            commands::reload_config,
+            commands::reveal_config,
             commands::fetch_issue,
             commands::fetch_description,
             commands::fetch_remote_links,
@@ -80,6 +94,7 @@ pub fn try_run() -> tauri::Result<()> {
             commands::secret_status,
             commands::oauth_status,
             commands::oauth_connect,
+            commands::oauth_cancel,
             commands::oauth_disconnect,
         ])
         .run(tauri::generate_context!())

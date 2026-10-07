@@ -4,6 +4,7 @@ import { combineJql, JQL_PRESETS, presetById } from "../data/jqlPresets";
 import { ISSUE_KEY_RE, type Scope } from "../data/MultiSiteLoader";
 import { saveQuery } from "../state/useDomino";
 import { isOneOf } from "../lib/guards";
+import { NumberField } from "./NumberField";
 
 type Mode = Scope["mode"];
 const MODES: readonly Mode[] = ["jql", "epic", "seed"];
@@ -39,7 +40,7 @@ export function ScopeInputs({
     }
     const k = key.trim().toUpperCase();
     if (!ISSUE_KEY_RE.test(k)) {
-      setError("Enter an issue key like CORE-1");
+      setError("Enter a ticket key like CORE-1");
       return;
     }
     if (!siteId) {
@@ -137,7 +138,7 @@ export function ScopeInputs({
             </label>
           )}
           <label className="field">
-            <span className="field-label">{mode === "epic" ? "Epic key" : "Issue key"}</span>
+            <span className="field-label">{mode === "epic" ? "Epic key" : "Ticket key"}</span>
             <input
               type="text"
               value={key}
@@ -154,15 +155,8 @@ export function ScopeInputs({
           {mode === "seed" && (
             <label className="field">
               <span className="field-label">Depth</span>
-              <input
-                type="number"
-                min={1}
-                max={5}
-                value={depth}
-                onChange={(e) => {
-                  setDepth(Math.min(5, Math.max(1, Number(e.target.value) || 1)));
-                }}
-              />
+              {/* Keeps what you type (clearing it to type "3" doesn't jump to 13); only 1-5 is used. */}
+              <NumberField min={1} max={5} step={1} integer value={depth} onCommit={setDepth} />
             </label>
           )}
         </>

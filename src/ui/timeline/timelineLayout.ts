@@ -1,6 +1,7 @@
 import type { CardOrder, Lane, LaneFn } from "../../graph/layout";
 import { addDays, daysBetween, entryEnd, maxDay, minDay, type Day, type Span, type TimelineEntry } from "../../graph/schedule";
 import { naturalCompare } from "../../graph/sort";
+import { fmtDay } from "../format";
 import type { GraphNode } from "../../graph/types";
 import { isOneOf } from "../../lib/guards";
 
@@ -10,6 +11,8 @@ export const isScale = isOneOf(SCALES);
 
 export const PX_PER_DAY: Record<Scale, number> = { day: 28, week: 11, month: 4 };
 export const LABEL_WIDTH = 320;
+/** Room after a bar for its variance badge ("+12d over estimate"). */
+export const BADGE_ROOM = 160;
 export const ROW_HEIGHT = 40;
 export const LANE_HEIGHT = 30;
 /** How long a lane takes to fold or unfold; matches `--fold-ms` in timeline.css (via --duration-base). */
@@ -25,6 +28,8 @@ export type TimelineLaneModel = {
   collapsed: boolean;
   /** Issues in the lane forecast to finish late (epic rows summarize others, so they don't count). */
   late: number;
+  /** The envelope of its issues' work (not ghosts or epic rows): a folded lane draws it as one bar. */
+  span: Span | null;
 };
 export type TimelineItem = TimelineRowModel | TimelineLaneModel;
 /** A row before placement: every row, including those inside collapsed lanes. */
@@ -92,7 +97,15 @@ export function layoutRows(
   for (const { lane, rows } of ordered) {
     const isCollapsed = !!laneOf && collapsed.has(lane.id);
     if (laneOf) {
-      items.push({ kind: "lane", lane, y, count: rows.length, collapsed: isCollapsed, late: rows.filter(isLate).length });
+      items.push({
+        kind: "lane",
+        lane,
+        y,
+        count: rows.length,
+        collapsed: isCollapsed,
+        late: rows.filter(isLate).length,
+        span: laneSpan(rows),
+      });
       y += LANE_HEIGHT;
     }
     for (const { node, entry } of rows) {
@@ -135,35 +148,58 @@ export function dayRange(entries: readonly TimelineEntry[], extra: readonly Day[
 
 export type Tick = { day: Day; label: string; major: boolean };
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"];
+// In the viewer's language; days are UTC calendar dates, so they're formatted in UTC.
+// Gregorian, whatever the locale's default calendar: the tick numbers are Gregorian dates.
+const monthName = new Intl.DateTimeFormat(undefined, { month: "short", timeZone: "UTC", calendar: "gregory" });
+const weekdayLetter = new Intl.DateTimeFormat(undefined, { weekday: "narrow", timeZone: "UTC", calendar: "gregory" });
 
-/** Axis ticks for a scale: every day, every Monday, or every 1st of the month. */
+/**
+ * Axis ticks for a scale: every day, every Monday, or every 1st of the month. A label always says
+ * where it is in time: the day scale names the month on the 1st and the first tick ("Nov 1"); the
+ * week scale gives the year on its first tick and the first Monday of each year.
+ */
 export function ticks(range: { start: Day; end: Day }, scale: Scale): Tick[] {
   const out: Tick[] = [];
   for (let d = range.start; d <= range.end; d = addDays(d, 1)) {
     const date = new Date(`${d}T00:00:00Z`);
     const dom = date.getUTCDate();
-    const month = MONTHS[date.getUTCMonth()];
-    if (scale === "day") out.push({ day: d, label: `${WEEKDAYS[date.getUTCDay()]} ${dom}`, major: dom === 1 || d === range.start });
-    else if (scale === "week" && date.getUTCDay() === 1) out.push({ day: d, label: `${month} ${dom}`, major: dom <= 7 });
-    else if (scale === "month" && dom === 1) out.push({ day: d, label: `${month} ${date.getUTCFullYear()}`, major: true });
+    const month = monthName.format(date);
+    if (scale === "day") {
+      const major = dom === 1 || d === range.start;
+      out.push({ day: d, label: major ? `${month} ${dom}` : `${weekdayLetter.format(date)} ${dom}`, major });
+    } else if (scale === "week" && date.getUTCDay() === 1) {
+      const withYear = out.length === 0 || (date.getUTCMonth() === 0 && dom <= 7);
+      out.push({ day: d, label: withYear ? `${month} ${dom}, ${date.getUTCFullYear()}` : `${month} ${dom}`, major: dom <= 7 });
+    } else if (scale === "month" && dom === 1) out.push({ day: d, label: `${month} ${date.getUTCFullYear()}`, major: true });
   }
   return out;
 }
 
 export const xOf = (rangeStart: Day, day: Day, scale: Scale): number => daysBetween(rangeStart, day) * PX_PER_DAY[scale];
 
-/** "+3d late", "2d early", "on track". */
+/**
+ * "+3d over estimate", "2d under estimate", "on estimate": the forecast against the estimate
+ * (points × days per point). Not the due date, which is the ◆, so it never says "late".
+ */
 export function varianceLabel(days: number): string {
-  if (days === 0) return "on track";
-  return days > 0 ? `+${days}d late` : `${-days}d early`;
+  if (days === 0) return "on estimate";
+  return days > 0 ? `+${days}d over estimate` : `${-days}d under estimate`;
 }
 
 /** Today's local calendar date, matching what the user sees on their clock. */
 export const localToday = (): Day => new Date().toLocaleDateString("en-CA");
 
 export type EpicSummary = { projected: Span; work: Span; children: number };
+
+/** The envelope of the rows' work, leaving out ghosts (no dates) and epic rows (they summarize others). */
+function laneSpan(rows: readonly TimelineRowData[]): Span | null {
+  // Empty spans are undated placeholders (a Done ticket with no dates), not work.
+  const spans = rows
+    .filter((r) => !r.node.ghost && !isEpicNode(r.node))
+    .map((r) => workSpan(r.entry))
+    .filter((s) => s.start < s.end);
+  return spans.length === 0 ? null : { start: minDay(...spans.map((s) => s.start)), end: maxDay(...spans.map((s) => s.end)) };
+}
 
 /** The solid/dotted bar a row draws: actual for done, actual start to forecast end when started, else the forecast. */
 export const workSpan = (e: TimelineEntry): Span => {
@@ -181,7 +217,13 @@ export function summarizeEpics(nodes: readonly GraphNode[], timeline: ReadonlyMa
     if (!n.epic || n.epic.uid === n.uid || !e) continue;
     children.set(n.epic.uid, [...(children.get(n.epic.uid) ?? []), e]);
   }
-  const envelope = (spans: Span[]): Span => ({ start: minDay(...spans.map((s) => s.start)), end: maxDay(...spans.map((s) => s.end)) });
+  // Empty spans are undated placeholders (Done with no dates), not work: left out. All of them
+  // empty leaves an empty envelope, which draws nothing and anchors no arrows.
+  const envelope = (spans: Span[]): Span => {
+    const dated = spans.filter((s) => s.start < s.end);
+    if (dated.length === 0) return { start: spans[0].start, end: spans[0].start };
+    return { start: minDay(...dated.map((s) => s.start)), end: maxDay(...dated.map((s) => s.end)) };
+  };
   return new Map(
     [...children].map(([uid, es]) => [
       uid,
@@ -204,9 +246,12 @@ export function drawnBar(
   if (summary)
     return {
       entry: { ...entry, projected: summary.projected, progress: { state: "not-started", forecast: summary.work } },
-      positionless: false,
+      positionless: summary.work.start >= summary.work.end, // children all undated: nothing to anchor to
     };
-  return { entry, positionless: node.ghost || isEpicNode(node) };
+  // Ghosts and epics have no dates of their own, and an empty span (a Done ticket with no dates)
+  // is a placeholder: arrows to any of these are stubs at the other, dated end.
+  const work = workSpan(entry);
+  return { entry, positionless: node.ghost || isEpicNode(node) || work.start >= work.end };
 }
 
 /**
@@ -221,3 +266,31 @@ export function rowsMoved(prev: ReadonlyMap<string, number>, next: ReadonlyMap<s
   }
   return false;
 }
+
+/**
+ * The scrollLeft that puts `day` at fraction `at` of the visible chart (the part of a viewport
+ * `viewportWidth` wide beside the sticky label column), never before the chart's start.
+ */
+export function scrollLeftFor(rangeStart: Day, day: Day, scale: Scale, viewportWidth: number, at: number): number {
+  return Math.max(0, xOf(rangeStart, day, scale) - at * Math.max(0, viewportWidth - LABEL_WIDTH));
+}
+
+/** The day at fraction `at` of the visible chart, scrolled to `scrollLeft` (the inverse of `scrollLeftFor`). */
+export function dayAt(rangeStart: Day, scrollLeft: number, scale: Scale, viewportWidth: number, at: number): Day {
+  const x = scrollLeft + at * Math.max(0, viewportWidth - LABEL_WIDTH);
+  return addDays(rangeStart, Math.round(x / PX_PER_DAY[scale]));
+}
+
+/** "Oct 5 – Oct 7": a half-open span's first and last days; "dates unknown" for an empty one. */
+export const spanLabel = (s: Span): string => (s.start < s.end ? `${fmtDay(s.start)} – ${fmtDay(addDays(s.end, -1))}` : "dates unknown");
+
+/**
+ * How wide the chart must be (from its start) for the day at `x` to scroll to fraction `at` of the
+ * visible chart: the browser can't scroll past the end, so without this room a Today near the end
+ * stays wherever the scroll stops.
+ */
+export const roomAfter = (x: number, viewportWidth: number, at: number): number => x + (1 - at) * Math.max(0, viewportWidth - LABEL_WIDTH);
+
+/** The width of a box from `left` to `right` that a drawer starting at `drawerLeft` leaves uncovered. */
+export const unobscuredWidth = (left: number, right: number, drawerLeft?: number): number =>
+  Math.max(0, (drawerLeft !== undefined && drawerLeft < right ? Math.max(left, drawerLeft) : right) - left);

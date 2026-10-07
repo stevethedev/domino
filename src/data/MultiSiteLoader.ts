@@ -44,7 +44,7 @@ export const ISSUE_KEY_RE = /^[A-Z][A-Z0-9_]*-\d+$/;
 
 class OverCap extends Error {
   constructor(readonly count: number) {
-    super(`More than ${count} issues`);
+    super(`More than ${count} tickets`);
   }
 }
 
@@ -122,7 +122,7 @@ class LoadRun {
       return;
     }
     if (!ISSUE_KEY_RE.test(scope.key)) {
-      this.fail(scope.siteId, `"${scope.key}" is not a valid issue key`);
+      this.fail(scope.siteId, `"${scope.key}" is not a valid ticket key`);
       return;
     }
     if (scope.mode === "epic") return this.epic(scope.siteId, scope.key);

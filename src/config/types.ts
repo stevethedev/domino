@@ -25,4 +25,7 @@ export type DominoConfig = {
 
 export type OAuthStatus = { appConfigured: boolean; connected: boolean };
 
+/** The config file: where it is, and why it couldn't be used (the app then runs on an empty config). */
+export type ConfigFileStatus = Readonly<{ problem: string | null; path: string }>;
+
 export type HealthStatus = { state: "unknown" } | { state: "checking" } | { state: "ok" } | { state: "error"; message: string };

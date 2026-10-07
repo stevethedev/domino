@@ -13,6 +13,9 @@
   --focus: #2563eb;
   --accent: #2563eb;
   --accent-text: #ffffff;
+  /* Text on the cycle red (the at-risk release flag), and error text on any surface: both pass AA. */
+  --on-cycle: #ffffff;
+  --error-text: #b42318;
 
   --todo: #8b93a3;
   --inprogress: #2f6fe4;
@@ -133,6 +136,10 @@
     --border: #363c49;
     --focus: #7aa7ff;
     --accent: #4f86f7;
+    /* White on the lighter dark-mode blue and red is under 4.5:1; dark text is over 5. */
+    --accent-text: #10131a;
+    --on-cycle: #10131a;
+    --error-text: #ff8a8a;
     --todo: #7d8596;
     --inprogress: #5b8ff0;
     --done: #3fbf74;

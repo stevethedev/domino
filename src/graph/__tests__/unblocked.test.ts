@@ -41,7 +41,7 @@ describe("unblockedMessage", () => {
   });
 
   it("lists several issues, abbreviating long lists", () => {
-    expect(unblockedMessage(["A", "B"].map((k) => node(k))).title).toBe("2 of your issues are unblocked");
+    expect(unblockedMessage(["A", "B"].map((k) => node(k))).title).toBe("2 of your tickets are unblocked");
     expect(unblockedMessage(["A", "B", "C", "D", "E", "F"].map((k) => node(k))).body).toBe("A, B, C, D and 2 more");
   });
 });

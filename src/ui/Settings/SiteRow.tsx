@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactElement } from "react";
 import type { HealthStatus, SiteConfig } from "../../config/types";
+import { prefersReducedMotion } from "../../lib/motion";
 
 export function SiteRow({
   site,
@@ -22,14 +23,14 @@ export function SiteRow({
   const confirmRef = useRef<HTMLButtonElement>(null);
   const rowRef = useRef<HTMLTableRowElement>(null);
   useEffect(() => {
-    if (highlight) rowRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    if (highlight) rowRef.current?.scrollIntoView({ block: "nearest", behavior: prefersReducedMotion() ? "auto" : "smooth" });
   }, [highlight]);
   useEffect(() => {
     if (confirming) confirmRef.current?.focus();
   }, [confirming]);
 
   return (
-    <tr ref={rowRef} className={highlight ? "row-new" : undefined}>
+    <tr ref={rowRef} className={highlight ? "row-new" : undefined} data-site-id={site.id}>
       <th scope="row">
         <span className="chip" style={{ "--site": site.color }}>
           <span className="dot" aria-hidden="true" />

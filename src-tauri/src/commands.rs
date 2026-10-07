@@ -28,6 +28,8 @@ pub(crate) struct AppState {
     pub mock: Arc<MockBackend>,
     pub http: Arc<HttpBackend>,
     pub cache: Arc<TicketCache>,
+    /// Wakes a waiting Atlassian sign-in so it gives up (see `oauth_cancel`).
+    pub oauth_cancel: Arc<tokio::sync::Notify>,
 }
 
 impl AppState {
@@ -60,6 +62,34 @@ pub(crate) fn save_config(state: State<'_, AppState>, config: DominoConfig) -> R
     // Removed sites, and sites now loading from another backend, address or account, lose their cached tickets.
     state.cache.invalidate_changed(&old, &saved);
     Ok(saved)
+}
+
+/// Whether the config file could be used (if not, the app is running on an empty config) and where it is.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ConfigStatus {
+    problem: Option<String>,
+    path: String,
+}
+
+#[tauri::command]
+pub(crate) fn config_status(state: State<'_, AppState>) -> ConfigStatus {
+    ConfigStatus { problem: state.config.problem(), path: state.config.path().display().to_string() }
+}
+
+/// Reads the config file again, after the user fixed it by hand.
+#[tauri::command]
+pub(crate) fn reload_config(state: State<'_, AppState>) -> Result<DominoConfig, String> {
+    let old = state.config.get();
+    let loaded = state.config.reload()?;
+    state.cache.invalidate_changed(&old, &loaded);
+    Ok(loaded)
+}
+
+/// Shows the config file in the system file manager. Only that file: the webview names no path.
+#[tauri::command]
+pub(crate) fn reveal_config(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
+    app.opener().reveal_item_in_dir(state.config.path()).map_err(|e| format!("Could not show the file: {e}"))
 }
 
 /// The cached tickets for a scope, if any are still valid (see `TicketCache::get`).
@@ -202,15 +232,39 @@ pub(crate) fn oauth_status(state: State<'_, AppState>) -> OAuthStatus {
     }
 }
 
+/// What a cancelled sign-in fails with (the UI shows it as a plain note, not an error).
+const SIGN_IN_CANCELLED: &str = "Sign-in cancelled";
+
+/// How long a sign-in waits for the browser before giving up (the UI says so, and can cancel sooner).
+const OAUTH_WAIT: Duration = Duration::from_secs(300);
+
+/// Stops a sign-in that's waiting for the browser; it fails with "Sign-in cancelled".
+#[tauri::command]
+pub(crate) fn oauth_cancel(state: State<'_, AppState>) {
+    state.oauth_cancel.notify_waiters();
+}
+
 /// Runs the 3LO sign-in in the system browser, then fills in cloudIds for OAuth sites.
 /// Returns the Atlassian sites the account can access.
 #[tauri::command]
 pub(crate) async fn oauth_connect(app: AppHandle, state: State<'_, AppState>) -> Result<Vec<String>, String> {
-    let st = oauth::random_state()?;
-    let url = state.oauth.authorize_url(&st)?;
-    let listener = oauth::bind_callback().await?;
-    app.opener().open_url(url, None::<&str>).map_err(|e| format!("Could not open the browser: {e}"))?;
-    let code = oauth::wait_for_callback(listener, &st, Duration::from_secs(300)).await?;
+    // Listening for Cancel from the start, so a click while the browser opens isn't lost. It
+    // covers only the wait for the browser: once the code is back, the exchange runs to the end,
+    // so a late cancel can't leave tokens stored behind a "cancelled" message.
+    let cancelled = state.oauth_cancel.notified();
+    tokio::pin!(cancelled);
+    cancelled.as_mut().enable();
+    let browser = async {
+        let st = oauth::random_state()?;
+        let url = state.oauth.authorize_url(&st)?;
+        let listener = oauth::bind_callback().await?;
+        app.opener().open_url(url, None::<&str>).map_err(|e| format!("Could not open the browser: {e}"))?;
+        oauth::wait_for_callback(listener, &st, OAUTH_WAIT).await
+    };
+    let code = tokio::select! {
+        code = browser => code?,
+        () = cancelled => return Err(SIGN_IN_CANCELLED.to_owned()),
+    };
     state.oauth.exchange_code(&code).await?;
     let resources = state.oauth.accessible_resources().await?;
     forget_oauth_sites(&state);

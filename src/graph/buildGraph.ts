@@ -156,7 +156,7 @@ function ghostUnknown(
     siteLabel,
     siteColor,
     key,
-    summary: title && title !== key ? title : "Linked issue (details not loaded)",
+    summary: title && title !== key ? title : "Linked ticket (details not loaded)",
     issueType: "Issue",
     statusName: "Unknown",
     statusCategory: "unknown",

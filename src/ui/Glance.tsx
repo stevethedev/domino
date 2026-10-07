@@ -6,9 +6,9 @@ import type { MyselfState } from "../state/useMyself";
 import { InsightTiles } from "./InsightsBar";
 
 const SCOPES: readonly { id: HighlightScope; label: string; title: string; none: string }[] = [
-  { id: "all", label: "Everyone", title: "Everyone's issues", none: "" },
-  { id: "assigned", label: "Assigned", title: "Issues assigned to me", none: "Nothing in this scope is assigned to you." },
-  { id: "reported", label: "Reported", title: "Issues I reported", none: "You haven't reported anything in this scope." },
+  { id: "all", label: "Everyone", title: "Everyone's tickets", none: "" },
+  { id: "assigned", label: "Assigned", title: "Tickets assigned to me", none: "Nothing in this scope is assigned to you." },
+  { id: "reported", label: "Reported", title: "Tickets I reported", none: "You haven't reported anything in this scope." },
 ];
 
 /**
@@ -26,6 +26,7 @@ export function Glance({
   sites,
   highlightFor,
   onHighlight,
+  drawn,
 }: {
   scope: HighlightScope;
   onScope: (s: HighlightScope) => void;
@@ -40,6 +41,8 @@ export function Glance({
   /** The active highlight if it belongs to `scope`, else "none". */
   highlightFor: (scope: HighlightScope) => Highlight;
   onHighlight: (scope: HighlightScope, h: Highlight) => void;
+  /** While Display filters are on: the issues they leave on screen. */
+  drawn?: ReadonlySet<string>;
 }): ReactElement {
   const name = useId();
   const only = scope === "all" ? undefined : insights.mine[scope];
@@ -54,12 +57,12 @@ export function Glance({
         ? "Finding you on each site…"
         : only.size === 0
           ? current.none
-          : `${only.size} ${only.size === 1 ? "issue" : "issues"} · ${open} open`;
+          : `${only.size} ${only.size === 1 ? "ticket" : "tickets"} · ${open} open`;
   }
   return (
     <>
       <fieldset className="segmented glance-scope">
-        <legend className="sr-only">Whose issues</legend>
+        <legend className="sr-only">Whose tickets</legend>
         {SCOPES.map((s) => (
           <label key={s.id} className={scope === s.id ? "active" : ""} title={s.title}>
             <input
@@ -83,10 +86,11 @@ export function Glance({
           onHighlight(scope, h);
         }}
         only={only}
+        drawn={drawn}
       />
       {only && myself.errors.length > 0 && (
         <p className="hint" title={myself.errors.map((e) => `${labelOf(e.siteId)}: ${e.message}`).join("\n")}>
-          Couldn't tell who you are on {myself.errors.map((e) => labelOf(e.siteId)).join(", ")}, so issues there aren't counted.
+          Couldn't tell who you are on {myself.errors.map((e) => labelOf(e.siteId)).join(", ")}, so tickets there aren't counted.
         </p>
       )}
     </>

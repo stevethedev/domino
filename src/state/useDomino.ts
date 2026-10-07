@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type { ConfigStore } from "../config/ConfigStore";
-import type { DominoConfig, HealthStatus, OAuthStatus, SiteConfig } from "../config/types";
+import type { ConfigFileStatus, DominoConfig, HealthStatus, OAuthStatus, SiteConfig } from "../config/types";
 import { errorMessage } from "../data/errors";
 import type { JiraSource } from "../data/JiraSource";
 import { DEFAULT_PRESET_ID, presetById } from "../data/jqlPresets";
@@ -37,6 +37,10 @@ const DISK_REWRITE_MS = 30 * 60_000;
 export type Domino = {
   config: DominoConfig | null;
   configError: string | null;
+  /** The config file's status; its `problem` is set while the app runs on an empty config instead. */
+  configFile: ConfigFileStatus | null;
+  /** Reads the config file again (after a hand fix); rejects with why it still can't be used. */
+  reloadConfigFile: () => Promise<void>;
   /** Bumped whenever a token or the Atlassian sign-in changes: data keyed by it is from before. */
   credentialEpoch: number;
   selected: string[];
@@ -124,6 +128,15 @@ class ReloadingStore implements ConfigStore {
   save(config: DominoConfig): Promise<DominoConfig> {
     return this.store.save(config);
   }
+  fileStatus(): Promise<ConfigFileStatus> {
+    return this.store.fileStatus();
+  }
+  reloadFile(): Promise<DominoConfig> {
+    return this.store.reloadFile();
+  }
+  revealFile(): Promise<void> {
+    return this.store.revealFile();
+  }
   health(siteId: string): Promise<HealthStatus> {
     return this.store.health(siteId);
   }
@@ -142,6 +155,9 @@ class ReloadingStore implements ConfigStore {
     this.credentialsChanged({ oauth: true });
     return sites;
   }
+  oauthCancel(): Promise<void> {
+    return this.store.oauthCancel();
+  }
   async oauthDisconnect(): Promise<void> {
     await this.store.oauthDisconnect();
     this.credentialsChanged({ oauth: true });
@@ -152,6 +168,7 @@ class ReloadingStore implements ConfigStore {
 export function useDomino(store: ConfigStore, source: JiraSource, cache: TicketCache): Domino {
   const [config, setConfig] = useState<DominoConfig | null>(null);
   const [configError, setConfigError] = useState<string | null>(null);
+  const [configFile, setConfigFile] = useState<ConfigFileStatus | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [scope, setScope] = useState<Scope>(() => ({ mode: "jql", jql: loadQuery() }));
   const [load, setLoad] = useState<LoadState>({ status: "idle" });
@@ -178,6 +195,9 @@ export function useDomino(store: ConfigStore, source: JiraSource, cache: TicketC
   useEffect(() => {
     store.load().then(setConfig, (e: unknown) => {
       setConfigError(errorMessage(e));
+    });
+    store.fileStatus().then(setConfigFile, () => {
+      /* only explains a broken file; the config itself loaded or reported its own error */
     });
   }, [store]);
 
@@ -328,10 +348,22 @@ export function useDomino(store: ConfigStore, source: JiraSource, cache: TicketC
     async (next: DominoConfig) => {
       const saved = await store.save(next);
       setConfig(saved);
+      setConfigFile((f) => f && { ...f, problem: null }); // saving wrote a good file
       return saved;
     },
     [store],
   );
+
+  const reloadConfigFile = useCallback(async () => {
+    try {
+      setConfig(await store.reloadFile());
+      setConfigFile((f) => f && { ...f, problem: null });
+    } catch (e) {
+      const problem = errorMessage(e);
+      setConfigFile((f) => f && { ...f, problem });
+      throw new Error(problem);
+    }
+  }, [store]);
 
   /** Re-reads config the backend may have changed on its own (e.g. discovered cloudIds). */
   const refreshConfig = useCallback(async () => {
@@ -398,6 +430,8 @@ export function useDomino(store: ConfigStore, source: JiraSource, cache: TicketC
   return {
     config,
     configError,
+    configFile,
+    reloadConfigFile,
     credentialEpoch,
     selected,
     setSelected,

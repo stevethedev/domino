@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { errorMessage } from "../data/errors";
 import type { ConfigStore } from "./ConfigStore";
 import { parseConfig } from "./schema";
-import type { DominoConfig, HealthStatus, OAuthStatus } from "./types";
+import type { ConfigFileStatus, DominoConfig, HealthStatus, OAuthStatus } from "./types";
 
 export class TauriConfigStore implements ConfigStore {
   async load(): Promise<DominoConfig> {
@@ -11,6 +11,18 @@ export class TauriConfigStore implements ConfigStore {
 
   async save(config: DominoConfig): Promise<DominoConfig> {
     return parseConfig(await invoke("save_config", { config }));
+  }
+
+  fileStatus(): Promise<ConfigFileStatus> {
+    return invoke("config_status");
+  }
+
+  async reloadFile(): Promise<DominoConfig> {
+    return parseConfig(await invoke("reload_config"));
+  }
+
+  async revealFile(): Promise<void> {
+    await invoke("reveal_config");
   }
 
   async health(siteId: string): Promise<HealthStatus> {
@@ -36,6 +48,10 @@ export class TauriConfigStore implements ConfigStore {
 
   oauthConnect(): Promise<string[]> {
     return invoke("oauth_connect");
+  }
+
+  oauthCancel(): Promise<void> {
+    return invoke("oauth_cancel");
   }
 
   oauthDisconnect(): Promise<void> {

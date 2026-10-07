@@ -31,6 +31,12 @@ export type IssueNodeData = {
   onExpand?: () => void;
   /** Another scope is loading: the card is the previous scope's, out of keyboard reach. */
   stale?: boolean;
+  /** Part of a blocking cycle: shown as a badge, not only by the red arrows. */
+  inCycle?: boolean;
+  /** The graph's one Tab stop (roving): Tab enters the graph here; arrow keys move between cards. */
+  tabbable?: boolean;
+  /** Keyboard focus landed on the card: it becomes the Tab stop, and the view pans to it if needed. */
+  onFocusCard?: (uid: string) => void;
 };
 export type IssueFlowNode = Node<IssueNodeData, "issue">;
 
@@ -96,7 +102,7 @@ function initials(name?: string): string {
 }
 
 function rollupLabel(n: GraphNode, r: EpicRollup): string {
-  const parts = [`Epic ${n.key}, ${n.summary}`, `${r.members.length} issues`, `${r.done} done`];
+  const parts = [`Epic ${n.key}, ${n.summary}`, `${r.members.length} tickets`, `${r.done} done`];
   if (r.blocked) parts.push(`${r.blocked} blocked`);
   if (r.aging) parts.push(`${r.aging} aging`);
   return `${parts.join(", ")}. Expands the epic.`;
@@ -199,30 +205,24 @@ function BlockersBadge({ count }: { count: number }): ReactElement {
 function CompactBody({
   node,
   statusText,
-  openBlockers,
-  ready,
-  aging,
-  change,
+  badges,
 }: {
   node: GraphNode;
   statusText: string;
-  openBlockers: number;
-  ready: boolean;
-  aging?: Aging;
-  change?: ChangeKind;
+  badges: readonly (Badge | false | undefined)[];
 }): ReactElement {
   return (
     <>
       <div className="card-row1">
         <TypeIcon type={node.issueType} />
-        <span className="card-key">{node.key}</span>
+        <span className="card-key" title={node.key}>
+          {node.key}
+        </span>
       </div>
       <div className="card-row3">
         <span className={`pill pill-${node.statusCategory}`}>{statusText}</span>
-        {openBlockers > 0 && <BlockersBadge count={openBlockers} />}
-        {ready && <span className="tag-ready">Ready</span>}
-        {aging && <AgingBadge aging={aging} />}
-        {change && <ChangeTag change={change} />}
+        {/* Big text leaves room for one badge and a "+N" for the rest, rather than clipping them. */}
+        <CappedBadges badges={badges} slots={2} />
       </div>
     </>
   );
@@ -259,6 +259,9 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
     preview,
     onExpand,
     stale,
+    tabbable,
+    onFocusCard,
+    inCycle,
   } = data;
   const activate = (e: { metaKey: boolean; ctrlKey: boolean }): void => {
     if (onExpand) onExpand();
@@ -277,6 +280,7 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
     showSite || n.ghost ? `site ${n.siteLabel}` : null,
     openBlockers ? `${openBlockers} open blocker${openBlockers === 1 ? "" : "s"}` : null,
     n.ghost ? "outside scope" : null,
+    inCycle ? "in a blocking cycle" : null,
     highlight === "critical" ? "on critical path" : null,
     highlight === "ready" ? "ready to start" : null,
     aging ? agingDescription(aging) : null,
@@ -285,6 +289,23 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
     .filter(Boolean)
     .join(", ");
 
+  // Most important first: a cycle can't finish at all, then what's in the way, then the rest.
+  const badges = [
+    inCycle && {
+      key: "cycle",
+      label: "In a blocking cycle",
+      el: (
+        <span className="tag-cycle" title="In a blocking cycle (see Warnings)">
+          ⟲ Cycle
+        </span>
+      ),
+    },
+    openBlockers > 0 && { key: "blockers", label: blockerText(openBlockers), el: <BlockersBadge count={openBlockers} /> },
+    highlight === "ready" && { key: "ready", label: "Ready", el: <span className="tag-ready">Ready</span> },
+    aging && { key: "aging", label: agingDescription(aging), el: <AgingBadge aging={aging} /> },
+    change && { key: "change", label: CHANGE_LABEL[change], el: <ChangeTag change={change} /> },
+  ];
+
   return (
     <div
       className={`card status-${status}${n.ghost ? " ghost" : ""}${dimmed ? " dimmed" : ""}${highlight ? ` hl-${highlight}` : ""}${compact ? " compact" : ""}${selected ? " selected" : ""}${preview ? " traverse-target" : ""}`}
@@ -292,7 +313,7 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
       // Activating shows the details panel; while it shows this issue, the card controls it.
       aria-expanded={onExpand ? undefined : selected}
       aria-controls={selected ? ISSUE_DETAIL_ID : undefined}
-      tabIndex={stale ? -1 : 0}
+      tabIndex={!stale && tabbable ? 0 : -1}
       aria-label={n.rollup ? rollupLabel(n, n.rollup) : `${label}. Shows details.`}
       aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown"
       data-uid={n.uid}
@@ -314,6 +335,7 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
       }}
       onFocus={() => {
         onHover(n.uid);
+        onFocusCard?.(n.uid);
       }}
       onBlur={() => {
         onHover(null);
@@ -324,14 +346,7 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
       {n.rollup ? (
         <RollupBody node={n} rollup={n.rollup} compact={compact} />
       ) : compact ? (
-        <CompactBody
-          node={n}
-          statusText={statusText}
-          openBlockers={openBlockers}
-          ready={highlight === "ready"}
-          aging={aging}
-          change={change}
-        />
+        <CompactBody node={n} statusText={statusText} badges={badges} />
       ) : (
         <>
           <div className="card-row1">
@@ -366,18 +381,7 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
                 {n.storyPoints !== undefined && <span className="points">{n.storyPoints} pts</span>}
               </>
             )}
-            <CappedBadges
-              badges={[
-                openBlockers > 0 && {
-                  key: "blockers",
-                  label: blockerText(openBlockers),
-                  el: <BlockersBadge count={openBlockers} />,
-                },
-                highlight === "ready" && { key: "ready", label: "Ready", el: <span className="tag-ready">Ready</span> },
-                aging && { key: "aging", label: agingDescription(aging), el: <AgingBadge aging={aging} /> },
-                change && { key: "change", label: CHANGE_LABEL[change], el: <ChangeTag change={change} /> },
-              ]}
-            />
+            <CappedBadges badges={badges} />
           </div>
         </>
       )}
@@ -393,40 +397,50 @@ export type SiteGroupData = {
   onOpen: (url: string) => void;
   /** Set on epic lanes: whether the epic is folded into its summary card, and how to switch. */
   fold?: Readonly<{ folded: boolean; onToggle: () => void }>;
+  /** Set on epic lanes: shows the epic's details, as clicking a card does (⌘/Ctrl+click opens Jira). */
+  onSelect?: () => void;
 };
 export type SiteGroupNode = Node<SiteGroupData, "siteGroup">;
 
 export const SiteGroup = memo(function SiteGroup({ data }: NodeProps<SiteGroupNode>) {
-  const { url } = data;
+  const { url, onSelect } = data;
   return (
     <div className="site-group" style={{ "--site": data.color ?? "#6b7280" }}>
-      {url ? (
-        <button
-          type="button"
-          className="site-group-label lane-link"
-          onClick={() => {
-            data.onOpen(url);
-          }}
-          title="Open epic in Jira"
-          aria-label={`Epic ${data.label}. Opens in browser.`}
-        >
-          {data.label} <Icon name="external" />
-        </button>
-      ) : (
-        <div className="site-group-label">{data.label}</div>
-      )}
-      {data.fold && (
-        <button
-          type="button"
-          className="lane-collapse"
-          onClick={data.fold.onToggle}
-          aria-expanded={!data.fold.folded}
-          aria-label={`${data.fold.folded ? "Expand" : "Collapse"} ${data.label}`}
-          title={data.fold.folded ? "Show the epic's issues" : "Fold the epic into one summary card"}
-        >
-          {data.fold.folded ? "⊕ Expand" : "⊖ Collapse"}
-        </button>
-      )}
+      {/* The name shortens (full name on hover); the Collapse button keeps its room beside it. */}
+      <div className="lane-head">
+        {url ? (
+          <button
+            type="button"
+            className="site-group-label lane-link"
+            // Like a card: a click shows the epic's details, ⌘/Ctrl+click opens it in Jira.
+            onClick={(e) => {
+              if (onSelect && !e.metaKey && !e.ctrlKey) onSelect();
+              else data.onOpen(url);
+            }}
+            title={onSelect ? `${data.label}\nClick for details; ⌘/Ctrl+click opens it in Jira` : `${data.label}\nOpens in Jira`}
+            aria-label={onSelect ? `Epic ${data.label}. Shows details.` : `Epic ${data.label}. Opens in browser.`}
+          >
+            <span className="lane-name">{data.label}</span>
+            {!onSelect && <Icon name="external" />}
+          </button>
+        ) : (
+          <div className="site-group-label" title={data.label}>
+            <span className="lane-name">{data.label}</span>
+          </div>
+        )}
+        {data.fold && (
+          <button
+            type="button"
+            className="lane-collapse"
+            onClick={data.fold.onToggle}
+            aria-expanded={!data.fold.folded}
+            aria-label={`${data.fold.folded ? "Expand" : "Collapse"} ${data.label}`}
+            title={data.fold.folded ? "Show the epic's tickets" : "Fold the epic into one summary card"}
+          >
+            {data.fold.folded ? "⊕ Expand" : "⊖ Collapse"}
+          </button>
+        )}
+      </div>
     </div>
   );
 });

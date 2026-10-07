@@ -85,6 +85,32 @@
   pointer-events: none;
   user-select: none;
 }
+/* A passing notice (Toast.tsx): bottom centre of the canvas, above the cards, clear of the pill. */
+.toast {
+  position: absolute;
+  bottom: var(--space-4);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--z-overlay);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: min(560px, calc(100% - 2 * var(--space-6)));
+  padding: var(--space-1_5) var(--space-1_5) var(--space-1_5) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  font-size: var(--text-md);
+}
+.toast > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.toast .link-btn {
+  flex: none;
+  font-weight: var(--weight-semibold);
+}
 .load-pill {
   position: absolute;
   top: var(--space-3);
@@ -94,7 +120,8 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  max-width: calc(100% - 2 * var(--space-6));
+  /* Clear of the sort chip (top left) and Export (top right) on most canvases. */
+  max-width: min(480px, calc(100% - 2 * var(--space-6)));
   padding: var(--space-1_5) var(--space-3);
   border: 1px solid var(--border);
   border-radius: var(--radius-pill);
@@ -111,6 +138,14 @@
 }
 .load-pill.hidden {
   display: none;
+}
+/* The pill lets clicks through to the canvas, except on its own button. */
+.load-pill .link-btn {
+  flex: none;
+  pointer-events: auto;
+  color: inherit;
+  font-weight: var(--weight-semibold);
+  text-decoration: underline;
 }
 .load-pill-text {
   min-width: 0;
@@ -166,7 +201,7 @@
   font-weight: var(--weight-semibold);
 }
 .field-error {
-  color: var(--cycle);
+  color: var(--error-text);
   font-size: var(--text-sm);
 }
 .hint {
@@ -196,6 +231,26 @@
 .banner.error {
   background: var(--error-bg);
   color: var(--error-fg);
+}
+.banner.warn {
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+}
+/* A banner with buttons: the text, then its actions, side by side when there's room. */
+.banner.actionable {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+.banner-text {
+  flex: 1 1 40ch;
+  min-width: 0;
+}
+.banner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1_5);
 }
 /* In-app update offer: message, optional notes, actions on one row when there's room. */
 .banner.update {
@@ -448,6 +503,14 @@
   color: var(--muted);
   font-weight: var(--weight-semibold);
 }
+.insight-shown {
+  font-weight: normal;
+}
+/* Nothing to highlight: the count stays readable, the tile just doesn't invite a click. */
+.insight[aria-disabled="true"] {
+  cursor: default;
+  background: var(--surface-2);
+}
 .insight-blocked .insight-count {
   color: var(--warn-fg);
 }
@@ -610,11 +673,11 @@ kbd {
   white-space: nowrap;
 }
 .insight-aging .insight-count {
-  color: var(--cycle);
+  color: var(--error-text);
 }
 
 /* Since you last looked */
-.insight:hover:not(:disabled),
+.insight:hover:not(:disabled, [aria-disabled="true"]),
 .change-summary:hover:not(:disabled) {
   background: var(--surface-2);
   border-color: color-mix(in srgb, var(--border) 60%, var(--text));
@@ -727,6 +790,17 @@ kbd {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.saved-view-confirm {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1_5);
+  padding: var(--space-1) var(--space-1_5);
+}
+.saved-view-confirm > span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .saved-view-delete {
   font-size: var(--text-lg);
@@ -994,14 +1068,33 @@ kbd {
   white-space: nowrap;
 }
 
-/* Issue details: a drawer over the right edge of the canvas (both views). */
+/* Issue details: a drawer over the right edge of the canvas (both views). While it's open the
+   canvas is .has-detail, and what sits on that edge (the graph's Export and minimap, the end of the
+   timeline toolbar) moves clear of it. */
+.canvas {
+  --detail-w: 360px;
+}
+.canvas.has-detail .react-flow__panel.right {
+  right: var(--detail-w);
+}
+.canvas.has-detail .tl-toolbar {
+  padding-right: calc(var(--detail-w) + var(--space-3));
+}
+/* Scrolling to a row's bar keeps it clear of the drawer, with room to do so even for the last bar. */
+.canvas.has-detail .tl-scroll {
+  scroll-padding-right: var(--detail-w);
+}
+.canvas.has-detail .tl-inner {
+  box-sizing: content-box;
+  padding-right: var(--detail-w);
+}
 .issue-detail {
   position: absolute;
   top: 0;
   right: 0;
   bottom: 0;
   z-index: var(--z-popover);
-  width: min(360px, 100%);
+  width: min(var(--detail-w), 100%);
   overflow-y: auto;
   display: flex;
   flex-direction: column;

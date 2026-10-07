@@ -144,12 +144,50 @@ impl DominoConfig {
 pub(crate) struct ConfigHandle {
     file: ConfigFile,
     current: Mutex<DominoConfig>,
+    /// Why the file couldn't be used, while the app runs on an empty config instead (see `load`).
+    problem: Mutex<Option<String>>,
 }
 
 impl ConfigHandle {
-    pub(crate) fn load(file: ConfigFile) -> Result<Self, String> {
-        let current = Mutex::new(file.load()?);
-        Ok(Self { file, current })
+    /// Loads the config file. If it can't be read or isn't valid, the app still starts, on an empty
+    /// config (no sites, live Jira, so sample data never poses as the user's), and keeps the problem
+    /// for the UI. The file itself is left alone, so a hand edit can be fixed and reloaded.
+    pub(crate) fn load(file: ConfigFile) -> Self {
+        let (config, problem) = match file.load() {
+            Ok(c) => (c, None),
+            Err(e) => (DominoConfig { sites: vec![], default_site_ids: vec![], backend: BackendKind::Jira }, Some(e)),
+        };
+        Self { file, current: Mutex::new(config), problem: Mutex::new(problem) }
+    }
+
+    /// Why the config file couldn't be used, if it couldn't.
+    pub(crate) fn problem(&self) -> Option<String> {
+        self.problem.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone()
+    }
+
+    pub(crate) fn path(&self) -> &Path {
+        &self.file.path
+    }
+
+    /// Reads the file again (after a hand fix): swaps it in, or says why it still can't be used.
+    pub(crate) fn reload(&self) -> Result<DominoConfig, String> {
+        // Held across the read and the swap, so a save from Settings can't land in between.
+        let mut current = self.current.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        // Only an existing file: a reload must never seed the sample sites as if this were a first run.
+        let loaded = self.file.read_existing();
+        let mut problem = self.problem.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        match &loaded {
+            Ok(next) => {
+                next.clone_into(&mut current);
+                *problem = None;
+            }
+            // Only while on the empty fallback: a good config that's still in use has no startup problem.
+            Err(e) if problem.is_some() => *problem = Some(e.clone()),
+            Err(_) => {}
+        }
+        drop(problem);
+        drop(current);
+        loaded
     }
 
     /// Test-only: loads without validation (lets sites point at plain-http mock servers).
@@ -157,7 +195,7 @@ impl ConfigHandle {
     pub(crate) fn load_unvalidated(file: ConfigFile) -> Result<Self, String> {
         let text = fs::read_to_string(&file.path).map_err(|e| e.to_string())?;
         let cfg = serde_json::from_str(&text).map_err(|e| e.to_string())?;
-        Ok(Self { file, current: Mutex::new(cfg) })
+        Ok(Self { file, current: Mutex::new(cfg), problem: Mutex::new(None) })
     }
 
     pub(crate) fn get(&self) -> DominoConfig {
@@ -182,6 +220,7 @@ impl ConfigHandle {
         self.file.save(&next)?;
         *guard = next.clone();
         drop(guard); // held through the save, so the file and memory can't disagree
+        *self.problem.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = None; // the file is good now
         Ok(next)
     }
 
@@ -214,20 +253,28 @@ impl ConfigFile {
         Self { path: dir.join("domino.config.json") }
     }
 
-    /// Loads the config, seeding it from the bundled mock config on first run.
-    pub(crate) fn load(&self) -> Result<DominoConfig, String> {
+    /// Reads an existing config file; a missing one is an error, never seeded (see `load`).
+    pub(crate) fn read_existing(&self) -> Result<DominoConfig, String> {
         match fs::read_to_string(&self.path) {
             Ok(text) => {
                 serde_json::from_str::<DominoConfig>(&text).map_err(|e| format!("{} is invalid: {e}", self.path.display()))?.validated()
             }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                let seed: DominoConfig = serde_json::from_str(SEED_CONFIG).map_err(|e| e.to_string())?;
-                let seed = seed.validated()?;
-                self.save(&seed)?;
-                Ok(seed)
+                Err(format!("{} was not found; saving in Settings creates it", self.path.display()))
             }
             Err(e) => Err(format!("Could not read {}: {e}", self.path.display())),
         }
+    }
+
+    /// Loads the config, seeding it from the bundled mock config on first run.
+    pub(crate) fn load(&self) -> Result<DominoConfig, String> {
+        if self.path.exists() {
+            return self.read_existing();
+        }
+        let seed: DominoConfig = serde_json::from_str(SEED_CONFIG).map_err(|e| e.to_string())?;
+        let seed = seed.validated()?;
+        self.save(&seed)?;
+        Ok(seed)
     }
 
     pub(crate) fn save(&self, config: &DominoConfig) -> Result<(), String> {
@@ -348,16 +395,68 @@ mod tests {
     }
 
     #[test]
+    fn a_broken_file_starts_empty_with_the_problem_and_is_left_alone() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("domino.config.json");
+        fs::write(&path, "{ \"sites\": [ oops ] }").unwrap();
+        let h = ConfigHandle::load(ConfigFile::new(dir.path()));
+        assert!(h.get().sites.is_empty());
+        assert_eq!(h.get().backend, BackendKind::Jira, "never shows the sample data as if it were the user's");
+        assert!(h.problem().unwrap().contains("is invalid"));
+        assert_eq!(fs::read_to_string(&path).unwrap(), "{ \"sites\": [ oops ] }", "a hand edit stays fixable");
+
+        // Still broken: reload says why. Fixed: reload swaps it in.
+        assert!(h.reload().unwrap_err().contains("is invalid"));
+        fs::write(&path, SEED_CONFIG).unwrap();
+        assert_eq!(h.reload().unwrap().sites.len(), 3);
+        assert!(h.problem().is_none());
+    }
+
+    #[test]
+    fn reloading_after_deleting_a_broken_file_never_seeds_sample_sites() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("domino.config.json");
+        fs::write(&path, "broken").unwrap();
+        let h = ConfigHandle::load(ConfigFile::new(dir.path()));
+        fs::remove_file(&path).unwrap();
+        assert!(h.reload().unwrap_err().contains("not found"));
+        assert!(h.get().sites.is_empty(), "still the empty fallback, not the bundled sample sites");
+        assert!(h.problem().is_some());
+        assert!(!path.exists(), "reload doesn't write a seeded file either");
+    }
+
+    #[test]
+    fn a_failed_reload_keeps_a_good_config_and_reports_no_startup_problem() {
+        let dir = tempfile::tempdir().unwrap();
+        let h = ConfigHandle::load(ConfigFile::new(dir.path())); // seeds a good file
+        fs::write(dir.path().join("domino.config.json"), "broken").unwrap();
+        assert!(h.reload().unwrap_err().contains("is invalid"));
+        assert_eq!(h.get().sites.len(), 3, "the good config stays in use");
+        assert!(h.problem().is_none(), "the app isn't running on the empty fallback");
+    }
+
+    #[test]
+    fn saving_from_settings_replaces_a_broken_file() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("domino.config.json"), "not json").unwrap();
+        let h = ConfigHandle::load(ConfigFile::new(dir.path()));
+        let saved = h.replace(seed()).unwrap();
+        assert_eq!(saved.sites.len(), 3);
+        assert!(h.problem().is_none());
+        assert_eq!(ConfigFile::new(dir.path()).load().unwrap().sites.len(), 3);
+    }
+
+    #[test]
     fn handle_keeps_cloud_ids_across_ui_saves() {
         let dir = tempfile::tempdir().unwrap();
-        let h = ConfigHandle::load(ConfigFile::new(dir.path())).unwrap();
+        let h = ConfigHandle::load(ConfigFile::new(dir.path()));
         h.set_cloud_id("https://partner.atlassian.net", "cloud-123").unwrap();
         let mut from_ui = h.get();
         from_ui.sites[1].cloud_id = None; // a UI that never saw the discovery
         from_ui.sites[1].label = "Partner Co".into();
         let saved = h.replace(from_ui).unwrap();
         assert_eq!(saved.sites[1].cloud_id.as_deref(), Some("cloud-123"));
-        let reloaded = ConfigHandle::load(ConfigFile::new(dir.path())).unwrap();
+        let reloaded = ConfigHandle::load(ConfigFile::new(dir.path()));
         assert_eq!(reloaded.site("partner").unwrap().cloud_id.as_deref(), Some("cloud-123"));
     }
 }

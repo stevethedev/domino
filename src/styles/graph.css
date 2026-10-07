@@ -123,6 +123,7 @@
 .blockers,
 .tag-ready,
 .tag-risk,
+.tag-cycle,
 .age,
 .chg,
 .tl-variance {
@@ -139,7 +140,11 @@
   line-height: 1;
   white-space: nowrap;
 }
-.card.compact :is(.pill, .blockers, .tag-ready, .age, .chg) {
+.tag-cycle {
+  background: var(--error-bg);
+  color: var(--error-fg);
+}
+.card.compact :is(.pill, .blockers, .tag-ready, .tag-cycle, .age, .chg) {
   height: var(--badge-h-compact);
   padding: 0 var(--space-2);
   font-size: var(--text-lg);
@@ -256,7 +261,8 @@
   border: 1px solid color-mix(in srgb, var(--site) 60%, transparent);
 }
 
-.xsite-marker {
+.xsite-marker,
+.cycle-marker {
   position: absolute;
   pointer-events: all;
   font-size: var(--text-sm);
@@ -267,6 +273,10 @@
   background: var(--surface);
   border: 1px solid var(--border);
   color: var(--text);
+}
+.cycle-marker {
+  border-color: var(--cycle);
+  color: var(--cycle);
 }
 
 .react-flow {
@@ -300,17 +310,26 @@
   font-weight: var(--weight-bold);
   font-size: var(--text-md);
   color: var(--text);
-  max-width: calc(100% - 28px);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   text-align: left;
 }
 .lane-link:hover {
   text-decoration: underline;
 }
-.site-group-label {
-  max-width: calc(100% - 28px);
+.lane-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2_5) var(--space-3);
+}
+.lane-head .site-group-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  margin: 0;
+}
+.lane-name {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -413,7 +432,7 @@
   color: var(--warn-fg);
 }
 .card.hl-aging {
-  box-shadow: 0 0 0 3px var(--cycle);
+  box-shadow: 0 0 0 3px var(--warn-fg); /* the aging badges' colour; red means a cycle */
 }
 
 /* Folded epics: summary cards */
@@ -463,9 +482,8 @@
   color: var(--muted);
 }
 .lane-collapse {
-  position: absolute;
-  top: 8px;
-  right: 12px;
+  flex: none;
+  margin-left: auto;
   font-size: var(--text-sm);
   padding: var(--space-0_5) var(--space-2);
   pointer-events: all;

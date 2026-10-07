@@ -68,12 +68,12 @@ export function QuickFind({
         ref={input}
         type="search"
         role="combobox"
-        aria-label="Find an issue"
+        aria-label="Find a ticket"
         aria-expanded={expanded}
         aria-controls={`${id}-list`}
         aria-autocomplete="list"
         aria-activedescendant={expanded && results[active] ? `${id}-${active}` : undefined}
-        placeholder="Find issue…"
+        placeholder="Find ticket…"
         value={query}
         onChange={(e) => {
           setQuery(e.target.value);
@@ -110,8 +110,8 @@ export function QuickFind({
         /
       </kbd>
       {expanded && (
-        <ul id={`${id}-list`} role="listbox" className="quick-find-list" aria-label="Matching issues">
-          {results.length === 0 && <li className="muted quick-find-empty">No issues match "{query.trim()}"</li>}
+        <ul id={`${id}-list`} role="listbox" className="quick-find-list" aria-label="Matching tickets">
+          {results.length === 0 && <li className="muted quick-find-empty">No tickets match "{query.trim()}"</li>}
           {results.map((n, i) => (
             <li
               key={n.uid}
