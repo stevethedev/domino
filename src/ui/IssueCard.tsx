@@ -102,7 +102,7 @@ function initials(name?: string): string {
 }
 
 function rollupLabel(n: GraphNode, r: EpicRollup): string {
-  const parts = [`Epic ${n.key}, ${n.summary}`, `${r.members.length} issues`, `${r.done} done`];
+  const parts = [`Epic ${n.key}, ${n.summary}`, `${r.members.length} tickets`, `${r.done} done`];
   if (r.blocked) parts.push(`${r.blocked} blocked`);
   if (r.aging) parts.push(`${r.aging} aging`);
   return `${parts.join(", ")}. Expands the epic.`;
@@ -435,7 +435,7 @@ export const SiteGroup = memo(function SiteGroup({ data }: NodeProps<SiteGroupNo
             onClick={data.fold.onToggle}
             aria-expanded={!data.fold.folded}
             aria-label={`${data.fold.folded ? "Expand" : "Collapse"} ${data.label}`}
-            title={data.fold.folded ? "Show the epic's issues" : "Fold the epic into one summary card"}
+            title={data.fold.folded ? "Show the epic's tickets" : "Fold the epic into one summary card"}
           >
             {data.fold.folded ? "⊕ Expand" : "⊖ Collapse"}
           </button>

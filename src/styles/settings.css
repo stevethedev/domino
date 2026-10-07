@@ -49,7 +49,7 @@ dialog.settings header {
   color: var(--done);
 }
 .health-error {
-  color: var(--cycle);
+  color: var(--error-text);
 }
 .health-unknown {
   color: var(--muted);

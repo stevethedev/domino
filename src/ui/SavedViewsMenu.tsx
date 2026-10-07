@@ -75,7 +75,8 @@ export function SavedViewsMenu({
         if (!e.currentTarget.open) setConfirming(null); // a pending delete doesn't outlive the menu
       }}
     >
-      <summary aria-label={`Saved views (${views.length})`}>
+      {/* The name starts with the visible label, so "click Views" works with voice control. */}
+      <summary aria-label={`Views, ${countViews(views.length)} saved`}>
         <span className="field-label">Views</span> <Icon name="chevron-down" className="disclosure-caret" />
       </summary>
       <div className="popover saved-views-popover">

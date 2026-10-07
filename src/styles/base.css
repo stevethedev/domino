@@ -97,7 +97,7 @@ h3 {
 }
 :where(button.danger) {
   border-color: var(--cycle);
-  color: var(--cycle);
+  color: var(--error-text);
 }
 :where(.icon-btn) {
   min-width: var(--control-h);

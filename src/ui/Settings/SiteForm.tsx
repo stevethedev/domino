@@ -6,6 +6,7 @@ import type { BackendKind, SiteConfig } from "../../config/types";
 import { errorMessage } from "../../data/errors";
 import { openExternal } from "../../platform";
 import { Icon } from "../Icon";
+import { prefersReducedMotion } from "../../lib/motion";
 
 export type SiteFormResult = { site: SiteConfig; isDefault: boolean; token: string; test: boolean };
 
@@ -99,7 +100,7 @@ export function SiteForm({
   };
 
   useEffect(() => {
-    formRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+    formRef.current?.scrollIntoView({ block: "start", behavior: prefersReducedMotion() ? "auto" : "smooth" });
     formRef.current?.querySelector<HTMLInputElement>("input")?.focus({ preventScroll: true });
   }, []);
 

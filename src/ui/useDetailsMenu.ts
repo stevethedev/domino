@@ -2,6 +2,7 @@ import { useEffect, useRef, type KeyboardEvent, type RefObject } from "react";
 
 export type DetailsMenu = Readonly<{
   ref: RefObject<HTMLDetailsElement>;
+  /** Closes the menu; if focus was inside it, focus goes back to its summary rather than being lost. */
   close: () => void;
   /** Esc closes the menu and returns focus to its summary. */
   onKeyDown: (e: KeyboardEvent<HTMLDetailsElement>) => void;
@@ -23,7 +24,11 @@ export function useDetailsMenu(): DetailsMenu {
   return {
     ref,
     close: () => {
-      if (ref.current) ref.current.open = false;
+      const menu = ref.current;
+      if (!menu) return;
+      const hadFocus = menu.contains(document.activeElement);
+      menu.open = false;
+      if (hadFocus) menu.querySelector("summary")?.focus();
     },
     onKeyDown: (e) => {
       if (e.key === "Escape" && ref.current?.open) {

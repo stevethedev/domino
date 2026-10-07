@@ -218,7 +218,7 @@ export function IssueDetail({
       )}
       {unblocks > 0 && (
         <p className="detail-impact">
-          Finishing this unblocks <strong>{unblocks}</strong> open issue{unblocks === 1 ? "" : "s"} downstream.
+          Finishing this unblocks <strong>{unblocks}</strong> open ticket{unblocks === 1 ? "" : "s"} downstream.
         </p>
       )}
       {facts.length > 0 && (

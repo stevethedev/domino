@@ -201,7 +201,7 @@
   font-weight: var(--weight-semibold);
 }
 .field-error {
-  color: var(--cycle);
+  color: var(--error-text);
   font-size: var(--text-sm);
 }
 .hint {
@@ -673,7 +673,7 @@ kbd {
   white-space: nowrap;
 }
 .insight-aging .insight-count {
-  color: var(--cycle);
+  color: var(--error-text);
 }
 
 /* Since you last looked */

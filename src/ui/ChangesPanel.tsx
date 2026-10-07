@@ -52,7 +52,7 @@ export function ChangesPanel({
             onClick={() => {
               onHighlight(highlight === "changed" ? "none" : "changed");
             }}
-            title="Highlight changed issues"
+            title="Highlight changed tickets"
           >
             {ORDER.filter((k) => changes.counts[k] > 0).map((k) => (
               <span key={k} className={`chg chg-${k}`}>

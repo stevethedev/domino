@@ -30,19 +30,19 @@ export function InsightTiles({
   const count = (uids: Iterable<string>): string[] => (only ? [...uids].filter((u) => only.has(u)) : [...uids]);
   const whose = only ? "of these " : "";
   const tiles: Tile[] = [
-    { id: "blocked", label: "Blocked", uids: count(insights.blocked), hint: `${whose}open issues waiting on an open blocker` },
-    { id: "ready", label: "Ready", uids: count(insights.ready), hint: `${whose}open issues with nothing in the way` },
+    { id: "blocked", label: "Blocked", uids: count(insights.blocked), hint: `${whose}open tickets waiting on an open blocker` },
+    { id: "ready", label: "Ready", uids: count(insights.ready), hint: `${whose}open tickets with nothing in the way` },
     {
       id: "critical",
       label: "Critical path",
       uids: count(insights.critical.nodes),
-      hint: `${only ? "of these issues" : "issues"} in the longest open blocking chain`,
+      hint: `${only ? "of these tickets" : "tickets"} in the longest open blocking chain`,
     },
     {
       id: "aging",
       label: "Aging",
       uids: count(insights.aging.keys()),
-      hint: `${only ? "of these issues" : "issues"} stuck past twice their estimate, or blocked with no change for a week`,
+      hint: `${only ? "of these tickets" : "tickets"} stuck past twice their estimate, or blocked with no change for a week`,
     },
   ];
   const active = tiles.find((t) => t.id === highlight);
@@ -91,7 +91,7 @@ export function InsightTiles({
         })}
       </div>
       <p className="hint" aria-live="polite">
-        {active ? `Showing ${activeCount(active)} ${active.hint}. Click again to clear.` : "Click a number to highlight those issues."}
+        {active ? `Showing ${activeCount(active)} ${active.hint}. Click again to clear.` : "Click a number to highlight those tickets."}
       </p>
     </>
   );
@@ -110,7 +110,7 @@ export function FinishFirst({
 }): ReactElement {
   if (insights.unblockers.length === 0) return <p className="hint">Nothing open is blocking other open work.</p>;
   return (
-    <ol className="finish-first" aria-label="Issues that unblock the most work">
+    <ol className="finish-first" aria-label="Tickets that unblock the most work">
       {insights.unblockers.map((u) => {
         const n = nodes.get(u.uid);
         if (!n) return null;

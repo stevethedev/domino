@@ -116,7 +116,7 @@
   cursor: default;
 }
 .tl-release-flag.at-risk {
-  color: var(--accent-text);
+  color: var(--on-cycle);
   background: var(--cycle);
 }
 .tl-release-flag.released {

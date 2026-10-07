@@ -225,6 +225,7 @@ export function SettingsDialog({
         {editing?.kind !== "new" && (
           <button
             type="button"
+            id="add-site"
             className="primary"
             onClick={() => {
               guard(() => {
@@ -270,7 +271,26 @@ export function SettingsDialog({
                 });
               }}
               onRemove={() => {
-                persist(config.sites.filter((x) => x.id !== s.id)).catch(() => {});
+                const at = config.sites.indexOf(s);
+                const next: SiteConfig | undefined =
+                  at + 1 < config.sites.length ? config.sites[at + 1] : at > 0 ? config.sites[at - 1] : undefined;
+                persist(config.sites.filter((x) => x.id !== s.id))
+                  .then(() => {
+                    // The row (and the focused Confirm button) is gone: focus a neighbour, or Add site.
+                    requestAnimationFrame(() => {
+                      // The neighbour by site id (labels can repeat), matched without building a
+                      // selector from it; with no neighbour, Add site, or the open form if it's
+                      // showing instead, or at least the dialog's close button.
+                      const rows = [...(ref.current?.querySelectorAll<HTMLElement>("tr[data-site-id]") ?? [])];
+                      const row = next && rows.find((r) => r.dataset.siteId === next.id);
+                      const target =
+                        row?.querySelector<HTMLElement>('button[aria-label^="Edit "]') ??
+                        ref.current?.querySelector<HTMLElement>("#add-site, .site-form input") ??
+                        ref.current?.querySelector<HTMLElement>('button[aria-label="Close settings"]');
+                      target?.focus();
+                    });
+                  })
+                  .catch(() => {});
               }}
             />
           ))}

@@ -8,6 +8,7 @@ export function NumberField({
   value,
   onCommit,
   min,
+  max = Number.POSITIVE_INFINITY,
   step,
   integer = false,
   ...rest
@@ -16,6 +17,8 @@ export function NumberField({
   onCommit: (n: number) => void;
   /** Smallest committed value (inclusive). */
   min: number;
+  /** Largest committed value (inclusive). */
+  max?: number;
   step: number;
   integer?: boolean;
 } & Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "min" | "step" | "type">): ReactElement {
@@ -28,12 +31,13 @@ export function NumberField({
       {...rest}
       type="number"
       min={min}
+      max={Number.isFinite(max) ? max : undefined}
       step={step}
       value={draft}
       onChange={(e) => {
         setDraft(e.target.value);
         const n = Number(e.target.value);
-        if (e.target.value.trim() !== "" && Number.isFinite(n) && n >= min && (!integer || Number.isInteger(n))) onCommit(n);
+        if (e.target.value.trim() !== "" && Number.isFinite(n) && n >= min && n <= max && (!integer || Number.isInteger(n))) onCommit(n);
       }}
       onBlur={() => {
         setDraft(String(value));

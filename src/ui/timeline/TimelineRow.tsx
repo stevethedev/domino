@@ -57,8 +57,8 @@ function describe(node: GraphNode, row: TimelineRowModel): string {
 }
 
 function describeEpic(node: GraphNode, epic: EpicSummary | "empty"): string {
-  if (epic === "empty") return `Epic ${node.key}, ${node.summary}, no child issues in scope. Shows details.`;
-  return `Epic ${node.key}, ${node.summary}, ${epic.children} issues, projected ${spanText(epic.projected)}, work ${spanText(epic.work)}. Shows details.`;
+  if (epic === "empty") return `Epic ${node.key}, ${node.summary}, no child tickets in scope. Shows details.`;
+  return `Epic ${node.key}, ${node.summary}, ${epic.children} tickets, projected ${spanText(epic.projected)}, work ${spanText(epic.work)}. Shows details.`;
 }
 
 function Bar({ span, start, scale, className }: { span: Span; start: Day; scale: Scale; className: string }): ReactElement | null {
@@ -192,14 +192,14 @@ export const TimelineRow = memo(function TimelineRow({
         <div className="tl-track">
           {epic === "empty" ? (
             <span className="tl-variance" style={{ left: 8 }}>
-              no child issues in scope
+              no child tickets in scope
             </span>
           ) : (
             <>
               <Bar span={epic.projected} start={rangeStart} scale={scale} className="tl-bar tl-epic-projected" />
               <Bar span={epic.work} start={rangeStart} scale={scale} className="tl-bar tl-epic-work" />
               <span className="tl-variance" style={{ left: xOf(rangeStart, maxDay(epic.projected.end, epic.work.end), scale) + 6 }}>
-                {epic.children} {epic.children === 1 ? "issue" : "issues"}
+                {epic.children} {epic.children === 1 ? "ticket" : "tickets"}
               </span>
             </>
           )}

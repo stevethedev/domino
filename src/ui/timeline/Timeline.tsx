@@ -388,7 +388,7 @@ export function Timeline({
         )}
         <label
           className="field"
-          title="How long a story point takes, in working days. Sets each issue's estimate (dashed) and forecast length, and so what counts as over estimate. Rounded up to whole days."
+          title="How long a story point takes, in working days. Sets each ticket's estimate (dashed) and forecast length, and so what counts as over estimate. Rounded up to whole days."
         >
           <span className="field-label">Days / point</span>
           <NumberField
@@ -400,7 +400,7 @@ export function Timeline({
             }}
           />
         </label>
-        <label className="field" title="Working days assumed for an issue with no story points.">
+        <label className="field" title="Working days assumed for a ticket with no story points.">
           <span className="field-label">Unpointed</span>
           <NumberField
             min={1}
@@ -449,7 +449,7 @@ export function Timeline({
       </div>
       {history.status === "done" && history.errors.length > 0 && (
         <div className="banner error" role="alert">
-          {history.errors.map((e) => `${e.siteId}: ${e.message}`).join(" · ")}. Actual dates are missing for those issues.
+          {history.errors.map((e) => `${e.siteId}: ${e.message}`).join(" · ")}. Actual dates are missing for those tickets.
         </div>
       )}
 
@@ -477,7 +477,7 @@ export function Timeline({
               }}
             >
               <div className={`tl-axis${releaseLines ? " with-releases" : ""}`} style={{ "--release-lines": releaseLines }}>
-                <div className="tl-corner">Issue</div>
+                <div className="tl-corner">Ticket</div>
                 <TimeAxis range={range} scale={settings.scale} today={today} releases={releaseMarkers} />
               </div>
               <div className={`tl-body${settling ? " settling" : ""}`} style={{ height }}>

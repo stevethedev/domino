@@ -20,7 +20,7 @@ export function TimelineLane({
 }): ReactElement {
   const { lane, count, collapsed, late, span } = item;
   const url = lane.url;
-  const counts = `${count} ${count === 1 ? "issue" : "issues"}${late ? `, ${late} over estimate` : ""}`;
+  const counts = `${count} ${count === 1 ? "ticket" : "tickets"}${late ? `, ${late} over estimate` : ""}`;
   return (
     <div className={`tl-lane${collapsed ? " collapsed" : ""}`} style={{ top: item.y, height: LANE_HEIGHT }}>
       <div className="tl-lane-title">
@@ -31,7 +31,7 @@ export function TimelineLane({
           onClick={onToggle}
           // Folded, the summary bar's dates are said here too (the bar itself is decorative).
           aria-label={`${lane.label}, ${counts}${collapsed && span ? `, ${spanLabel(span)}` : ""}`}
-          title={collapsed ? "Show issues" : "Hide issues"}
+          title={collapsed ? "Show tickets" : "Hide tickets"}
         >
           <span className="sb-chevron" aria-hidden="true" />
           {!url && <span className="tl-lane-name">{lane.label}</span>}
@@ -49,7 +49,7 @@ export function TimelineLane({
           </button>
         )}
         <span className="muted small" aria-hidden="true">
-          · {count} {count === 1 ? "issue" : "issues"}
+          · {count} {count === 1 ? "ticket" : "tickets"}
           {late > 0 && <span className="tl-lane-late"> · {late} over estimate</span>}
         </span>
       </div>
