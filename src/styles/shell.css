@@ -1059,14 +1059,25 @@ kbd {
   white-space: nowrap;
 }
 
-/* Issue details: a drawer over the right edge of the canvas (both views). */
+/* Issue details: a drawer over the right edge of the canvas (both views). While it's open the
+   canvas is .has-detail, and what sits on that edge (the graph's Export and minimap, the end of the
+   timeline toolbar) moves clear of it. */
+.canvas {
+  --detail-w: 360px;
+}
+.canvas.has-detail .react-flow__panel.right {
+  right: var(--detail-w);
+}
+.canvas.has-detail .tl-toolbar {
+  padding-right: calc(var(--detail-w) + var(--space-3));
+}
 .issue-detail {
   position: absolute;
   top: 0;
   right: 0;
   bottom: 0;
   z-index: var(--z-popover);
-  width: min(360px, 100%);
+  width: min(var(--detail-w), 100%);
   overflow-y: auto;
   display: flex;
   flex-direction: column;

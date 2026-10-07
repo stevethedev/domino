@@ -165,7 +165,7 @@ export function Canvas({
     };
   }, [resorts]);
   const fitKey = useRef("");
-  fitKey.current = fitKeyOf(scopeKey, view.groupBy, filters, foldedEpics, view.sort);
+  fitKey.current = fitKeyOf(scopeKey, view.groupBy);
 
   // Folded epics swap in a collapsed graph; everything below draws whichever graph is shown.
   const collapsed = useMemo(
@@ -193,7 +193,7 @@ export function Canvas({
           setResorting(true);
           setResorts((n) => n + 1);
         }
-        // Fit once per scope and view settings (see fitKeyOf), when there's something to fit. Never
+        // Fit once per scope and grouping (see fitKeyOf), when there's something to fit. Never
         // zoom past 100%: small graphs stay card-sized.
         if (l.positions.size > 0 && fitKey.current !== fittedKey.current) {
           fittedKey.current = fitKey.current;

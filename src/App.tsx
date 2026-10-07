@@ -698,7 +698,7 @@ function Shell(): ReactElement {
           </SidebarSection>
         </aside>
         <section
-          className="canvas"
+          className={detail && !stale ? "canvas has-detail" : "canvas"}
           aria-label={viewMode === "graph" ? "Dependency graph" : "Timeline"}
           aria-busy={loadView.busy}
           // Esc from a card or row: close the details, or else clear the highlight. (The details
