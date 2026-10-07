@@ -42,8 +42,8 @@ export type LoadView = Readonly<{
   shown: Shown | null;
   mode: "empty" | "current" | "other";
   /**
-   * The previous scope's tickets stand in for a scope being loaded (or that failed to load): fade
-   * them and keep them out of reach. Not set for the moment between asking for a scope and its
+   * The previous scope's tickets stand in for a scope being loaded: fade them and keep them out of
+   * reach. Not set for the moment between asking for a scope and its
    * load starting, so switching to a remembered scope doesn't flash the old one faded.
    */
   stale: boolean;
@@ -59,7 +59,8 @@ export function loadViewOf(load: LoadState, requestedScopeKey: string | null): L
   return {
     shown,
     mode,
-    stale: mode === "other" && load.status !== "done",
+    // Only while something is coming to replace them: after a failed load they're all there is.
+    stale: mode === "other" && load.status === "loading",
     busy: load.status === "loading",
     progress: load.status === "loading" ? load.progress : null,
     failure: load.status === "failed" && shown ? load.message : null,

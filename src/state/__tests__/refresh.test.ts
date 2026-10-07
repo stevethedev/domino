@@ -2,7 +2,17 @@ import { describe, expect, it } from "vitest";
 import type { LoadResult } from "../../data/MultiSiteLoader";
 import { issue } from "../../graph/__tests__/helpers";
 import type { RawSiteData } from "../../data/jiraTypes";
-import { ageText, failureText, freshnessOf, laggingText, mergeBySite, nextRefreshDelay, parseRefreshMinutes, updatedAgo } from "../refresh";
+import {
+  ageText,
+  failureText,
+  otherScopeFailureText,
+  freshnessOf,
+  laggingText,
+  mergeBySite,
+  nextRefreshDelay,
+  parseRefreshMinutes,
+  updatedAgo,
+} from "../refresh";
 
 const ok = (keys: string[], errors: LoadResult["errors"] = []): LoadResult => ({
   kind: "ok",
@@ -153,5 +163,11 @@ describe("freshnessOf", () => {
 describe("failureText", () => {
   it("names the error and how old the tickets kept on screen are", () => {
     expect(failureText("timeout", 0, 2 * 3_600_000)).toBe("Couldn't update (timeout); showing tickets from 2h ago.");
+  });
+});
+
+describe("otherScopeFailureText", () => {
+  it("says the new scope failed and the earlier tickets are still up", () => {
+    expect(otherScopeFailureText("epic CORE-1", "timeout")).toBe("Couldn't load epic CORE-1 (timeout). Still showing the earlier tickets.");
   });
 });

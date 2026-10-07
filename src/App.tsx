@@ -13,7 +13,7 @@ import { DEFAULT_REFRESH_MINUTES, parseRefreshMinutes, REFRESH_MINUTES_KEY } fro
 import { useAutoRefresh } from "./state/useAutoRefresh";
 import { useDomino } from "./state/useDomino";
 import { loadViewOf, scopeLabel, type LoadView } from "./state/loadView";
-import { failureText } from "./state/refresh";
+import { failureText, otherScopeFailureText } from "./state/refresh";
 import { useMyself } from "./state/useMyself";
 import { useUnblockedNotifications } from "./state/useUnblockedNotifications";
 import { DEFAULT_ESTIMATE_SETTINGS, ESTIMATE_SETTINGS_KEY, parseEstimateSettings } from "./state/estimateSettings";
@@ -720,7 +720,14 @@ function Shell(): ReactElement {
             view={loadView}
             sites={domino.selectedSites}
             scopeLabel={scopeLabel(domino.scope)}
-            failureText={loadView.failure === null ? null : failureText(loadView.failure, shownAt, Date.now())}
+            failureText={
+              loadView.failure === null
+                ? null
+                : loadView.mode === "other"
+                  ? otherScopeFailureText(scopeLabel(domino.scope), loadView.failure)
+                  : failureText(loadView.failure, shownAt, Date.now())
+            }
+            onRetry={domino.reload}
           />
           <CanvasMessage domino={domino} view={loadView} />
           <Toast toast={toast} onDismiss={dismissToast} />

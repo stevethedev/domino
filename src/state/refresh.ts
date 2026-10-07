@@ -101,6 +101,10 @@ export function freshnessOf(
   return f.shownAt !== null ? { text: `from ${ageText(f.shownAt, now)}`, warn: false } : null;
 }
 
+/** A new scope that failed to load while the previous scope's tickets stay up. */
+export const otherScopeFailureText = (scope: string, message: string): string =>
+  `Couldn't load ${scope} (${message}). Still showing the earlier tickets.`;
+
 /** "Couldn't update (timeout); showing tickets from 2h ago." */
 export const failureText = (message: string, shownAt: number | null, now: number): string =>
   `Couldn't update (${message}); showing tickets from ${shownAt === null ? "before" : ageText(shownAt, now)}.`;

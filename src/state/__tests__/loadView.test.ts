@@ -31,9 +31,10 @@ describe("loadViewOf", () => {
       { mode: "other", stale: true, busy: true },
     ],
     [
+      // Nothing is coming to replace them, so they're usable again (the failure says whose they are).
       "previous scope after a failed load",
       { status: "failed", scopeKey: "s", message: "boom", shown: shown("old") },
-      { mode: "other", stale: true },
+      { mode: "other", stale: false, failure: "boom" },
     ],
     // Asked for a new scope, its load not started yet: not faded (it may come from memory at once).
     ["previous scope before its load starts", { status: "done", ...shown("old") }, { mode: "other", stale: false, busy: false }],

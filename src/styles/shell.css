@@ -138,6 +138,14 @@
 .load-pill.hidden {
   display: none;
 }
+/* The pill lets clicks through to the canvas, except on its own button. */
+.load-pill .link-btn {
+  flex: none;
+  pointer-events: auto;
+  color: inherit;
+  font-weight: var(--weight-semibold);
+  text-decoration: underline;
+}
 .load-pill-text {
   min-width: 0;
   overflow: hidden;
