@@ -1026,6 +1026,7 @@ kbd {
   font-size: var(--text-xl);
   font-weight: var(--weight-semibold);
   line-height: 1.3;
+  overflow-wrap: anywhere; /* summaries can hold long paths or URLs */
 }
 /* Focused on open so keyboard and screen-reader users land in the panel; it isn't interactive,
    so no ring. */
@@ -1080,6 +1081,125 @@ kbd {
 .detail-section .subhead {
   margin-bottom: var(--space-1_5);
 }
+/* The description (Atlassian Document Format, see Adf.tsx): compact prose, clipped until
+   "Show more" with a fade at the cut. */
+.detail-description {
+  max-height: 18em;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+/* Faded only when something is actually cut off (measured in IssueDetail). */
+.detail-description.clipped {
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 3em), transparent);
+}
+.detail-description.expanded {
+  max-height: none;
+}
+.detail-description > :first-child {
+  margin-top: 0;
+}
+.detail-description > :last-child {
+  margin-bottom: 0;
+}
+.detail-description :where(p, ul, ol, pre, blockquote, hr, .adf-panel, .adf-table, .adf-expand) {
+  margin: 0 0 var(--space-2);
+}
+.detail-description :where(h4, h5, h6) {
+  margin: var(--space-3) 0 var(--space-1);
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+}
+.detail-description :where(h5, h6) {
+  font-size: var(--text-md);
+}
+.detail-description :where(ul, ol) {
+  padding-left: var(--space-5);
+}
+.detail-description li > p {
+  margin: 0;
+}
+.detail-description a {
+  color: var(--accent);
+}
+.detail-description code {
+  font: var(--text-sm) var(--mono);
+  padding: 0 var(--space-0_5);
+  border-radius: var(--radius-xs);
+  background: var(--surface-2);
+}
+.detail-description pre {
+  padding: var(--space-2);
+  overflow-x: auto;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.detail-description pre code {
+  padding: 0;
+  white-space: pre;
+}
+.detail-description blockquote {
+  padding-left: var(--space-2_5);
+  border-left: 3px solid var(--border);
+  color: var(--muted);
+}
+.detail-description hr {
+  border: none;
+  border-top: 1px solid var(--border);
+}
+.adf-panel {
+  padding: var(--space-2) var(--space-2_5);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.adf-panel-warning,
+.adf-panel-note {
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+}
+.adf-panel-error {
+  background: var(--error-bg);
+  color: var(--error-fg);
+}
+.adf-table {
+  overflow-x: auto;
+}
+.adf-table table {
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.adf-table :where(th, td) {
+  padding: var(--space-1) var(--space-1_5);
+  border: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+.adf-table th {
+  background: var(--surface-2);
+}
+.adf-tasks {
+  list-style: none;
+  padding-left: 0;
+}
+.adf-mention,
+.adf-status {
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-weight: var(--weight-semibold);
+}
+.adf-status {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+}
+.adf-media-item {
+  color: var(--muted);
+  font-style: italic;
+}
+.detail-description-error {
+  margin: 0;
+  color: var(--error-fg);
+}
+
 .detail-links,
 .detail-history {
   list-style: none;

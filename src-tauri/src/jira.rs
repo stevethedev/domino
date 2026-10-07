@@ -18,6 +18,9 @@ pub(crate) trait JiraBackend: Send + Sync {
     /// `{ "epic": Issue, "children": [Issue] }`. `filter` (JQL) is `ANDed` onto `parent = KEY`.
     async fn epic(&self, site: &SiteConfig, key: &str, filter: Option<&str>) -> JiraResult<Value>;
     async fn issue(&self, site: &SiteConfig, key: &str) -> JiraResult<Value>;
+    /// The issue's description as Atlassian Document Format, or `null` when it has none. Fetched
+    /// on its own (not with searches), when the details panel opens.
+    async fn description(&self, site: &SiteConfig, key: &str) -> JiraResult<Value>;
     async fn remote_links(&self, site: &SiteConfig, key: &str) -> JiraResult<Vec<Value>>;
     /// `{ "issueLinkTypes": [...] }`
     async fn link_types(&self, site: &SiteConfig) -> JiraResult<Value>;
