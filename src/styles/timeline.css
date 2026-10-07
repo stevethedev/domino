@@ -81,7 +81,7 @@
 }
 .tl-tick {
   position: absolute;
-  top: 8px;
+  top: 13px;
   font-size: var(--text-xs);
   color: var(--muted);
   white-space: nowrap;
@@ -129,6 +129,8 @@
   position: absolute;
   top: 0;
   transform: translateX(-50%);
+  /* Its own 12px line above the ticks (which start at 13px), so it never covers today's label. */
+  line-height: 12px;
   font-size: var(--text-2xs);
   font-weight: var(--weight-bold);
   color: var(--accent-text);
@@ -572,6 +574,12 @@
 .tl-row.selected .tl-label {
   background: color-mix(in srgb, var(--accent) 10%, var(--surface));
   box-shadow: inset 3px 0 0 var(--accent);
+}
+/* Both marks: the critical-path bar, then the selection's beside it. */
+.tl-row.selected.critical .tl-label {
+  box-shadow:
+    inset 4px 0 0 var(--critical),
+    inset 7px 0 0 var(--accent);
 }
 
 /* Where the focused row's ← or → would go (see .traverse-hint in graph.css). */

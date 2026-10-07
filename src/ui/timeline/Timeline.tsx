@@ -323,7 +323,10 @@ export function Timeline({
             Reset to today
           </button>
         )}
-        <label className="field">
+        <label
+          className="field"
+          title="How long a story point takes, in working days. Sets each issue's estimate (dashed) and forecast length, and so what counts as over estimate. Rounded up to whole days."
+        >
           <span className="field-label">Days / point</span>
           <NumberField
             min={0.25}
@@ -334,7 +337,7 @@ export function Timeline({
             }}
           />
         </label>
-        <label className="field">
+        <label className="field" title="Working days assumed for an issue with no story points.">
           <span className="field-label">Unpointed</span>
           <NumberField
             min={1}
