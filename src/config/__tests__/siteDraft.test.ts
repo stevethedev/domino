@@ -77,4 +77,8 @@ describe("draftChanged", () => {
     expect(draftChanged({ ...base, isDefault: false })).toBe(true);
     expect(draftChanged({ ...base, token: "secret" })).toBe(true);
   });
+
+  it("ignores the cloudId the backend fills in (the form never edits it)", () => {
+    expect(draftChanged({ ...base, initial: { ...initial, cloudId: "cloud-1" } })).toBe(false);
+  });
 });

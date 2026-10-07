@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useState, type ReactElement } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type ReactElement } from "react";
 import type { BackendKind, DominoConfig, OAuthStatus } from "../../config/types";
 import { errorMessage } from "../../data/errors";
 import type { Domino } from "../../state/useDomino";
@@ -18,6 +18,7 @@ export function BackendSection({ domino, config }: { domino: Domino; config: Dom
   const oauthSites = config.sites.filter((s) => s.auth.type === "oauth3lo").map((s) => s.label);
   const hasOAuthSites = oauthSites.length > 0;
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
+  const disconnectRef = useRef<HTMLButtonElement>(null);
 
   const refresh = useCallback(() => {
     store.oauthStatus().then(setStatus, () => {
@@ -156,6 +157,7 @@ export function BackendSection({ domino, config }: { domino: Domino; config: Dom
           {status?.connected ? (
             <button
               type="button"
+              ref={disconnectRef}
               onClick={() => {
                 setConfirmDisconnect(true);
               }}
@@ -211,6 +213,7 @@ export function BackendSection({ domino, config }: { domino: Domino; config: Dom
                 autoFocus
                 onClick={() => {
                   setConfirmDisconnect(false);
+                  disconnectRef.current?.focus(); // back where they were, not lost with this button
                 }}
               >
                 Keep connected

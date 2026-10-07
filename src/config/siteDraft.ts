@@ -84,5 +84,7 @@ export function draftChanged(f: {
   isDefault: boolean;
   token: string;
 }): boolean {
-  return f.token !== "" || f.isDefault !== f.initialDefault || canonical(f.draft) !== canonical(f.initial);
+  // The backend fills in cloudId (OAuth discovery) while a form may be open; the form never edits it.
+  const editable = ({ cloudId: _cloudId, ...rest }: SiteConfig): Omit<SiteConfig, "cloudId"> => rest;
+  return f.token !== "" || f.isDefault !== f.initialDefault || canonical(editable(f.draft)) !== canonical(editable(f.initial));
 }

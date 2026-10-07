@@ -45,13 +45,19 @@ export function SettingsDialog({
   const [formDirty, setFormDirty] = useState(false);
   /** What to do once the user agrees to discard those edits (closing the form or the dialog). */
   const [pendingDiscard, setPendingDiscard] = useState<(() => void) | null>(null);
+  const returnFocusTo = useRef<HTMLElement | null>(null);
+  /** Bumped on every close: the sections below remount, so their errors and prompts don't outlive a visit. */
+  const [visit, setVisit] = useState(0);
   const config = domino.config;
   // A discard prompt outlives nothing: once the form is saved, cancelled or closed, drop it.
   if (pendingDiscard && !formDirty) setPendingDiscard(null);
   /** Runs `then` now, or after a confirm when it would throw away an edited site form. */
   const guard = (then: () => void): void => {
-    if (formDirty) setPendingDiscard(() => then);
-    else then();
+    if (formDirty) {
+      // Whatever asked (a field, ×, an Edit button) gets focus back if the edits are kept.
+      returnFocusTo.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      setPendingDiscard(() => then);
+    } else then();
   };
   const closeDialog = (): void => {
     guard(onClose);
@@ -86,11 +92,20 @@ export function SettingsDialog({
     const exists = config.sites.some((s) => s.id === site.id);
     const sites = exists ? config.sites.map((s) => (s.id === site.id ? { ...site, cloudId: s.cloudId } : s)) : [...config.sites, site];
     const defaults = isDefault ? [...new Set([...config.defaultSiteIds, site.id])] : config.defaultSiteIds.filter((id) => id !== site.id);
-    // The token first: if the keychain refuses it, nothing is saved and the form can simply be
-    // submitted again. Failures show in the form, so not in the dialog's banner as well.
-    if (token && site.auth.type === "apiToken") await domino.store.setSecret(site.auth.secretRef, token);
+    const storeToken = async (): Promise<void> => {
+      if (token && site.auth.type === "apiToken") await domino.store.setSecret(site.auth.secretRef, token);
+    };
+    // Failures show in the form, so not in the dialog's banner as well.
     setError(null);
-    await save(sites, defaults);
+    if (exists) {
+      // An edit: the site keeps its old token until its new settings are saved.
+      await save(sites, defaults);
+      await storeToken();
+    } else {
+      // A new site: the token first, so a keychain refusal leaves nothing half-added to retry over.
+      await storeToken();
+      await save(sites, defaults);
+    }
     setEditing(null);
     setJustSaved(site.id);
     if (test) void domino.testConnection(site.id); // health failures land in domino.health, never a rejection
@@ -144,6 +159,7 @@ export function SettingsDialog({
         setEditing(null);
         setError(null); // an old failure shouldn't greet the next visit
         setPendingDiscard(null);
+        setVisit((v) => v + 1);
         onClose();
       }}
     >
@@ -175,6 +191,9 @@ export function SettingsDialog({
               autoFocus
               onClick={() => {
                 setPendingDiscard(null);
+                requestAnimationFrame(() => {
+                  returnFocusTo.current?.focus();
+                });
               }}
             >
               Keep editing
@@ -192,14 +211,14 @@ export function SettingsDialog({
           The settings file couldn't be read, so Domino started with no sites. Saving here replaces <code>{domino.configFile.path}</code>.
         </p>
       )}
-      <BackendSection domino={domino} config={config} />
+      <BackendSection key={`backend-${visit}`} domino={domino} config={config} />
       <AutoRefreshField
         minutes={refreshMinutes}
         onMinutes={onRefreshMinutes}
         notifyUnblocked={notifyUnblocked}
         onNotifyUnblocked={onNotifyUnblocked}
       />
-      <CachedTicketsSection onClear={domino.clearCache} />
+      <CachedTicketsSection key={`cache-${visit}`} onClear={domino.clearCache} />
       <AppUpdatesSection updates={updates} autoCheck={autoUpdateCheck} onAutoCheck={onAutoUpdateCheck} />
       <div className="section-row">
         <h3 className="section-h">Sites</h3>

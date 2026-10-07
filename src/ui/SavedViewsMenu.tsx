@@ -103,6 +103,12 @@ export function SavedViewsMenu({
                     className="saved-view-keep"
                     onClick={() => {
                       setConfirming(null);
+                      // Back to this view's ✕ (this button goes away), matched by label text.
+                      requestAnimationFrame(() => {
+                        [...(list.current?.querySelectorAll<HTMLElement>(".saved-view-delete") ?? [])]
+                          .find((btn) => btn.getAttribute("aria-label") === `Delete view ${v.name}`)
+                          ?.focus();
+                      });
                     }}
                   >
                     Keep
