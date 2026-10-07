@@ -234,6 +234,7 @@ export function Canvas({
   const chain = useMemo(() => (hovered ? blockingChain(graph, hovered) : null), [graph, hovered]);
   const byUid = useMemo(() => new Map(graph.nodes.map((n) => [n.uid, n])), [graph]);
   const cycleNodes = useMemo(() => new Set(graph.cycles.flat()), [graph]);
+  const loadedUids = useMemo(() => new Set(loaded.nodes.map((n) => n.uid)), [loaded.nodes]);
   const visibleByUid = useMemo(() => new Map(vNodes.map((n) => [n.uid, n])), [vNodes]);
   const visibleEdgeById = useMemo(() => new Map(vEdges.map((e) => [e.id, e])), [vEdges]);
 
@@ -242,6 +243,9 @@ export function Canvas({
     const { layout } = drawn;
     const toggleEpic = (epicUid: string) => (): void => {
       onToggleEpic(epicUid);
+    };
+    const selectEpic = (epicUid: string) => (): void => {
+      onSelect(epicUid);
     };
     const groups: SiteGroupNode[] = layout.groups.map((g) => ({
       id: g.id,
@@ -253,6 +257,8 @@ export function Canvas({
         url: g.url,
         onOpen: openExternal,
         fold: g.epicUid ? { folded: foldedEpics.has(g.epicUid), onToggle: toggleEpic(g.epicUid) } : undefined,
+        // Only an epic that's loaded has details to show; otherwise the name opens Jira.
+        onSelect: g.epicUid && loadedUids.has(g.epicUid) ? selectEpic(g.epicUid) : undefined,
       },
       width: g.width,
       height: g.height,
@@ -334,6 +340,7 @@ export function Canvas({
     lastFocused,
     onFocusCard,
     cycleNodes,
+    loadedUids,
   ]);
 
   const flowEdges = useMemo<LinkFlowEdge[]>(() => {

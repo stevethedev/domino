@@ -397,40 +397,50 @@ export type SiteGroupData = {
   onOpen: (url: string) => void;
   /** Set on epic lanes: whether the epic is folded into its summary card, and how to switch. */
   fold?: Readonly<{ folded: boolean; onToggle: () => void }>;
+  /** Set on epic lanes: shows the epic's details, as clicking a card does (⌘/Ctrl+click opens Jira). */
+  onSelect?: () => void;
 };
 export type SiteGroupNode = Node<SiteGroupData, "siteGroup">;
 
 export const SiteGroup = memo(function SiteGroup({ data }: NodeProps<SiteGroupNode>) {
-  const { url } = data;
+  const { url, onSelect } = data;
   return (
     <div className="site-group" style={{ "--site": data.color ?? "#6b7280" }}>
-      {url ? (
-        <button
-          type="button"
-          className="site-group-label lane-link"
-          onClick={() => {
-            data.onOpen(url);
-          }}
-          title="Open epic in Jira"
-          aria-label={`Epic ${data.label}. Opens in browser.`}
-        >
-          {data.label} <Icon name="external" />
-        </button>
-      ) : (
-        <div className="site-group-label">{data.label}</div>
-      )}
-      {data.fold && (
-        <button
-          type="button"
-          className="lane-collapse"
-          onClick={data.fold.onToggle}
-          aria-expanded={!data.fold.folded}
-          aria-label={`${data.fold.folded ? "Expand" : "Collapse"} ${data.label}`}
-          title={data.fold.folded ? "Show the epic's issues" : "Fold the epic into one summary card"}
-        >
-          {data.fold.folded ? "⊕ Expand" : "⊖ Collapse"}
-        </button>
-      )}
+      {/* The name shortens (full name on hover); the Collapse button keeps its room beside it. */}
+      <div className="lane-head">
+        {url ? (
+          <button
+            type="button"
+            className="site-group-label lane-link"
+            // Like a card: a click shows the epic's details, ⌘/Ctrl+click opens it in Jira.
+            onClick={(e) => {
+              if (onSelect && !e.metaKey && !e.ctrlKey) onSelect();
+              else data.onOpen(url);
+            }}
+            title={onSelect ? `${data.label}\nClick for details; ⌘/Ctrl+click opens it in Jira` : `${data.label}\nOpens in Jira`}
+            aria-label={onSelect ? `Epic ${data.label}. Shows details.` : `Epic ${data.label}. Opens in browser.`}
+          >
+            <span className="lane-name">{data.label}</span>
+            {!onSelect && <Icon name="external" />}
+          </button>
+        ) : (
+          <div className="site-group-label" title={data.label}>
+            <span className="lane-name">{data.label}</span>
+          </div>
+        )}
+        {data.fold && (
+          <button
+            type="button"
+            className="lane-collapse"
+            onClick={data.fold.onToggle}
+            aria-expanded={!data.fold.folded}
+            aria-label={`${data.fold.folded ? "Expand" : "Collapse"} ${data.label}`}
+            title={data.fold.folded ? "Show the epic's issues" : "Fold the epic into one summary card"}
+          >
+            {data.fold.folded ? "⊕ Expand" : "⊖ Collapse"}
+          </button>
+        )}
+      </div>
     </div>
   );
 });
