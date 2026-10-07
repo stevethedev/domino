@@ -139,8 +139,15 @@ function Description({
           // Only then: a visible link (or a click on one) leaves the layout alone.
           onFocus={(e) => {
             if (expanded || !overflows) return;
-            const below = e.target.getBoundingClientRect().bottom > e.currentTarget.getBoundingClientRect().bottom;
-            if (below) setExpanded(true);
+            const box = e.currentTarget;
+            // In content coordinates, so a scroll the browser already made to reveal it doesn't hide
+            // the answer; the faded last 3em counts as out of sight.
+            const bottom = e.target.getBoundingClientRect().bottom - box.getBoundingClientRect().top + box.scrollTop;
+            const fade = 3 * parseFloat(getComputedStyle(box).fontSize);
+            if (box.scrollTop > 0 || bottom > box.clientHeight - fade) {
+              box.scrollTop = 0;
+              setExpanded(true);
+            }
           }}
           className={`detail-description${expanded ? " expanded" : overflows ? " clipped" : ""}`}
         >
