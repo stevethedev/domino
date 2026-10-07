@@ -190,7 +190,7 @@ export function FilterPanel({
   const shown = issues.filter((n) => passesIssueFilters(n, f)).length;
   return (
     <>
-      <h3 className="subhead">Issues</h3>
+      <h3 className="subhead">Tickets</h3>
       <div className="status-toggles" role="group" aria-label="Statuses to show">
         {categories.map((c) => (
           <button
@@ -234,7 +234,7 @@ export function FilterPanel({
       />
       {hasIssueFilters(f) && (
         <p className="hint" role="status">
-          Showing {shown} of {issues.length} issues ·{" "}
+          Showing {shown} of {issues.length} tickets ·{" "}
           <button
             type="button"
             className="link-btn"

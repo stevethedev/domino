@@ -40,7 +40,7 @@ export function ScopeInputs({
     }
     const k = key.trim().toUpperCase();
     if (!ISSUE_KEY_RE.test(k)) {
-      setError("Enter an issue key like CORE-1");
+      setError("Enter a ticket key like CORE-1");
       return;
     }
     if (!siteId) {
@@ -138,7 +138,7 @@ export function ScopeInputs({
             </label>
           )}
           <label className="field">
-            <span className="field-label">{mode === "epic" ? "Epic key" : "Issue key"}</span>
+            <span className="field-label">{mode === "epic" ? "Epic key" : "Ticket key"}</span>
             <input
               type="text"
               value={key}

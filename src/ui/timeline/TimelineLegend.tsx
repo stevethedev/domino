@@ -24,7 +24,7 @@ export function TimelineLegend(): ReactElement {
         <span className="tl-key tl-forecast key-todo" aria-hidden="true" /> Forecast, not started
       </li>
       <li>
-        <span className="tl-key key-epic" aria-hidden="true" /> Epic: when its issues happen
+        <span className="tl-key key-epic" aria-hidden="true" /> Epic: when its tickets happen
       </li>
       <li>
         <span className="key-glyph" aria-hidden="true">
@@ -60,7 +60,7 @@ export function TimelineLegend(): ReactElement {
         <span className="legend legend-early-start" aria-hidden="true" /> Started before its blocker finished
       </li>
       <li>
-        <span className="legend legend-stub" aria-hidden="true" /> To or from an issue outside the scope
+        <span className="legend legend-stub" aria-hidden="true" /> To or from a ticket outside the scope
       </li>
     </ul>
   );

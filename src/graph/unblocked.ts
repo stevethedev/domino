@@ -23,5 +23,5 @@ export function unblockedMessage(issues: readonly GraphNode[]): { title: string;
   }
   const keys = issues.map((n) => n.key);
   const listed = keys.length > 4 ? `${keys.slice(0, 4).join(", ")} and ${keys.length - 4} more` : keys.join(", ");
-  return { title: `${issues.length} of your issues are unblocked`, body: listed };
+  return { title: `${issues.length} of your tickets are unblocked`, body: listed };
 }

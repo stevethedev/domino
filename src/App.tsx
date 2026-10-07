@@ -645,7 +645,7 @@ function Shell(): ReactElement {
                     `Loading ${scopeLabel(domino.scope)}…`
                   ) : loaded ? (
                     <>
-                      {full} issues · {graph.nodes.length - full} outside scope ·{" "}
+                      {full} tickets · {graph.nodes.length - full} outside scope ·{" "}
                       <Freshness background={domino.background} sites={config?.sites ?? []} updating={loadView.busy} shownAt={shownAt} />
                     </>
                   ) : loadView.busy ? (
@@ -693,7 +693,7 @@ function Shell(): ReactElement {
                 id="releases"
                 title="Releases"
                 badge={atRiskCount || undefined}
-                badgeLabel="issues forecast to miss their release"
+                badgeLabel="tickets forecast to miss their release"
                 tone={atRiskCount ? "warn" : undefined}
               >
                 <ReleasesPanel
@@ -706,7 +706,7 @@ function Shell(): ReactElement {
               </SidebarSection>
             )}
           </div>
-          <SidebarSection id="display" title="Display" badge={hiddenIssueCount || undefined} badgeLabel="issues hidden by filters">
+          <SidebarSection id="display" title="Display" badge={hiddenIssueCount || undefined} badgeLabel="tickets hidden by filters">
             <FilterPanel
               filters={filters}
               onFilters={setFilters}
@@ -903,17 +903,17 @@ function CanvasMessage({
   } else if (load.status === "done" && load.result.kind === "overCap")
     msg = (
       <>
-        <strong>Too many issues ({load.result.count}+).</strong> Domino shows at most 300. Narrow the scope with a tighter JQL, an epic, or
+        <strong>Too many tickets ({load.result.count}+).</strong> Domino shows at most 300. Narrow the scope with a tighter JQL, an epic, or
         a smaller depth.
       </>
     );
   else if (load.status === "done" && load.result.kind === "ok" && graph.nodes.length === 0 && load.result.errors.length === 0)
-    msg = "No issues match this scope.";
+    msg = "No tickets match this scope.";
   // Not over another scope's faded tickets; a refresh of this scope keeps them usable, so it says.
   else if (hiddenByFilters > 0 && !view.stale) {
     msg = (
       <>
-        {hiddenByFilters === 1 ? "The one issue is" : `All ${hiddenByFilters} issues are`} hidden by the Display filters.{" "}
+        {hiddenByFilters === 1 ? "The one ticket is" : `All ${hiddenByFilters} tickets are`} hidden by the Display filters.{" "}
         <button type="button" className="link-btn" onClick={onClearFilters}>
           Clear filters
         </button>
