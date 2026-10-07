@@ -140,6 +140,14 @@ function children(n: AdfNode, ctx: Ctx, depth: number): ReactNode {
 }
 
 /** A date node's calendar day. Jira stores it as UTC midnight, so it's read in UTC, not local time. */
+/** A merged cell's spans, when they're whole numbers above 1 (anything else is the default, 1). */
+function cellSpans(attrs: AdfNode["attrs"]): { colSpan?: number; rowSpan?: number } {
+  const span = (v: unknown): number | undefined => (typeof v === "number" && Number.isInteger(v) && v > 1 ? v : undefined);
+  const colSpan = span(attrs.colspan);
+  const rowSpan = span(attrs.rowspan);
+  return { ...(colSpan ? { colSpan } : {}), ...(rowSpan ? { rowSpan } : {}) };
+}
+
 function dateText(attrs: AdfNode["attrs"]): string {
   const raw = str(attrs, "timestamp").trim();
   if (raw === "" || Number(raw) === 0) return ""; // missing, or the unset zero
@@ -225,9 +233,9 @@ function render(raw: unknown, ctx: Ctx, depth: number): ReactNode {
     case "tableRow":
       return <tr>{kids()}</tr>;
     case "tableHeader":
-      return <th>{kids()}</th>;
+      return <th {...cellSpans(n.attrs)}>{kids()}</th>;
     case "tableCell":
-      return <td>{kids()}</td>;
+      return <td {...cellSpans(n.attrs)}>{kids()}</td>;
     case "mention":
       return <span className="adf-mention">{str(n.attrs, "text") || "@someone"}</span>;
     case "emoji":

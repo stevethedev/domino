@@ -206,6 +206,15 @@ describe("AdfDocument: work and attributes", () => {
     expect(code.reads()).toBeLessThan(50_000);
   });
 
+  it("keeps merged table cells merged, ignoring bad spans", () => {
+    const cell = (attrs: unknown): string =>
+      html(doc({ type: "table", content: [{ type: "tableRow", content: [{ type: "tableCell", attrs, content: [p(text("c"))] }] }] }));
+    const merged = cell({ colspan: 2, rowspan: 3 });
+    expect(merged).toMatch(/colspan="2"/i);
+    expect(merged).toMatch(/rowspan="3"/i);
+    for (const bad of [{ colspan: 0 }, { colspan: 1.5 }, { rowspan: "2" }, {}]) expect(cell(bad)).toContain("<td>");
+  });
+
   it("starts an ordered list where the description does", () => {
     const ol = (attrs: unknown): string =>
       html(doc({ type: "orderedList", attrs, content: [{ type: "listItem", content: [p(text("x"))] }] }));

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { errorMessage } from "../data/errors";
 import type { JiraSource } from "../data/JiraSource";
+import type { SiteConfig } from "../config/types";
 import type { GraphNode } from "../graph/types";
 
 export type DescriptionState =
@@ -25,6 +26,15 @@ export function remember<V>(answers: ReadonlyMap<string, V>, key: string, value:
     next.delete(oldest);
   }
   return next;
+}
+
+/**
+ * What a description is cached under, besides the ticket: the data source, the site's address and
+ * sign-in, and how many times credentials have changed (`credentialEpoch`). Any of these can make
+ * the same ticket key belong to another tenant or account, so its old description must not show.
+ */
+export function descriptionSourceKey(backend: string, site: SiteConfig, credentialEpoch: number): string {
+  return JSON.stringify([backend, site.baseUrl, site.auth, credentialEpoch]);
 }
 
 /** What to show for `key`, and whether to fetch it (no answer yet, or one from an earlier load). */
@@ -73,16 +83,16 @@ export function startFetch(
  * The open issue's description, fetched when the details panel opens (searches don't include it,
  * which keeps loads and the ticket cache small) and kept for the session. It's fetched again after
  * each finished load or refresh (`epoch`), showing the earlier answer meanwhile. Answers are keyed
- * per data source (`backendKey`) as well as issue. `retry` drops a failed answer, so it's fetched again.
+ * by `sourceKey` (see `descriptionSourceKey`) as well as issue. `retry` drops a failed answer, so it's fetched again.
  */
 export function useDescription(
   source: JiraSource,
   node: GraphNode | null,
-  backendKey: string,
+  sourceKey: string,
   epoch: number | null,
 ): { state: DescriptionState | null; retry: () => void } {
   const [answers, setAnswers] = useState<ReadonlyMap<string, Answer>>(new Map());
-  const key = node ? `${backendKey}:${node.uid}` : null;
+  const key = node ? `${sourceKey}:${node.uid}` : null;
   const siteId = node?.siteId;
   const issueKey = node?.key;
   const view = key ? descriptionView(answers, key, epoch) : null;

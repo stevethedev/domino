@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { JiraSource } from "../../data/JiraSource";
-import { descriptionView, forget, remember, startFetch } from "../useDescription";
+import { descriptionSourceKey, descriptionView, forget, remember, startFetch } from "../useDescription";
+import type { SiteConfig } from "../../config/types";
 
 describe("remember", () => {
   it("keeps the newest answers, dropping the least recently fetched", () => {
@@ -81,5 +82,30 @@ describe("startFetch", () => {
     c.resolve({ type: "doc" });
     await settle();
     expect(got).toEqual([]);
+  });
+});
+
+describe("descriptionSourceKey", () => {
+  const site: SiteConfig = {
+    id: "acme",
+    label: "Acme",
+    baseUrl: "https://acme.atlassian.net",
+    auth: { type: "apiToken", email: "a@acme.example", secretRef: "DOMINO_ACME_TOKEN" },
+    color: "#000000",
+    enabled: true,
+  };
+
+  it("changes with anything that could point the same ticket at another account", () => {
+    const base = descriptionSourceKey("jira", site, 0);
+    expect(descriptionSourceKey("jira", site, 0)).toBe(base);
+    for (const other of [
+      descriptionSourceKey("mock", site, 0),
+      descriptionSourceKey("jira", { ...site, baseUrl: "https://other.atlassian.net" }, 0),
+      descriptionSourceKey("jira", { ...site, auth: { type: "oauth3lo" } }, 0),
+      descriptionSourceKey("jira", { ...site, auth: { ...site.auth, email: "b@acme.example" } as SiteConfig["auth"] }, 0),
+      descriptionSourceKey("jira", site, 1), // a token or sign-in changed
+    ]) {
+      expect(other).not.toBe(base);
+    }
   });
 });

@@ -169,9 +169,21 @@ function Description({
       </>
     );
   }
+  // Focus stays on the title while this arrives: say how it went (not the text itself, which can be long).
+  const announcement =
+    state.status === "loading"
+      ? ""
+      : state.status === "error"
+        ? "Couldn't load the description."
+        : hasContent(state.doc)
+          ? "Description loaded."
+          : "No description.";
   return (
     <section className="detail-section" aria-busy={state.status === "loading"}>
       <h3 className="subhead">Description</h3>
+      <p className="sr-only" role="status">
+        {announcement}
+      </p>
       {body}
     </section>
   );

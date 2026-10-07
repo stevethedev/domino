@@ -26,7 +26,7 @@ import { useChanges } from "./state/useChanges";
 import { useStatusHistory } from "./state/useStatusHistory";
 import { useForecast } from "./state/useForecast";
 import { useAppUpdate } from "./state/useAppUpdate";
-import { useDescription } from "./state/useDescription";
+import { descriptionSourceKey, useDescription } from "./state/useDescription";
 import { epicLaneId, foldedEpicUids, withEpicFolds } from "./graph/layout";
 import { Canvas, lanesFor, useFocusNode, type Filters, type ViewOptions } from "./ui/Canvas";
 import { ChangesPanel } from "./ui/ChangesPanel";
@@ -364,8 +364,13 @@ function Shell(): ReactElement {
   const selectedNode = selectedUid ? nodesByUid.get(selectedUid) : undefined;
   const selectedEntry = selectedNode && selectedNode.statusCategory !== "done" ? forecast.timeline.get(selectedNode.uid) : undefined;
   // A linked issue on a disabled or removed site can't be fetched; its panel just omits the description.
-  const describable = selectedNode && config?.sites.some((s) => s.id === selectedNode.siteId && s.enabled) ? selectedNode : null;
-  const description = useDescription(jiraSource, describable, config?.backend ?? "none", domino.background.lastUpdated);
+  const describedSite = selectedNode ? config?.sites.find((s) => s.id === selectedNode.siteId && s.enabled) : undefined;
+  const description = useDescription(
+    jiraSource,
+    describedSite ? (selectedNode ?? null) : null,
+    describedSite && config ? descriptionSourceKey(config.backend, describedSite, domino.credentialEpoch) : "",
+    domino.background.lastUpdated,
+  );
   const detail: IssueDetailData | null = selectedNode
     ? {
         node: selectedNode,
