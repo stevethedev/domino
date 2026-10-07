@@ -31,6 +31,8 @@ export type IssueNodeData = {
   onExpand?: () => void;
   /** Another scope is loading: the card is the previous scope's, out of keyboard reach. */
   stale?: boolean;
+  /** Part of a blocking cycle: shown as a badge, not only by the red arrows. */
+  inCycle?: boolean;
   /** The graph's one Tab stop (roving): Tab enters the graph here; arrow keys move between cards. */
   tabbable?: boolean;
   /** Keyboard focus landed on the card: it becomes the Tab stop, and the view pans to it if needed. */
@@ -203,30 +205,24 @@ function BlockersBadge({ count }: { count: number }): ReactElement {
 function CompactBody({
   node,
   statusText,
-  openBlockers,
-  ready,
-  aging,
-  change,
+  badges,
 }: {
   node: GraphNode;
   statusText: string;
-  openBlockers: number;
-  ready: boolean;
-  aging?: Aging;
-  change?: ChangeKind;
+  badges: readonly (Badge | false | undefined)[];
 }): ReactElement {
   return (
     <>
       <div className="card-row1">
         <TypeIcon type={node.issueType} />
-        <span className="card-key">{node.key}</span>
+        <span className="card-key" title={node.key}>
+          {node.key}
+        </span>
       </div>
       <div className="card-row3">
         <span className={`pill pill-${node.statusCategory}`}>{statusText}</span>
-        {openBlockers > 0 && <BlockersBadge count={openBlockers} />}
-        {ready && <span className="tag-ready">Ready</span>}
-        {aging && <AgingBadge aging={aging} />}
-        {change && <ChangeTag change={change} />}
+        {/* Big text leaves room for one badge and a "+N" for the rest, rather than clipping them. */}
+        <CappedBadges badges={badges} slots={2} />
       </div>
     </>
   );
@@ -265,6 +261,7 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
     stale,
     tabbable,
     onFocusCard,
+    inCycle,
   } = data;
   const activate = (e: { metaKey: boolean; ctrlKey: boolean }): void => {
     if (onExpand) onExpand();
@@ -283,6 +280,7 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
     showSite || n.ghost ? `site ${n.siteLabel}` : null,
     openBlockers ? `${openBlockers} open blocker${openBlockers === 1 ? "" : "s"}` : null,
     n.ghost ? "outside scope" : null,
+    inCycle ? "in a blocking cycle" : null,
     highlight === "critical" ? "on critical path" : null,
     highlight === "ready" ? "ready to start" : null,
     aging ? agingDescription(aging) : null,
@@ -290,6 +288,23 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
   ]
     .filter(Boolean)
     .join(", ");
+
+  // Most important first: a cycle can't finish at all, then what's in the way, then the rest.
+  const badges = [
+    inCycle && {
+      key: "cycle",
+      label: "In a blocking cycle",
+      el: (
+        <span className="tag-cycle" title="In a blocking cycle (see Warnings)">
+          ⟲ Cycle
+        </span>
+      ),
+    },
+    openBlockers > 0 && { key: "blockers", label: blockerText(openBlockers), el: <BlockersBadge count={openBlockers} /> },
+    highlight === "ready" && { key: "ready", label: "Ready", el: <span className="tag-ready">Ready</span> },
+    aging && { key: "aging", label: agingDescription(aging), el: <AgingBadge aging={aging} /> },
+    change && { key: "change", label: CHANGE_LABEL[change], el: <ChangeTag change={change} /> },
+  ];
 
   return (
     <div
@@ -331,14 +346,7 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
       {n.rollup ? (
         <RollupBody node={n} rollup={n.rollup} compact={compact} />
       ) : compact ? (
-        <CompactBody
-          node={n}
-          statusText={statusText}
-          openBlockers={openBlockers}
-          ready={highlight === "ready"}
-          aging={aging}
-          change={change}
-        />
+        <CompactBody node={n} statusText={statusText} badges={badges} />
       ) : (
         <>
           <div className="card-row1">
@@ -373,18 +381,7 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
                 {n.storyPoints !== undefined && <span className="points">{n.storyPoints} pts</span>}
               </>
             )}
-            <CappedBadges
-              badges={[
-                openBlockers > 0 && {
-                  key: "blockers",
-                  label: blockerText(openBlockers),
-                  el: <BlockersBadge count={openBlockers} />,
-                },
-                highlight === "ready" && { key: "ready", label: "Ready", el: <span className="tag-ready">Ready</span> },
-                aging && { key: "aging", label: agingDescription(aging), el: <AgingBadge aging={aging} /> },
-                change && { key: "change", label: CHANGE_LABEL[change], el: <ChangeTag change={change} /> },
-              ]}
-            />
+            <CappedBadges badges={badges} />
           </div>
         </>
       )}

@@ -52,6 +52,18 @@ export const LinkEdge = memo(function LinkEdge(props: EdgeProps<LinkFlowEdge>) {
           </div>
         </EdgeLabelRenderer>
       )}
+      {inCycle && (
+        <EdgeLabelRenderer>
+          <div
+            className="cycle-marker"
+            style={{ transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY - (edge.crossSite ? 16 : 0)}px)`, opacity }}
+            title="Part of a blocking cycle"
+            aria-label="Part of a blocking cycle"
+          >
+            ⟲
+          </div>
+        </EdgeLabelRenderer>
+      )}
       {edge.crossSite && (
         <EdgeLabelRenderer>
           <div

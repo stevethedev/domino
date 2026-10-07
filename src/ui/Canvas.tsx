@@ -233,6 +233,7 @@ export function Canvas({
   }, [view.highlight, view.highlightScope, insights, collapsed, loaded.edges]);
   const chain = useMemo(() => (hovered ? blockingChain(graph, hovered) : null), [graph, hovered]);
   const byUid = useMemo(() => new Map(graph.nodes.map((n) => [n.uid, n])), [graph]);
+  const cycleNodes = useMemo(() => new Set(graph.cycles.flat()), [graph]);
   const visibleByUid = useMemo(() => new Map(vNodes.map((n) => [n.uid, n])), [vNodes]);
   const visibleEdgeById = useMemo(() => new Map(vEdges.map((e) => [e.id, e])), [vEdges]);
 
@@ -306,6 +307,7 @@ export function Canvas({
             onExpand: n.rollup ? toggleEpic(n.rollup.epicUid) : undefined,
             stale,
             tabbable: n.uid === tabStop,
+            inCycle: cycleNodes.has(n.uid),
             onFocusCard,
           },
           draggable: false,
@@ -331,6 +333,7 @@ export function Canvas({
     stale,
     lastFocused,
     onFocusCard,
+    cycleNodes,
   ]);
 
   const flowEdges = useMemo<LinkFlowEdge[]>(() => {
@@ -351,7 +354,8 @@ export function Canvas({
           edge: e,
           inCycle,
           sourceDone: e.aggregate ? e.aggregate.open === 0 : byUid.get(e.source)?.statusCategory === "done",
-          dimmed: chain ? !chain.edges.has(e.id) : emphasized ? !isCritical : false,
+          // A highlight never fades a cycle: it's the one warning that stays in view.
+          dimmed: chain ? !chain.edges.has(e.id) : emphasized ? !isCritical && !inCycle : false,
           critical: isCritical,
           back: graph.brokenEdgeIds.has(e.id),
         },
