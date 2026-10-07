@@ -55,7 +55,6 @@ export function Timeline({
   onSelect,
   onTraverse,
   linkPreview,
-  busy,
   stale,
   order,
   onClearSort,
@@ -77,8 +76,6 @@ export function Timeline({
   onTraverse: (uid: string, move: Move) => boolean;
   /** Where the focused row's ← and → would go. */
   linkPreview: LinkPreview;
-  /** A load is running: an empty timeline is waiting for tickets, not empty (App shows the loading message). */
-  busy: boolean;
   /** Another scope is loading: these rows are the previous scope's, out of reach. */
   stale: boolean;
   /** The user's sort (see `ticketComparator`); null keeps rows by start date. */
@@ -344,69 +341,67 @@ export function Timeline({
         </div>
       )}
 
-      {range ? (
-        <div className="tl-scroll">
-          <div className="tl-inner" style={{ width: LABEL_WIDTH + Math.max(chartWidth, lastBarX + 140) }}>
-            <div className={`tl-axis${releaseLines ? " with-releases" : ""}`} style={{ "--release-lines": releaseLines }}>
-              <div className="tl-corner">Issue</div>
-              <TimeAxis range={range} scale={settings.scale} today={today} releases={releaseMarkers} />
-            </div>
-            <div className={`tl-body${settling ? " settling" : ""}`} style={{ height }}>
-              <div className="tl-chart" style={{ left: LABEL_WIDTH }}>
-                <TimeGrid range={range} scale={settings.scale} today={today} height={height} releases={releaseMarkers} />
-                <TimelineArrows
-                  arrows={arrows}
-                  rowY={rowY}
-                  rangeStart={range.start}
-                  scale={settings.scale}
-                  width={chartWidth + 200}
-                  height={height}
-                />
+      {
+        range ? (
+          <div className="tl-scroll">
+            <div className="tl-inner" style={{ width: LABEL_WIDTH + Math.max(chartWidth, lastBarX + 140) }}>
+              <div className={`tl-axis${releaseLines ? " with-releases" : ""}`} style={{ "--release-lines": releaseLines }}>
+                <div className="tl-corner">Issue</div>
+                <TimeAxis range={range} scale={settings.scale} today={today} releases={releaseMarkers} />
               </div>
-              {items.map((item) =>
-                item.kind === "lane" ? (
-                  <TimelineLane
-                    key={item.lane.id}
-                    item={item}
-                    onToggle={() => {
-                      toggleLane(item.lane.id);
-                    }}
-                    onOpen={onOpen}
-                  />
-                ) : (
-                  <TimelineRow
-                    key={item.node.uid}
-                    row={item}
-                    epic={isEpicNode(item.node) ? (epics.get(item.node.uid) ?? "empty") : undefined}
+              <div className={`tl-body${settling ? " settling" : ""}`} style={{ height }}>
+                <div className="tl-chart" style={{ left: LABEL_WIDTH }}>
+                  <TimeGrid range={range} scale={settings.scale} today={today} height={height} releases={releaseMarkers} />
+                  <TimelineArrows
+                    arrows={arrows}
+                    rowY={rowY}
                     rangeStart={range.start}
                     scale={settings.scale}
-                    today={today}
-                    flags={{
-                      dimmed: chain ? !chain.nodes.has(item.node.uid) : emphasized ? !emphasized.nodes.has(item.node.uid) : false,
-                      critical: view.highlight === "critical" && (emphasized?.nodes.has(item.node.uid) ?? false),
-                      ready: view.highlight === "ready" && (emphasized?.nodes.has(item.node.uid) ?? false),
-                      aging: insights.aging.get(item.node.uid),
-                      change: insights.changed.get(item.node.uid)?.[0],
-                      preview: previewOf(linkPreview, item.node.uid),
-                      missedReleases: missedReleases.get(item.node.uid),
-                      stale,
-                    }}
-                    selected={item.node.uid === selectedUid}
-                    onSelect={onSelect}
-                    onOpen={onOpen}
-                    onHover={setHovered}
-                    onTraverse={onTraverse}
+                    width={chartWidth + 200}
+                    height={height}
                   />
-                ),
-              )}
+                </div>
+                {items.map((item) =>
+                  item.kind === "lane" ? (
+                    <TimelineLane
+                      key={item.lane.id}
+                      item={item}
+                      onToggle={() => {
+                        toggleLane(item.lane.id);
+                      }}
+                      onOpen={onOpen}
+                    />
+                  ) : (
+                    <TimelineRow
+                      key={item.node.uid}
+                      row={item}
+                      epic={isEpicNode(item.node) ? (epics.get(item.node.uid) ?? "empty") : undefined}
+                      rangeStart={range.start}
+                      scale={settings.scale}
+                      today={today}
+                      flags={{
+                        dimmed: chain ? !chain.nodes.has(item.node.uid) : emphasized ? !emphasized.nodes.has(item.node.uid) : false,
+                        critical: view.highlight === "critical" && (emphasized?.nodes.has(item.node.uid) ?? false),
+                        ready: view.highlight === "ready" && (emphasized?.nodes.has(item.node.uid) ?? false),
+                        aging: insights.aging.get(item.node.uid),
+                        change: insights.changed.get(item.node.uid)?.[0],
+                        preview: previewOf(linkPreview, item.node.uid),
+                        missedReleases: missedReleases.get(item.node.uid),
+                        stale,
+                      }}
+                      selected={item.node.uid === selectedUid}
+                      onSelect={onSelect}
+                      onOpen={onOpen}
+                      onHover={setHovered}
+                      onTraverse={onTraverse}
+                    />
+                  ),
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      ) : busy ? null : (
-        <div className="canvas-message" role="status">
-          Nothing to schedule in this scope.
-        </div>
-      )}
+        ) : null /* the app's canvas message says why it's empty */
+      }
     </div>
   );
 }

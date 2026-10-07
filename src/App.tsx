@@ -214,6 +214,12 @@ function Shell(): ReactElement {
     () => ({ ...baseInsights, changed: changes?.byIssue ?? new Map(), mine }),
     [baseInsights, changes, mine],
   );
+  // "Changed" with nothing changed to show (another scope, nothing new) would dim every card with
+  // no pressed control left to undo it, so it counts as off until there are changes again.
+  const shownView = useMemo(
+    () => (view.highlight === "changed" && !changes?.byIssue.size ? { ...view, highlight: "none" as const } : view),
+    [view, changes],
+  );
   // Only loads confirmed this session: cached tickets from days ago mustn't announce old unblocks.
   const confirmedScopeKey = load.status === "done" && load.origin === "network" ? load.scopeKey : null;
   useUnblockedNotifications(notifyUnblocked, confirmedScopeKey, graph, insights.blocked, mine.assigned, notify);
@@ -465,12 +471,27 @@ function Shell(): ReactElement {
    */
   const focusIssue = (uid: string, moveFocus = true): void => {
     const node = nodesByUid.get(uid);
+    if (node && !drawnUids.has(uid) && !revealableUids.has(uid)) {
+      // Only the hidden link kinds reach it: clearing issue filters wouldn't draw it, so say why.
+      setToast({ text: `${node.key} isn't drawn: only links hidden in Display → Links reach it.` });
+      return;
+    }
     // Clear the issue filters only when that would actually draw it; otherwise leave them alone.
-    if (!node || drawnUids.has(uid) || !hasIssueFilters(filters.issues) || !revealableUids.has(uid)) {
+    if (!node || drawnUids.has(uid) || !hasIssueFilters(filters.issues)) {
       focusInView(uid, moveFocus);
       return;
     }
+    const kept = filters.issues;
     setFilters({ ...filters, issues: NO_ISSUE_FILTERS });
+    setToast({
+      text: `Cleared the Display filters to show ${node.key}.`,
+      action: {
+        label: "Undo",
+        run: () => {
+          setFilters((f) => ({ ...f, issues: kept }));
+        },
+      },
+    });
     // Layout runs off the main thread: wait until the issue (or the epic card or lane row it sits
     // in) is on screen, then focus it once; the focus helpers handle collapsed epics and lanes.
     const epicUid = node.epic?.uid;
@@ -676,14 +697,27 @@ function Shell(): ReactElement {
             <Legend />
           </SidebarSection>
         </aside>
-        <section className="canvas" aria-label={viewMode === "graph" ? "Dependency graph" : "Timeline"} aria-busy={loadView.busy}>
+        <section
+          className="canvas"
+          aria-label={viewMode === "graph" ? "Dependency graph" : "Timeline"}
+          aria-busy={loadView.busy}
+          // Esc from a card or row: close the details, or else clear the highlight. (The details
+          // panel handles its own Esc.)
+          onKeyDown={(e) => {
+            if (e.key !== "Escape" || e.defaultPrevented) return;
+            if (selectedUid) closeDetail();
+            else if (shownView.highlight !== "none") setView({ ...view, highlight: "none", highlightScope: "all" });
+            else return;
+            e.preventDefault();
+          }}
+        >
           <div className={stale ? "canvas-body stale" : "canvas-body"} ref={inertWhileStale} aria-hidden={stale || undefined}>
             {viewMode === "graph" ? (
               <Canvas
                 graph={graph}
                 insights={insights}
                 filters={filters}
-                view={view}
+                view={shownView}
                 showSiteBadges={domino.loadedSiteCount > 1}
                 foldedEpics={foldedEpics}
                 onToggleEpic={toggleEpic}
@@ -702,7 +736,7 @@ function Shell(): ReactElement {
                   graph={graph}
                   insights={insights}
                   filters={filters}
-                  view={view}
+                  view={shownView}
                   history={history}
                   settings={estimates}
                   onSettings={setEstimates}
@@ -713,7 +747,6 @@ function Shell(): ReactElement {
                   onSelect={selectIssue}
                   onTraverse={onTraverse}
                   linkPreview={preview}
-                  busy={loadView.busy}
                   stale={stale}
                   order={rowOrder}
                   onClearSort={clearSort}
@@ -739,6 +772,10 @@ function Shell(): ReactElement {
             view={loadView}
             onOpenSettings={() => {
               setSettingsOpen(true);
+            }}
+            hiddenByFilters={loadedIssues.length > 0 && !loadedIssues.some((n) => drawnUids.has(n.uid)) ? loadedIssues.length : 0}
+            onClearFilters={() => {
+              setFilters({ ...filters, issues: NO_ISSUE_FILTERS });
             }}
           />
           <Toast toast={toast} onDismiss={dismissToast} />
@@ -783,10 +820,15 @@ function CanvasMessage({
   domino,
   view,
   onOpenSettings,
+  hiddenByFilters,
+  onClearFilters,
 }: {
   domino: ReturnType<typeof useDomino>;
   view: LoadView;
   onOpenSettings: () => void;
+  /** How many loaded issues there are when the Display filters hide every one of them (else 0). */
+  hiddenByFilters: number;
+  onClearFilters: () => void;
 }): ReactElement | null {
   const { load, selectedSites, graph } = domino;
   let msg: React.ReactNode = null;
@@ -823,6 +865,16 @@ function CanvasMessage({
     );
   else if (load.status === "done" && load.result.kind === "ok" && graph.nodes.length === 0 && load.result.errors.length === 0)
     msg = "No issues match this scope.";
+  else if (hiddenByFilters > 0 && !view.busy) {
+    msg = (
+      <>
+        {hiddenByFilters === 1 ? "The one issue is" : `All ${hiddenByFilters} issues are`} hidden by the Display filters.{" "}
+        <button type="button" className="link-btn" onClick={onClearFilters}>
+          Clear filters
+        </button>
+      </>
+    );
+  }
   if (!msg) return null;
   return (
     <div className="canvas-message" role="status">
