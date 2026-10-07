@@ -63,7 +63,7 @@ While a load runs, the last tickets for that scope stay on screen (from this ses
 
 ![Dark mode, with the critical path highlighted](docs/images/dark-critical-path.png)
 
-**The timeline.** The flowchart shows how things connect, but not when they'll land, so the timeline shows the same tickets over time: the estimate (dashed), actual work (solid) and forecast (dotted), plus due dates (&#9670;) and releases. A late blocker pushes back everything it blocks. Estimates are story points &times; **Days / point**, with a default for unpointed tickets.
+**The timeline.** The flowchart shows how things connect, but not when they'll land, so the timeline shows the same tickets over time: the estimate (dashed), actual work (solid) and forecast (dotted), plus due dates (&#9670;) and releases. A late blocker pushes back everything it blocks. Estimates are story points &times; **Days / point**, with a default for unpointed tickets, and each bar says how its forecast compares ("+3d over estimate"). It opens on today (**Today** scrolls back), and with the timeline open the sidebar's **Legend** explains every mark.
 
 ![The timeline: projected, actual and forecast bars, due dates, and two releases, one at risk](docs/images/timeline.png)
 
@@ -87,14 +87,14 @@ While a load runs, the last tickets for that scope stay on screen (from this ses
 
 **Keys.** I wanted to be able to walk a chain from the keyboard the same way I'd trace it with my finger on a diagram.
 
-| Key                                      | Does                                                    |
-| ---------------------------------------- | ------------------------------------------------------- |
-| `/` or &#8984;K                          | Find a ticket                                           |
-| `g` / `t`                                | Graph / Timeline                                        |
-| Tab, Enter, Esc                          | Move between tickets, open details, close them          |
-| &larr; / &rarr;                          | Follow blocking links back / forward                    |
-| &uarr; / &darr;                          | Other tickets at that step, then the next in the column |
-| &#8984;/Ctrl+Enter or &#8984;/Ctrl+click | Open in Jira                                            |
+| Key                                      | Does                                                           |
+| ---------------------------------------- | -------------------------------------------------------------- |
+| `/` or &#8984;K                          | Find a ticket                                                  |
+| `g` / `t`                                | Graph / Timeline                                               |
+| Tab, Enter, Esc                          | Into the view, open details, close them (or clear a highlight) |
+| &larr; / &rarr;                          | Follow blocking links back / forward                           |
+| &uarr; / &darr;                          | Other tickets at that step, then the next in the column        |
+| &#8984;/Ctrl+Enter or &#8984;/Ctrl+click | Open in Jira                                                   |
 
 The cards &larr; and &rarr; would go to are outlined first.
 

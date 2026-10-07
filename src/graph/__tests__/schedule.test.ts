@@ -146,6 +146,30 @@ describe("computeTimeline", () => {
     expect(getOrThrow(t, "a:O-1").varianceDays).toBe(-1); // projected end 10-08, actual 10-07
   });
 
+  it("done without history: a day on its resolved date, which delays nothing", () => {
+    const g = chainGraph([pointed("D-1", 5, "done", "2026-09-30"), pointed("D-2", 1)]);
+    const t = computeTimeline(g, new Map(), opts());
+    expect(getOrThrow(t, "a:D-1")).toMatchObject({
+      progress: { state: "done", actual: { start: "2026-09-30", end: "2026-10-01" }, startUnknown: true },
+      varianceDays: 0, // no start to measure it from
+    });
+    // Finished before today: what it blocks can start today, not after an invented 5-day estimate.
+    expect(getOrThrow(t, "a:D-2").progress).toEqual({ state: "not-started", forecast: { start: "2026-10-05", end: "2026-10-06" } });
+    // The baseline too: no dashed 5-day estimate starting today, for it or (pushed by it) what it blocks.
+    expect(getOrThrow(t, "a:D-1").projected).toEqual({ start: "2026-09-30", end: "2026-10-01" });
+    expect(getOrThrow(t, "a:D-2").projected).toEqual({ start: "2026-10-05", end: "2026-10-06" });
+  });
+
+  it("done with no resolved date or history still doesn't hold up what it blocks", () => {
+    const g = chainGraph([pointed("X-1", 5, "done"), pointed("X-2", 1)]);
+    const t = computeTimeline(g, new Map(), opts());
+    expect(getOrThrow(t, "a:X-1").progress.state).toBe("unknown");
+    expect(getOrThrow(t, "a:X-2").progress).toEqual({ state: "not-started", forecast: { start: "2026-10-05", end: "2026-10-06" } });
+    // The baseline agrees: no phantom 5-day estimate ahead of it, so no bogus "under estimate".
+    expect(getOrThrow(t, "a:X-2").projected).toEqual({ start: "2026-10-05", end: "2026-10-06" });
+    expect(getOrThrow(t, "a:X-2").varianceDays).toBe(0);
+  });
+
   it("in progress or done without history is 'unknown', not invented", () => {
     const g = chainGraph([pointed("U-1", 1, "indeterminate"), pointed("U-2", 1, "done")]);
     const t = computeTimeline(g, new Map(), opts());

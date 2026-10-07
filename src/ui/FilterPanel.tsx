@@ -12,6 +12,8 @@ import {
 import { isSortKey, orderText, SORT_INFO, SORT_KEYS, type SortBy, type SortGroup } from "../graph/sort";
 import { isGroupBy, type Filters, type ViewOptions } from "./Canvas";
 import { Icon } from "./Icon";
+import { SORT_SELECT_ID } from "./SortChip";
+import { useDetailsMenu } from "./useDetailsMenu";
 
 const LINK_ROWS: { key: keyof LinkFilters; label: string; sample: string }[] = [
   { key: "blocks", label: "Blocks", sample: "solid" },
@@ -63,8 +65,23 @@ function FilterMenu({
   display?: (value: string) => string;
 }): ReactElement {
   const hiddenHere = options.filter(([v]) => hidden.includes(v)).length;
+  // Esc and a click elsewhere close it, as the other menus do, so opening one closes the rest.
+  const { ref, onKeyDown } = useDetailsMenu();
   return (
-    <details className="filter-menu">
+    <details
+      className="filter-menu"
+      ref={ref}
+      onKeyDown={onKeyDown}
+      // One open at a time, keyboard included (outside clicks only cover the mouse): browsers
+      // with exclusive <details> use the shared name; onToggle covers the rest.
+      name="filter-menu"
+      onToggle={(e) => {
+        const opened = e.currentTarget;
+        if (!opened.open) return;
+        for (const other of document.querySelectorAll<HTMLDetailsElement>("details.filter-menu[open]"))
+          if (other !== opened) other.open = false;
+      }}
+    >
       <summary>
         <span className="field-label">{label}</span>
         <span className={hiddenHere ? "filter-menu-state active" : "filter-menu-state"}>{hiddenHere ? `${hiddenHere} hidden` : "All"}</span>
@@ -103,6 +120,7 @@ function SortField({ sort, onSort }: { sort: SortBy; onSort: (next: SortBy) => v
       <label className="field">
         <span>Sort by</span>
         <select
+          id={SORT_SELECT_ID}
           value={sort.key}
           title={sort.key === "natural" ? "Graph: by dependencies; Timeline: by start date" : undefined}
           onChange={(e) => {
@@ -222,6 +240,8 @@ export function FilterPanel({
             className="link-btn"
             onClick={() => {
               onFilters({ ...filters, issues: NO_ISSUE_FILTERS });
+              // This button goes away with the filters: keep focus in the panel, on the first filter.
+              document.querySelector<HTMLElement>('[aria-label="Statuses to show"] button')?.focus();
             }}
           >
             Clear filters

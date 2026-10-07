@@ -10,6 +10,17 @@ const started: TimelineEntry = {
 };
 
 describe("isViolated", () => {
+  it("is not a violation when the blocked issue's start is unknown (done with no history)", () => {
+    const resolvedOnly: TimelineEntry = {
+      projected: span,
+      progress: { state: "done", actual: span, startUnknown: true },
+      varianceDays: 0,
+    };
+    const doneBlocker: TimelineEntry = { projected: span, progress: { state: "done", actual: span }, varianceDays: 0 };
+    expect(isViolated(doneBlocker, resolvedOnly)).toBe(false);
+    expect(isViolated(resolvedOnly, resolvedOnly)).toBe(false);
+  });
+
   it("is not a violation when the blocker's real dates are unknown", () => {
     const unknownBlocker: TimelineEntry = { projected: span, progress: { state: "unknown", forecast: span }, varianceDays: 0 };
     expect(isViolated(unknownBlocker, started)).toBe(false);

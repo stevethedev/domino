@@ -26,6 +26,7 @@ export function Glance({
   sites,
   highlightFor,
   onHighlight,
+  drawn,
 }: {
   scope: HighlightScope;
   onScope: (s: HighlightScope) => void;
@@ -40,6 +41,8 @@ export function Glance({
   /** The active highlight if it belongs to `scope`, else "none". */
   highlightFor: (scope: HighlightScope) => Highlight;
   onHighlight: (scope: HighlightScope, h: Highlight) => void;
+  /** While Display filters are on: the issues they leave on screen. */
+  drawn?: ReadonlySet<string>;
 }): ReactElement {
   const name = useId();
   const only = scope === "all" ? undefined : insights.mine[scope];
@@ -83,6 +86,7 @@ export function Glance({
           onHighlight(scope, h);
         }}
         only={only}
+        drawn={drawn}
       />
       {only && myself.errors.length > 0 && (
         <p className="hint" title={myself.errors.map((e) => `${labelOf(e.siteId)}: ${e.message}`).join("\n")}>

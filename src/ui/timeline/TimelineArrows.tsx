@@ -44,9 +44,12 @@ export function arrowAnchors(
 
 /** True when the blocked issue started before its blocker finished. */
 export function isViolated(blocker: TimelineEntry, blocked: TimelineEntry): boolean {
+  // A done issue with no history has only its resolved day, not a start: nothing to compare.
   const started =
     blocked.progress.state === "done"
-      ? blocked.progress.actual.start
+      ? blocked.progress.startUnknown
+        ? undefined
+        : blocked.progress.actual.start
       : blocked.progress.state === "started"
         ? blocked.progress.actualStart
         : undefined;
@@ -113,7 +116,8 @@ export const TimelineArrows = memo(function TimelineArrows({
           <path
             key={edge.id}
             d={d}
-            className={`tl-arrow ${kind}${dimmed ? " dimmed" : ""}${edge.crossSite ? " cross-site" : ""}${stub ? " stub" : ""}`}
+            // "early-start" (started before its blocker finished) is dotted, apart from a cycle's solid red.
+            className={`tl-arrow ${kind}${violated && !inCycle ? " early-start" : ""}${dimmed ? " dimmed" : ""}${edge.crossSite ? " cross-site" : ""}${stub ? " stub" : ""}`}
             markerEnd={`url(#tl-arrow-${kind})`}
           />
         );

@@ -6,10 +6,20 @@ import type { GraphNode } from "../../graph/types";
 import type { Aging } from "../../graph/aging";
 import { CHANGE_LABEL, type ChangeKind } from "../../graph/changes";
 import { AgingBadge, agingDescription, CappedBadges, ChangeTag, ISSUE_DETAIL_ID, TraverseHint, TypeIcon } from "../IssueCard";
-import { entryEnd, PX_PER_DAY, varianceLabel, xOf, type EpicSummary, type Scale, type TimelineRowModel } from "./timelineLayout";
+import {
+  BADGE_ROOM,
+  entryEnd,
+  PX_PER_DAY,
+  varianceLabel,
+  xOf,
+  type EpicSummary,
+  type Scale,
+  type TimelineRowModel,
+  spanLabel,
+} from "./timelineLayout";
 
 /** Spans are half-open; people read the last day inclusively. */
-const spanText = (s: Span): string => `${fmtDay(s.start)} – ${fmtDay(addDays(s.end, -1))}`;
+const spanText = spanLabel;
 
 export type RowFlags = {
   dimmed: boolean;
@@ -25,18 +35,23 @@ export type RowFlags = {
   stale?: boolean;
 };
 
+/** What the variance badge measures, since it isn't the due date. */
+const VARIANCE_HINT =
+  "Forecast finish against the estimate (story points × Days / point, from when it started or could start), in working days. Due dates are the ◆.";
+
 const missesText = (names: readonly string[]): string =>
   `forecast to miss ${names.length === 1 ? "release" : "releases"} ${names.join(", ")}`;
 
 function describe(node: GraphNode, row: TimelineRowModel): string {
   const p = row.entry.progress;
   const parts = [`${node.key}, ${node.summary}`, `status ${node.statusName}`, `projected ${spanText(row.entry.projected)}`];
-  if (p.state === "done") parts.push(`actual ${spanText(p.actual)}`);
+  if (p.state === "done")
+    parts.push(p.startUnknown ? `resolved ${fmtDay(p.actual.start)}, start date unknown` : `actual ${spanText(p.actual)}`);
   if (p.state === "started") parts.push(`started ${fmtDay(p.actualStart)}, forecast finish ${fmtDay(addDays(p.forecast.end, -1))}`);
   if (p.state === "not-started") parts.push(`not started, forecast ${spanText(p.forecast)}`);
-  if (p.state === "unknown") parts.push("start date unknown");
+  if (p.state === "unknown") parts.push(node.statusCategory === "done" ? "done, dates unknown" : "start date unknown");
   if (node.dates?.due) parts.push(`due ${fmtDay(node.dates.due)}`);
-  if (p.state !== "unknown") parts.push(varianceLabel(row.entry.varianceDays));
+  if (p.state !== "unknown" && !(p.state === "done" && p.startUnknown)) parts.push(varianceLabel(row.entry.varianceDays));
   if (node.ghost) parts.push("outside scope");
   return `${parts.join(", ")}. Shows details.`;
 }
@@ -46,7 +61,8 @@ function describeEpic(node: GraphNode, epic: EpicSummary | "empty"): string {
   return `Epic ${node.key}, ${node.summary}, ${epic.children} issues, projected ${spanText(epic.projected)}, work ${spanText(epic.work)}. Shows details.`;
 }
 
-function Bar({ span, start, scale, className }: { span: Span; start: Day; scale: Scale; className: string }): ReactElement {
+function Bar({ span, start, scale, className }: { span: Span; start: Day; scale: Scale; className: string }): ReactElement | null {
+  if (span.start >= span.end) return null; // an undated placeholder, not work to draw
   const left = xOf(start, span.start, scale);
   const width = Math.max(xOf(start, span.end, scale) - left, PX_PER_DAY[scale] / 2);
   return <div className={className} style={{ left, width }} />;
@@ -88,7 +104,11 @@ export const TimelineRow = memo(function TimelineRow({
   const due = node.dates?.due;
   const pastDue = due !== undefined && finish > addDays(due, 1);
   const late = entry.varianceDays > 0;
-  const badgeLeft = xOf(rangeStart, entryEnd(entry), scale) + 6;
+  // Beside the bar, unless the due ◆ sits where the badge would go: then just past the ◆, so the
+  // badge never covers the due date (and doesn't drift far from its bar for a distant one).
+  const barEndX = xOf(rangeStart, entryEnd(entry), scale);
+  const dueEndX = due === undefined ? undefined : xOf(rangeStart, addDays(due, 1), scale);
+  const badgeLeft = (dueEndX !== undefined && dueEndX > barEndX && dueEndX - barEndX < BADGE_ROOM ? dueEndX : barEndX) + 6;
 
   return (
     <div
@@ -216,13 +236,21 @@ export const TimelineRow = memo(function TimelineRow({
             </span>
           )}
           {!node.ghost && p.state !== "unknown" && (
-            <span className={`tl-variance${late ? " late" : entry.varianceDays < 0 ? " early" : ""}`} style={{ left: badgeLeft }}>
-              {p.state === "done" ? `done, ${varianceLabel(entry.varianceDays)}` : varianceLabel(entry.varianceDays)}
+            <span
+              className={`tl-variance${late ? " late" : entry.varianceDays < 0 ? " early" : ""}`}
+              style={{ left: badgeLeft }}
+              title={VARIANCE_HINT}
+            >
+              {p.state === "done"
+                ? p.startUnknown
+                  ? "done, start unknown"
+                  : `done, ${varianceLabel(entry.varianceDays)}`
+                : varianceLabel(entry.varianceDays)}
             </span>
           )}
           {p.state === "unknown" && !node.ghost && (
             <span className="tl-variance" style={{ left: badgeLeft }}>
-              start unknown
+              {node.statusCategory === "done" ? "done, dates unknown" : "start unknown"}
             </span>
           )}
         </div>

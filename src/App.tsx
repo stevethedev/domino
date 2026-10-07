@@ -49,6 +49,8 @@ import { IssueDetail, type IssueDetailData } from "./ui/IssueDetail";
 import { ConfigProblemBanner } from "./ui/ConfigProblemBanner";
 import { noSitesShown } from "./ui/canvasMessage";
 import { Toast, type ToastMessage } from "./ui/Toast";
+import { focusFirst } from "./ui/focusFirst";
+import { TimelineLegend } from "./ui/timeline/TimelineLegend";
 import { Glance } from "./ui/Glance";
 import { SidebarSection } from "./ui/SidebarSection";
 import { QuickFind } from "./ui/QuickFind";
@@ -92,7 +94,12 @@ const parseGlanceScope = oneOf(isHighlightScope);
  */
 function focusTimelineRow(uid: string, moveFocus = true, nearest = false): boolean {
   const el = document.querySelector<HTMLElement>(`[data-tl-uid="${CSS.escape(uid)}"]`);
-  el?.scrollIntoView({ block: nearest ? "nearest" : "center", inline: "nearest", behavior: "smooth" });
+  // Scroll its work bar into view, across as well as down (the row spans the whole chart, so
+  // scrolling to the row alone never moved sideways); the chart's scroll-padding keeps it clear of
+  // the sticky labels. A ghost has no bar: scroll to the row.
+  const bar =
+    [".tl-actual", ".tl-forecast", ".tl-epic-work", ".tl-projected"].map((s) => el?.querySelector<HTMLElement>(s)).find(Boolean) ?? el;
+  bar?.scrollIntoView({ block: nearest ? "nearest" : "center", inline: "nearest", behavior: prefersReducedMotion() ? "auto" : "smooth" });
   if (moveFocus) el?.focus({ preventScroll: true });
   return el !== null;
 }
@@ -213,6 +220,12 @@ function Shell(): ReactElement {
   const insights = useMemo<Insights>(
     () => ({ ...baseInsights, changed: changes?.byIssue ?? new Map(), mine }),
     [baseInsights, changes, mine],
+  );
+  // "Changed" with nothing changed to show (another scope, nothing new) would dim every card with
+  // no pressed control left to undo it, so it counts as off until there are changes again.
+  const shownView = useMemo(
+    () => (view.highlight === "changed" && !changes?.byIssue.size ? { ...view, highlight: "none" as const } : view),
+    [view, changes],
   );
   // Only loads confirmed this session: cached tickets from days ago mustn't announce old unblocks.
   const confirmedScopeKey = load.status === "done" && load.origin === "network" ? load.scopeKey : null;
@@ -400,13 +413,23 @@ function Shell(): ReactElement {
           misses: releases.some((s) => s.release.uid === release.uid && s.atRisk.includes(selectedNode.uid)),
         })),
         forecastDone: selectedEntry && lastDayOf(selectedEntry),
+        // `visibleSubgraph` drops an issue only for the issue filters or, for one outside the scope,
+        // because no shown link kind reaches it: so whichever clearing the issue filters doesn't fix.
+        hiddenBy: drawnUids.has(selectedNode.uid) ? undefined : revealableUids.has(selectedNode.uid) ? "issue filters" : "link filters",
       }
     : null;
   /** Closing returns focus to the card or row the panel was showing, so keyboard users aren't lost. */
   const closeDetail = (): void => {
     const uid = selectedUid;
     setSelectedUid(null);
-    if (uid) document.querySelector<HTMLElement>(`[data-uid="${CSS.escape(uid)}"], [data-tl-uid="${CSS.escape(uid)}"]`)?.focus();
+    if (!uid) return;
+    // Back to its card or row; if a filter or fold has hidden it, to the view's tab stop; with
+    // everything filtered out, to the canvas message's Clear filters.
+    focusFirst(
+      `[data-uid="${CSS.escape(uid)}"], [data-tl-uid="${CSS.escape(uid)}"]`,
+      '.canvas [data-uid][tabindex="0"], .canvas [data-tl-uid][tabindex="0"]',
+      ".canvas-message button",
+    );
   };
   // How many links "Hide implied links" removes from what's drawn (counted even while it's off),
   // on the graph actually drawn: folded epics have their own, combined links.
@@ -414,6 +437,18 @@ function Shell(): ReactElement {
     () => (viewMode === "graph" && foldedEpics.size > 0 ? collapseEpics(graph, insights, foldedEpics).graph : graph),
     [viewMode, foldedEpics, graph, insights],
   );
+  /**
+   * The issues actually on screen in this view: as drawn (folded epics included), with a folded
+   * epic's summary card standing for its members. For the glance tiles and the "all hidden" message.
+   */
+  const onScreenUids = useMemo(() => {
+    const out = new Set<string>();
+    for (const n of visibleSubgraph(drawnGraph, { ...filters, hideImplied: false }).nodes) {
+      out.add(n.uid);
+      if (n.rollup) for (const m of [n.rollup.epicUid, ...n.rollup.members]) out.add(m);
+    }
+    return out;
+  }, [drawnGraph, filters]);
   const impliedLinkCount = useMemo(() => visibleSubgraph(drawnGraph, { ...filters, hideImplied: true }).implied, [drawnGraph, filters]);
   /** Arrow keys on a card or row follow the drawn blocking links (see `step`); an open details panel follows along. */
   const trail = useRef<Trail | null>(null);
@@ -465,12 +500,27 @@ function Shell(): ReactElement {
    */
   const focusIssue = (uid: string, moveFocus = true): void => {
     const node = nodesByUid.get(uid);
+    if (node && !drawnUids.has(uid) && !revealableUids.has(uid)) {
+      // Only the hidden link kinds reach it: clearing issue filters wouldn't draw it, so say why.
+      setToast({ text: `${node.key} isn't drawn: only links hidden in Display → Links reach it.` });
+      return;
+    }
     // Clear the issue filters only when that would actually draw it; otherwise leave them alone.
-    if (!node || drawnUids.has(uid) || !hasIssueFilters(filters.issues) || !revealableUids.has(uid)) {
+    if (!node || drawnUids.has(uid) || !hasIssueFilters(filters.issues)) {
       focusInView(uid, moveFocus);
       return;
     }
+    const kept = filters.issues;
     setFilters({ ...filters, issues: NO_ISSUE_FILTERS });
+    setToast({
+      text: `Cleared the Display filters to show ${node.key}.`,
+      action: {
+        label: "Undo",
+        run: () => {
+          setFilters((f) => ({ ...f, issues: kept }));
+        },
+      },
+    });
     // Layout runs off the main thread: wait until the issue (or the epic card or lane row it sits
     // in) is on screen, then focus it once; the focus helpers handle collapsed epics and lanes.
     const epicUid = node.epic?.uid;
@@ -607,6 +657,7 @@ function Shell(): ReactElement {
                 myself={myself}
                 sites={config?.sites ?? []}
                 highlightFor={highlightFor}
+                drawn={hasIssueFilters(filters.issues) ? onScreenUids : undefined}
                 onHighlight={(scope, h) => {
                   setHighlight(scope)(h);
                 }}
@@ -673,17 +724,33 @@ function Shell(): ReactElement {
             />
           </SidebarSection>
           <SidebarSection id="legend" title="Legend" defaultOpen={false}>
-            <Legend />
+            {viewMode === "timeline" ? <TimelineLegend /> : <Legend />}
           </SidebarSection>
         </aside>
-        <section className="canvas" aria-label={viewMode === "graph" ? "Dependency graph" : "Timeline"} aria-busy={loadView.busy}>
+        <section
+          className={detail && !stale ? "canvas has-detail" : "canvas"}
+          aria-label={viewMode === "graph" ? "Dependency graph" : "Timeline"}
+          aria-busy={loadView.busy}
+          // Esc from a card or row: close the details, or else clear the highlight. (The details
+          // panel handles its own Esc.)
+          onKeyDown={(e) => {
+            if (e.key !== "Escape" || e.defaultPrevented) return;
+            // Not from a field, menu or dialog: Esc there is that control's own business.
+            if (e.target instanceof Element && e.target.closest("input, select, textarea, details, [role=menu], [role=listbox], dialog"))
+              return;
+            if (selectedUid) closeDetail();
+            else if (shownView.highlight !== "none") setView({ ...view, highlight: "none", highlightScope: "all" });
+            else return;
+            e.preventDefault();
+          }}
+        >
           <div className={stale ? "canvas-body stale" : "canvas-body"} ref={inertWhileStale} aria-hidden={stale || undefined}>
             {viewMode === "graph" ? (
               <Canvas
                 graph={graph}
                 insights={insights}
                 filters={filters}
-                view={view}
+                view={shownView}
                 showSiteBadges={domino.loadedSiteCount > 1}
                 foldedEpics={foldedEpics}
                 onToggleEpic={toggleEpic}
@@ -702,7 +769,7 @@ function Shell(): ReactElement {
                   graph={graph}
                   insights={insights}
                   filters={filters}
-                  view={view}
+                  view={shownView}
                   history={history}
                   settings={estimates}
                   onSettings={setEstimates}
@@ -713,10 +780,10 @@ function Shell(): ReactElement {
                   onSelect={selectIssue}
                   onTraverse={onTraverse}
                   linkPreview={preview}
-                  busy={loadView.busy}
                   stale={stale}
                   order={rowOrder}
                   onClearSort={clearSort}
+                  scopeKey={shownScopeKey}
                 />
               </Suspense>
             )}
@@ -740,6 +807,13 @@ function Shell(): ReactElement {
             onOpenSettings={() => {
               setSettingsOpen(true);
             }}
+            hiddenByFilters={loadedIssues.length > 0 && !loadedIssues.some((n) => onScreenUids.has(n.uid)) ? loadedIssues.length : 0}
+            onClearFilters={() => {
+              setFilters({ ...filters, issues: NO_ISSUE_FILTERS });
+              // The message (and this button) goes away: keep focus in reach, on the first filter
+              // (or the Display section's toggle while it's folded away).
+              focusFirst('[aria-label="Statuses to show"] button', '[data-section="display"] .sb-toggle');
+            }}
           />
           <Toast toast={toast} onDismiss={dismissToast} />
           {detail && !stale && (
@@ -752,6 +826,11 @@ function Shell(): ReactElement {
               onOpen={openExternal}
               onClose={closeDetail}
               focusRequest={detailFocusRequest}
+              onShowHidden={() => {
+                // The Show button goes away with the filters: keep focus in the panel, on its title.
+                document.getElementById("issue-detail-title")?.focus();
+                focusIssue(detail.node.uid, false);
+              }}
             />
           )}
         </section>
@@ -783,10 +862,15 @@ function CanvasMessage({
   domino,
   view,
   onOpenSettings,
+  hiddenByFilters,
+  onClearFilters,
 }: {
   domino: ReturnType<typeof useDomino>;
   view: LoadView;
   onOpenSettings: () => void;
+  /** How many loaded issues there are when the Display filters hide every one of them (else 0). */
+  hiddenByFilters: number;
+  onClearFilters: () => void;
 }): ReactElement | null {
   const { load, selectedSites, graph } = domino;
   let msg: React.ReactNode = null;
@@ -823,6 +907,17 @@ function CanvasMessage({
     );
   else if (load.status === "done" && load.result.kind === "ok" && graph.nodes.length === 0 && load.result.errors.length === 0)
     msg = "No issues match this scope.";
+  // Not over another scope's faded tickets; a refresh of this scope keeps them usable, so it says.
+  else if (hiddenByFilters > 0 && !view.stale) {
+    msg = (
+      <>
+        {hiddenByFilters === 1 ? "The one issue is" : `All ${hiddenByFilters} issues are`} hidden by the Display filters.{" "}
+        <button type="button" className="link-btn" onClick={onClearFilters}>
+          Clear filters
+        </button>
+      </>
+    );
+  }
   if (!msg) return null;
   return (
     <div className="canvas-message" role="status">
