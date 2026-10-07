@@ -900,7 +900,8 @@ function CanvasMessage({
     );
   else if (load.status === "done" && load.result.kind === "ok" && graph.nodes.length === 0 && load.result.errors.length === 0)
     msg = "No issues match this scope.";
-  else if (hiddenByFilters > 0 && !view.busy) {
+  // Not over another scope's faded tickets; a refresh of this scope keeps them usable, so it says.
+  else if (hiddenByFilters > 0 && !view.stale) {
     msg = (
       <>
         {hiddenByFilters === 1 ? "The one issue is" : `All ${hiddenByFilters} issues are`} hidden by the Display filters.{" "}
