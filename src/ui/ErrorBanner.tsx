@@ -66,7 +66,11 @@ export function ErrorBanner({
           ))}
           {lagging.map((l) => (
             <li key={l.siteId}>
-              {siteErrorText(label(l.siteId), l.message)} <span className="muted">({shownFrom(l.takenAt, now)})</span>
+              {siteErrorText(label(l.siteId), l.message)}{" "}
+              {/* The age ticks; hidden from screen readers so this alert isn't re-announced every minute. */}
+              <span className="muted" aria-hidden="true">
+                ({shownFrom(l.takenAt, now)})
+              </span>
             </li>
           ))}
         </ul>

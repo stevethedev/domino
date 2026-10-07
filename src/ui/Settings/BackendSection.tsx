@@ -176,7 +176,13 @@ export function BackendSection({ domino, config }: { domino: Domino; config: Dom
               Cancel sign-in
             </button>
           ) : (
-            <button type="button" className="primary" onClick={connect} disabled={busy !== null || !status?.appConfigured}>
+            <button
+              type="button"
+              className="primary"
+              onClick={connect}
+              // Not while Disconnect awaits its confirm: the two would race to update the sign-in.
+              disabled={busy !== null || !status?.appConfigured || confirmDisconnect}
+            >
               {status?.connected ? "Reconnect" : "Connect with Atlassian"}
             </button>
           )}
