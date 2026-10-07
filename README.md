@@ -63,7 +63,7 @@ While a load runs, the last tickets for that scope stay on screen (from this ses
 
 ![Dark mode, with the critical path highlighted](docs/images/dark-critical-path.png)
 
-**The timeline.** The flowchart shows how things connect, but not when they'll land, so the timeline shows the same tickets over time: the estimate (dashed), actual work (solid) and forecast (dotted), plus due dates (&#9670;) and releases. A late blocker pushes back everything it blocks. Estimates are story points &times; **Days / point**, with a default for unpointed tickets.
+**The timeline.** The flowchart shows how things connect, but not when they'll land, so the timeline shows the same tickets over time: the estimate (dashed), actual work (solid) and forecast (dotted), plus due dates (&#9670;) and releases. A late blocker pushes back everything it blocks. Estimates are story points &times; **Days / point**, with a default for unpointed tickets, and each bar says how its forecast compares ("+3d over estimate"). It opens on today (**Today** scrolls back), and with the timeline open the sidebar's **Legend** explains every mark.
 
 ![The timeline: projected, actual and forecast bars, due dates, and two releases, one at risk](docs/images/timeline.png)
 
