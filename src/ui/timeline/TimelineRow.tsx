@@ -31,12 +31,13 @@ const missesText = (names: readonly string[]): string =>
 function describe(node: GraphNode, row: TimelineRowModel): string {
   const p = row.entry.progress;
   const parts = [`${node.key}, ${node.summary}`, `status ${node.statusName}`, `projected ${spanText(row.entry.projected)}`];
-  if (p.state === "done") parts.push(`actual ${spanText(p.actual)}`);
+  if (p.state === "done")
+    parts.push(p.startUnknown ? `resolved ${fmtDay(p.actual.start)}, start date unknown` : `actual ${spanText(p.actual)}`);
   if (p.state === "started") parts.push(`started ${fmtDay(p.actualStart)}, forecast finish ${fmtDay(addDays(p.forecast.end, -1))}`);
   if (p.state === "not-started") parts.push(`not started, forecast ${spanText(p.forecast)}`);
   if (p.state === "unknown") parts.push("start date unknown");
   if (node.dates?.due) parts.push(`due ${fmtDay(node.dates.due)}`);
-  if (p.state !== "unknown") parts.push(varianceLabel(row.entry.varianceDays));
+  if (p.state !== "unknown" && !(p.state === "done" && p.startUnknown)) parts.push(varianceLabel(row.entry.varianceDays));
   if (node.ghost) parts.push("outside scope");
   return `${parts.join(", ")}. Shows details.`;
 }
@@ -217,7 +218,11 @@ export const TimelineRow = memo(function TimelineRow({
           )}
           {!node.ghost && p.state !== "unknown" && (
             <span className={`tl-variance${late ? " late" : entry.varianceDays < 0 ? " early" : ""}`} style={{ left: badgeLeft }}>
-              {p.state === "done" ? `done, ${varianceLabel(entry.varianceDays)}` : varianceLabel(entry.varianceDays)}
+              {p.state === "done"
+                ? p.startUnknown
+                  ? "done, start unknown"
+                  : `done, ${varianceLabel(entry.varianceDays)}`
+                : varianceLabel(entry.varianceDays)}
             </span>
           )}
           {p.state === "unknown" && !node.ghost && (
