@@ -31,6 +31,10 @@ export type IssueNodeData = {
   onExpand?: () => void;
   /** Another scope is loading: the card is the previous scope's, out of keyboard reach. */
   stale?: boolean;
+  /** The graph's one Tab stop (roving): Tab enters the graph here; arrow keys move between cards. */
+  tabbable?: boolean;
+  /** Keyboard focus landed on the card: it becomes the Tab stop, and the view pans to it if needed. */
+  onFocusCard?: (uid: string) => void;
 };
 export type IssueFlowNode = Node<IssueNodeData, "issue">;
 
@@ -259,6 +263,8 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
     preview,
     onExpand,
     stale,
+    tabbable,
+    onFocusCard,
   } = data;
   const activate = (e: { metaKey: boolean; ctrlKey: boolean }): void => {
     if (onExpand) onExpand();
@@ -292,7 +298,7 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
       // Activating shows the details panel; while it shows this issue, the card controls it.
       aria-expanded={onExpand ? undefined : selected}
       aria-controls={selected ? ISSUE_DETAIL_ID : undefined}
-      tabIndex={stale ? -1 : 0}
+      tabIndex={!stale && tabbable ? 0 : -1}
       aria-label={n.rollup ? rollupLabel(n, n.rollup) : `${label}. Shows details.`}
       aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown"
       data-uid={n.uid}
@@ -314,6 +320,7 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
       }}
       onFocus={() => {
         onHover(n.uid);
+        onFocusCard?.(n.uid);
       }}
       onBlur={() => {
         onHover(null);

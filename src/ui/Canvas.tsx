@@ -1,5 +1,5 @@
 import { Background, Controls, getNodesBounds, MiniMap, Panel, ReactFlow, useReactFlow, type Rect } from "@xyflow/react";
-import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { blockingChain } from "../graph/analysis";
 import { collapseEpics, shownEdgeId } from "../graph/collapse";
 import { previewOf, type LinkPreview, type Move } from "../graph/traverse";
@@ -137,6 +137,17 @@ export function Canvas({
 }): ReactElement {
   const rf = useReactFlow();
   const [hovered, setHovered] = useState<string | null>(null);
+  const [lastFocused, setLastFocused] = useState<string | null>(null);
+  const focusNode = useFocusNode();
+  const onFocusCard = useCallback(
+    (uid: string): void => {
+      setLastFocused(uid);
+      // Tabbed to: keep the zoom and pan only when the card is off screen. (Focus moved by
+      // `useFocusNode` comes with its own pan.)
+      if (!focusingFromCode) focusNode(uid, false, true);
+    },
+    [focusNode],
+  );
   // Cards stay where the last finished layout put them until the next one is ready, so new data
   // never blanks the canvas while the layout worker runs.
   const [drawn, setDrawn] = useState<Drawn | null>(null);
@@ -249,6 +260,21 @@ export function Canvas({
       draggable: false,
       zIndex: -1,
     }));
+    // One Tab stop for the whole graph (roving tabindex): the open issue, else the card last
+    // focused, else the first card in reading order (leftmost column, top). Arrow keys move on.
+    const groupAt = new Map(layout.groups.map((g) => [g.id, g]));
+    const at = (uid: string): { x: number; y: number } | undefined => {
+      const p = layout.positions.get(uid);
+      const g = p?.parent ? groupAt.get(p.parent) : undefined;
+      return p && { x: p.x + (g?.x ?? 0), y: p.y + (g?.y ?? 0) };
+    };
+    const firstCard = drawn.nodes
+      .flatMap((n) => {
+        const p = at(n.uid);
+        return p ? [{ uid: n.uid, ...p }] : [];
+      })
+      .reduce<{ uid: string; x: number; y: number } | null>((a, b) => (!a || b.x < a.x || (b.x === a.x && b.y < a.y) ? b : a), null);
+    const tabStop = [selectedUid, lastFocused].find((u) => u && layout.positions.has(u)) ?? firstCard?.uid;
     // Each card shows its latest data; cards the next layout drops stay until it's ready.
     const cards: IssueFlowNode[] = drawn.nodes.flatMap((laidOut) => {
       const n = visibleByUid.get(laidOut.uid) ?? laidOut;
@@ -279,6 +305,8 @@ export function Canvas({
             preview: previewOf(linkPreview, n.uid),
             onExpand: n.rollup ? toggleEpic(n.rollup.epicUid) : undefined,
             stale,
+            tabbable: n.uid === tabStop,
+            onFocusCard,
           },
           draggable: false,
           focusable: false, // the card itself is the tab stop
@@ -301,6 +329,8 @@ export function Canvas({
     onTraverse,
     linkPreview,
     stale,
+    lastFocused,
+    onFocusCard,
   ]);
 
   const flowEdges = useMemo<LinkFlowEdge[]>(() => {
@@ -423,6 +453,9 @@ export function Canvas({
 }
 
 /** Centers the viewport on a card and focuses it (used by the Warnings panel). */
+/** Set while `useFocusNode` focuses a card itself (focus events fire synchronously inside `focus()`). */
+let focusingFromCode = false;
+
 export function useFocusNode(): (uid: string, moveFocus?: boolean, keepZoom?: boolean) => boolean {
   const rf = useReactFlow();
   /**
@@ -430,19 +463,27 @@ export function useFocusNode(): (uid: string, moveFocus?: boolean, keepZoom?: bo
    * `keepZoom` (following links), it keeps the zoom and only pans when the card is off screen.
    * Returns false when the node isn't rendered yet.
    */
-  return (uid: string, moveFocus = true, keepZoom = false): boolean => {
-    const n = rf.getInternalNode(uid);
-    if (!n) return false;
-    const { x, y } = n.internals.positionAbsolute;
-    const width = n.measured.width ?? CARD_WIDTH;
-    const height = n.measured.height ?? CARD_HEIGHT;
-    const card = document.querySelector<HTMLElement>(`[data-uid="${CSS.escape(uid)}"]`)?.getBoundingClientRect();
-    const pane = document.querySelector(".canvas .react-flow")?.getBoundingClientRect();
-    const onScreen =
-      card && pane && card.left >= pane.left && card.right <= pane.right && card.top >= pane.top && card.bottom <= pane.bottom;
-    if (!keepZoom) void rf.setCenter(x + width / 2, y + height / 2, { zoom: 1.1, duration: 300 });
-    else if (!onScreen) void rf.setCenter(x + width / 2, y + height / 2, { zoom: rf.getZoom(), duration: 200 });
-    if (moveFocus) document.querySelector<HTMLElement>(`[data-uid="${CSS.escape(uid)}"]`)?.focus({ preventScroll: true });
-    return true;
-  };
+  return useCallback(
+    (uid: string, moveFocus = true, keepZoom = false): boolean => {
+      const n = rf.getInternalNode(uid);
+      if (!n) return false;
+      const { x, y } = n.internals.positionAbsolute;
+      const width = n.measured.width ?? CARD_WIDTH;
+      const height = n.measured.height ?? CARD_HEIGHT;
+      const card = document.querySelector<HTMLElement>(`[data-uid="${CSS.escape(uid)}"]`)?.getBoundingClientRect();
+      const pane = document.querySelector(".canvas .react-flow")?.getBoundingClientRect();
+      const onScreen =
+        card && pane && card.left >= pane.left && card.right <= pane.right && card.top >= pane.top && card.bottom <= pane.bottom;
+      if (!keepZoom) void rf.setCenter(x + width / 2, y + height / 2, { zoom: 1.1, duration: 300 });
+      else if (!onScreen) void rf.setCenter(x + width / 2, y + height / 2, { zoom: rf.getZoom(), duration: 200 });
+      if (moveFocus) {
+        // The view is already moving to it: its onFocus mustn't start a second pan.
+        focusingFromCode = true;
+        document.querySelector<HTMLElement>(`[data-uid="${CSS.escape(uid)}"]`)?.focus({ preventScroll: true });
+        focusingFromCode = false;
+      }
+      return true;
+    },
+    [rf],
+  );
 }
