@@ -503,7 +503,7 @@ export function useFocusNode(): (uid: string, moveFocus?: boolean, keepZoom?: bo
         card.bottom <= pane.bottom;
       // Centred in what the drawer leaves visible, not under it.
       const zoom = keepZoom ? rf.getZoom() : 1.1;
-      const shift = pane && right !== undefined ? visibleCentreShift(pane.right, right, zoom) : 0;
+      const shift = pane && right !== undefined ? visibleCentreShift(pane.right, right, zoom, pane.left, width * zoom) : 0;
       if (!keepZoom) void rf.setCenter(x + width / 2 + shift, y + height / 2, { zoom, duration: 300 });
       else if (!onScreen) void rf.setCenter(x + width / 2 + shift, y + height / 2, { zoom, duration: 200 });
       if (moveFocus) {

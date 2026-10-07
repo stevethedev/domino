@@ -507,7 +507,7 @@
   font-weight: normal;
 }
 /* Nothing to highlight: the count stays readable, the tile just doesn't invite a click. */
-.insight:disabled {
+.insight[aria-disabled="true"] {
   cursor: default;
   background: var(--surface-2);
 }

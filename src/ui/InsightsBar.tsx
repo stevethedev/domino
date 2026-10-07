@@ -61,9 +61,11 @@ export function InsightTiles({
               className={`insight insight-${t.id}`}
               aria-pressed={highlight === t.id}
               // Nothing to highlight would just dim every card; a pressed tile stays usable to clear it.
-              // With filters on, what counts is what they leave on screen.
-              disabled={(shown ?? t.uids.length) === 0 && highlight !== t.id}
+              // With filters on, what counts is what they leave on screen. aria-disabled, not
+              // disabled: a filter change mustn't knock focus off a tile that's focused.
+              aria-disabled={(shown ?? t.uids.length) === 0 && highlight !== t.id}
               onClick={() => {
+                if ((shown ?? t.uids.length) === 0 && highlight !== t.id) return;
                 onHighlight(highlight === t.id ? "none" : t.id);
               }}
               title={t.uids.length === 0 ? `No ${t.hint}` : `Highlight ${t.uids.length} ${t.hint}`}
