@@ -139,7 +139,6 @@ function children(n: AdfNode, ctx: Ctx, depth: number): ReactNode {
   return mapWithin(n.content, ctx.budget, (c, i) => <Fragment key={i}>{render(c, ctx, depth + 1)}</Fragment>);
 }
 
-/** A date node's calendar day. Jira stores it as UTC midnight, so it's read in UTC, not local time. */
 /** A merged cell's spans, when they're whole numbers above 1 (anything else is the default, 1). */
 function cellSpans(attrs: AdfNode["attrs"]): { colSpan?: number; rowSpan?: number } {
   const span = (v: unknown): number | undefined => (typeof v === "number" && Number.isInteger(v) && v > 1 ? v : undefined);
@@ -148,6 +147,7 @@ function cellSpans(attrs: AdfNode["attrs"]): { colSpan?: number; rowSpan?: numbe
   return { ...(colSpan ? { colSpan } : {}), ...(rowSpan ? { rowSpan } : {}) };
 }
 
+/** A date node's calendar day. Jira stores it as UTC midnight, so it's read in UTC, not local time. */
 function dateText(attrs: AdfNode["attrs"]): string {
   const raw = str(attrs, "timestamp").trim();
   if (raw === "" || Number(raw) === 0) return ""; // missing, or the unset zero
