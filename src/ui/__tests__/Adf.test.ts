@@ -106,6 +106,12 @@ describe("AdfDocument", () => {
     expect(html(null)).toBe("");
   });
 
+  it("shows nothing for a date with no usable timestamp, not the 1970 epoch", () => {
+    for (const attrs of [{}, { timestamp: "" }, { timestamp: "0" }, { timestamp: 5 }]) {
+      expect(html(doc(p({ type: "date", attrs })))).not.toContain("1970");
+    }
+  });
+
   it("ignores out-of-range dates instead of throwing", () => {
     for (const timestamp of ["1e16", "-1e16", "NaN", "soon"]) {
       expect(() => html(doc(p({ type: "date", attrs: { timestamp } })))).not.toThrow();
