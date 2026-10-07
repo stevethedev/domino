@@ -431,6 +431,18 @@ function Shell(): ReactElement {
     () => (viewMode === "graph" && foldedEpics.size > 0 ? collapseEpics(graph, insights, foldedEpics).graph : graph),
     [viewMode, foldedEpics, graph, insights],
   );
+  /**
+   * The issues actually on screen in this view: as drawn (folded epics included), with a folded
+   * epic's summary card standing for its members. For the glance tiles and the "all hidden" message.
+   */
+  const onScreenUids = useMemo(() => {
+    const out = new Set<string>();
+    for (const n of visibleSubgraph(drawnGraph, { ...filters, hideImplied: false }).nodes) {
+      out.add(n.uid);
+      if (n.rollup) for (const m of [n.rollup.epicUid, ...n.rollup.members]) out.add(m);
+    }
+    return out;
+  }, [drawnGraph, filters]);
   const impliedLinkCount = useMemo(() => visibleSubgraph(drawnGraph, { ...filters, hideImplied: true }).implied, [drawnGraph, filters]);
   /** Arrow keys on a card or row follow the drawn blocking links (see `step`); an open details panel follows along. */
   const trail = useRef<Trail | null>(null);
@@ -639,7 +651,7 @@ function Shell(): ReactElement {
                 myself={myself}
                 sites={config?.sites ?? []}
                 highlightFor={highlightFor}
-                drawn={hasIssueFilters(filters.issues) ? drawnUids : undefined}
+                drawn={hasIssueFilters(filters.issues) ? onScreenUids : undefined}
                 onHighlight={(scope, h) => {
                   setHighlight(scope)(h);
                 }}
@@ -788,7 +800,7 @@ function Shell(): ReactElement {
             onOpenSettings={() => {
               setSettingsOpen(true);
             }}
-            hiddenByFilters={loadedIssues.length > 0 && !loadedIssues.some((n) => drawnUids.has(n.uid)) ? loadedIssues.length : 0}
+            hiddenByFilters={loadedIssues.length > 0 && !loadedIssues.some((n) => onScreenUids.has(n.uid)) ? loadedIssues.length : 0}
             onClearFilters={() => {
               setFilters({ ...filters, issues: NO_ISSUE_FILTERS });
               // The message (and this button) goes away: keep focus in reach, on the first filter

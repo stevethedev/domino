@@ -241,7 +241,8 @@ export function Canvas({
   const chain = useMemo(() => (hovered ? blockingChain(graph, hovered) : null), [graph, hovered]);
   const byUid = useMemo(() => new Map(graph.nodes.map((n) => [n.uid, n])), [graph]);
   const cycleNodes = useMemo(() => new Set(graph.cycles.flat()), [graph]);
-  const loadedUids = useMemo(() => new Set(loaded.nodes.map((n) => n.uid)), [loaded.nodes]);
+  // In scope (not ghosts): only those have details worth showing from a lane name.
+  const loadedUids = useMemo(() => new Set(loaded.nodes.filter((n) => !n.ghost).map((n) => n.uid)), [loaded.nodes]);
   const visibleByUid = useMemo(() => new Map(vNodes.map((n) => [n.uid, n])), [vNodes]);
   const visibleEdgeById = useMemo(() => new Map(vEdges.map((e) => [e.id, e])), [vEdges]);
 
