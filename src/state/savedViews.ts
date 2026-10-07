@@ -105,10 +105,14 @@ function parseView(raw: unknown): SavedView | undefined {
   };
 }
 
-/** Stored views, validated one by one; invalid entries are dropped rather than failing the list. */
-export function parseSavedViews(raw: unknown): SavedView[] | undefined {
+/**
+ * Views validated one by one; invalid entries are dropped rather than failing the list. Stored
+ * lists keep at most `max`; a shared file is read whole (`max` Infinity), so `mergeViews` can say
+ * what didn't fit instead of it vanishing here.
+ */
+export function parseSavedViews(raw: unknown, max = MAX_SAVED_VIEWS): SavedView[] | undefined {
   if (!Array.isArray(raw)) return undefined;
-  return raw.flatMap((v) => parseView(v) ?? []).slice(0, MAX_SAVED_VIEWS);
+  return raw.flatMap((v) => parseView(v) ?? []).slice(0, max);
 }
 
 const sameName = (a: string, b: string): boolean => a.trim().toLowerCase() === b.trim().toLowerCase();
@@ -140,7 +144,7 @@ export function readViewsFile(text: string): SavedView[] {
   }
   const r = record(raw);
   const list = Array.isArray(raw) ? raw : r?.format === FILE_FORMAT ? r.views : undefined;
-  const views = parseSavedViews(list);
+  const views = parseSavedViews(list, Number.POSITIVE_INFINITY);
   if (!views || views.length === 0) throw new Error("That file doesn't contain Domino saved views.");
   return views;
 }
@@ -189,4 +193,19 @@ export function viewSites(
       return s ? `${s.label} (turned off)` : id;
     });
   return { siteIds: view.siteIds.filter(usable), missing, scopeUsable: view.scope.mode === "jql" || usable(view.scope.siteId) };
+}
+
+/**
+ * What applying a view couldn't do, in a sentence, or null when it applied in full. `savedSites` is
+ * how many sites the view was saved with; `sites` is `viewSites`' answer for this config.
+ */
+export function viewNotice(name: string, savedSites: number, sites: ReturnType<typeof viewSites>): string | null {
+  const { siteIds, missing, scopeUsable } = sites;
+  if (savedSites === 0) {
+    return `“${name}” was saved with no sites selected, so your sites and query stay as they were; its filters and layout were applied.`;
+  }
+  if (siteIds.length === 0 || !scopeUsable) {
+    return `“${name}” uses sites you don't have here (${missing.join(", ") || "its scope's site"}), so your sites and query stay as they were; its filters and layout were applied.`;
+  }
+  return missing.length > 0 ? `“${name}” also uses ${missing.join(", ")}, which you don't have here; it's showing the rest.` : null;
 }

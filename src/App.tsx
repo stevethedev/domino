@@ -13,13 +13,23 @@ import { DEFAULT_REFRESH_MINUTES, parseRefreshMinutes, REFRESH_MINUTES_KEY } fro
 import { useAutoRefresh } from "./state/useAutoRefresh";
 import { useDomino } from "./state/useDomino";
 import { loadViewOf, scopeLabel, type LoadView } from "./state/loadView";
+import { errorMessage } from "./data/errors";
 import { failureText, otherScopeFailureText } from "./state/refresh";
 import { useMyself } from "./state/useMyself";
 import { useUnblockedNotifications } from "./state/useUnblockedNotifications";
 import { DEFAULT_ESTIMATE_SETTINGS, ESTIMATE_SETTINGS_KEY, parseEstimateSettings } from "./state/estimateSettings";
 import { oneOf, usePersistentState } from "./state/storage";
 import { NATURAL_SORT, parseSortBy, ticketComparator } from "./graph/sort";
-import { mergeViews, parseSavedViews, SAVED_VIEWS_KEY, upsertView, viewSites, type EpicFolds, type SavedView } from "./state/savedViews";
+import {
+  mergeViews,
+  parseSavedViews,
+  SAVED_VIEWS_KEY,
+  upsertView,
+  viewNotice,
+  viewSites,
+  type EpicFolds,
+  type SavedView,
+} from "./state/savedViews";
 import { saveQuery, selectedSitesOf } from "./state/useDomino";
 import { scopeKeyOf } from "./state/scopeKey";
 import { useChanges } from "./state/useChanges";
@@ -37,6 +47,7 @@ import { UpdateBanner } from "./ui/UpdateBanner";
 import { BrandMark } from "./ui/BrandMark";
 import { IssueDetail, type IssueDetailData } from "./ui/IssueDetail";
 import { ConfigProblemBanner } from "./ui/ConfigProblemBanner";
+import { noSitesShown } from "./ui/canvasMessage";
 import { Toast, type ToastMessage } from "./ui/Toast";
 import { Glance } from "./ui/Glance";
 import { SidebarSection } from "./ui/SidebarSection";
@@ -233,21 +244,13 @@ function Shell(): ReactElement {
     applyEpicFolds(v);
     // A view shared by someone with other sites: use the sites this config has, keep the current
     // selection (and scope) when it has none of them, and say what couldn't be applied.
-    const { siteIds, missing, scopeUsable } = viewSites(v, config?.sites ?? []);
-    if (scopeUsable && siteIds.length > 0) {
+    const sites = viewSites(v, config?.sites ?? []);
+    if (sites.scopeUsable && sites.siteIds.length > 0) {
       if (v.scope.mode === "jql") saveQuery(v.scope.jql);
-      domino.applyScope(v.scope, siteIds);
+      domino.applyScope(v.scope, sites.siteIds);
     }
-    setToast(
-      missing.length === 0 && scopeUsable
-        ? null
-        : {
-            text:
-              siteIds.length === 0 || !scopeUsable
-                ? `“${v.name}” uses sites you don't have here (${missing.join(", ") || "its scope's site"}), so your sites and query stay as they were; its filters and layout were applied.`
-                : `“${v.name}” also uses ${missing.join(", ")}, which you don't have here; it's showing the rest.`,
-          },
-    );
+    const notice = viewNotice(v.name, v.siteIds.length, sites);
+    setToast(notice === null ? null : { text: notice });
     setFilters(v.filters);
     setView(v.view);
     // Show the tile group the view's highlight belongs to, so its tile is pressed and can clear it.
@@ -548,7 +551,9 @@ function Shell(): ReactElement {
           status={domino.configFile}
           onReload={domino.reloadConfigFile}
           onReveal={() => {
-            domino.store.revealFile().catch(() => undefined); // nothing to show the user if the file manager won't open
+            domino.store.revealFile().catch((e: unknown) => {
+              setToast({ text: `Couldn't show the file: ${errorMessage(e)}` });
+            });
           }}
           onOpenSettings={() => {
             setSettingsOpen(true);
@@ -786,16 +791,18 @@ function CanvasMessage({
   const { load, selectedSites, graph } = domino;
   let msg: React.ReactNode = null;
   if (selectedSites.length === 0 && domino.config) {
-    msg = domino.config.sites.some((s) => s.enabled) ? (
-      "Select at least one site in Sites, top left."
-    ) : (
-      <>
-        No Jira sites yet.{" "}
-        <button type="button" className="link-btn" onClick={onOpenSettings}>
-          Add one in Settings
-        </button>
-      </>
-    );
+    const why = noSitesShown(domino.config.sites);
+    msg =
+      why === "none selected" ? (
+        "Select at least one site in Sites, top left."
+      ) : (
+        <>
+          {why === "none" ? "No Jira sites yet." : "All your sites are turned off."}{" "}
+          <button type="button" className="link-btn" onClick={onOpenSettings}>
+            {why === "none" ? "Add one in Settings" : "Turn one on in Settings"}
+          </button>
+        </>
+      );
   } else if (view.mode === "empty" && view.busy) msg = <LoadingMessage sites={selectedSites} progress={view.progress} />;
   // With tickets still on screen, the pill reports the failure instead.
   else if (load.status === "failed" && !view.shown) {
