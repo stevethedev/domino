@@ -49,6 +49,7 @@ import { IssueDetail, type IssueDetailData } from "./ui/IssueDetail";
 import { ConfigProblemBanner } from "./ui/ConfigProblemBanner";
 import { noSitesShown } from "./ui/canvasMessage";
 import { Toast, type ToastMessage } from "./ui/Toast";
+import { focusFirst } from "./ui/focusFirst";
 import { Glance } from "./ui/Glance";
 import { SidebarSection } from "./ui/SidebarSection";
 import { QuickFind } from "./ui/QuickFind";
@@ -416,11 +417,13 @@ function Shell(): ReactElement {
     const uid = selectedUid;
     setSelectedUid(null);
     if (!uid) return;
-    // Back to its card or row; if a filter or fold has hidden it, to the view's tab stop instead.
-    const target =
-      document.querySelector<HTMLElement>(`[data-uid="${CSS.escape(uid)}"], [data-tl-uid="${CSS.escape(uid)}"]`) ??
-      document.querySelector<HTMLElement>('.canvas [data-uid][tabindex="0"], .canvas [data-tl-uid][tabindex="0"]');
-    target?.focus();
+    // Back to its card or row; if a filter or fold has hidden it, to the view's tab stop; with
+    // everything filtered out, to the canvas message's Clear filters.
+    focusFirst(
+      `[data-uid="${CSS.escape(uid)}"], [data-tl-uid="${CSS.escape(uid)}"]`,
+      '.canvas [data-uid][tabindex="0"], .canvas [data-tl-uid][tabindex="0"]',
+      ".canvas-message button",
+    );
   };
   // How many links "Hide implied links" removes from what's drawn (counted even while it's off),
   // on the graph actually drawn: folded epics have their own, combined links.
@@ -788,8 +791,9 @@ function Shell(): ReactElement {
             hiddenByFilters={loadedIssues.length > 0 && !loadedIssues.some((n) => drawnUids.has(n.uid)) ? loadedIssues.length : 0}
             onClearFilters={() => {
               setFilters({ ...filters, issues: NO_ISSUE_FILTERS });
-              // The message (and this button) goes away: keep focus in reach, on the first filter.
-              document.querySelector<HTMLElement>('[aria-label="Statuses to show"] button')?.focus();
+              // The message (and this button) goes away: keep focus in reach, on the first filter
+              // (or the Display section's toggle while it's folded away).
+              focusFirst('[aria-label="Statuses to show"] button', '[data-section="display"] .sb-toggle');
             }}
           />
           <Toast toast={toast} onDismiss={dismissToast} />

@@ -1,5 +1,6 @@
 import type { ReactElement } from "react";
 import { orderText, SORT_INFO, type SortBy } from "../graph/sort";
+import { focusFirst } from "./focusFirst";
 import { Icon } from "./Icon";
 
 /** The Sort by select (in FilterPanel), where focus goes when the chip's ✕ removes the chip. */
@@ -25,7 +26,8 @@ export function SortChip({ sort, onClear }: { sort: SortBy; onClear: () => void 
           onClear();
           // The chip goes away with the sort: focus the Sort by select (or nothing, if Display is folded away).
           requestAnimationFrame(() => {
-            document.getElementById(SORT_SELECT_ID)?.focus();
+            // The select, or the Display section's toggle while the section is folded away.
+            focusFirst(`#${SORT_SELECT_ID}`, '[data-section="display"] .sb-toggle');
           });
         }}
       >

@@ -218,7 +218,8 @@ export function Timeline({
           violated: isViolated(getOrThrow(timeline, e.source), getOrThrow(timeline, e.target)),
           inCycle: graph.cycleEdgeIds.has(e.id),
           critical: criticalEdges.has(e.id),
-          dimmed: chain ? !chain.edges.has(e.id) : emphasized ? !criticalEdges.has(e.id) : false,
+          // As in the graph, a highlight never fades a cycle.
+          dimmed: chain ? !chain.edges.has(e.id) : emphasized ? !criticalEdges.has(e.id) && !graph.cycleEdgeIds.has(e.id) : false,
         },
       ];
     });

@@ -46,6 +46,11 @@ export function InsightTiles({
     },
   ];
   const active = tiles.find((t) => t.id === highlight);
+  /** "3", or "1 of 3" while filters leave only some of them on screen. */
+  const activeCount = (t: Tile): string => {
+    const shown = drawn && t.uids.filter((u) => drawn.has(u)).length;
+    return shown === undefined || shown === t.uids.length ? String(t.uids.length) : `${shown} of ${t.uids.length}`;
+  };
   return (
     <>
       <p className="sb-meta" aria-live="polite">
@@ -86,7 +91,7 @@ export function InsightTiles({
         })}
       </div>
       <p className="hint" aria-live="polite">
-        {active ? `Showing ${active.uids.length} ${active.hint}. Click again to clear.` : "Click a number to highlight those issues."}
+        {active ? `Showing ${activeCount(active)} ${active.hint}. Click again to clear.` : "Click a number to highlight those issues."}
       </p>
     </>
   );

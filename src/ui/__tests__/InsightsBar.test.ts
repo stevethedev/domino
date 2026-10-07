@@ -44,4 +44,9 @@ describe("InsightTiles", () => {
     expect(ready(tiles({}))).toContain('aria-disabled="true"');
     expect(ready(tiles({ highlight: "ready" }))).not.toContain('aria-disabled="true"');
   });
+
+  it("announces how many of the highlighted are on screen while filters hide some", () => {
+    expect(tiles({ highlight: "blocked", drawn: new Set(["a"]) })).toContain("Showing 1 of 3 ");
+    expect(tiles({ highlight: "blocked" })).toContain("Showing 3 ");
+  });
 });
