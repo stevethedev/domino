@@ -173,7 +173,8 @@ impl ConfigHandle {
     pub(crate) fn reload(&self) -> Result<DominoConfig, String> {
         // Held across the read and the swap, so a save from Settings can't land in between.
         let mut current = self.current.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        let loaded = self.file.load();
+        // Only an existing file: a reload must never seed the sample sites as if this were a first run.
+        let loaded = self.file.read_existing();
         let mut problem = self.problem.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         match &loaded {
             Ok(next) => {
@@ -252,20 +253,28 @@ impl ConfigFile {
         Self { path: dir.join("domino.config.json") }
     }
 
-    /// Loads the config, seeding it from the bundled mock config on first run.
-    pub(crate) fn load(&self) -> Result<DominoConfig, String> {
+    /// Reads an existing config file; a missing one is an error, never seeded (see `load`).
+    pub(crate) fn read_existing(&self) -> Result<DominoConfig, String> {
         match fs::read_to_string(&self.path) {
             Ok(text) => {
                 serde_json::from_str::<DominoConfig>(&text).map_err(|e| format!("{} is invalid: {e}", self.path.display()))?.validated()
             }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                let seed: DominoConfig = serde_json::from_str(SEED_CONFIG).map_err(|e| e.to_string())?;
-                let seed = seed.validated()?;
-                self.save(&seed)?;
-                Ok(seed)
+                Err(format!("{} was not found; saving in Settings creates it", self.path.display()))
             }
             Err(e) => Err(format!("Could not read {}: {e}", self.path.display())),
         }
+    }
+
+    /// Loads the config, seeding it from the bundled mock config on first run.
+    pub(crate) fn load(&self) -> Result<DominoConfig, String> {
+        if self.path.exists() {
+            return self.read_existing();
+        }
+        let seed: DominoConfig = serde_json::from_str(SEED_CONFIG).map_err(|e| e.to_string())?;
+        let seed = seed.validated()?;
+        self.save(&seed)?;
+        Ok(seed)
     }
 
     pub(crate) fn save(&self, config: &DominoConfig) -> Result<(), String> {
@@ -401,6 +410,19 @@ mod tests {
         fs::write(&path, SEED_CONFIG).unwrap();
         assert_eq!(h.reload().unwrap().sites.len(), 3);
         assert!(h.problem().is_none());
+    }
+
+    #[test]
+    fn reloading_after_deleting_a_broken_file_never_seeds_sample_sites() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("domino.config.json");
+        fs::write(&path, "broken").unwrap();
+        let h = ConfigHandle::load(ConfigFile::new(dir.path()));
+        fs::remove_file(&path).unwrap();
+        assert!(h.reload().unwrap_err().contains("not found"));
+        assert!(h.get().sites.is_empty(), "still the empty fallback, not the bundled sample sites");
+        assert!(h.problem().is_some());
+        assert!(!path.exists(), "reload doesn't write a seeded file either");
     }
 
     #[test]

@@ -160,8 +160,14 @@ export type ImportReport = Readonly<{ views: SavedView[]; added: string[]; repla
 export function mergeViews(current: readonly SavedView[], imported: readonly SavedView[]): ImportReport {
   const report = { views: [...current], added: [] as string[], replaced: [] as string[], skipped: [] as string[] };
   const accepted: SavedView[] = [];
-  // A name repeated within the file: the first one wins.
-  const unique = imported.filter((v, i) => imported.findIndex((w) => sameName(w.name, v.name)) === i);
+  // A name repeated within the file: the first one wins (one pass, so big files stay cheap).
+  const seen = new Set<string>();
+  const unique = imported.filter((v) => {
+    const key = v.name.trim().toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
   for (const v of unique) {
     if (current.some((c) => sameName(c.name, v.name))) report.replaced.push(v.name);
     else if (current.length + report.added.length < MAX_SAVED_VIEWS) report.added.push(v.name);

@@ -552,7 +552,7 @@ function Shell(): ReactElement {
           onReload={domino.reloadConfigFile}
           onReveal={() => {
             domino.store.revealFile().catch((e: unknown) => {
-              setToast({ text: `Couldn't show the file: ${errorMessage(e)}` });
+              setToast({ text: errorMessage(e) }); // already says it couldn't show the file
             });
           }}
           onOpenSettings={() => {
