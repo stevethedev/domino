@@ -67,7 +67,14 @@ export function SavedViewsMenu({
     });
   };
   return (
-    <details className="saved-views" ref={ref} onKeyDown={onKeyDown}>
+    <details
+      className="saved-views"
+      ref={ref}
+      onKeyDown={onKeyDown}
+      onToggle={(e) => {
+        if (!e.currentTarget.open) setConfirming(null); // a pending delete doesn't outlive the menu
+      }}
+    >
       <summary aria-label={`Saved views (${views.length})`}>
         <span className="field-label">Views</span> <Icon name="chevron-down" className="disclosure-caret" />
       </summary>

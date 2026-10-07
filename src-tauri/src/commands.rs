@@ -226,6 +226,9 @@ pub(crate) fn oauth_status(state: State<'_, AppState>) -> OAuthStatus {
     }
 }
 
+/// What a cancelled sign-in fails with (the UI shows it as a plain note, not an error).
+const SIGN_IN_CANCELLED: &str = "Sign-in cancelled";
+
 /// How long a sign-in waits for the browser before giving up (the UI says so, and can cancel sooner).
 const OAUTH_WAIT: Duration = Duration::from_secs(300);
 
@@ -239,17 +242,24 @@ pub(crate) fn oauth_cancel(state: State<'_, AppState>) {
 /// Returns the Atlassian sites the account can access.
 #[tauri::command]
 pub(crate) async fn oauth_connect(app: AppHandle, state: State<'_, AppState>) -> Result<Vec<String>, String> {
-    let st = oauth::random_state()?;
-    let url = state.oauth.authorize_url(&st)?;
-    let listener = oauth::bind_callback().await?;
-    app.opener().open_url(url, None::<&str>).map_err(|e| format!("Could not open the browser: {e}"))?;
+    // Listening for Cancel from the start, so a click while the browser opens isn't lost; it
+    // covers the whole exchange (a cloudId missed that way is discovered on first use).
     let cancelled = state.oauth_cancel.notified();
-    let code = tokio::select! {
-        code = oauth::wait_for_callback(listener, &st, OAUTH_WAIT) => code?,
-        () = cancelled => return Err("Sign-in cancelled".to_owned()),
+    tokio::pin!(cancelled);
+    cancelled.as_mut().enable();
+    let sign_in = async {
+        let st = oauth::random_state()?;
+        let url = state.oauth.authorize_url(&st)?;
+        let listener = oauth::bind_callback().await?;
+        app.opener().open_url(url, None::<&str>).map_err(|e| format!("Could not open the browser: {e}"))?;
+        let code = oauth::wait_for_callback(listener, &st, OAUTH_WAIT).await?;
+        state.oauth.exchange_code(&code).await?;
+        state.oauth.accessible_resources().await
     };
-    state.oauth.exchange_code(&code).await?;
-    let resources = state.oauth.accessible_resources().await?;
+    let resources = tokio::select! {
+        resources = sign_in => resources?,
+        () = cancelled => return Err(SIGN_IN_CANCELLED.to_owned()),
+    };
     forget_oauth_sites(&state);
     for site in state.config.get().sites.iter().filter(|s| matches!(s.auth, SiteAuth::OAuth3lo)) {
         if let Some(id) = oauth::cloud_id_for(&site.base_url, &resources) {

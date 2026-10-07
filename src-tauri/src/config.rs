@@ -171,11 +171,21 @@ impl ConfigHandle {
 
     /// Reads the file again (after a hand fix): swaps it in, or says why it still can't be used.
     pub(crate) fn reload(&self) -> Result<DominoConfig, String> {
+        // Held across the read and the swap, so a save from Settings can't land in between.
+        let mut current = self.current.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         let loaded = self.file.load();
-        if let Ok(next) = &loaded {
-            next.clone_into(&mut self.current.lock().unwrap_or_else(std::sync::PoisonError::into_inner));
+        let mut problem = self.problem.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        match &loaded {
+            Ok(next) => {
+                next.clone_into(&mut current);
+                *problem = None;
+            }
+            // Only while on the empty fallback: a good config that's still in use has no startup problem.
+            Err(e) if problem.is_some() => *problem = Some(e.clone()),
+            Err(_) => {}
         }
-        *self.problem.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = loaded.as_ref().err().cloned();
+        drop(problem);
+        drop(current);
         loaded
     }
 
@@ -391,6 +401,16 @@ mod tests {
         fs::write(&path, SEED_CONFIG).unwrap();
         assert_eq!(h.reload().unwrap().sites.len(), 3);
         assert!(h.problem().is_none());
+    }
+
+    #[test]
+    fn a_failed_reload_keeps_a_good_config_and_reports_no_startup_problem() {
+        let dir = tempfile::tempdir().unwrap();
+        let h = ConfigHandle::load(ConfigFile::new(dir.path())); // seeds a good file
+        fs::write(dir.path().join("domino.config.json"), "broken").unwrap();
+        assert!(h.reload().unwrap_err().contains("is invalid"));
+        assert_eq!(h.get().sites.len(), 3, "the good config stays in use");
+        assert!(h.problem().is_none(), "the app isn't running on the empty fallback");
     }
 
     #[test]

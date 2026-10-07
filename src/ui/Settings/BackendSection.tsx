@@ -59,7 +59,13 @@ export function BackendSection({ domino, config }: { domino: Domino; config: Dom
 
   const connect = (): void => {
     void run("connect", async () => {
-      const sites = await store.oauthConnect();
+      let sites: string[];
+      try {
+        sites = await store.oauthConnect();
+      } catch (e) {
+        if (errorMessage(e) === "Sign-in cancelled") return "Sign-in cancelled."; // asked for, not a failure
+        throw e;
+      }
       await domino.refreshConfig(); // pick up discovered cloudIds
       return `Connected. Your account can access ${sites.length} site${sites.length === 1 ? "" : "s"}: ${sites.join(", ") || "none"}.`;
     });

@@ -15,15 +15,30 @@ const SHOW_MS = 10_000;
  * countdown pauses while the pointer or keyboard focus is on it, so an Undo can't vanish in hand.
  */
 export function Toast({ toast, onDismiss }: { toast: ToastMessage | null; onDismiss: () => void }): ReactElement | null {
+  // Each notice gets a fresh card, so one dismissed while hovered can't leave the next paused.
+  return toast && <ToastCard key={idOf(toast)} toast={toast} onDismiss={onDismiss} />;
+}
+
+const ids = new WeakMap<ToastMessage, number>();
+let lastId = 0;
+const idOf = (t: ToastMessage): number => {
+  const known = ids.get(t);
+  if (known !== undefined) return known;
+  lastId += 1;
+  ids.set(t, lastId);
+  return lastId;
+};
+
+function ToastCard({ toast, onDismiss }: { toast: ToastMessage; onDismiss: () => void }): ReactElement {
   const [paused, setPaused] = useState(false);
+  const { action } = toast;
   useEffect(() => {
-    if (!toast || paused) return;
+    if (paused) return;
     const timer = setTimeout(onDismiss, SHOW_MS);
     return (): void => {
       clearTimeout(timer);
     };
   }, [toast, paused, onDismiss]);
-  if (!toast) return null;
   return (
     <div
       className="toast"
@@ -42,16 +57,16 @@ export function Toast({ toast, onDismiss }: { toast: ToastMessage | null; onDism
       }}
     >
       <span>{toast.text}</span>
-      {toast.action && (
+      {action && (
         <button
           type="button"
           className="link-btn"
           onClick={() => {
-            toast.action?.run();
+            action.run();
             onDismiss();
           }}
         >
-          {toast.action.label}
+          {action.label}
         </button>
       )}
       <button type="button" className="icon-btn" aria-label="Dismiss" title="Dismiss" onClick={onDismiss}>

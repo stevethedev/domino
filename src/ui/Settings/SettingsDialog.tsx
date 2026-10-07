@@ -128,11 +128,15 @@ export function SettingsDialog({
       ref={ref}
       className="settings"
       aria-labelledby="settings-title"
-      // Esc on the dialog: ask first if it would lose an edited site.
-      onCancel={(e) => {
-        if (!formDirty) return;
+      // Esc on the dialog: ask first if it would lose an edited site. Handled at the key, since
+      // browsers let a repeated Esc close a dialog even when its cancel event is prevented.
+      onKeyDown={(e) => {
+        if (e.key !== "Escape" || !formDirty) return;
         e.preventDefault();
         closeDialog();
+      }}
+      onCancel={(e) => {
+        if (formDirty) e.preventDefault();
       }}
       onClose={() => {
         setEditing(null);
@@ -239,6 +243,7 @@ export function SettingsDialog({
                 void domino.testConnection(s.id);
               }}
               onEdit={() => {
+                if (editing?.kind === "edit" && editing.id === s.id) return; // already open
                 guard(() => {
                   setEditing({ kind: "edit", id: s.id });
                 });
