@@ -113,7 +113,8 @@ export const TimelineArrows = memo(function TimelineArrows({
           <path
             key={edge.id}
             d={d}
-            className={`tl-arrow ${kind}${dimmed ? " dimmed" : ""}${edge.crossSite ? " cross-site" : ""}${stub ? " stub" : ""}`}
+            // "early-start" (started before its blocker finished) is dotted, apart from a cycle's solid red.
+            className={`tl-arrow ${kind}${violated && !inCycle ? " early-start" : ""}${dimmed ? " dimmed" : ""}${edge.crossSite ? " cross-site" : ""}${stub ? " stub" : ""}`}
             markerEnd={`url(#tl-arrow-${kind})`}
           />
         );

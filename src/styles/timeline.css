@@ -201,6 +201,10 @@
 .tl-arrow.cross-site {
   stroke-dasharray: 5 3;
 }
+.tl-arrow.early-start {
+  stroke-dasharray: 1.5 3;
+  stroke-linecap: round;
+}
 .tl-arrow.dimmed {
   opacity: 0.15;
 }
@@ -362,6 +366,62 @@
 .tl-key.tl-forecast {
   border: 2px dotted var(--inprogress);
   border-radius: var(--radius-xs);
+}
+/* The toolbar's keys show both colours each bar comes in: done or in progress, started or not. */
+.tl-legend .tl-key.tl-actual {
+  background: linear-gradient(to right, var(--done) 50%, var(--inprogress) 50%);
+}
+.tl-legend .tl-key.tl-forecast {
+  border-color: var(--inprogress) var(--todo) var(--todo) var(--inprogress);
+}
+/* The full key in the sidebar (TimelineLegend). */
+.tl-legend-full .tl-key {
+  flex: none;
+  width: 22px;
+  height: 10px;
+}
+.tl-legend-full .tl-key.key-epic {
+  height: 6px;
+}
+.tl-key.key-done {
+  background: var(--done);
+}
+.tl-key.key-inprogress {
+  background: var(--inprogress);
+}
+.tl-key.tl-forecast.key-todo {
+  border-color: var(--todo);
+}
+.tl-key.key-epic {
+  background: color-mix(in srgb, var(--epic) 70%, var(--surface));
+}
+.key-glyph {
+  width: 22px;
+  text-align: center;
+  color: var(--text);
+}
+.key-glyph.past {
+  color: var(--cycle);
+}
+.key-release {
+  width: 12px;
+  height: 14px;
+  border-left: 2px dashed var(--release);
+  margin-left: 10px;
+  flex: none;
+}
+.key-weekend {
+  width: 22px;
+  height: 14px;
+  background: color-mix(in srgb, var(--muted) 14%, transparent);
+  flex: none;
+}
+.legend-early-start {
+  border-top: 2px dotted var(--cycle);
+}
+.legend-stub {
+  width: 12px;
+  margin-right: 14px;
 }
 .tl-due {
   position: absolute;

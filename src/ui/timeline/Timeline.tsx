@@ -306,9 +306,9 @@ export function Timeline({
           />
           <span className="muted small">days</span>
         </label>
-        <ul className="tl-legend" aria-label="Legend">
+        <ul className="tl-legend" aria-label="Legend (the sidebar's Legend has every mark)">
           <li>
-            <span className="tl-key tl-projected" aria-hidden="true" /> Projected
+            <span className="tl-key tl-projected" aria-hidden="true" /> Estimate
           </li>
           <li>
             <span className="tl-key tl-actual" aria-hidden="true" /> Actual

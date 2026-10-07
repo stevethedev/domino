@@ -50,6 +50,7 @@ import { ConfigProblemBanner } from "./ui/ConfigProblemBanner";
 import { noSitesShown } from "./ui/canvasMessage";
 import { Toast, type ToastMessage } from "./ui/Toast";
 import { focusFirst } from "./ui/focusFirst";
+import { TimelineLegend } from "./ui/timeline/TimelineLegend";
 import { Glance } from "./ui/Glance";
 import { SidebarSection } from "./ui/SidebarSection";
 import { QuickFind } from "./ui/QuickFind";
@@ -718,7 +719,7 @@ function Shell(): ReactElement {
             />
           </SidebarSection>
           <SidebarSection id="legend" title="Legend" defaultOpen={false}>
-            <Legend />
+            {viewMode === "timeline" ? <TimelineLegend /> : <Legend />}
           </SidebarSection>
         </aside>
         <section
