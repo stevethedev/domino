@@ -400,6 +400,14 @@
   border: 1.5px dashed color-mix(in srgb, var(--epic) 60%, transparent);
   background: color-mix(in srgb, var(--epic) 6%, transparent);
 }
+/* A folded lane's issues, as one bar on its header (TimelineLane). */
+.tl-lane-span {
+  position: absolute;
+  top: calc(50% - 4px);
+  height: 8px;
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--muted) 45%, var(--surface));
+}
 .tl-epic-work {
   top: 16px;
   height: 8px;

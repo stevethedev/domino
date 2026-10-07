@@ -68,6 +68,12 @@ describe("layoutRows with collapsed lanes", () => {
     expect(height).toBe(2 * LANE_HEIGHT + ROW_HEIGHT);
   });
 
+  it("gives each lane the span of its issues' work, for a folded lane's summary bar (ghosts have no dates)", () => {
+    const { items } = layoutRows(nodes, timeline, laneOf, new Set(["lane:a"]));
+    const header = items[0];
+    expect(header.kind === "lane" && header.span).toEqual({ start: "2026-10-05", end: "2026-10-20" });
+  });
+
   it("still returns every row, so date ranges and counts don't change when a lane folds", () => {
     const open = layoutRows(nodes, timeline, laneOf);
     const folded = layoutRows(nodes, timeline, laneOf, new Set(["lane:a", "lane:b"]));

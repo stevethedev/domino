@@ -25,7 +25,9 @@ import {
   isEpicNode,
   isLate,
   LABEL_WIDTH,
+  LANE_HEIGHT,
   layoutRows,
+  ROW_HEIGHT,
   rowsMoved,
   type TimelineRowModel,
   PX_PER_DAY,
@@ -112,8 +114,6 @@ export function Timeline({
     () => layoutRows(nodes, placed, lanesFor(view.groupBy, insights), collapsedLanes, order ?? undefined),
     [nodes, placed, view.groupBy, insights, collapsedLanes, order],
   );
-  // Rows on screen; folded rows (in collapsed lanes) stay mounted only so folding can animate.
-  const rows = items.filter((i): i is TimelineRowModel => i.kind === "row" && !i.folded);
   const lanes = items.filter((i) => i.kind === "lane");
   // Rows slide whenever they move (lane folds, sort changes, refreshed data), but arrows jump to
   // their final positions: hide the arrows until the rows land. A layout effect, so arrows never
@@ -199,8 +199,11 @@ export function Timeline({
   );
   const criticalEdges = view.highlight === "critical" ? (emphasized?.edges ?? new Set<string>()) : new Set<string>();
 
-  const rowY = new Map(rows.map((r) => [r.node.uid, r.y]));
-  const rowByUid = new Map(rows.map((r) => [r.node.uid, r]));
+  // A folded issue's arrows attach to its lane's header line (folded rows sit at the lane's y), so
+  // links into and out of a folded lane stay drawn. Arrows within one folded lane are dropped.
+  const anchored = items.filter((i): i is TimelineRowModel => i.kind === "row");
+  const rowY = new Map(anchored.map((r) => [r.node.uid, r.folded ? r.y + (LANE_HEIGHT - ROW_HEIGHT) / 2 : r.y]));
+  const rowByUid = new Map(anchored.map((r) => [r.node.uid, r]));
   const drawn = (r: TimelineRowModel): ReturnType<typeof drawnBar> =>
     drawnBar(r.node, getOrThrow(timeline, r.node.uid), epics.get(r.node.uid));
   const arrows: ArrowModel[] = edges
@@ -208,6 +211,7 @@ export function Timeline({
     .flatMap((e) => {
       const [source, target] = [rowByUid.get(e.source), rowByUid.get(e.target)];
       if (!source || !target) return [];
+      if (source.folded && target.folded && source.y === target.y) return []; // both inside one folded lane
       const [from, to] = [drawn(source), drawn(target)];
       if (from.positionless && to.positionless) return []; // nothing real to connect
       const ghostEnd = from.positionless ? "blocker" : to.positionless ? "blocked" : null;
@@ -371,6 +375,8 @@ export function Timeline({
                         toggleLane(item.lane.id);
                       }}
                       onOpen={onOpen}
+                      rangeStart={range.start}
+                      scale={settings.scale}
                     />
                   ) : (
                     <TimelineRow

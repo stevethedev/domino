@@ -25,6 +25,8 @@ export type TimelineLaneModel = {
   collapsed: boolean;
   /** Issues in the lane forecast to finish late (epic rows summarize others, so they don't count). */
   late: number;
+  /** The envelope of its issues' work (not ghosts or epic rows): a folded lane draws it as one bar. */
+  span: Span | null;
 };
 export type TimelineItem = TimelineRowModel | TimelineLaneModel;
 /** A row before placement: every row, including those inside collapsed lanes. */
@@ -92,7 +94,15 @@ export function layoutRows(
   for (const { lane, rows } of ordered) {
     const isCollapsed = !!laneOf && collapsed.has(lane.id);
     if (laneOf) {
-      items.push({ kind: "lane", lane, y, count: rows.length, collapsed: isCollapsed, late: rows.filter(isLate).length });
+      items.push({
+        kind: "lane",
+        lane,
+        y,
+        count: rows.length,
+        collapsed: isCollapsed,
+        late: rows.filter(isLate).length,
+        span: laneSpan(rows),
+      });
       y += LANE_HEIGHT;
     }
     for (const { node, entry } of rows) {
@@ -178,6 +188,12 @@ export const localToday = (): Day => new Date().toLocaleDateString("en-CA");
 export type EpicSummary = { projected: Span; work: Span; children: number };
 
 /** The solid/dotted bar a row draws: actual for done, actual start to forecast end when started, else the forecast. */
+/** The envelope of the rows' work, leaving out ghosts (no dates) and epic rows (they summarize others). */
+function laneSpan(rows: readonly TimelineRowData[]): Span | null {
+  const spans = rows.filter((r) => !r.node.ghost && !isEpicNode(r.node)).map((r) => workSpan(r.entry));
+  return spans.length === 0 ? null : { start: minDay(...spans.map((s) => s.start)), end: maxDay(...spans.map((s) => s.end)) };
+}
+
 export const workSpan = (e: TimelineEntry): Span => {
   const p = e.progress;
   if (p.state === "done") return p.actual;

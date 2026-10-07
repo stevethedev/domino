@@ -1,5 +1,7 @@
 import type { ReactElement } from "react";
-import { LANE_HEIGHT, type TimelineLaneModel } from "./timelineLayout";
+import { addDays, type Day } from "../../graph/schedule";
+import { fmtDay } from "../format";
+import { LABEL_WIDTH, LANE_HEIGHT, xOf, type Scale, type TimelineLaneModel } from "./timelineLayout";
 import { Icon } from "../Icon";
 
 /** A swimlane header: a disclosure toggle for the lane's rows, its title (epic lanes link to Jira) and counts. */
@@ -7,12 +9,17 @@ export function TimelineLane({
   item,
   onToggle,
   onOpen,
+  rangeStart,
+  scale,
 }: {
   item: TimelineLaneModel;
   onToggle: () => void;
   onOpen: (url: string) => void;
+  /** The chart's first day and scale, for a folded lane's summary bar (none before there's a range). */
+  rangeStart: Day | null;
+  scale: Scale;
 }): ReactElement {
-  const { lane, count, collapsed, late } = item;
+  const { lane, count, collapsed, late, span } = item;
   const url = lane.url;
   const counts = `${count} ${count === 1 ? "issue" : "issues"}${late ? `, ${late} over estimate` : ""}`;
   return (
@@ -46,6 +53,18 @@ export function TimelineLane({
           {late > 0 && <span className="tl-lane-late"> · {late} over estimate</span>}
         </span>
       </div>
+      {/* Folded: its issues' work as one bar, so the lane still says when it happens. */}
+      {collapsed && span && rangeStart && (
+        <span
+          className="tl-lane-span"
+          style={{
+            left: LABEL_WIDTH + xOf(rangeStart, span.start, scale),
+            width: Math.max(4, xOf(span.start, span.end, scale)),
+          }}
+          title={`${lane.label}: ${fmtDay(span.start)} – ${fmtDay(addDays(span.end, -1))}`}
+          aria-hidden="true"
+        />
+      )}
     </div>
   );
 }
