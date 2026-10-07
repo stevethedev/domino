@@ -568,7 +568,6 @@ function Shell(): ReactElement {
           lagging={domino.background.lagging.filter((l) => domino.selected.includes(l.siteId))}
           sites={config.sites}
           attempted={domino.selectedSites.length}
-          now={Date.now()}
           onRetry={domino.reload}
           onOpenSettings={() => {
             setSettingsOpen(true);

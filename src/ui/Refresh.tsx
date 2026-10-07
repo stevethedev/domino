@@ -6,7 +6,7 @@ import type { BackgroundRefresh } from "../state/useDomino";
 import { SpinnerIcon } from "./LoadStatus";
 
 /** Re-renders every `ms` so relative times stay current. */
-function useNow(ms: number): number {
+export function useNow(ms: number): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const id = setInterval(() => {

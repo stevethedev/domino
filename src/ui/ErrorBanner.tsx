@@ -2,6 +2,7 @@ import { useState, type ReactElement } from "react";
 import type { SiteConfig } from "../config/types";
 import type { SiteError } from "../data/MultiSiteLoader";
 import { ageText, type LaggingSite } from "../state/refresh";
+import { useNow } from "./Refresh";
 
 /** A site's error, naming the site once: Jira errors already start with it ("Acme returned 401 …"). */
 export function siteErrorText(label: string, message: string): string {
@@ -35,7 +36,6 @@ export function ErrorBanner({
   lagging,
   sites,
   attempted,
-  now,
   onRetry,
   onOpenSettings,
 }: {
@@ -43,13 +43,14 @@ export function ErrorBanner({
   lagging: readonly LaggingSite[];
   sites: readonly SiteConfig[];
   attempted: number;
-  now: number;
   onRetry: () => void;
   onOpenSettings: () => void;
 }): ReactElement | null {
   const empty = errors.length === 0 && lagging.length === 0;
   const key = JSON.stringify([errors, lagging.map((l) => [l.siteId, l.message])]);
   const [dismissed, setDismissed] = useState<string | null>(null);
+  // Ticks, so "showing its tickets from 2m ago" keeps up without waiting for something else to render.
+  const now = useNow(30_000);
   // Once the errors clear, forget the dismissal, so the same error coming back shows again.
   if (empty && dismissed !== null) setDismissed(null);
   if (empty || dismissed === key) return null;
