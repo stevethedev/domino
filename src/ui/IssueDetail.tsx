@@ -136,8 +136,11 @@ function Description({
           ref={bodyRef}
           id="detail-description-body"
           // Tabbing to a link below the cut would focus something out of sight: open it up first.
-          onFocus={() => {
-            if (!expanded && overflows) setExpanded(true);
+          // Only then: a visible link (or a click on one) leaves the layout alone.
+          onFocus={(e) => {
+            if (expanded || !overflows) return;
+            const below = e.target.getBoundingClientRect().bottom > e.currentTarget.getBoundingClientRect().bottom;
+            if (below) setExpanded(true);
           }}
           className={`detail-description${expanded ? " expanded" : overflows ? " clipped" : ""}`}
         >
