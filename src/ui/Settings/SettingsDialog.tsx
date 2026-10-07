@@ -41,7 +41,19 @@ export function SettingsDialog({
   const [editing, setEditing] = useState<Editing>(null);
   const [error, setError] = useState<string | null>(null);
   const [justSaved, setJustSaved] = useState<string | null>(null);
+  /** The site form holds edits that closing it would lose. */
+  const [formDirty, setFormDirty] = useState(false);
+  /** What to do once the user agrees to discard those edits (closing the form or the dialog). */
+  const [pendingDiscard, setPendingDiscard] = useState<(() => void) | null>(null);
   const config = domino.config;
+  /** Runs `then` now, or after a confirm when it would throw away an edited site form. */
+  const guard = (then: () => void): void => {
+    if (formDirty) setPendingDiscard(() => then);
+    else then();
+  };
+  const closeDialog = (): void => {
+    guard(onClose);
+  };
 
   useEffect(() => {
     const d = ref.current;
@@ -102,6 +114,12 @@ export function SettingsDialog({
       onCancel={() => {
         setEditing(null);
       }}
+      onDismiss={() => {
+        guard(() => {
+          setEditing(null);
+        });
+      }}
+      onDirty={setFormDirty}
     />
   );
 
@@ -110,18 +128,54 @@ export function SettingsDialog({
       ref={ref}
       className="settings"
       aria-labelledby="settings-title"
+      // Esc on the dialog: ask first if it would lose an edited site.
+      onCancel={(e) => {
+        if (!formDirty) return;
+        e.preventDefault();
+        closeDialog();
+      }}
       onClose={() => {
         setEditing(null);
         setError(null); // an old failure shouldn't greet the next visit
+        setPendingDiscard(null);
         onClose();
       }}
     >
       <header>
         <h2 id="settings-title">Settings</h2>
-        <button type="button" className="icon-btn" onClick={onClose} aria-label="Close settings">
+        <button type="button" className="icon-btn" onClick={closeDialog} aria-label="Close settings">
           <Icon name="close" />
         </button>
       </header>
+      {pendingDiscard && (
+        <div className="banner warn actionable" role="alertdialog" aria-label="Unsaved site changes">
+          <div className="banner-text">Discard your changes to this site?</div>
+          <div className="banner-actions">
+            <button
+              type="button"
+              className="danger"
+              onClick={() => {
+                const then = pendingDiscard;
+                setPendingDiscard(null);
+                setEditing(null);
+                then();
+              }}
+            >
+              Discard
+            </button>
+            <button
+              type="button"
+              // The safe choice gets focus, so Enter keeps the edits.
+              autoFocus
+              onClick={() => {
+                setPendingDiscard(null);
+              }}
+            >
+              Keep editing
+            </button>
+          </div>
+        </div>
+      )}
       {error && (
         <p className="banner error" role="alert">
           {error}
@@ -148,7 +202,9 @@ export function SettingsDialog({
             type="button"
             className="primary"
             onClick={() => {
-              setEditing({ kind: "new" });
+              guard(() => {
+                setEditing({ kind: "new" });
+              });
             }}
           >
             + Add site
@@ -183,7 +239,9 @@ export function SettingsDialog({
                 void domino.testConnection(s.id);
               }}
               onEdit={() => {
-                setEditing({ kind: "edit", id: s.id });
+                guard(() => {
+                  setEditing({ kind: "edit", id: s.id });
+                });
               }}
               onRemove={() => {
                 persist(config.sites.filter((x) => x.id !== s.id)).catch(() => {});

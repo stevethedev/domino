@@ -231,6 +231,10 @@
   background: var(--error-bg);
   color: var(--error-fg);
 }
+.banner.warn {
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+}
 /* A banner with buttons: the text, then its actions, side by side when there's room. */
 .banner.actionable {
   display: flex;

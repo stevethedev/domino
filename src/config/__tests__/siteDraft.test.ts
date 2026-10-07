@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyUrl, parseJiraUrl, uniqueId } from "../siteDraft";
+import { applyUrl, draftChanged, parseJiraUrl, uniqueId } from "../siteDraft";
 import type { SiteConfig } from "../types";
 
 describe("parseJiraUrl", () => {
@@ -53,5 +53,28 @@ describe("applyUrl", () => {
     const edited = { ...first.draft, label: "Beta Corp" };
     const { draft } = applyUrl(edited, "gamma.atlassian.net", [], first.auto);
     expect(draft).toMatchObject({ id: "gamma", label: "Beta Corp", auth: { secretRef: "DOMINO_GAMMA_TOKEN" } });
+  });
+});
+
+describe("draftChanged", () => {
+  const initial: SiteConfig = {
+    id: "acme",
+    label: "Acme",
+    baseUrl: "https://acme.atlassian.net",
+    auth: { type: "oauth3lo" },
+    color: "#7c3aed",
+    enabled: true,
+  };
+  const base = { initial, draft: initial, initialDefault: true, isDefault: true, token: "" };
+
+  it("is false until something is edited", () => {
+    expect(draftChanged(base)).toBe(false);
+    expect(draftChanged({ ...base, draft: { ...initial } })).toBe(false);
+  });
+
+  it("notices fields, the default switch and a pasted token", () => {
+    expect(draftChanged({ ...base, draft: { ...initial, label: "Acme Co" } })).toBe(true);
+    expect(draftChanged({ ...base, isDefault: false })).toBe(true);
+    expect(draftChanged({ ...base, token: "secret" })).toBe(true);
   });
 });

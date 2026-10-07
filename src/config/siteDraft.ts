@@ -67,3 +67,22 @@ export function applyUrl(
   }
   return { draft: next, auto };
 }
+
+/** Keys sorted, so two configs with the same fields in another order compare equal. */
+const canonical = (v: unknown): string =>
+  JSON.stringify(v, (_key, value: unknown) =>
+    value && typeof value === "object" && !Array.isArray(value)
+      ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)))
+      : value,
+  );
+
+/** Whether the site form holds anything that closing it would lose. */
+export function draftChanged(f: {
+  initial: SiteConfig;
+  draft: SiteConfig;
+  initialDefault: boolean;
+  isDefault: boolean;
+  token: string;
+}): boolean {
+  return f.token !== "" || f.isDefault !== f.initialDefault || canonical(f.draft) !== canonical(f.initial);
+}
