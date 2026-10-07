@@ -87,14 +87,14 @@ While a load runs, the last tickets for that scope stay on screen (from this ses
 
 **Keys.** I wanted to be able to walk a chain from the keyboard the same way I'd trace it with my finger on a diagram.
 
-| Key                                      | Does                                                    |
-| ---------------------------------------- | ------------------------------------------------------- |
-| `/` or &#8984;K                          | Find a ticket                                           |
-| `g` / `t`                                | Graph / Timeline                                        |
-| Tab, Enter, Esc                          | Move between tickets, open details, close them          |
-| &larr; / &rarr;                          | Follow blocking links back / forward                    |
-| &uarr; / &darr;                          | Other tickets at that step, then the next in the column |
-| &#8984;/Ctrl+Enter or &#8984;/Ctrl+click | Open in Jira                                            |
+| Key                                      | Does                                                           |
+| ---------------------------------------- | -------------------------------------------------------------- |
+| `/` or &#8984;K                          | Find a ticket                                                  |
+| `g` / `t`                                | Graph / Timeline                                               |
+| Tab, Enter, Esc                          | Into the view, open details, close them (or clear a highlight) |
+| &larr; / &rarr;                          | Follow blocking links back / forward                           |
+| &uarr; / &darr;                          | Other tickets at that step, then the next in the column        |
+| &#8984;/Ctrl+Enter or &#8984;/Ctrl+click | Open in Jira                                                   |
 
 The cards &larr; and &rarr; would go to are outlined first.
 
