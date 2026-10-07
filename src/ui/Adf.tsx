@@ -106,9 +106,9 @@ function children(n: AdfNode, ctx: Ctx, depth: number): ReactNode {
 
 /** A date node's calendar day. Jira stores it as UTC midnight, so it's read in UTC, not local time. */
 function dateText(attrs: AdfNode["attrs"]): string {
-  const ms = Number(str(attrs, "timestamp"));
-  if (!(ms > 0)) return ""; // missing, empty, zero or not a number
-  const date = new Date(ms);
+  const raw = str(attrs, "timestamp").trim();
+  if (raw === "" || Number(raw) === 0) return ""; // missing, or the unset zero
+  const date = new Date(Number(raw));
   return Number.isNaN(date.getTime()) ? "" : fmtDay(date.toISOString().slice(0, 10), true); // NaN when out of range
 }
 

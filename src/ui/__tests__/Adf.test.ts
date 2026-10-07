@@ -112,6 +112,10 @@ describe("AdfDocument", () => {
     }
   });
 
+  it("shows dates before 1970", () => {
+    expect(html(doc(p({ type: "date", attrs: { timestamp: "-86400000" } })))).toContain("Dec 31, 1969");
+  });
+
   it("ignores out-of-range dates instead of throwing", () => {
     for (const timestamp of ["1e16", "-1e16", "NaN", "soon"]) {
       expect(() => html(doc(p({ type: "date", attrs: { timestamp } })))).not.toThrow();
