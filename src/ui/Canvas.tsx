@@ -137,21 +137,25 @@ export function Canvas({
 }): ReactElement {
   const rf = useReactFlow();
   const [hovered, setHovered] = useState<string | null>(null);
-  const [lastFocused, setLastFocused] = useState<string | null>(null);
+  // Per scope, so a uid that comes back in another scope doesn't inherit the stop.
+  const [focusedIn, setFocusedIn] = useState<{ scopeKey: string | null; uid: string } | null>(null);
+  const lastFocused = focusedIn?.scopeKey === scopeKey ? focusedIn.uid : null;
   const focusNode = useFocusNode();
   const onFocusCard = useCallback(
     (uid: string): void => {
-      setLastFocused(uid);
+      setFocusedIn({ scopeKey, uid });
       // Tabbed to: keep the zoom and pan only when the card is off screen. (Focus moved by
       // `useFocusNode` comes with its own pan.)
       if (!focusingFromCode) focusNode(uid, false, true);
     },
-    [focusNode],
+    [focusNode, scopeKey],
   );
   // Cards stay where the last finished layout put them until the next one is ready, so new data
   // never blanks the canvas while the layout worker runs.
   const [drawn, setDrawn] = useState<Drawn | null>(null);
   const fittedKey = useRef<string | null>(null);
+  /** The last layout drew nothing (filters hid every card): the next one with cards is fitted. */
+  const wasEmpty = useRef(false);
   // Cards slide to their new places when the sort changes (not on other re-layouts); the global
   // reduced-motion rule makes it instant. Each re-sort restarts the timer, so a quick second
   // change still slides for the full time.
@@ -204,14 +208,16 @@ export function Canvas({
           setResorting(true);
           setResorts((n) => n + 1);
         }
-        // Fit once per scope and grouping (see fitKeyOf), when there's something to fit. Never
-        // zoom past 100%: small graphs stay card-sized.
-        if (l.positions.size > 0 && fitKey.current !== fittedKey.current) {
+        // Fit once per scope and grouping (see fitKeyOf), when there's something to fit, and again
+        // when cards come back after filters hid them all. Never zoom past 100%: small graphs stay card-sized.
+        const nothingDrawn = l.positions.size === 0;
+        if (l.positions.size > 0 && (fitKey.current !== fittedKey.current || wasEmpty.current)) {
           fittedKey.current = fitKey.current;
           requestAnimationFrame(() => {
             void rf.fitView({ padding: 0.2, maxZoom: 1, duration: prefersReducedMotion() ? 0 : 250 });
           });
         }
+        wasEmpty.current = nothingDrawn;
       },
       // A failed layout keeps the previous one on screen; there is no layout error UI, so log it.
       (e: unknown) => {
@@ -267,8 +273,8 @@ export function Canvas({
       draggable: false,
       zIndex: -1,
     }));
-    // One Tab stop for the whole graph (roving tabindex): the open issue, else the card last
-    // focused, else the first card in reading order (leftmost column, top). Arrow keys move on.
+    // One Tab stop for the whole graph (roving tabindex): the card last focused, else the open
+    // issue, else the first card in reading order (leftmost column, top). Arrow keys move on.
     const groupAt = new Map(layout.groups.map((g) => [g.id, g]));
     const at = (uid: string): { x: number; y: number } | undefined => {
       const p = layout.positions.get(uid);
@@ -281,7 +287,7 @@ export function Canvas({
         return p ? [{ uid: n.uid, ...p }] : [];
       })
       .reduce<{ uid: string; x: number; y: number } | null>((a, b) => (!a || b.x < a.x || (b.x === a.x && b.y < a.y) ? b : a), null);
-    const tabStop = [selectedUid, lastFocused].find((u) => u && layout.positions.has(u)) ?? firstCard?.uid;
+    const tabStop = [lastFocused, selectedUid].find((u) => u && layout.positions.has(u)) ?? firstCard?.uid;
     // Each card shows its latest data; cards the next layout drops stay until it's ready.
     const cards: IssueFlowNode[] = drawn.nodes.flatMap((laidOut) => {
       const n = visibleByUid.get(laidOut.uid) ?? laidOut;
@@ -483,8 +489,17 @@ export function useFocusNode(): (uid: string, moveFocus?: boolean, keepZoom?: bo
       const height = n.measured.height ?? CARD_HEIGHT;
       const card = document.querySelector<HTMLElement>(`[data-uid="${CSS.escape(uid)}"]`)?.getBoundingClientRect();
       const pane = document.querySelector(".canvas .react-flow")?.getBoundingClientRect();
+      // The details drawer covers the pane's right edge: a card under it isn't on screen.
+      const drawer = document.querySelector(".issue-detail")?.getBoundingClientRect();
+      const right = pane && drawer ? Math.min(pane.right, drawer.left) : pane?.right;
       const onScreen =
-        card && pane && card.left >= pane.left && card.right <= pane.right && card.top >= pane.top && card.bottom <= pane.bottom;
+        card &&
+        pane &&
+        right !== undefined &&
+        card.left >= pane.left &&
+        card.right <= right &&
+        card.top >= pane.top &&
+        card.bottom <= pane.bottom;
       if (!keepZoom) void rf.setCenter(x + width / 2, y + height / 2, { zoom: 1.1, duration: 300 });
       else if (!onScreen) void rf.setCenter(x + width / 2, y + height / 2, { zoom: rf.getZoom(), duration: 200 });
       if (moveFocus) {

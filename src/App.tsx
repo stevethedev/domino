@@ -406,7 +406,7 @@ function Shell(): ReactElement {
           misses: releases.some((s) => s.release.uid === release.uid && s.atRisk.includes(selectedNode.uid)),
         })),
         forecastDone: selectedEntry && lastDayOf(selectedEntry),
-        hiddenByFilters: !drawnUids.has(selectedNode.uid),
+        hiddenBy: drawnUids.has(selectedNode.uid) ? undefined : revealableUids.has(selectedNode.uid) ? "issue filters" : "link filters",
       }
     : null;
   /** Closing returns focus to the card or row the panel was showing, so keyboard users aren't lost. */
@@ -712,6 +712,8 @@ function Shell(): ReactElement {
           // panel handles its own Esc.)
           onKeyDown={(e) => {
             if (e.key !== "Escape" || e.defaultPrevented) return;
+            // Only from a card or row: Esc in a toolbar field or menu is that control's own business.
+            if (!(e.target instanceof Element) || !e.target.closest("[data-uid], [data-tl-uid]")) return;
             if (selectedUid) closeDetail();
             else if (shownView.highlight !== "none") setView({ ...view, highlight: "none", highlightScope: "all" });
             else return;
@@ -783,6 +785,8 @@ function Shell(): ReactElement {
             hiddenByFilters={loadedIssues.length > 0 && !loadedIssues.some((n) => drawnUids.has(n.uid)) ? loadedIssues.length : 0}
             onClearFilters={() => {
               setFilters({ ...filters, issues: NO_ISSUE_FILTERS });
+              // The message (and this button) goes away: keep focus in reach, on the first filter.
+              document.querySelector<HTMLElement>('[aria-label="Statuses to show"] button')?.focus();
             }}
           />
           <Toast toast={toast} onDismiss={dismissToast} />

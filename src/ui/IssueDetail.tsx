@@ -26,8 +26,8 @@ export type IssueDetailData = {
   releases: readonly Readonly<{ release: Release; misses: boolean }>[];
   /** The last day it's forecast to finish, while open. */
   forecastDone?: Day;
-  /** The Display filters hide its card or row, so the panel is all that shows it. */
-  hiddenByFilters?: boolean;
+  /** What keeps its card or row off screen, if anything: the panel is then all that shows it. */
+  hiddenBy?: "issue filters" | "link filters";
 };
 
 /** One related issue: key, summary and status; activating it moves the panel (and the view) there. */
@@ -201,7 +201,7 @@ export function IssueDetail({
         ))}
       </div>
       {n.ghost && <p className="hint">Outside the loaded scope: only what its links say is known.</p>}
-      {data.hiddenByFilters && (
+      {data.hiddenBy === "issue filters" && (
         <p className="hint">
           Hidden by your Display filters.{" "}
           <button type="button" className="link-btn" onClick={onShowHidden}>
@@ -209,6 +209,7 @@ export function IssueDetail({
           </button>
         </p>
       )}
+      {data.hiddenBy === "link filters" && <p className="hint">Not drawn: only links hidden in Display → Links reach it.</p>}
       {missed.length > 0 && forecastDone && (
         <p className="detail-risk">
           <Icon name="alert" /> Forecast to finish {fmtDate(forecastDone)}, after{" "}

@@ -56,7 +56,12 @@ export const LinkEdge = memo(function LinkEdge(props: EdgeProps<LinkFlowEdge>) {
         <EdgeLabelRenderer>
           <div
             className="cycle-marker"
-            style={{ transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY - (edge.crossSite ? 16 : 0)}px)`, opacity }}
+            // Above the cross-site marker and the aggregate label, which sit at the midpoint and just below it.
+            style={{
+              transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY - (edge.crossSite || edge.aggregate ? 16 : 0)}px)`,
+              opacity,
+            }}
+            role="img"
             title="Part of a blocking cycle"
             aria-label="Part of a blocking cycle"
           >
