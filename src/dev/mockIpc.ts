@@ -192,6 +192,7 @@ export function installMockIpc(): Promise<void> {
       case "oauth_connect":
         return rejectLikeTauri("Atlassian sign-in needs the desktop app (npm run dev)");
       case "oauth_disconnect":
+      case "oauth_cancel":
         return null;
       case "plugin:opener|open_url":
         window.open(str("url"), "_blank", "noopener,noreferrer");

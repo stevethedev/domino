@@ -59,7 +59,15 @@ pub fn try_run() -> tauri::Result<()> {
             let http_backend = Arc::new(HttpBackend::new(http, Arc::clone(&secrets), Arc::clone(&oauth), Arc::clone(&config)));
             let cache = Arc::new(TicketCache::new(app.path().app_data_dir()?.join("ticket-cache"), Arc::clone(&secrets)));
             cache.prune(std::time::SystemTime::now());
-            app.manage(AppState { config, secrets, oauth, mock: Arc::new(MockBackend::from_env()?), http: http_backend, cache });
+            app.manage(AppState {
+                config,
+                secrets,
+                oauth,
+                mock: Arc::new(MockBackend::from_env()?),
+                http: http_backend,
+                cache,
+                oauth_cancel: Arc::new(tokio::sync::Notify::new()),
+            });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -85,6 +93,7 @@ pub fn try_run() -> tauri::Result<()> {
             commands::secret_status,
             commands::oauth_status,
             commands::oauth_connect,
+            commands::oauth_cancel,
             commands::oauth_disconnect,
         ])
         .run(tauri::generate_context!())

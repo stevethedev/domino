@@ -28,6 +28,8 @@ pub(crate) struct AppState {
     pub mock: Arc<MockBackend>,
     pub http: Arc<HttpBackend>,
     pub cache: Arc<TicketCache>,
+    /// Wakes a waiting Atlassian sign-in so it gives up (see `oauth_cancel`).
+    pub oauth_cancel: Arc<tokio::sync::Notify>,
 }
 
 impl AppState {
@@ -224,6 +226,15 @@ pub(crate) fn oauth_status(state: State<'_, AppState>) -> OAuthStatus {
     }
 }
 
+/// How long a sign-in waits for the browser before giving up (the UI says so, and can cancel sooner).
+const OAUTH_WAIT: Duration = Duration::from_secs(300);
+
+/// Stops a sign-in that's waiting for the browser; it fails with "Sign-in cancelled".
+#[tauri::command]
+pub(crate) fn oauth_cancel(state: State<'_, AppState>) {
+    state.oauth_cancel.notify_waiters();
+}
+
 /// Runs the 3LO sign-in in the system browser, then fills in cloudIds for OAuth sites.
 /// Returns the Atlassian sites the account can access.
 #[tauri::command]
@@ -232,7 +243,11 @@ pub(crate) async fn oauth_connect(app: AppHandle, state: State<'_, AppState>) ->
     let url = state.oauth.authorize_url(&st)?;
     let listener = oauth::bind_callback().await?;
     app.opener().open_url(url, None::<&str>).map_err(|e| format!("Could not open the browser: {e}"))?;
-    let code = oauth::wait_for_callback(listener, &st, Duration::from_secs(300)).await?;
+    let cancelled = state.oauth_cancel.notified();
+    let code = tokio::select! {
+        code = oauth::wait_for_callback(listener, &st, OAUTH_WAIT) => code?,
+        () = cancelled => return Err("Sign-in cancelled".to_owned()),
+    };
     state.oauth.exchange_code(&code).await?;
     let resources = state.oauth.accessible_resources().await?;
     forget_oauth_sites(&state);

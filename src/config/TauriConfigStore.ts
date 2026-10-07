@@ -50,6 +50,10 @@ export class TauriConfigStore implements ConfigStore {
     return invoke("oauth_connect");
   }
 
+  oauthCancel(): Promise<void> {
+    return invoke("oauth_cancel");
+  }
+
   oauthDisconnect(): Promise<void> {
     return invoke("oauth_disconnect");
   }

@@ -18,5 +18,7 @@ export interface ConfigStore {
   oauthStatus(): Promise<OAuthStatus>;
   /** Opens the system browser for Atlassian sign-in; resolves with the accessible site URLs. */
   oauthConnect(): Promise<string[]>;
+  /** Stops a sign-in that's waiting for the browser; `oauthConnect` then rejects. */
+  oauthCancel(): Promise<void>;
   oauthDisconnect(): Promise<void>;
 }

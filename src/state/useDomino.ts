@@ -153,6 +153,9 @@ class ReloadingStore implements ConfigStore {
     this.credentialsChanged({ oauth: true });
     return sites;
   }
+  oauthCancel(): Promise<void> {
+    return this.store.oauthCancel();
+  }
   async oauthDisconnect(): Promise<void> {
     await this.store.oauthDisconnect();
     this.credentialsChanged({ oauth: true });
