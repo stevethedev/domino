@@ -49,7 +49,7 @@ export function TimelineLane({
           </button>
         )}
         <span className="muted small" aria-hidden="true">
-          · {count} {count === 1 ? "issue" : "issues"}
+          · {count} {count === 1 ? "ticket" : "tickets"}
           {late > 0 && <span className="tl-lane-late"> · {late} over estimate</span>}
         </span>
       </div>

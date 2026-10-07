@@ -117,7 +117,8 @@ function useViewHotkeys(setViewMode: (m: ViewMode) => void): void {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.target instanceof HTMLElement && e.target.matches("input, textarea, select, [contenteditable]")) return;
       // Not behind an open dialog or from a menu: the view would change out of sight.
-      if (e.target instanceof Element && e.target.closest("dialog[open], details[open]")) return;
+      // (Release notes in the update banner are a <details> too, but not a menu.)
+      if (e.target instanceof Element && e.target.closest("dialog[open], details[open]:not(.update-notes)")) return;
       if (e.key === "g") setViewMode("graph");
       if (e.key === "t") setViewMode("timeline");
     };

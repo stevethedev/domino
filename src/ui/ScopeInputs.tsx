@@ -1,10 +1,10 @@
-import { NumberField } from "./NumberField";
 import { useEffect, useState, type ReactElement } from "react";
 import type { SiteConfig } from "../config/types";
 import { combineJql, JQL_PRESETS, presetById } from "../data/jqlPresets";
 import { ISSUE_KEY_RE, type Scope } from "../data/MultiSiteLoader";
 import { saveQuery } from "../state/useDomino";
 import { isOneOf } from "../lib/guards";
+import { NumberField } from "./NumberField";
 
 type Mode = Scope["mode"];
 const MODES: readonly Mode[] = ["jql", "epic", "seed"];

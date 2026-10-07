@@ -278,8 +278,11 @@ export function SettingsDialog({
                   .then(() => {
                     // The row (and the focused Confirm button) is gone: focus a neighbour, or Add site.
                     requestAnimationFrame(() => {
+                      // Matched by label text, not a selector, so any characters in a label are fine.
                       const target = next
-                        ? ref.current?.querySelector<HTMLElement>(`[aria-label="Edit ${CSS.escape(next.label)}"]`)
+                        ? [...(ref.current?.querySelectorAll<HTMLElement>("button[aria-label]") ?? [])].find(
+                            (b) => b.getAttribute("aria-label") === `Edit ${next.label}`,
+                          )
                         : ref.current?.querySelector<HTMLElement>("#add-site");
                       target?.focus();
                     });

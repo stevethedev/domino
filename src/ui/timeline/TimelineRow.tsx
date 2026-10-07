@@ -199,7 +199,7 @@ export const TimelineRow = memo(function TimelineRow({
               <Bar span={epic.projected} start={rangeStart} scale={scale} className="tl-bar tl-epic-projected" />
               <Bar span={epic.work} start={rangeStart} scale={scale} className="tl-bar tl-epic-work" />
               <span className="tl-variance" style={{ left: xOf(rangeStart, maxDay(epic.projected.end, epic.work.end), scale) + 6 }}>
-                {epic.children} {epic.children === 1 ? "issue" : "issues"}
+                {epic.children} {epic.children === 1 ? "ticket" : "tickets"}
               </span>
             </>
           )}

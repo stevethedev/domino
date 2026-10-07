@@ -1,4 +1,3 @@
-import { prefersReducedMotion } from "../../lib/motion";
 import { useEffect, useId, useMemo, useRef, useState, type ReactElement } from "react";
 import type { ConfigStore } from "../../config/ConfigStore";
 import { validateSite } from "../../config/schema";
@@ -7,6 +6,7 @@ import type { BackendKind, SiteConfig } from "../../config/types";
 import { errorMessage } from "../../data/errors";
 import { openExternal } from "../../platform";
 import { Icon } from "../Icon";
+import { prefersReducedMotion } from "../../lib/motion";
 
 export type SiteFormResult = { site: SiteConfig; isDefault: boolean; token: string; test: boolean };
 

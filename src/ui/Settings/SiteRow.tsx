@@ -1,6 +1,6 @@
-import { prefersReducedMotion } from "../../lib/motion";
 import { useEffect, useRef, useState, type ReactElement } from "react";
 import type { HealthStatus, SiteConfig } from "../../config/types";
+import { prefersReducedMotion } from "../../lib/motion";
 
 export function SiteRow({
   site,
