@@ -249,3 +249,17 @@ export function rowsMoved(prev: ReadonlyMap<string, number>, next: ReadonlyMap<s
   }
   return false;
 }
+
+/**
+ * The scrollLeft that puts `day` at fraction `at` of the visible chart (the part of a viewport
+ * `viewportWidth` wide beside the sticky label column), never before the chart's start.
+ */
+export function scrollLeftFor(rangeStart: Day, day: Day, scale: Scale, viewportWidth: number, at: number): number {
+  return Math.max(0, xOf(rangeStart, day, scale) - at * Math.max(0, viewportWidth - LABEL_WIDTH));
+}
+
+/** The day at fraction `at` of the visible chart, scrolled to `scrollLeft` (the inverse of `scrollLeftFor`). */
+export function dayAt(rangeStart: Day, scrollLeft: number, scale: Scale, viewportWidth: number, at: number): Day {
+  const x = scrollLeft + at * Math.max(0, viewportWidth - LABEL_WIDTH);
+  return addDays(rangeStart, Math.round(x / PX_PER_DAY[scale]));
+}

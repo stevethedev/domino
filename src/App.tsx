@@ -94,7 +94,11 @@ const parseGlanceScope = oneOf(isHighlightScope);
  */
 function focusTimelineRow(uid: string, moveFocus = true, nearest = false): boolean {
   const el = document.querySelector<HTMLElement>(`[data-tl-uid="${CSS.escape(uid)}"]`);
-  el?.scrollIntoView({ block: nearest ? "nearest" : "center", inline: "nearest", behavior: "smooth" });
+  // Scroll its work bar into view, across as well as down (the row spans the whole chart, so
+  // scrolling to the row alone never moved sideways); the chart's scroll-padding keeps it clear of
+  // the sticky labels. A ghost has no bar: scroll to the row.
+  const bar = el?.querySelector<HTMLElement>(".tl-actual, .tl-forecast, .tl-epic-work, .tl-projected") ?? el;
+  bar?.scrollIntoView({ block: nearest ? "nearest" : "center", inline: "nearest", behavior: prefersReducedMotion() ? "auto" : "smooth" });
   if (moveFocus) el?.focus({ preventScroll: true });
   return el !== null;
 }
@@ -778,6 +782,7 @@ function Shell(): ReactElement {
                   stale={stale}
                   order={rowOrder}
                   onClearSort={clearSort}
+                  scopeKey={shownScopeKey}
                 />
               </Suspense>
             )}

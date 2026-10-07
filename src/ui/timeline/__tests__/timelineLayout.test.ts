@@ -3,7 +3,19 @@ import type { TimelineEntry } from "../../../graph/schedule";
 import type { GraphNode } from "../../../graph/types";
 import type { Lane } from "../../../graph/layout";
 import { ticketComparator } from "../../../graph/sort";
-import { LANE_HEIGHT, layoutRows, ROW_HEIGHT, rowsMoved, stackFlags, ticks, varianceLabel } from "../timelineLayout";
+import {
+  dayAt,
+  LABEL_WIDTH,
+  LANE_HEIGHT,
+  layoutRows,
+  PX_PER_DAY,
+  ROW_HEIGHT,
+  rowsMoved,
+  scrollLeftFor,
+  stackFlags,
+  ticks,
+  varianceLabel,
+} from "../timelineLayout";
 
 const node = (uid: string, ghost = false): GraphNode => ({
   uid,
@@ -270,5 +282,20 @@ describe("varianceLabel", () => {
     expect(varianceLabel(3)).toBe("+3d over estimate");
     expect(varianceLabel(-2)).toBe("2d under estimate");
     expect(varianceLabel(0)).toBe("on estimate");
+  });
+});
+
+describe("scrolling to a day", () => {
+  const width = LABEL_WIDTH + 800; // 800px of chart beside the sticky labels
+
+  it("puts a day at a fraction of the visible chart, never before the start", () => {
+    // Day 40 at day scale is 1120px in; a quarter of 800px is 200px.
+    expect(scrollLeftFor("2026-01-01", "2026-02-10", "day", width, 0.25)).toBe(40 * PX_PER_DAY.day - 200);
+    expect(scrollLeftFor("2026-01-01", "2026-01-02", "day", width, 0.25)).toBe(0);
+  });
+
+  it("reads back the day at that fraction, so a new scale can keep it in place", () => {
+    const left = scrollLeftFor("2026-01-01", "2026-02-10", "week", width, 0.5);
+    expect(dayAt("2026-01-01", left, "week", width, 0.5)).toBe("2026-02-10");
   });
 });

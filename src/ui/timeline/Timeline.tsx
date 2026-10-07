@@ -4,7 +4,7 @@ import { blockingChain } from "../../graph/analysis";
 import { emphasis, type Insights } from "../../graph/insights";
 import { releaseStatuses } from "../../graph/releases";
 import type { CardOrder } from "../../graph/layout";
-import type { TimelineEntry } from "../../graph/schedule";
+import type { Day, TimelineEntry } from "../../graph/schedule";
 import type { Graph } from "../../graph/types";
 import { previewOf, type LinkPreview, type Move } from "../../graph/traverse";
 import { visibleSubgraph } from "../../graph/visible";
@@ -28,6 +28,8 @@ import {
   LANE_HEIGHT,
   layoutRows,
   ROW_HEIGHT,
+  dayAt,
+  scrollLeftFor,
   rowsMoved,
   type TimelineRowModel,
   PX_PER_DAY,
@@ -60,6 +62,7 @@ export function Timeline({
   stale,
   order,
   onClearSort,
+  scopeKey,
 }: {
   graph: Graph;
   insights: Insights;
@@ -84,6 +87,8 @@ export function Timeline({
   order: CardOrder | null;
   /** Back to the natural order (the sort chip's ✕). */
   onClearSort: () => void;
+  /** The scope shown: a new one scrolls the chart to today. */
+  scopeKey: string | null;
 }): ReactElement {
   const [hovered, setHovered] = useState<string | null>(null);
   const setSettings = (patch: Partial<EstimateSettings>): void => {
@@ -229,6 +234,24 @@ export function Timeline({
     });
 
   const late = all.filter(isLate).length;
+  // A new scope opens on today (a quarter of the way in), not on its oldest work; a new scale
+  // keeps the date that was in the middle. Layout effects, so the first paint is already there.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrolledFor = useRef<string | null | undefined>(undefined);
+  const keepCentred = useRef<Day | null>(null);
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el || !range || scrolledFor.current === scopeKey) return;
+    scrolledFor.current = scopeKey;
+    el.scrollLeft = scrollLeftFor(range.start, today, settings.scale, el.clientWidth, 0.25);
+  }, [range, scopeKey, today, settings.scale]);
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    const day = keepCentred.current;
+    keepCentred.current = null;
+    if (el && range && day) el.scrollLeft = scrollLeftFor(range.start, day, settings.scale, el.clientWidth, 0.5);
+  }, [settings.scale, range]);
+
   const chartWidth = range ? xOf(range.start, range.end, settings.scale) + PX_PER_DAY[settings.scale] : 0;
   const lastBarX = range
     ? Math.max(0, ...all.filter((r) => !r.node.ghost).map((r) => xOf(range.start, entryEnd(r.entry), settings.scale)))
@@ -254,6 +277,9 @@ export function Timeline({
                 value={s}
                 checked={settings.scale === s}
                 onChange={() => {
+                  // Keep the date in the middle of the chart in the middle at the new scale.
+                  const el = scrollRef.current;
+                  if (el && range) keepCentred.current = dayAt(range.start, el.scrollLeft, settings.scale, el.clientWidth, 0.5);
                   setSettings({ scale: s });
                 }}
               />
@@ -261,6 +287,21 @@ export function Timeline({
             </label>
           ))}
         </fieldset>
+        <button
+          type="button"
+          disabled={!range}
+          onClick={() => {
+            const el = scrollRef.current;
+            if (!el || !range) return;
+            el.scrollTo({
+              left: scrollLeftFor(range.start, today, settings.scale, el.clientWidth, 0.25),
+              behavior: prefersReducedMotion() ? "auto" : "smooth",
+            });
+          }}
+          title="Scroll to today"
+        >
+          Today
+        </button>
         <label className="field" title="Unstarted work is projected to begin no earlier than this day">
           <span className="field-label">Unstarted from</span>
           <input
@@ -348,7 +389,7 @@ export function Timeline({
 
       {
         range ? (
-          <div className="tl-scroll">
+          <div className="tl-scroll" ref={scrollRef}>
             <div className="tl-inner" style={{ width: LABEL_WIDTH + Math.max(chartWidth, lastBarX + 140) }}>
               <div className={`tl-axis${releaseLines ? " with-releases" : ""}`} style={{ "--release-lines": releaseLines }}>
                 <div className="tl-corner">Issue</div>

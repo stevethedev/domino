@@ -46,6 +46,8 @@
   flex: 1;
   overflow: auto;
   position: relative;
+  /* Scrolling a bar into view keeps it clear of the sticky label column (LABEL_WIDTH). */
+  scroll-padding-left: calc(320px + var(--space-4));
 }
 .tl-inner {
   position: relative;
