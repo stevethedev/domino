@@ -677,7 +677,7 @@ kbd {
 }
 
 /* Since you last looked */
-.insight:hover:not(:disabled),
+.insight:hover:not(:disabled, [aria-disabled="true"]),
 .change-summary:hover:not(:disabled) {
   background: var(--surface-2);
   border-color: color-mix(in srgb, var(--border) 60%, var(--text));

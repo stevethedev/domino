@@ -68,7 +68,13 @@ export function InsightTiles({
                 if ((shown ?? t.uids.length) === 0 && highlight !== t.id) return;
                 onHighlight(highlight === t.id ? "none" : t.id);
               }}
-              title={t.uids.length === 0 ? `No ${t.hint}` : `Highlight ${t.uids.length} ${t.hint}`}
+              title={
+                t.uids.length === 0
+                  ? `No ${t.hint}`
+                  : shown === 0
+                    ? `None of the ${t.uids.length} ${t.hint} are shown with these filters`
+                    : `Highlight ${t.uids.length} ${t.hint}`
+              }
             >
               <span className="insight-count">{t.uids.length}</span>
               <span className="insight-label">
