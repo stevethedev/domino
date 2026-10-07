@@ -2,7 +2,7 @@ import type { ReactElement, ReactNode } from "react";
 import type { Highlight, Insights } from "../graph/insights";
 import type { GraphNode } from "../graph/types";
 
-type Tile = { id: Exclude<Highlight, "none" | "changed">; label: string; count: number; hint: string };
+type Tile = { id: Exclude<Highlight, "none" | "changed">; label: string; uids: readonly string[]; hint: string };
 
 /**
  * The answers Domino exists to give, before any reading: how much is blocked, what can start
@@ -15,6 +15,7 @@ export function InsightTiles({
   highlight,
   onHighlight,
   only,
+  drawn,
 }: {
   /** Load status / counts line, e.g. "12 issues · 6 outside scope · updated 3m ago". */
   summary: ReactNode;
@@ -23,22 +24,24 @@ export function InsightTiles({
   highlight: Highlight;
   onHighlight: (h: Highlight) => void;
   only?: ReadonlySet<string>;
+  /** While Display filters are on: the issues they leave on screen, so each tile can say how many it highlights there. */
+  drawn?: ReadonlySet<string>;
 }): ReactElement {
-  const count = (uids: Iterable<string>): number => (only ? [...uids].filter((u) => only.has(u)).length : [...uids].length);
+  const count = (uids: Iterable<string>): string[] => (only ? [...uids].filter((u) => only.has(u)) : [...uids]);
   const whose = only ? "of these " : "";
   const tiles: Tile[] = [
-    { id: "blocked", label: "Blocked", count: count(insights.blocked), hint: `${whose}open issues waiting on an open blocker` },
-    { id: "ready", label: "Ready", count: count(insights.ready), hint: `${whose}open issues with nothing in the way` },
+    { id: "blocked", label: "Blocked", uids: count(insights.blocked), hint: `${whose}open issues waiting on an open blocker` },
+    { id: "ready", label: "Ready", uids: count(insights.ready), hint: `${whose}open issues with nothing in the way` },
     {
       id: "critical",
       label: "Critical path",
-      count: count(insights.critical.nodes),
+      uids: count(insights.critical.nodes),
       hint: `${only ? "of these issues" : "issues"} in the longest open blocking chain`,
     },
     {
       id: "aging",
       label: "Aging",
-      count: count(insights.aging.keys()),
+      uids: count(insights.aging.keys()),
       hint: `${only ? "of these issues" : "issues"} stuck past twice their estimate, or blocked with no change for a week`,
     },
   ];
@@ -49,24 +52,32 @@ export function InsightTiles({
         {summary}
       </p>
       <div className="insight-tiles">
-        {tiles.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            className={`insight insight-${t.id}`}
-            aria-pressed={highlight === t.id}
-            onClick={() => {
-              onHighlight(highlight === t.id ? "none" : t.id);
-            }}
-            title={`Highlight ${t.count} ${t.hint}`}
-          >
-            <span className="insight-count">{t.count}</span>
-            <span className="insight-label">{t.label}</span>
-          </button>
-        ))}
+        {tiles.map((t) => {
+          const shown = drawn && t.uids.filter((u) => drawn.has(u)).length;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              className={`insight insight-${t.id}`}
+              aria-pressed={highlight === t.id}
+              // Nothing to highlight would just dim every card; a pressed tile stays usable to clear it.
+              disabled={t.uids.length === 0 && highlight !== t.id}
+              onClick={() => {
+                onHighlight(highlight === t.id ? "none" : t.id);
+              }}
+              title={t.uids.length === 0 ? `No ${t.hint}` : `Highlight ${t.uids.length} ${t.hint}`}
+            >
+              <span className="insight-count">{t.uids.length}</span>
+              <span className="insight-label">
+                {t.label}
+                {shown !== undefined && shown !== t.uids.length && <span className="insight-shown"> · {shown} shown</span>}
+              </span>
+            </button>
+          );
+        })}
       </div>
       <p className="hint" aria-live="polite">
-        {active ? `Showing ${active.count} ${active.hint}. Click again to clear.` : "Click a number to highlight those issues."}
+        {active ? `Showing ${active.uids.length} ${active.hint}. Click again to clear.` : "Click a number to highlight those issues."}
       </p>
     </>
   );

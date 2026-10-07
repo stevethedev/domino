@@ -12,6 +12,7 @@ import {
 import { isSortKey, orderText, SORT_INFO, SORT_KEYS, type SortBy, type SortGroup } from "../graph/sort";
 import { isGroupBy, type Filters, type ViewOptions } from "./Canvas";
 import { Icon } from "./Icon";
+import { useDetailsMenu } from "./useDetailsMenu";
 
 const LINK_ROWS: { key: keyof LinkFilters; label: string; sample: string }[] = [
   { key: "blocks", label: "Blocks", sample: "solid" },
@@ -63,8 +64,10 @@ function FilterMenu({
   display?: (value: string) => string;
 }): ReactElement {
   const hiddenHere = options.filter(([v]) => hidden.includes(v)).length;
+  // Esc and a click elsewhere close it, as the other menus do, so opening one closes the rest.
+  const { ref, onKeyDown } = useDetailsMenu();
   return (
-    <details className="filter-menu">
+    <details className="filter-menu" ref={ref} onKeyDown={onKeyDown}>
       <summary>
         <span className="field-label">{label}</span>
         <span className={hiddenHere ? "filter-menu-state active" : "filter-menu-state"}>{hiddenHere ? `${hiddenHere} hidden` : "All"}</span>

@@ -406,13 +406,19 @@ function Shell(): ReactElement {
           misses: releases.some((s) => s.release.uid === release.uid && s.atRisk.includes(selectedNode.uid)),
         })),
         forecastDone: selectedEntry && lastDayOf(selectedEntry),
+        hiddenByFilters: !drawnUids.has(selectedNode.uid),
       }
     : null;
   /** Closing returns focus to the card or row the panel was showing, so keyboard users aren't lost. */
   const closeDetail = (): void => {
     const uid = selectedUid;
     setSelectedUid(null);
-    if (uid) document.querySelector<HTMLElement>(`[data-uid="${CSS.escape(uid)}"], [data-tl-uid="${CSS.escape(uid)}"]`)?.focus();
+    if (!uid) return;
+    // Back to its card or row; if a filter or fold has hidden it, to the view's tab stop instead.
+    const target =
+      document.querySelector<HTMLElement>(`[data-uid="${CSS.escape(uid)}"], [data-tl-uid="${CSS.escape(uid)}"]`) ??
+      document.querySelector<HTMLElement>('.canvas [data-uid][tabindex="0"], .canvas [data-tl-uid][tabindex="0"]');
+    target?.focus();
   };
   // How many links "Hide implied links" removes from what's drawn (counted even while it's off),
   // on the graph actually drawn: folded epics have their own, combined links.
@@ -628,6 +634,7 @@ function Shell(): ReactElement {
                 myself={myself}
                 sites={config?.sites ?? []}
                 highlightFor={highlightFor}
+                drawn={hasIssueFilters(filters.issues) ? drawnUids : undefined}
                 onHighlight={(scope, h) => {
                   setHighlight(scope)(h);
                 }}
@@ -789,6 +796,9 @@ function Shell(): ReactElement {
               onOpen={openExternal}
               onClose={closeDetail}
               focusRequest={detailFocusRequest}
+              onShowHidden={() => {
+                focusIssue(detail.node.uid, false);
+              }}
             />
           )}
         </section>

@@ -502,6 +502,14 @@
   color: var(--muted);
   font-weight: var(--weight-semibold);
 }
+.insight-shown {
+  font-weight: normal;
+}
+/* Nothing to highlight: the count stays readable, the tile just doesn't invite a click. */
+.insight:disabled {
+  cursor: default;
+  background: var(--surface-2);
+}
 .insight-blocked .insight-count {
   color: var(--warn-fg);
 }
