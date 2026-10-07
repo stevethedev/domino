@@ -1,6 +1,7 @@
 import type { CardOrder, Lane, LaneFn } from "../../graph/layout";
 import { addDays, daysBetween, entryEnd, maxDay, minDay, type Day, type Span, type TimelineEntry } from "../../graph/schedule";
 import { naturalCompare } from "../../graph/sort";
+import { fmtDay } from "../format";
 import type { GraphNode } from "../../graph/types";
 import { isOneOf } from "../../lib/guards";
 
@@ -191,7 +192,11 @@ export type EpicSummary = { projected: Span; work: Span; children: number };
 
 /** The envelope of the rows' work, leaving out ghosts (no dates) and epic rows (they summarize others). */
 function laneSpan(rows: readonly TimelineRowData[]): Span | null {
-  const spans = rows.filter((r) => !r.node.ghost && !isEpicNode(r.node)).map((r) => workSpan(r.entry));
+  // Empty spans are undated placeholders (a Done ticket with no dates), not work.
+  const spans = rows
+    .filter((r) => !r.node.ghost && !isEpicNode(r.node))
+    .map((r) => workSpan(r.entry))
+    .filter((s) => s.start < s.end);
   return spans.length === 0 ? null : { start: minDay(...spans.map((s) => s.start)), end: maxDay(...spans.map((s) => s.end)) };
 }
 
@@ -265,3 +270,6 @@ export function dayAt(rangeStart: Day, scrollLeft: number, scale: Scale, viewpor
   const x = scrollLeft + at * Math.max(0, viewportWidth - LABEL_WIDTH);
   return addDays(rangeStart, Math.round(x / PX_PER_DAY[scale]));
 }
+
+/** "Oct 5 – Oct 7": a half-open span's first and last days; "dates unknown" for an empty one. */
+export const spanLabel = (s: Span): string => (s.start < s.end ? `${fmtDay(s.start)} – ${fmtDay(addDays(s.end, -1))}` : "dates unknown");

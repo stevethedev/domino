@@ -1,11 +1,7 @@
 import type { ReactElement } from "react";
-import { addDays, type Day, type Span } from "../../graph/schedule";
-import { fmtDay } from "../format";
-import { LABEL_WIDTH, LANE_HEIGHT, xOf, type Scale, type TimelineLaneModel } from "./timelineLayout";
+import type { Day } from "../../graph/schedule";
+import { LABEL_WIDTH, LANE_HEIGHT, spanLabel, xOf, type Scale, type TimelineLaneModel } from "./timelineLayout";
 import { Icon } from "../Icon";
-
-/** "Sep 8 – Oct 14": a span's first and last days. */
-const spanLabel = (s: Span): string => `${fmtDay(s.start)} – ${fmtDay(addDays(s.end, -1))}`;
 
 /** A swimlane header: a disclosure toggle for the lane's rows, its title (epic lanes link to Jira) and counts. */
 export function TimelineLane({

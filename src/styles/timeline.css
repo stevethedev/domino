@@ -479,7 +479,8 @@
   top: calc(50% - 4px);
   height: 8px;
   border-radius: var(--radius-xs);
-  background: color-mix(in srgb, var(--muted) 45%, var(--surface));
+  /* Translucent, so an arrowhead ending inside it still shows. */
+  background: color-mix(in srgb, var(--muted) 45%, transparent);
 }
 .tl-epic-work {
   top: 16px;
@@ -585,7 +586,7 @@
   box-shadow: inset 3px 0 0 var(--accent);
 }
 /* Both marks: the critical-path bar, then the selection's beside it. */
-.tl-row.selected.critical .tl-label {
+.tl-row.selected.critical:not(:focus-visible) .tl-label {
   box-shadow:
     inset 4px 0 0 var(--critical),
     inset 7px 0 0 var(--accent);

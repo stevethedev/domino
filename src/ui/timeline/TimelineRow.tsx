@@ -15,10 +15,11 @@ import {
   type EpicSummary,
   type Scale,
   type TimelineRowModel,
+  spanLabel,
 } from "./timelineLayout";
 
 /** Spans are half-open; people read the last day inclusively. */
-const spanText = (s: Span): string => `${fmtDay(s.start)} – ${fmtDay(addDays(s.end, -1))}`;
+const spanText = spanLabel;
 
 export type RowFlags = {
   dimmed: boolean;
@@ -60,7 +61,8 @@ function describeEpic(node: GraphNode, epic: EpicSummary | "empty"): string {
   return `Epic ${node.key}, ${node.summary}, ${epic.children} issues, projected ${spanText(epic.projected)}, work ${spanText(epic.work)}. Shows details.`;
 }
 
-function Bar({ span, start, scale, className }: { span: Span; start: Day; scale: Scale; className: string }): ReactElement {
+function Bar({ span, start, scale, className }: { span: Span; start: Day; scale: Scale; className: string }): ReactElement | null {
+  if (span.start >= span.end) return null; // an undated placeholder, not work to draw
   const left = xOf(start, span.start, scale);
   const width = Math.max(xOf(start, span.end, scale) - left, PX_PER_DAY[scale] / 2);
   return <div className={className} style={{ left, width }} />;

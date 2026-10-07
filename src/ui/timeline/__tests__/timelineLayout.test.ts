@@ -12,6 +12,7 @@ import {
   ROW_HEIGHT,
   rowsMoved,
   scrollLeftFor,
+  spanLabel,
   stackFlags,
   ticks,
   varianceLabel,
@@ -83,7 +84,8 @@ describe("layoutRows with collapsed lanes", () => {
   it("gives each lane the span of its issues' work, for a folded lane's summary bar (ghosts have no dates)", () => {
     const { items } = layoutRows(nodes, timeline, laneOf, new Set(["lane:a"]));
     const header = items[0];
-    expect(header.kind === "lane" && header.span).toEqual({ start: "2026-10-05", end: "2026-10-20" });
+    // a1's zero-length span (this file's `entry` helper) counts as undated and is left out.
+    expect(header.kind === "lane" && header.span).toEqual({ start: "2026-10-08", end: "2026-10-20" });
   });
 
   it("still returns every row, so date ranges and counts don't change when a lane folds", () => {
@@ -297,5 +299,41 @@ describe("scrolling to a day", () => {
   it("reads back the day at that fraction, so a new scale can keep it in place", () => {
     const left = scrollLeftFor("2026-01-01", "2026-02-10", "week", width, 0.5);
     expect(dayAt("2026-01-01", left, "week", width, 0.5)).toBe("2026-02-10");
+  });
+});
+
+describe("spanLabel", () => {
+  it("names the first and last days, or says the dates are unknown for an empty span", () => {
+    expect(spanLabel({ start: "2026-10-05", end: "2026-10-08" })).toMatch(/5.*7/);
+    expect(spanLabel({ start: "2026-10-05", end: "2026-10-05" })).toBe("dates unknown");
+  });
+});
+
+describe("lane span with undated work", () => {
+  it("leaves out an empty (undated) span", () => {
+    const undated: TimelineEntry = {
+      projected: { start: "2026-10-05", end: "2026-10-05" },
+      progress: { state: "unknown", forecast: { start: "2026-10-05", end: "2026-10-05" } },
+      varianceDays: 0,
+    };
+    const dated: TimelineEntry = {
+      projected: { start: "2026-10-01", end: "2026-10-03" },
+      progress: { state: "not-started", forecast: { start: "2026-10-01", end: "2026-10-03" } },
+      varianceDays: 0,
+    };
+    const laneOf = (): Lane => ({ id: "l", label: "L" });
+    const { items } = layoutRows(
+      [node("u"), node("d")],
+      new Map([
+        ["u", undated],
+        ["d", dated],
+      ]),
+      laneOf,
+      new Set(["l"]),
+    );
+    const header = items[0];
+    expect(header.kind === "lane" && header.span).toEqual({ start: "2026-10-01", end: "2026-10-03" });
+    const onlyUndated = layoutRows([node("u")], new Map([["u", undated]]), laneOf, new Set(["l"])).items[0];
+    expect(onlyUndated.kind === "lane" && onlyUndated.span).toBeNull();
   });
 });
