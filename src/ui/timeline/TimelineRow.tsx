@@ -48,7 +48,7 @@ function describe(node: GraphNode, row: TimelineRowModel): string {
     parts.push(p.startUnknown ? `resolved ${fmtDay(p.actual.start)}, start date unknown` : `actual ${spanText(p.actual)}`);
   if (p.state === "started") parts.push(`started ${fmtDay(p.actualStart)}, forecast finish ${fmtDay(addDays(p.forecast.end, -1))}`);
   if (p.state === "not-started") parts.push(`not started, forecast ${spanText(p.forecast)}`);
-  if (p.state === "unknown") parts.push("start date unknown");
+  if (p.state === "unknown") parts.push(node.statusCategory === "done" ? "done, dates unknown" : "start date unknown");
   if (node.dates?.due) parts.push(`due ${fmtDay(node.dates.due)}`);
   if (p.state !== "unknown" && !(p.state === "done" && p.startUnknown)) parts.push(varianceLabel(row.entry.varianceDays));
   if (node.ghost) parts.push("outside scope");
@@ -248,7 +248,7 @@ export const TimelineRow = memo(function TimelineRow({
           )}
           {p.state === "unknown" && !node.ghost && (
             <span className="tl-variance" style={{ left: badgeLeft }}>
-              start unknown
+              {node.statusCategory === "done" ? "done, dates unknown" : "start unknown"}
             </span>
           )}
         </div>
