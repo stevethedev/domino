@@ -29,6 +29,7 @@ import {
   layoutRows,
   ROW_HEIGHT,
   dayAt,
+  roomAfter,
   scrollLeftFor,
   BADGE_ROOM,
   rowsMoved,
@@ -246,13 +247,29 @@ export function Timeline({
   // keeps the date that was in the middle. Layout effects, so the first paint is already there.
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrolledFor = useRef<string | null | undefined>(undefined);
+  /** The scroll box's width, kept current on resize (the room after today depends on it). */
+  const [viewportWidth, setViewportWidth] = useState(0);
+  const hasRange = range !== null;
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const measure = (): void => {
+      setViewportWidth(el.clientWidth);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return (): void => {
+      observer.disconnect();
+    };
+  }, [hasRange]);
   /** The date to keep in the middle, and the scale it's for (set as the scale changes). */
   const keepCentred = useRef<{ day: Day; scale: Scale } | null>(null);
   /** The range start the current scroll position was measured from. */
   const scrolledFrom = useRef<Day | null>(null);
   useLayoutEffect(() => {
     const el = scrollRef.current;
-    if (!el || !range) return;
+    if (!el || !range || viewportWidth === 0) return; // measured first, so the room after today is there
     const keep = keepCentred.current;
     keepCentred.current = null;
     if (scrolledFor.current !== scopeKey) {
@@ -266,7 +283,7 @@ export function Timeline({
       el.scrollLeft += xOf(range.start, scrolledFrom.current, settings.scale);
     }
     scrolledFrom.current = range.start;
-  }, [range, scopeKey, today, settings.scale]);
+  }, [range, scopeKey, today, settings.scale, viewportWidth]);
 
   const chartWidth = range ? xOf(range.start, range.end, settings.scale) + PX_PER_DAY[settings.scale] : 0;
   // Where the last bar or due ◆ ends, so the badge after it has room (BADGE_ROOM) before the edge.
@@ -419,7 +436,15 @@ export function Timeline({
       {
         range ? (
           <div className="tl-scroll" ref={scrollRef}>
-            <div className="tl-inner" style={{ width: LABEL_WIDTH + Math.max(chartWidth, lastBarX + BADGE_ROOM) }}>
+            <div
+              className="tl-inner"
+              // Room for the last badge, and after today for Today to scroll a quarter of the way in.
+              style={{
+                width:
+                  LABEL_WIDTH +
+                  Math.max(chartWidth, lastBarX + BADGE_ROOM, roomAfter(xOf(range.start, today, settings.scale), viewportWidth, 0.25)),
+              }}
+            >
               <div className={`tl-axis${releaseLines ? " with-releases" : ""}`} style={{ "--release-lines": releaseLines }}>
                 <div className="tl-corner">Issue</div>
                 <TimeAxis range={range} scale={settings.scale} today={today} releases={releaseMarkers} />

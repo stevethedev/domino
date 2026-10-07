@@ -149,8 +149,9 @@ export function dayRange(entries: readonly TimelineEntry[], extra: readonly Day[
 export type Tick = { day: Day; label: string; major: boolean };
 
 // In the viewer's language; days are UTC calendar dates, so they're formatted in UTC.
-const monthName = new Intl.DateTimeFormat(undefined, { month: "short", timeZone: "UTC" });
-const weekdayLetter = new Intl.DateTimeFormat(undefined, { weekday: "narrow", timeZone: "UTC" });
+// Gregorian, whatever the locale's default calendar: the tick numbers are Gregorian dates.
+const monthName = new Intl.DateTimeFormat(undefined, { month: "short", timeZone: "UTC", calendar: "gregory" });
+const weekdayLetter = new Intl.DateTimeFormat(undefined, { weekday: "narrow", timeZone: "UTC", calendar: "gregory" });
 
 /**
  * Axis ticks for a scale: every day, every Monday, or every 1st of the month. A label always says
@@ -241,7 +242,10 @@ export function drawnBar(
       entry: { ...entry, projected: summary.projected, progress: { state: "not-started", forecast: summary.work } },
       positionless: false,
     };
-  return { entry, positionless: node.ghost || isEpicNode(node) };
+  // Ghosts and epics have no dates of their own, and an empty span (a Done ticket with no dates)
+  // is a placeholder: arrows to any of these are stubs at the other, dated end.
+  const work = workSpan(entry);
+  return { entry, positionless: node.ghost || isEpicNode(node) || work.start >= work.end };
 }
 
 /**
@@ -273,3 +277,10 @@ export function dayAt(rangeStart: Day, scrollLeft: number, scale: Scale, viewpor
 
 /** "Oct 5 – Oct 7": a half-open span's first and last days; "dates unknown" for an empty one. */
 export const spanLabel = (s: Span): string => (s.start < s.end ? `${fmtDay(s.start)} – ${fmtDay(addDays(s.end, -1))}` : "dates unknown");
+
+/**
+ * How wide the chart must be (from its start) for the day at `x` to scroll to fraction `at` of the
+ * visible chart: the browser can't scroll past the end, so without this room a Today near the end
+ * stays wherever the scroll stops.
+ */
+export const roomAfter = (x: number, viewportWidth: number, at: number): number => x + (1 - at) * Math.max(0, viewportWidth - LABEL_WIDTH);

@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
+import { fmtDay } from "../../format";
 import type { TimelineEntry } from "../../../graph/schedule";
 import type { GraphNode } from "../../../graph/types";
 import type { Lane } from "../../../graph/layout";
 import { ticketComparator } from "../../../graph/sort";
 import {
   dayAt,
+  drawnBar,
+  roomAfter,
   LABEL_WIDTH,
   LANE_HEIGHT,
   layoutRows,
@@ -258,7 +261,7 @@ describe("rowsMoved", () => {
 
 describe("ticks", () => {
   const month = (d: string): string =>
-    new Intl.DateTimeFormat(undefined, { month: "short", timeZone: "UTC" }).format(new Date(`${d}T00:00:00Z`));
+    new Intl.DateTimeFormat(undefined, { month: "short", timeZone: "UTC", calendar: "gregory" }).format(new Date(`${d}T00:00:00Z`));
 
   it("names the month on the day scale where it starts, and on the first tick", () => {
     const t = ticks({ start: "2026-10-30", end: "2026-11-02" }, "day");
@@ -304,7 +307,7 @@ describe("scrolling to a day", () => {
 
 describe("spanLabel", () => {
   it("names the first and last days, or says the dates are unknown for an empty span", () => {
-    expect(spanLabel({ start: "2026-10-05", end: "2026-10-08" })).toMatch(/5.*7/);
+    expect(spanLabel({ start: "2026-10-05", end: "2026-10-08" })).toBe(`${fmtDay("2026-10-05")} – ${fmtDay("2026-10-07")}`);
     expect(spanLabel({ start: "2026-10-05", end: "2026-10-05" })).toBe("dates unknown");
   });
 });
@@ -335,5 +338,24 @@ describe("lane span with undated work", () => {
     expect(header.kind === "lane" && header.span).toEqual({ start: "2026-10-01", end: "2026-10-03" });
     const onlyUndated = layoutRows([node("u")], new Map([["u", undated]]), laneOf, new Set(["l"])).items[0];
     expect(onlyUndated.kind === "lane" && onlyUndated.span).toBeNull();
+  });
+});
+
+describe("drawnBar", () => {
+  it("treats an undated (empty-span) Done ticket as having no position, like a ghost", () => {
+    const undated: TimelineEntry = {
+      projected: { start: "2026-10-05", end: "2026-10-05" },
+      progress: { state: "unknown", forecast: { start: "2026-10-05", end: "2026-10-05" } },
+      varianceDays: 0,
+    };
+    expect(drawnBar(node("u"), undated, undefined).positionless).toBe(true);
+    expect(drawnBar(node("d"), entry("2026-10-05"), undefined).positionless).toBe(true); // the test helper's empty span too
+  });
+});
+
+describe("roomAfter", () => {
+  it("leaves enough chart after today to scroll it a quarter of the way in", () => {
+    // 800px of visible chart: today at a quarter needs 600px after it.
+    expect(roomAfter(1000, LABEL_WIDTH + 800, 0.25)).toBe(1600);
   });
 });
