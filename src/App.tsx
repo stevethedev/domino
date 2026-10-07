@@ -729,7 +729,13 @@ function Shell(): ReactElement {
             }
             onRetry={domino.reload}
           />
-          <CanvasMessage domino={domino} view={loadView} />
+          <CanvasMessage
+            domino={domino}
+            view={loadView}
+            onOpenSettings={() => {
+              setSettingsOpen(true);
+            }}
+          />
           <Toast toast={toast} onDismiss={dismissToast} />
           {detail && !stale && (
             <IssueDetail
@@ -768,14 +774,40 @@ function Shell(): ReactElement {
   );
 }
 
-function CanvasMessage({ domino, view }: { domino: ReturnType<typeof useDomino>; view: LoadView }): ReactElement | null {
+function CanvasMessage({
+  domino,
+  view,
+  onOpenSettings,
+}: {
+  domino: ReturnType<typeof useDomino>;
+  view: LoadView;
+  onOpenSettings: () => void;
+}): ReactElement | null {
   const { load, selectedSites, graph } = domino;
   let msg: React.ReactNode = null;
-  if (selectedSites.length === 0 && domino.config) msg = "Select at least one site, or add one in Settings (the gear button, top right).";
-  else if (view.mode === "empty" && view.busy) msg = <LoadingMessage sites={selectedSites} progress={view.progress} />;
+  if (selectedSites.length === 0 && domino.config) {
+    msg = domino.config.sites.some((s) => s.enabled) ? (
+      "Select at least one site in Sites, top left."
+    ) : (
+      <>
+        No Jira sites yet.{" "}
+        <button type="button" className="link-btn" onClick={onOpenSettings}>
+          Add one in Settings
+        </button>
+      </>
+    );
+  } else if (view.mode === "empty" && view.busy) msg = <LoadingMessage sites={selectedSites} progress={view.progress} />;
   // With tickets still on screen, the pill reports the failure instead.
-  else if (load.status === "failed" && !view.shown) msg = `Loading failed: ${load.message}`;
-  else if (load.status === "done" && load.result.kind === "overCap")
+  else if (load.status === "failed" && !view.shown) {
+    msg = (
+      <>
+        Loading failed: {load.message}{" "}
+        <button type="button" className="link-btn" onClick={domino.reload}>
+          Retry
+        </button>
+      </>
+    );
+  } else if (load.status === "done" && load.result.kind === "overCap")
     msg = (
       <>
         <strong>Too many issues ({load.result.count}+).</strong> Domino shows at most 300. Narrow the scope with a tighter JQL, an epic, or
@@ -787,7 +819,7 @@ function CanvasMessage({ domino, view }: { domino: ReturnType<typeof useDomino>;
   if (!msg) return null;
   return (
     <div className="canvas-message" role="status">
-      {msg}
+      <div>{msg}</div>
     </div>
   );
 }
