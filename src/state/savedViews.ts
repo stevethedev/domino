@@ -1,5 +1,6 @@
 import { isHighlight, isHighlightScope } from "../graph/insights";
 import { parseSortBy } from "../graph/sort";
+import type { SiteConfig } from "../config/types";
 import type { Scope } from "../data/MultiSiteLoader";
 import type { StatusCategory } from "../graph/types";
 import { NO_ISSUE_FILTERS, type IssueFilters } from "../graph/visible";
@@ -168,4 +169,24 @@ export function mergeViews(current: readonly SavedView[], imported: readonly Sav
   }
   report.views = [...accepted].reverse().reduce<SavedView[]>((acc, v) => upsertView(acc, v), [...current]);
   return report;
+}
+
+/**
+ * Which of a view's sites can be used here (they exist and are turned on), and the others by name
+ * ("Legacy (turned off)", or the bare id of a site this config doesn't have), so a view shared by
+ * someone with other sites applies what it can and says what it couldn't. `scopeUsable` is false
+ * for an epic or seed scope on a site that can't be used.
+ */
+export function viewSites(
+  view: Pick<SavedView, "siteIds" | "scope">,
+  sites: readonly SiteConfig[],
+): { siteIds: string[]; missing: string[]; scopeUsable: boolean } {
+  const usable = (id: string): boolean => sites.some((s) => s.id === id && s.enabled);
+  const missing = view.siteIds
+    .filter((id) => !usable(id))
+    .map((id) => {
+      const s = sites.find((x) => x.id === id);
+      return s ? `${s.label} (turned off)` : id;
+    });
+  return { siteIds: view.siteIds.filter(usable), missing, scopeUsable: view.scope.mode === "jql" || usable(view.scope.siteId) };
 }

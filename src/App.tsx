@@ -19,7 +19,7 @@ import { useUnblockedNotifications } from "./state/useUnblockedNotifications";
 import { DEFAULT_ESTIMATE_SETTINGS, ESTIMATE_SETTINGS_KEY, parseEstimateSettings } from "./state/estimateSettings";
 import { oneOf, usePersistentState } from "./state/storage";
 import { NATURAL_SORT, parseSortBy, ticketComparator } from "./graph/sort";
-import { mergeViews, parseSavedViews, SAVED_VIEWS_KEY, upsertView, type EpicFolds, type SavedView } from "./state/savedViews";
+import { mergeViews, parseSavedViews, SAVED_VIEWS_KEY, upsertView, viewSites, type EpicFolds, type SavedView } from "./state/savedViews";
 import { saveQuery, selectedSitesOf } from "./state/useDomino";
 import { scopeKeyOf } from "./state/scopeKey";
 import { useChanges } from "./state/useChanges";
@@ -37,6 +37,7 @@ import { UpdateBanner } from "./ui/UpdateBanner";
 import { BrandMark } from "./ui/BrandMark";
 import { IssueDetail, type IssueDetailData } from "./ui/IssueDetail";
 import { ConfigProblemBanner } from "./ui/ConfigProblemBanner";
+import { Toast, type ToastMessage } from "./ui/Toast";
 import { Glance } from "./ui/Glance";
 import { SidebarSection } from "./ui/SidebarSection";
 import { QuickFind } from "./ui/QuickFind";
@@ -131,6 +132,10 @@ function Shell(): ReactElement {
     setSort(nextSort);
   };
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [toast, setToast] = useState<ToastMessage | null>(null);
+  const dismissToast = useCallback((): void => {
+    setToast(null);
+  }, []);
   // Settings is code-split: mount it on first open, then keep it mounted like before.
   const [settingsEverOpened, setSettingsEverOpened] = useState(false);
   useEffect(() => {
@@ -226,8 +231,23 @@ function Shell(): ReactElement {
   };
   const applyView = (v: SavedView): void => {
     applyEpicFolds(v);
-    if (v.scope.mode === "jql") saveQuery(v.scope.jql);
-    domino.applyScope(v.scope, v.siteIds);
+    // A view shared by someone with other sites: use the sites this config has, keep the current
+    // selection (and scope) when it has none of them, and say what couldn't be applied.
+    const { siteIds, missing, scopeUsable } = viewSites(v, config?.sites ?? []);
+    if (scopeUsable && siteIds.length > 0) {
+      if (v.scope.mode === "jql") saveQuery(v.scope.jql);
+      domino.applyScope(v.scope, siteIds);
+    }
+    setToast(
+      missing.length === 0 && scopeUsable
+        ? null
+        : {
+            text:
+              siteIds.length === 0 || !scopeUsable
+                ? `“${v.name}” uses sites you don't have here (${missing.join(", ") || "its scope's site"}), so your sites and query stay as they were; its filters and layout were applied.`
+                : `“${v.name}” also uses ${missing.join(", ")}, which you don't have here; it's showing the rest.`,
+          },
+    );
     setFilters(v.filters);
     setView(v.view);
     // Show the tile group the view's highlight belongs to, so its tile is pressed and can clear it.
@@ -691,6 +711,7 @@ function Shell(): ReactElement {
             failureText={loadView.failure === null ? null : failureText(loadView.failure, shownAt, Date.now())}
           />
           <CanvasMessage domino={domino} view={loadView} />
+          <Toast toast={toast} onDismiss={dismissToast} />
           {detail && !stale && (
             <IssueDetail
               data={detail}

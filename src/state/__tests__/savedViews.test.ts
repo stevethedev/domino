@@ -7,9 +7,11 @@ import {
   parseSavedViews,
   readViewsFile,
   upsertView,
+  viewSites,
   viewsFile,
   type SavedView,
 } from "../savedViews";
+import type { SiteConfig } from "../../config/types";
 
 const view = (name: string): SavedView => ({
   name,
@@ -155,5 +157,27 @@ describe("sharing saved views", () => {
     const merged = mergeViews([], [{ ...view("Dup"), mode: "graph" }, view("dup")]);
     expect(merged.views.map((v) => [v.name, v.mode])).toEqual([["Dup", "graph"]]);
     expect(merged.added).toEqual(["Dup"]);
+  });
+});
+
+describe("viewSites", () => {
+  const site = (id: string, enabled = true): SiteConfig => ({
+    id,
+    label: id.toUpperCase(),
+    baseUrl: `https://${id}.atlassian.net`,
+    auth: { type: "oauth3lo" },
+    color: "#000000",
+    enabled,
+  });
+  const sites = [site("acme"), site("partner"), site("legacy", false)];
+
+  it("keeps the view's sites you have, and names the ones you don't", () => {
+    const r = viewSites({ siteIds: ["acme", "legacy", "theirs"], scope: { mode: "jql", jql: "" } }, sites);
+    expect(r).toEqual({ siteIds: ["acme"], missing: ["LEGACY (turned off)", "theirs"], scopeUsable: true });
+  });
+
+  it("can't use an epic or seed scope on a site you don't have", () => {
+    expect(viewSites({ siteIds: ["acme"], scope: { mode: "epic", siteId: "theirs", key: "X-1" } }, sites).scopeUsable).toBe(false);
+    expect(viewSites({ siteIds: ["acme"], scope: { mode: "seed", siteId: "acme", key: "X-1", depth: 2 } }, sites).scopeUsable).toBe(true);
   });
 });

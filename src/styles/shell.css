@@ -85,6 +85,32 @@
   pointer-events: none;
   user-select: none;
 }
+/* A passing notice (Toast.tsx): bottom centre of the canvas, above the cards, clear of the pill. */
+.toast {
+  position: absolute;
+  bottom: var(--space-4);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--z-overlay);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: min(560px, calc(100% - 2 * var(--space-6)));
+  padding: var(--space-1_5) var(--space-1_5) var(--space-1_5) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  font-size: var(--text-md);
+}
+.toast > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.toast .link-btn {
+  flex: none;
+  font-weight: var(--weight-semibold);
+}
 .load-pill {
   position: absolute;
   top: var(--space-3);
