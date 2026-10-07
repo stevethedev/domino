@@ -217,7 +217,13 @@ export function summarizeEpics(nodes: readonly GraphNode[], timeline: ReadonlyMa
     if (!n.epic || n.epic.uid === n.uid || !e) continue;
     children.set(n.epic.uid, [...(children.get(n.epic.uid) ?? []), e]);
   }
-  const envelope = (spans: Span[]): Span => ({ start: minDay(...spans.map((s) => s.start)), end: maxDay(...spans.map((s) => s.end)) });
+  // Empty spans are undated placeholders (Done with no dates), not work: left out. All of them
+  // empty leaves an empty envelope, which draws nothing and anchors no arrows.
+  const envelope = (spans: Span[]): Span => {
+    const dated = spans.filter((s) => s.start < s.end);
+    if (dated.length === 0) return { start: spans[0].start, end: spans[0].start };
+    return { start: minDay(...dated.map((s) => s.start)), end: maxDay(...dated.map((s) => s.end)) };
+  };
   return new Map(
     [...children].map(([uid, es]) => [
       uid,

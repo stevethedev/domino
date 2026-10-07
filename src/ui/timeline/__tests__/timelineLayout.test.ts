@@ -18,6 +18,7 @@ import {
   scrollLeftFor,
   spanLabel,
   stackFlags,
+  summarizeEpics,
   ticks,
   varianceLabel,
 } from "../timelineLayout";
@@ -373,5 +374,26 @@ describe("unobscuredWidth", () => {
     expect(unobscuredWidth(100, 1100)).toBe(1000);
     expect(unobscuredWidth(100, 1100, 740)).toBe(640);
     expect(unobscuredWidth(100, 1100, 1200)).toBe(1000); // a drawer elsewhere covers nothing
+  });
+});
+
+describe("summarizeEpics with undated children", () => {
+  const child = (uid: string): GraphNode => ({ ...node(uid), epic: { uid: "E", key: "E", summary: "Epic", url: "" } });
+  const span = (start: string, end: string): TimelineEntry => ({
+    projected: { start, end },
+    progress: { state: "not-started", forecast: { start, end } },
+    varianceDays: 0,
+  });
+
+  it("leaves an undated child's empty placeholder out of the epic's envelope", () => {
+    const e = summarizeEpics(
+      [child("a"), child("b")],
+      new Map([
+        ["a", span("2026-09-29", "2026-09-30")],
+        ["b", span("2026-10-05", "2026-10-05")],
+      ]),
+    ).get("E");
+    expect(e?.work).toEqual({ start: "2026-09-29", end: "2026-09-30" });
+    expect(e?.projected).toEqual({ start: "2026-09-29", end: "2026-09-30" });
   });
 });
