@@ -3,7 +3,7 @@ import type { TimelineEntry } from "../../../graph/schedule";
 import type { GraphNode } from "../../../graph/types";
 import type { Lane } from "../../../graph/layout";
 import { ticketComparator } from "../../../graph/sort";
-import { LANE_HEIGHT, layoutRows, ROW_HEIGHT, rowsMoved, stackFlags } from "../timelineLayout";
+import { LANE_HEIGHT, layoutRows, ROW_HEIGHT, rowsMoved, stackFlags, ticks, varianceLabel } from "../timelineLayout";
 
 const node = (uid: string, ghost = false): GraphNode => ({
   uid,
@@ -233,5 +233,36 @@ describe("rowsMoved", () => {
         at([["a", 0]]),
       ),
     ).toBe(false);
+  });
+});
+
+describe("ticks", () => {
+  const month = (d: string): string =>
+    new Intl.DateTimeFormat(undefined, { month: "short", timeZone: "UTC" }).format(new Date(`${d}T00:00:00Z`));
+
+  it("names the month on the day scale where it starts, and on the first tick", () => {
+    const t = ticks({ start: "2026-10-30", end: "2026-11-02" }, "day");
+    expect(t[0].label).toContain(month("2026-10-30"));
+    expect(t[0].label).toContain("30");
+    const first = t.find((x) => x.day === "2026-11-01");
+    expect(first?.label).toContain(month("2026-11-01"));
+    expect(first?.major).toBe(true);
+    expect(t.find((x) => x.day === "2026-10-31")?.label).not.toContain(month("2026-10-31")); // ordinary days stay short
+  });
+
+  it("gives the year on the week scale on the first tick and where a year begins", () => {
+    const t = ticks({ start: "2026-12-14", end: "2027-01-12" }, "week");
+    expect(t[0].label).toContain("2026");
+    expect(t.find((x) => x.day === "2027-01-04")?.label).toContain("2027");
+    expect(t.find((x) => x.day === "2026-12-21")?.label).not.toContain("2026");
+  });
+});
+
+describe("varianceLabel", () => {
+  // Measured against the estimate, not the due date (the ◆), so it never says "late".
+  it("says how the forecast compares with the estimate", () => {
+    expect(varianceLabel(3)).toBe("+3d over estimate");
+    expect(varianceLabel(-2)).toBe("2d under estimate");
+    expect(varianceLabel(0)).toBe("on estimate");
   });
 });

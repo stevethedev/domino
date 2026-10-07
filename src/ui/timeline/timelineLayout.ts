@@ -135,29 +135,41 @@ export function dayRange(entries: readonly TimelineEntry[], extra: readonly Day[
 
 export type Tick = { day: Day; label: string; major: boolean };
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"];
+// In the viewer's language; days are UTC calendar dates, so they're formatted in UTC.
+const monthName = new Intl.DateTimeFormat(undefined, { month: "short", timeZone: "UTC" });
+const weekdayLetter = new Intl.DateTimeFormat(undefined, { weekday: "narrow", timeZone: "UTC" });
 
-/** Axis ticks for a scale: every day, every Monday, or every 1st of the month. */
+/**
+ * Axis ticks for a scale: every day, every Monday, or every 1st of the month. A label always says
+ * where it is in time: the day scale names the month on the 1st and the first tick ("Nov 1"); the
+ * week scale gives the year on its first tick and the first Monday of each year.
+ */
 export function ticks(range: { start: Day; end: Day }, scale: Scale): Tick[] {
   const out: Tick[] = [];
   for (let d = range.start; d <= range.end; d = addDays(d, 1)) {
     const date = new Date(`${d}T00:00:00Z`);
     const dom = date.getUTCDate();
-    const month = MONTHS[date.getUTCMonth()];
-    if (scale === "day") out.push({ day: d, label: `${WEEKDAYS[date.getUTCDay()]} ${dom}`, major: dom === 1 || d === range.start });
-    else if (scale === "week" && date.getUTCDay() === 1) out.push({ day: d, label: `${month} ${dom}`, major: dom <= 7 });
-    else if (scale === "month" && dom === 1) out.push({ day: d, label: `${month} ${date.getUTCFullYear()}`, major: true });
+    const month = monthName.format(date);
+    if (scale === "day") {
+      const major = dom === 1 || d === range.start;
+      out.push({ day: d, label: major ? `${month} ${dom}` : `${weekdayLetter.format(date)} ${dom}`, major });
+    } else if (scale === "week" && date.getUTCDay() === 1) {
+      const withYear = out.length === 0 || (date.getUTCMonth() === 0 && dom <= 7);
+      out.push({ day: d, label: withYear ? `${month} ${dom}, ${date.getUTCFullYear()}` : `${month} ${dom}`, major: dom <= 7 });
+    } else if (scale === "month" && dom === 1) out.push({ day: d, label: `${month} ${date.getUTCFullYear()}`, major: true });
   }
   return out;
 }
 
 export const xOf = (rangeStart: Day, day: Day, scale: Scale): number => daysBetween(rangeStart, day) * PX_PER_DAY[scale];
 
-/** "+3d late", "2d early", "on track". */
+/**
+ * "+3d over estimate", "2d under estimate", "on estimate": the forecast against the estimate
+ * (points × days per point). Not the due date, which is the ◆, so it never says "late".
+ */
 export function varianceLabel(days: number): string {
-  if (days === 0) return "on track";
-  return days > 0 ? `+${days}d late` : `${-days}d early`;
+  if (days === 0) return "on estimate";
+  return days > 0 ? `+${days}d over estimate` : `${-days}d under estimate`;
 }
 
 /** Today's local calendar date, matching what the user sees on their clock. */

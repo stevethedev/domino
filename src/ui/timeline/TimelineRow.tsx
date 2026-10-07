@@ -25,6 +25,10 @@ export type RowFlags = {
   stale?: boolean;
 };
 
+/** What the variance badge measures, since it isn't the due date. */
+const VARIANCE_HINT =
+  "Forecast finish against the estimate (story points × Days / point, from when it started or could start), in working days. Due dates are the ◆.";
+
 const missesText = (names: readonly string[]): string =>
   `forecast to miss ${names.length === 1 ? "release" : "releases"} ${names.join(", ")}`;
 
@@ -89,7 +93,8 @@ export const TimelineRow = memo(function TimelineRow({
   const due = node.dates?.due;
   const pastDue = due !== undefined && finish > addDays(due, 1);
   const late = entry.varianceDays > 0;
-  const badgeLeft = xOf(rangeStart, entryEnd(entry), scale) + 6;
+  // After the bars and the due ◆ (whichever ends later), so the badge never covers the due date.
+  const badgeLeft = xOf(rangeStart, due ? maxDay(entryEnd(entry), addDays(due, 1)) : entryEnd(entry), scale) + 6;
 
   return (
     <div
@@ -217,7 +222,11 @@ export const TimelineRow = memo(function TimelineRow({
             </span>
           )}
           {!node.ghost && p.state !== "unknown" && (
-            <span className={`tl-variance${late ? " late" : entry.varianceDays < 0 ? " early" : ""}`} style={{ left: badgeLeft }}>
+            <span
+              className={`tl-variance${late ? " late" : entry.varianceDays < 0 ? " early" : ""}`}
+              style={{ left: badgeLeft }}
+              title={VARIANCE_HINT}
+            >
               {p.state === "done"
                 ? p.startUnknown
                   ? "done, start unknown"

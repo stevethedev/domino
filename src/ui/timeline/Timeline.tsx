@@ -333,7 +333,7 @@ export function Timeline({
         {range && <ExportMenu name="timeline" capture={exportTimeline} />}
         <SortChip sort={view.sort} onClear={onClearSort} />
         <span className="status-text" aria-live="polite">
-          {history.status === "loading" ? "Loading status history…" : `${late} late`}
+          {history.status === "loading" ? "Loading status history…" : `${late} over estimate`}
         </span>
       </div>
       {history.status === "done" && history.errors.length > 0 && (

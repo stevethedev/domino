@@ -14,7 +14,7 @@ export function TimelineLane({
 }): ReactElement {
   const { lane, count, collapsed, late } = item;
   const url = lane.url;
-  const counts = `${count} ${count === 1 ? "issue" : "issues"}${late ? `, ${late} late` : ""}`;
+  const counts = `${count} ${count === 1 ? "issue" : "issues"}${late ? `, ${late} over estimate` : ""}`;
   return (
     <div className={`tl-lane${collapsed ? " collapsed" : ""}`} style={{ top: item.y, height: LANE_HEIGHT }}>
       <div className="tl-lane-title">
@@ -43,7 +43,7 @@ export function TimelineLane({
         )}
         <span className="muted small" aria-hidden="true">
           · {count} {count === 1 ? "issue" : "issues"}
-          {late > 0 && <span className="tl-lane-late"> · {late} late</span>}
+          {late > 0 && <span className="tl-lane-late"> · {late} over estimate</span>}
         </span>
       </div>
     </div>

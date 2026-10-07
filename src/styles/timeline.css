@@ -365,6 +365,7 @@
 }
 .tl-due {
   position: absolute;
+  z-index: calc(var(--z-raised) + 1); /* above the variance badge, should they ever meet */
   top: 11px;
   transform: translateX(-50%);
   font-size: var(--text-base);
