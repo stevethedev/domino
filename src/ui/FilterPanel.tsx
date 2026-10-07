@@ -12,6 +12,7 @@ import {
 import { isSortKey, orderText, SORT_INFO, SORT_KEYS, type SortBy, type SortGroup } from "../graph/sort";
 import { isGroupBy, type Filters, type ViewOptions } from "./Canvas";
 import { Icon } from "./Icon";
+import { SORT_SELECT_ID } from "./SortChip";
 import { useDetailsMenu } from "./useDetailsMenu";
 
 const LINK_ROWS: { key: keyof LinkFilters; label: string; sample: string }[] = [
@@ -106,6 +107,7 @@ function SortField({ sort, onSort }: { sort: SortBy; onSort: (next: SortBy) => v
       <label className="field">
         <span>Sort by</span>
         <select
+          id={SORT_SELECT_ID}
           value={sort.key}
           title={sort.key === "natural" ? "Graph: by dependencies; Timeline: by start date" : undefined}
           onChange={(e) => {
@@ -225,6 +227,8 @@ export function FilterPanel({
             className="link-btn"
             onClick={() => {
               onFilters({ ...filters, issues: NO_ISSUE_FILTERS });
+              // This button goes away with the filters: keep focus in the panel, on the first filter.
+              document.querySelector<HTMLElement>('[aria-label="Statuses to show"] button')?.focus();
             }}
           >
             Clear filters
