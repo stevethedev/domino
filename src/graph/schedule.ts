@@ -20,7 +20,8 @@ export type ScheduleOptions = {
 };
 
 export type Progress =
-  | { state: "done"; actual: Span }
+  /** `startUnknown`: no status history says when it started; `actual` is just its resolved day. */
+  | { state: "done"; actual: Span; startUnknown?: true }
   | { state: "started"; actualStart: Day; forecast: Span }
   | { state: "not-started"; forecast: Span }
   /** In progress or done in Jira, but there's no status history to say when it started. */
@@ -130,10 +131,18 @@ export function projectSchedule(graph: Graph, opts: ScheduleOptions, history: St
   const byUid = new Map(graph.nodes.map((n) => [n.uid, n]));
   const spans = new Map<string, Span>();
   for (const uid of topoOrder(graph, blockers)) {
+    const node = getOrThrow(byUid, uid);
     const started = actualStart(history.get(uid));
+    // Done with no history: its resolved day is all that's known, and better than an estimate laid
+    // out from today. With no dates at all it's simply done, holding nothing up (as in the forecast).
+    if (node.statusCategory === "done" && !started) {
+      const resolved = node.dates?.resolved;
+      spans.set(uid, resolved ? { start: resolved, end: addDays(resolved, 1) } : { start: opts.planStart, end: opts.planStart });
+      continue;
+    }
     const after = (blockers.get(uid) ?? []).map((b) => getOrThrow(spans, b).end);
     const start = started ?? nextWorkday(maxDay(opts.planStart, ...after));
-    spans.set(uid, { start, end: addWorkdays(start, durationDays(getOrThrow(byUid, uid), opts)) });
+    spans.set(uid, { start, end: addWorkdays(start, durationDays(node, opts)) });
   }
   return spans;
 }
@@ -164,11 +173,12 @@ export function computeTimeline(graph: Graph, history: StatusHistory, opts: Sche
     let progress: Progress;
 
     if (node.statusCategory === "done") {
-      const end = node.dates?.resolved ? addDays(node.dates.resolved, 1) : undefined;
-      progress =
-        started && end
-          ? { state: "done", actual: { start: started, end: maxDay(end, addDays(started, 1)) } }
-          : { state: "unknown", forecast: planned };
+      const resolved = node.dates?.resolved;
+      const end = resolved ? addDays(resolved, 1) : undefined;
+      if (started && end) progress = { state: "done", actual: { start: started, end: maxDay(end, addDays(started, 1)) } };
+      // No history: what's known is the day it was resolved, not an estimate laid out from today.
+      else if (resolved && end) progress = { state: "done", actual: { start: resolved, end }, startUnknown: true };
+      else progress = { state: "unknown", forecast: planned };
     } else if (started) {
       const remaining = Math.max(1, duration - workdaysBetween(started, opts.today));
       progress = { state: "started", actualStart: started, forecast: { start: opts.today, end: addWorkdays(opts.today, remaining) } };
@@ -181,7 +191,8 @@ export function computeTimeline(graph: Graph, history: StatusHistory, opts: Sche
     }
 
     const end = progress.state === "done" ? progress.actual.end : progress.forecast.end;
-    finish.set(uid, end);
+    // Done work never holds up what it blocks: with no dates at all, count it as finished by today.
+    finish.set(uid, node.statusCategory === "done" && progress.state === "unknown" ? opts.today : end);
     out.set(uid, { projected: planned, progress, varianceDays: workdaysBetween(planned.end, end) });
   }
   return out;

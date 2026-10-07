@@ -1080,6 +1080,14 @@ kbd {
 .canvas.has-detail .tl-toolbar {
   padding-right: calc(var(--detail-w) + var(--space-3));
 }
+/* Scrolling to a row's bar keeps it clear of the drawer, with room to do so even for the last bar. */
+.canvas.has-detail .tl-scroll {
+  scroll-padding-right: var(--detail-w);
+}
+.canvas.has-detail .tl-inner {
+  box-sizing: content-box;
+  padding-right: var(--detail-w);
+}
 .issue-detail {
   position: absolute;
   top: 0;

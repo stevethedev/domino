@@ -4,7 +4,7 @@ import { blockingChain } from "../../graph/analysis";
 import { emphasis, type Insights } from "../../graph/insights";
 import { releaseStatuses } from "../../graph/releases";
 import type { CardOrder } from "../../graph/layout";
-import type { TimelineEntry } from "../../graph/schedule";
+import { addDays, maxDay, type Day, type TimelineEntry } from "../../graph/schedule";
 import type { Graph } from "../../graph/types";
 import { previewOf, type LinkPreview, type Move } from "../../graph/traverse";
 import { visibleSubgraph } from "../../graph/visible";
@@ -25,8 +25,16 @@ import {
   isEpicNode,
   isLate,
   LABEL_WIDTH,
+  LANE_HEIGHT,
   layoutRows,
+  ROW_HEIGHT,
+  dayAt,
+  roomAfter,
+  scrollLeftFor,
+  unobscuredWidth,
+  BADGE_ROOM,
   rowsMoved,
+  type Scale,
   type TimelineRowModel,
   PX_PER_DAY,
   SCALES,
@@ -39,6 +47,13 @@ import { fmtDay } from "../format";
 import { ExportMenu } from "../ExportMenu";
 import { TimelineLane } from "./TimelineLane";
 import { TimelineRow } from "./TimelineRow";
+
+/** The chart's scroll box width the details drawer leaves visible, for placing Today and the centre. */
+function visibleWidth(el: HTMLElement): number {
+  const box = el.getBoundingClientRect();
+  const drawer = document.querySelector(".issue-detail")?.getBoundingClientRect();
+  return unobscuredWidth(box.left, box.left + el.clientWidth, drawer?.left);
+}
 
 export function Timeline({
   graph,
@@ -58,6 +73,7 @@ export function Timeline({
   stale,
   order,
   onClearSort,
+  scopeKey,
 }: {
   graph: Graph;
   insights: Insights;
@@ -82,6 +98,8 @@ export function Timeline({
   order: CardOrder | null;
   /** Back to the natural order (the sort chip's ✕). */
   onClearSort: () => void;
+  /** The scope shown: a new one scrolls the chart to today. */
+  scopeKey: string | null;
 }): ReactElement {
   const [hovered, setHovered] = useState<string | null>(null);
   const setSettings = (patch: Partial<EstimateSettings>): void => {
@@ -112,8 +130,6 @@ export function Timeline({
     () => layoutRows(nodes, placed, lanesFor(view.groupBy, insights), collapsedLanes, order ?? undefined),
     [nodes, placed, view.groupBy, insights, collapsedLanes, order],
   );
-  // Rows on screen; folded rows (in collapsed lanes) stay mounted only so folding can animate.
-  const rows = items.filter((i): i is TimelineRowModel => i.kind === "row" && !i.folded);
   const lanes = items.filter((i) => i.kind === "lane");
   // Rows slide whenever they move (lane folds, sort changes, refreshed data), but arrows jump to
   // their final positions: hide the arrows until the rows land. A layout effect, so arrows never
@@ -199,8 +215,17 @@ export function Timeline({
   );
   const criticalEdges = view.highlight === "critical" ? (emphasized?.edges ?? new Set<string>()) : new Set<string>();
 
-  const rowY = new Map(rows.map((r) => [r.node.uid, r.y]));
-  const rowByUid = new Map(rows.map((r) => [r.node.uid, r]));
+  // A folded issue's arrows attach to its lane's header line (folded rows sit at the lane's y), so
+  // links into and out of a folded lane stay drawn. Arrows within one folded lane are dropped.
+  const anchored = items.filter((i): i is TimelineRowModel => i.kind === "row");
+  const rowY = new Map(anchored.map((r) => [r.node.uid, r.folded ? r.y + (LANE_HEIGHT - ROW_HEIGHT) / 2 : r.y]));
+  const rowByUid = new Map(anchored.map((r) => [r.node.uid, r]));
+  const laneOfRow = new Map<string, string>();
+  let laneId = "";
+  for (const i of items) {
+    if (i.kind === "lane") laneId = i.lane.id;
+    else laneOfRow.set(i.node.uid, laneId);
+  }
   const drawn = (r: TimelineRowModel): ReturnType<typeof drawnBar> =>
     drawnBar(r.node, getOrThrow(timeline, r.node.uid), epics.get(r.node.uid));
   const arrows: ArrowModel[] = edges
@@ -208,6 +233,7 @@ export function Timeline({
     .flatMap((e) => {
       const [source, target] = [rowByUid.get(e.source), rowByUid.get(e.target)];
       if (!source || !target) return [];
+      if (source.folded && target.folded && laneOfRow.get(e.source) === laneOfRow.get(e.target)) return []; // both inside one folded lane
       const [from, to] = [drawn(source), drawn(target)];
       if (from.positionless && to.positionless) return []; // nothing real to connect
       const ghostEnd = from.positionless ? "blocker" : to.positionless ? "blocked" : null;
@@ -225,9 +251,69 @@ export function Timeline({
     });
 
   const late = all.filter(isLate).length;
+  // A new scope opens on today (a quarter of the way in), not on its oldest work; a new scale
+  // keeps the date that was in the middle. Layout effects, so the first paint is already there.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrolledFor = useRef<string | null | undefined>(undefined);
+  /** The scroll box's width, kept current on resize (the room after today depends on it). */
+  const [viewportWidth, setViewportWidth] = useState(0);
+  const hasRange = range !== null;
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const measure = (): void => {
+      setViewportWidth(el.clientWidth);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return (): void => {
+      observer.disconnect();
+    };
+  }, [hasRange]);
+  /** The date to keep in the middle, and the scale it's for (set as the scale changes). */
+  const keepCentred = useRef<{ day: Day; scale: Scale } | null>(null);
+  /** The range start the current scroll position was measured from. */
+  const scrolledFrom = useRef<Day | null>(null);
+  /** Where the chart's left edge is, exactly (scrollLeft from that range start, at that scale), kept as the user scrolls. */
+  const leftEdge = useRef<{ start: Day; px: number; scale: Scale } | null>(null);
+  /** The date last kept in the middle by a scale change, which needs room after it like today does. */
+  const [centreDay, setCentreDay] = useState<Day | null>(null);
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el || !range || viewportWidth === 0) return; // measured first, so the room after today is there
+    const keep = keepCentred.current;
+    keepCentred.current = null;
+    if (scrolledFor.current !== scopeKey) {
+      scrolledFor.current = scopeKey;
+      setCentreDay(null); // a new scope: no room kept for the last one's centre
+      leftEdge.current = { start: range.start, px: 0, scale: settings.scale }; // nor its left edge (set below)
+      el.scrollLeft = scrollLeftFor(range.start, today, settings.scale, visibleWidth(el), 0.25);
+      leftEdge.current = { start: range.start, px: el.scrollLeft, scale: settings.scale };
+    } else if (keep?.scale === settings.scale) {
+      el.scrollLeft = scrollLeftFor(range.start, keep.day, settings.scale, visibleWidth(el), 0.5);
+    } else if (scrolledFrom.current && scrolledFrom.current !== range.start && leftEdge.current?.scale === settings.scale) {
+      // The range grew or shrank at its start (status history arriving, a refresh): put the left
+      // edge back on the same moment, from where it sits in the new range (absolute, so a scroll
+      // the browser clamped as the chart resized isn't shifted again).
+      const edge = leftEdge.current;
+      el.scrollLeft = Math.max(0, xOf(range.start, edge.start, settings.scale) + edge.px);
+    }
+    scrolledFrom.current = range.start;
+  }, [range, scopeKey, today, settings.scale, viewportWidth]);
+
   const chartWidth = range ? xOf(range.start, range.end, settings.scale) + PX_PER_DAY[settings.scale] : 0;
+  // Where the last bar or due ◆ ends, so the badge after it has room (BADGE_ROOM) before the edge.
   const lastBarX = range
-    ? Math.max(0, ...all.filter((r) => !r.node.ghost).map((r) => xOf(range.start, entryEnd(r.entry), settings.scale)))
+    ? Math.max(
+        0,
+        ...all
+          .filter((r) => !r.node.ghost)
+          .map((r) => {
+            const due = r.node.dates?.due;
+            return xOf(range.start, due ? maxDay(entryEnd(r.entry), addDays(due, 1)) : entryEnd(r.entry), settings.scale);
+          }),
+      )
     : 0;
 
   // Exports render the whole chart (labels, axis, bars, arrows) at full size, including what's
@@ -250,6 +336,13 @@ export function Timeline({
                 value={s}
                 checked={settings.scale === s}
                 onChange={() => {
+                  // Keep the date in the middle of the chart in the middle at the new scale.
+                  const el = scrollRef.current;
+                  if (el && range) {
+                    const day = dayAt(range.start, el.scrollLeft, settings.scale, visibleWidth(el), 0.5);
+                    keepCentred.current = { day, scale: s };
+                    setCentreDay(day); // room after it, so the browser doesn't clamp the new position
+                  }
                   setSettings({ scale: s });
                 }}
               />
@@ -257,6 +350,21 @@ export function Timeline({
             </label>
           ))}
         </fieldset>
+        <button
+          type="button"
+          disabled={!range}
+          onClick={() => {
+            const el = scrollRef.current;
+            if (!el || !range) return;
+            el.scrollTo({
+              left: scrollLeftFor(range.start, today, settings.scale, visibleWidth(el), 0.25),
+              behavior: prefersReducedMotion() ? "auto" : "smooth",
+            });
+          }}
+          title="Scroll to today"
+        >
+          Today
+        </button>
         <label className="field" title="Unstarted work is projected to begin no earlier than this day">
           <span className="field-label">Unstarted from</span>
           <input
@@ -278,7 +386,10 @@ export function Timeline({
             Reset to today
           </button>
         )}
-        <label className="field">
+        <label
+          className="field"
+          title="How long a story point takes, in working days. Sets each issue's estimate (dashed) and forecast length, and so what counts as over estimate. Rounded up to whole days."
+        >
           <span className="field-label">Days / point</span>
           <NumberField
             min={0.25}
@@ -289,7 +400,7 @@ export function Timeline({
             }}
           />
         </label>
-        <label className="field">
+        <label className="field" title="Working days assumed for an issue with no story points.">
           <span className="field-label">Unpointed</span>
           <NumberField
             min={1}
@@ -302,9 +413,9 @@ export function Timeline({
           />
           <span className="muted small">days</span>
         </label>
-        <ul className="tl-legend" aria-label="Legend">
+        <ul className="tl-legend" aria-label="Legend (the sidebar's Legend has every mark)">
           <li>
-            <span className="tl-key tl-projected" aria-hidden="true" /> Projected
+            <span className="tl-key tl-projected" aria-hidden="true" /> Estimate
           </li>
           <li>
             <span className="tl-key tl-actual" aria-hidden="true" /> Actual
@@ -333,7 +444,7 @@ export function Timeline({
         {range && <ExportMenu name="timeline" capture={exportTimeline} />}
         <SortChip sort={view.sort} onClear={onClearSort} />
         <span className="status-text" aria-live="polite">
-          {history.status === "loading" ? "Loading status history…" : `${late} late`}
+          {history.status === "loading" ? "Loading status history…" : `${late} over estimate`}
         </span>
       </div>
       {history.status === "done" && history.errors.length > 0 && (
@@ -344,8 +455,27 @@ export function Timeline({
 
       {
         range ? (
-          <div className="tl-scroll">
-            <div className="tl-inner" style={{ width: LABEL_WIDTH + Math.max(chartWidth, lastBarX + 140) }}>
+          <div
+            className="tl-scroll"
+            ref={scrollRef}
+            onScroll={(e) => {
+              leftEdge.current = { start: range.start, px: e.currentTarget.scrollLeft, scale: settings.scale };
+            }}
+          >
+            <div
+              className="tl-inner"
+              // Room for the last badge, and after today for Today to scroll a quarter of the way in.
+              style={{
+                width:
+                  LABEL_WIDTH +
+                  Math.max(
+                    chartWidth,
+                    lastBarX + BADGE_ROOM,
+                    roomAfter(xOf(range.start, today, settings.scale), viewportWidth, 0.25),
+                    centreDay ? roomAfter(xOf(range.start, centreDay, settings.scale), viewportWidth, 0.5) : 0,
+                  ),
+              }}
+            >
               <div className={`tl-axis${releaseLines ? " with-releases" : ""}`} style={{ "--release-lines": releaseLines }}>
                 <div className="tl-corner">Issue</div>
                 <TimeAxis range={range} scale={settings.scale} today={today} releases={releaseMarkers} />
@@ -371,6 +501,8 @@ export function Timeline({
                         toggleLane(item.lane.id);
                       }}
                       onOpen={onOpen}
+                      rangeStart={range.start}
+                      scale={settings.scale}
                     />
                   ) : (
                     <TimelineRow
