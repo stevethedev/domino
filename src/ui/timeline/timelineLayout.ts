@@ -240,7 +240,7 @@ export function drawnBar(
   if (summary)
     return {
       entry: { ...entry, projected: summary.projected, progress: { state: "not-started", forecast: summary.work } },
-      positionless: false,
+      positionless: summary.work.start >= summary.work.end, // children all undated: nothing to anchor to
     };
   // Ghosts and epics have no dates of their own, and an empty span (a Done ticket with no dates)
   // is a placeholder: arrows to any of these are stubs at the other, dated end.
@@ -284,3 +284,7 @@ export const spanLabel = (s: Span): string => (s.start < s.end ? `${fmtDay(s.sta
  * stays wherever the scroll stops.
  */
 export const roomAfter = (x: number, viewportWidth: number, at: number): number => x + (1 - at) * Math.max(0, viewportWidth - LABEL_WIDTH);
+
+/** The width of a box from `left` to `right` that a drawer starting at `drawerLeft` leaves uncovered. */
+export const unobscuredWidth = (left: number, right: number, drawerLeft?: number): number =>
+  Math.max(0, (drawerLeft !== undefined && drawerLeft < right ? Math.max(left, drawerLeft) : right) - left);

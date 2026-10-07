@@ -31,6 +31,7 @@ import {
   dayAt,
   roomAfter,
   scrollLeftFor,
+  unobscuredWidth,
   BADGE_ROOM,
   rowsMoved,
   type Scale,
@@ -46,6 +47,13 @@ import { fmtDay } from "../format";
 import { ExportMenu } from "../ExportMenu";
 import { TimelineLane } from "./TimelineLane";
 import { TimelineRow } from "./TimelineRow";
+
+/** The chart's scroll box width the details drawer leaves visible, for placing Today and the centre. */
+function visibleWidth(el: HTMLElement): number {
+  const box = el.getBoundingClientRect();
+  const drawer = document.querySelector(".issue-detail")?.getBoundingClientRect();
+  return unobscuredWidth(box.left, box.left + el.clientWidth, drawer?.left);
+}
 
 export function Timeline({
   graph,
@@ -267,6 +275,10 @@ export function Timeline({
   const keepCentred = useRef<{ day: Day; scale: Scale } | null>(null);
   /** The range start the current scroll position was measured from. */
   const scrolledFrom = useRef<Day | null>(null);
+  /** The day at the chart's left edge, kept as the user scrolls (see the range-start case below). */
+  const leftDay = useRef<Day | null>(null);
+  /** The date last kept in the middle by a scale change, which needs room after it like today does. */
+  const [centreDay, setCentreDay] = useState<Day | null>(null);
   useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el || !range || viewportWidth === 0) return; // measured first, so the room after today is there
@@ -274,13 +286,14 @@ export function Timeline({
     keepCentred.current = null;
     if (scrolledFor.current !== scopeKey) {
       scrolledFor.current = scopeKey;
-      el.scrollLeft = scrollLeftFor(range.start, today, settings.scale, el.clientWidth, 0.25);
+      el.scrollLeft = scrollLeftFor(range.start, today, settings.scale, visibleWidth(el), 0.25);
     } else if (keep?.scale === settings.scale) {
-      el.scrollLeft = scrollLeftFor(range.start, keep.day, settings.scale, el.clientWidth, 0.5);
-    } else if (scrolledFrom.current && scrolledFrom.current !== range.start) {
-      // The range grew or shrank at its start (status history arriving, a refresh): keep the same
-      // dates in view rather than sliding them by the difference.
-      el.scrollLeft += xOf(range.start, scrolledFrom.current, settings.scale);
+      el.scrollLeft = scrollLeftFor(range.start, keep.day, settings.scale, visibleWidth(el), 0.5);
+    } else if (scrolledFrom.current && scrolledFrom.current !== range.start && leftDay.current) {
+      // The range grew or shrank at its start (status history arriving, a refresh): put the date
+      // that was at the left edge back there, from where it sits in the new range (absolute, so a
+      // scroll the browser clamped as the chart resized isn't shifted again).
+      el.scrollLeft = Math.max(0, xOf(range.start, leftDay.current, settings.scale));
     }
     scrolledFrom.current = range.start;
   }, [range, scopeKey, today, settings.scale, viewportWidth]);
@@ -321,8 +334,11 @@ export function Timeline({
                 onChange={() => {
                   // Keep the date in the middle of the chart in the middle at the new scale.
                   const el = scrollRef.current;
-                  if (el && range)
-                    keepCentred.current = { day: dayAt(range.start, el.scrollLeft, settings.scale, el.clientWidth, 0.5), scale: s };
+                  if (el && range) {
+                    const day = dayAt(range.start, el.scrollLeft, settings.scale, visibleWidth(el), 0.5);
+                    keepCentred.current = { day, scale: s };
+                    setCentreDay(day); // room after it, so the browser doesn't clamp the new position
+                  }
                   setSettings({ scale: s });
                 }}
               />
@@ -337,7 +353,7 @@ export function Timeline({
             const el = scrollRef.current;
             if (!el || !range) return;
             el.scrollTo({
-              left: scrollLeftFor(range.start, today, settings.scale, el.clientWidth, 0.25),
+              left: scrollLeftFor(range.start, today, settings.scale, visibleWidth(el), 0.25),
               behavior: prefersReducedMotion() ? "auto" : "smooth",
             });
           }}
@@ -435,14 +451,25 @@ export function Timeline({
 
       {
         range ? (
-          <div className="tl-scroll" ref={scrollRef}>
+          <div
+            className="tl-scroll"
+            ref={scrollRef}
+            onScroll={(e) => {
+              leftDay.current = addDays(range.start, Math.round(e.currentTarget.scrollLeft / PX_PER_DAY[settings.scale]));
+            }}
+          >
             <div
               className="tl-inner"
               // Room for the last badge, and after today for Today to scroll a quarter of the way in.
               style={{
                 width:
                   LABEL_WIDTH +
-                  Math.max(chartWidth, lastBarX + BADGE_ROOM, roomAfter(xOf(range.start, today, settings.scale), viewportWidth, 0.25)),
+                  Math.max(
+                    chartWidth,
+                    lastBarX + BADGE_ROOM,
+                    roomAfter(xOf(range.start, today, settings.scale), viewportWidth, 0.25),
+                    centreDay ? roomAfter(xOf(range.start, centreDay, settings.scale), viewportWidth, 0.5) : 0,
+                  ),
               }}
             >
               <div className={`tl-axis${releaseLines ? " with-releases" : ""}`} style={{ "--release-lines": releaseLines }}>

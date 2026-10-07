@@ -8,6 +8,7 @@ import {
   dayAt,
   drawnBar,
   roomAfter,
+  unobscuredWidth,
   LABEL_WIDTH,
   LANE_HEIGHT,
   layoutRows,
@@ -351,11 +352,26 @@ describe("drawnBar", () => {
     expect(drawnBar(node("u"), undated, undefined).positionless).toBe(true);
     expect(drawnBar(node("d"), entry("2026-10-05"), undefined).positionless).toBe(true); // the test helper's empty span too
   });
+
+  it("treats an epic summary with no dated work as having no position", () => {
+    const empty = { start: "2026-10-05", end: "2026-10-05" };
+    expect(drawnBar(node("e"), entry("2026-10-05"), { projected: empty, work: empty, children: 2 }).positionless).toBe(true);
+    const dated = { start: "2026-10-05", end: "2026-10-08" };
+    expect(drawnBar(node("e"), entry("2026-10-05"), { projected: dated, work: dated, children: 2 }).positionless).toBe(false);
+  });
 });
 
 describe("roomAfter", () => {
   it("leaves enough chart after today to scroll it a quarter of the way in", () => {
     // 800px of visible chart: today at a quarter needs 600px after it.
     expect(roomAfter(1000, LABEL_WIDTH + 800, 0.25)).toBe(1600);
+  });
+});
+
+describe("unobscuredWidth", () => {
+  it("is the box's width, less what the details drawer covers on its right", () => {
+    expect(unobscuredWidth(100, 1100)).toBe(1000);
+    expect(unobscuredWidth(100, 1100, 740)).toBe(640);
+    expect(unobscuredWidth(100, 1100, 1200)).toBe(1000); // a drawer elsewhere covers nothing
   });
 });
