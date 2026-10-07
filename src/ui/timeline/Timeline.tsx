@@ -275,8 +275,8 @@ export function Timeline({
   const keepCentred = useRef<{ day: Day; scale: Scale } | null>(null);
   /** The range start the current scroll position was measured from. */
   const scrolledFrom = useRef<Day | null>(null);
-  /** The day at the chart's left edge, kept as the user scrolls (see the range-start case below). */
-  const leftDay = useRef<Day | null>(null);
+  /** Where the chart's left edge is, exactly (scrollLeft from that range start, at that scale), kept as the user scrolls. */
+  const leftEdge = useRef<{ start: Day; px: number; scale: Scale } | null>(null);
   /** The date last kept in the middle by a scale change, which needs room after it like today does. */
   const [centreDay, setCentreDay] = useState<Day | null>(null);
   useLayoutEffect(() => {
@@ -286,14 +286,16 @@ export function Timeline({
     keepCentred.current = null;
     if (scrolledFor.current !== scopeKey) {
       scrolledFor.current = scopeKey;
+      setCentreDay(null); // a new scope: no room kept for the last one's centre
       el.scrollLeft = scrollLeftFor(range.start, today, settings.scale, visibleWidth(el), 0.25);
     } else if (keep?.scale === settings.scale) {
       el.scrollLeft = scrollLeftFor(range.start, keep.day, settings.scale, visibleWidth(el), 0.5);
-    } else if (scrolledFrom.current && scrolledFrom.current !== range.start && leftDay.current) {
-      // The range grew or shrank at its start (status history arriving, a refresh): put the date
-      // that was at the left edge back there, from where it sits in the new range (absolute, so a
-      // scroll the browser clamped as the chart resized isn't shifted again).
-      el.scrollLeft = Math.max(0, xOf(range.start, leftDay.current, settings.scale));
+    } else if (scrolledFrom.current && scrolledFrom.current !== range.start && leftEdge.current?.scale === settings.scale) {
+      // The range grew or shrank at its start (status history arriving, a refresh): put the left
+      // edge back on the same moment, from where it sits in the new range (absolute, so a scroll
+      // the browser clamped as the chart resized isn't shifted again).
+      const edge = leftEdge.current;
+      el.scrollLeft = Math.max(0, xOf(range.start, edge.start, settings.scale) + edge.px);
     }
     scrolledFrom.current = range.start;
   }, [range, scopeKey, today, settings.scale, viewportWidth]);
@@ -455,7 +457,7 @@ export function Timeline({
             className="tl-scroll"
             ref={scrollRef}
             onScroll={(e) => {
-              leftDay.current = addDays(range.start, Math.round(e.currentTarget.scrollLeft / PX_PER_DAY[settings.scale]));
+              leftEdge.current = { start: range.start, px: e.currentTarget.scrollLeft, scale: settings.scale };
             }}
           >
             <div
