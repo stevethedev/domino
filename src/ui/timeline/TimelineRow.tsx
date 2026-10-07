@@ -6,7 +6,16 @@ import type { GraphNode } from "../../graph/types";
 import type { Aging } from "../../graph/aging";
 import { CHANGE_LABEL, type ChangeKind } from "../../graph/changes";
 import { AgingBadge, agingDescription, CappedBadges, ChangeTag, ISSUE_DETAIL_ID, TraverseHint, TypeIcon } from "../IssueCard";
-import { entryEnd, PX_PER_DAY, varianceLabel, xOf, type EpicSummary, type Scale, type TimelineRowModel } from "./timelineLayout";
+import {
+  BADGE_ROOM,
+  entryEnd,
+  PX_PER_DAY,
+  varianceLabel,
+  xOf,
+  type EpicSummary,
+  type Scale,
+  type TimelineRowModel,
+} from "./timelineLayout";
 
 /** Spans are half-open; people read the last day inclusively. */
 const spanText = (s: Span): string => `${fmtDay(s.start)} – ${fmtDay(addDays(s.end, -1))}`;
@@ -93,8 +102,11 @@ export const TimelineRow = memo(function TimelineRow({
   const due = node.dates?.due;
   const pastDue = due !== undefined && finish > addDays(due, 1);
   const late = entry.varianceDays > 0;
-  // After the bars and the due ◆ (whichever ends later), so the badge never covers the due date.
-  const badgeLeft = xOf(rangeStart, due ? maxDay(entryEnd(entry), addDays(due, 1)) : entryEnd(entry), scale) + 6;
+  // Beside the bar, unless the due ◆ sits where the badge would go: then just past the ◆, so the
+  // badge never covers the due date (and doesn't drift far from its bar for a distant one).
+  const barEndX = xOf(rangeStart, entryEnd(entry), scale);
+  const dueEndX = due === undefined ? undefined : xOf(rangeStart, addDays(due, 1), scale);
+  const badgeLeft = (dueEndX !== undefined && dueEndX > barEndX && dueEndX - barEndX < BADGE_ROOM ? dueEndX : barEndX) + 6;
 
   return (
     <div

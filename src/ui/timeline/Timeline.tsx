@@ -4,7 +4,7 @@ import { blockingChain } from "../../graph/analysis";
 import { emphasis, type Insights } from "../../graph/insights";
 import { releaseStatuses } from "../../graph/releases";
 import type { CardOrder } from "../../graph/layout";
-import type { Day, TimelineEntry } from "../../graph/schedule";
+import { addDays, maxDay, type Day, type TimelineEntry } from "../../graph/schedule";
 import type { Graph } from "../../graph/types";
 import { previewOf, type LinkPreview, type Move } from "../../graph/traverse";
 import { visibleSubgraph } from "../../graph/visible";
@@ -30,7 +30,9 @@ import {
   ROW_HEIGHT,
   dayAt,
   scrollLeftFor,
+  BADGE_ROOM,
   rowsMoved,
+  type Scale,
   type TimelineRowModel,
   PX_PER_DAY,
   SCALES,
@@ -209,6 +211,12 @@ export function Timeline({
   const anchored = items.filter((i): i is TimelineRowModel => i.kind === "row");
   const rowY = new Map(anchored.map((r) => [r.node.uid, r.folded ? r.y + (LANE_HEIGHT - ROW_HEIGHT) / 2 : r.y]));
   const rowByUid = new Map(anchored.map((r) => [r.node.uid, r]));
+  const laneOfRow = new Map<string, string>();
+  let laneId = "";
+  for (const i of items) {
+    if (i.kind === "lane") laneId = i.lane.id;
+    else laneOfRow.set(i.node.uid, laneId);
+  }
   const drawn = (r: TimelineRowModel): ReturnType<typeof drawnBar> =>
     drawnBar(r.node, getOrThrow(timeline, r.node.uid), epics.get(r.node.uid));
   const arrows: ArrowModel[] = edges
@@ -216,7 +224,7 @@ export function Timeline({
     .flatMap((e) => {
       const [source, target] = [rowByUid.get(e.source), rowByUid.get(e.target)];
       if (!source || !target) return [];
-      if (source.folded && target.folded && source.y === target.y) return []; // both inside one folded lane
+      if (source.folded && target.folded && laneOfRow.get(e.source) === laneOfRow.get(e.target)) return []; // both inside one folded lane
       const [from, to] = [drawn(source), drawn(target)];
       if (from.positionless && to.positionless) return []; // nothing real to connect
       const ghostEnd = from.positionless ? "blocker" : to.positionless ? "blocked" : null;
@@ -238,23 +246,40 @@ export function Timeline({
   // keeps the date that was in the middle. Layout effects, so the first paint is already there.
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrolledFor = useRef<string | null | undefined>(undefined);
-  const keepCentred = useRef<Day | null>(null);
+  /** The date to keep in the middle, and the scale it's for (set as the scale changes). */
+  const keepCentred = useRef<{ day: Day; scale: Scale } | null>(null);
+  /** The range start the current scroll position was measured from. */
+  const scrolledFrom = useRef<Day | null>(null);
   useLayoutEffect(() => {
     const el = scrollRef.current;
-    if (!el || !range || scrolledFor.current === scopeKey) return;
-    scrolledFor.current = scopeKey;
-    el.scrollLeft = scrollLeftFor(range.start, today, settings.scale, el.clientWidth, 0.25);
-  }, [range, scopeKey, today, settings.scale]);
-  useLayoutEffect(() => {
-    const el = scrollRef.current;
-    const day = keepCentred.current;
+    if (!el || !range) return;
+    const keep = keepCentred.current;
     keepCentred.current = null;
-    if (el && range && day) el.scrollLeft = scrollLeftFor(range.start, day, settings.scale, el.clientWidth, 0.5);
-  }, [settings.scale, range]);
+    if (scrolledFor.current !== scopeKey) {
+      scrolledFor.current = scopeKey;
+      el.scrollLeft = scrollLeftFor(range.start, today, settings.scale, el.clientWidth, 0.25);
+    } else if (keep?.scale === settings.scale) {
+      el.scrollLeft = scrollLeftFor(range.start, keep.day, settings.scale, el.clientWidth, 0.5);
+    } else if (scrolledFrom.current && scrolledFrom.current !== range.start) {
+      // The range grew or shrank at its start (status history arriving, a refresh): keep the same
+      // dates in view rather than sliding them by the difference.
+      el.scrollLeft += xOf(range.start, scrolledFrom.current, settings.scale);
+    }
+    scrolledFrom.current = range.start;
+  }, [range, scopeKey, today, settings.scale]);
 
   const chartWidth = range ? xOf(range.start, range.end, settings.scale) + PX_PER_DAY[settings.scale] : 0;
+  // Where the last bar or due ◆ ends, so the badge after it has room (BADGE_ROOM) before the edge.
   const lastBarX = range
-    ? Math.max(0, ...all.filter((r) => !r.node.ghost).map((r) => xOf(range.start, entryEnd(r.entry), settings.scale)))
+    ? Math.max(
+        0,
+        ...all
+          .filter((r) => !r.node.ghost)
+          .map((r) => {
+            const due = r.node.dates?.due;
+            return xOf(range.start, due ? maxDay(entryEnd(r.entry), addDays(due, 1)) : entryEnd(r.entry), settings.scale);
+          }),
+      )
     : 0;
 
   // Exports render the whole chart (labels, axis, bars, arrows) at full size, including what's
@@ -279,7 +304,8 @@ export function Timeline({
                 onChange={() => {
                   // Keep the date in the middle of the chart in the middle at the new scale.
                   const el = scrollRef.current;
-                  if (el && range) keepCentred.current = dayAt(range.start, el.scrollLeft, settings.scale, el.clientWidth, 0.5);
+                  if (el && range)
+                    keepCentred.current = { day: dayAt(range.start, el.scrollLeft, settings.scale, el.clientWidth, 0.5), scale: s };
                   setSettings({ scale: s });
                 }}
               />
@@ -393,7 +419,7 @@ export function Timeline({
       {
         range ? (
           <div className="tl-scroll" ref={scrollRef}>
-            <div className="tl-inner" style={{ width: LABEL_WIDTH + Math.max(chartWidth, lastBarX + 140) }}>
+            <div className="tl-inner" style={{ width: LABEL_WIDTH + Math.max(chartWidth, lastBarX + BADGE_ROOM) }}>
               <div className={`tl-axis${releaseLines ? " with-releases" : ""}`} style={{ "--release-lines": releaseLines }}>
                 <div className="tl-corner">Issue</div>
                 <TimeAxis range={range} scale={settings.scale} today={today} releases={releaseMarkers} />

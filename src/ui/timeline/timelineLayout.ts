@@ -10,6 +10,8 @@ export const isScale = isOneOf(SCALES);
 
 export const PX_PER_DAY: Record<Scale, number> = { day: 28, week: 11, month: 4 };
 export const LABEL_WIDTH = 320;
+/** Room after a bar for its variance badge ("+12d over estimate"). */
+export const BADGE_ROOM = 160;
 export const ROW_HEIGHT = 40;
 export const LANE_HEIGHT = 30;
 /** How long a lane takes to fold or unfold; matches `--fold-ms` in timeline.css (via --duration-base). */
@@ -187,13 +189,13 @@ export const localToday = (): Day => new Date().toLocaleDateString("en-CA");
 
 export type EpicSummary = { projected: Span; work: Span; children: number };
 
-/** The solid/dotted bar a row draws: actual for done, actual start to forecast end when started, else the forecast. */
 /** The envelope of the rows' work, leaving out ghosts (no dates) and epic rows (they summarize others). */
 function laneSpan(rows: readonly TimelineRowData[]): Span | null {
   const spans = rows.filter((r) => !r.node.ghost && !isEpicNode(r.node)).map((r) => workSpan(r.entry));
   return spans.length === 0 ? null : { start: minDay(...spans.map((s) => s.start)), end: maxDay(...spans.map((s) => s.end)) };
 }
 
+/** The solid/dotted bar a row draws: actual for done, actual start to forecast end when started, else the forecast. */
 export const workSpan = (e: TimelineEntry): Span => {
   const p = e.progress;
   if (p.state === "done") return p.actual;
