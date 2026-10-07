@@ -804,6 +804,8 @@ function Shell(): ReactElement {
               onClose={closeDetail}
               focusRequest={detailFocusRequest}
               onShowHidden={() => {
+                // The Show button goes away with the filters: keep focus in the panel, on its title.
+                document.getElementById("issue-detail-title")?.focus();
                 focusIssue(detail.node.uid, false);
               }}
             />

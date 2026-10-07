@@ -26,6 +26,7 @@ import { SortChip } from "./SortChip";
 import { COMPACT_BELOW_ZOOM, IssueCard, SiteGroup, type IssueFlowNode, type SiteGroupNode } from "./IssueCard";
 import { isOneOf } from "../lib/guards";
 import { prefersReducedMotion } from "../lib/motion";
+import { visibleCentreShift } from "./drawerOffset";
 import { fitKeyOf } from "./fitKey";
 
 /** How long cards may slide after a sort change; longer than `--duration-base` so the slide finishes. */
@@ -500,8 +501,11 @@ export function useFocusNode(): (uid: string, moveFocus?: boolean, keepZoom?: bo
         card.right <= right &&
         card.top >= pane.top &&
         card.bottom <= pane.bottom;
-      if (!keepZoom) void rf.setCenter(x + width / 2, y + height / 2, { zoom: 1.1, duration: 300 });
-      else if (!onScreen) void rf.setCenter(x + width / 2, y + height / 2, { zoom: rf.getZoom(), duration: 200 });
+      // Centred in what the drawer leaves visible, not under it.
+      const zoom = keepZoom ? rf.getZoom() : 1.1;
+      const shift = pane && right !== undefined ? visibleCentreShift(pane.right, right, zoom) : 0;
+      if (!keepZoom) void rf.setCenter(x + width / 2 + shift, y + height / 2, { zoom, duration: 300 });
+      else if (!onScreen) void rf.setCenter(x + width / 2 + shift, y + height / 2, { zoom, duration: 200 });
       if (moveFocus) {
         // The view is already moving to it: its onFocus mustn't start a second pan.
         focusingFromCode = true;

@@ -68,7 +68,20 @@ function FilterMenu({
   // Esc and a click elsewhere close it, as the other menus do, so opening one closes the rest.
   const { ref, onKeyDown } = useDetailsMenu();
   return (
-    <details className="filter-menu" ref={ref} onKeyDown={onKeyDown}>
+    <details
+      className="filter-menu"
+      ref={ref}
+      onKeyDown={onKeyDown}
+      // One open at a time, keyboard included (outside clicks only cover the mouse): browsers
+      // with exclusive <details> use the shared name; onToggle covers the rest.
+      name="filter-menu"
+      onToggle={(e) => {
+        const opened = e.currentTarget;
+        if (!opened.open) return;
+        for (const other of document.querySelectorAll<HTMLDetailsElement>("details.filter-menu[open]"))
+          if (other !== opened) other.open = false;
+      }}
+    >
       <summary>
         <span className="field-label">{label}</span>
         <span className={hiddenHere ? "filter-menu-state active" : "filter-menu-state"}>{hiddenHere ? `${hiddenHere} hidden` : "All"}</span>

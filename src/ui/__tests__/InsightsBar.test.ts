@@ -32,6 +32,13 @@ describe("InsightTiles", () => {
     expect(tiles({})).not.toContain("shown");
   });
 
+  it("with filters on, disables a tile none of whose matches are shown, unless it's pressed", () => {
+    const blocked = (html: string): string | undefined => /<button[^>]*insight-blocked[^>]*>/.exec(html)?.[0];
+    expect(blocked(tiles({ drawn: new Set(["zzz"]) }))).toContain("disabled");
+    expect(blocked(tiles({ drawn: new Set(["zzz"]), highlight: "blocked" }))).not.toContain("disabled");
+    expect(blocked(tiles({ drawn: new Set(["a"]) }))).not.toContain("disabled");
+  });
+
   it("disables a tile with nothing to highlight, unless it's the one pressed", () => {
     const ready = (html: string): string | undefined => /<button[^>]*insight-ready[^>]*>/.exec(html)?.[0];
     expect(ready(tiles({}))).toContain("disabled");
