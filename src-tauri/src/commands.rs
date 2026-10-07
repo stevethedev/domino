@@ -62,6 +62,34 @@ pub(crate) fn save_config(state: State<'_, AppState>, config: DominoConfig) -> R
     Ok(saved)
 }
 
+/// Whether the config file could be used (if not, the app is running on an empty config) and where it is.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ConfigStatus {
+    problem: Option<String>,
+    path: String,
+}
+
+#[tauri::command]
+pub(crate) fn config_status(state: State<'_, AppState>) -> ConfigStatus {
+    ConfigStatus { problem: state.config.problem(), path: state.config.path().display().to_string() }
+}
+
+/// Reads the config file again, after the user fixed it by hand.
+#[tauri::command]
+pub(crate) fn reload_config(state: State<'_, AppState>) -> Result<DominoConfig, String> {
+    let old = state.config.get();
+    let loaded = state.config.reload()?;
+    state.cache.invalidate_changed(&old, &loaded);
+    Ok(loaded)
+}
+
+/// Shows the config file in the system file manager. Only that file: the webview names no path.
+#[tauri::command]
+pub(crate) fn reveal_config(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
+    app.opener().reveal_item_in_dir(state.config.path()).map_err(|e| format!("Could not show the file: {e}"))
+}
+
 /// The cached tickets for a scope, if any are still valid (see `TicketCache::get`).
 #[tauri::command]
 pub(crate) async fn cache_get(state: State<'_, AppState>, scope_key: String) -> Result<Option<CachedScope>, String> {

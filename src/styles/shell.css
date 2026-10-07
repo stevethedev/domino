@@ -197,6 +197,22 @@
   background: var(--error-bg);
   color: var(--error-fg);
 }
+/* A banner with buttons: the text, then its actions, side by side when there's room. */
+.banner.actionable {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+.banner-text {
+  flex: 1 1 40ch;
+  min-width: 0;
+}
+.banner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1_5);
+}
 /* In-app update offer: message, optional notes, actions on one row when there's room. */
 .banner.update {
   display: flex;

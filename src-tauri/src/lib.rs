@@ -48,8 +48,11 @@ pub fn try_run() -> tauri::Result<()> {
             #[cfg(desktop)]
             app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
             let dir = app.path().app_config_dir()?;
-            let config = Arc::new(ConfigHandle::load(ConfigFile::new(&dir)).map_err(|e| -> Box<dyn std::error::Error> { e.into() })?);
+            let config = Arc::new(ConfigHandle::load(ConfigFile::new(&dir)));
             log::info!("config: {}", dir.join("domino.config.json").display());
+            if let Some(problem) = config.problem() {
+                log::error!("config not loaded, starting empty: {problem}");
+            }
             let secrets: Arc<dyn SecretStore> = Arc::new(CachedSecrets::new(Keychain));
             let http = http_client()?;
             let oauth = Arc::new(OAuth::new(http.clone(), Arc::clone(&secrets)));
@@ -65,6 +68,9 @@ pub fn try_run() -> tauri::Result<()> {
             commands::site_health,
             commands::fetch_by_jql,
             commands::fetch_epic,
+            commands::config_status,
+            commands::reload_config,
+            commands::reveal_config,
             commands::fetch_issue,
             commands::fetch_remote_links,
             commands::fetch_link_types,

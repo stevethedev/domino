@@ -36,6 +36,7 @@ import { ReleasesPanel } from "./ui/ReleasesPanel";
 import { UpdateBanner } from "./ui/UpdateBanner";
 import { BrandMark } from "./ui/BrandMark";
 import { IssueDetail, type IssueDetailData } from "./ui/IssueDetail";
+import { ConfigProblemBanner } from "./ui/ConfigProblemBanner";
 import { Glance } from "./ui/Glance";
 import { SidebarSection } from "./ui/SidebarSection";
 import { QuickFind } from "./ui/QuickFind";
@@ -519,6 +520,18 @@ function Shell(): ReactElement {
         <div className="banner error" role="alert">
           Could not load configuration: {domino.configError}
         </div>
+      )}
+      {domino.configFile && (
+        <ConfigProblemBanner
+          status={domino.configFile}
+          onReload={domino.reloadConfigFile}
+          onReveal={() => {
+            domino.store.revealFile().catch(() => undefined); // nothing to show the user if the file manager won't open
+          }}
+          onOpenSettings={() => {
+            setSettingsOpen(true);
+          }}
+        />
       )}
       <UpdateBanner updates={updates} />
       {config && <ErrorBanner errors={errors} sites={config.sites} attempted={domino.selectedSites.length} />}

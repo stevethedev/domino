@@ -54,11 +54,14 @@ export function SettingsDialog({
 
   const editingSite = editing?.kind === "edit" ? config.sites.find((s) => s.id === editing.id) : undefined;
 
+  const save = (sites: SiteConfig[], defaultSiteIds: readonly string[]): Promise<unknown> =>
+    domino.saveConfig({ ...config, sites, defaultSiteIds: defaultSiteIds.filter((id) => sites.some((s) => s.id === id)) });
+
   /** Shows a failed save in the error banner, then rethrows so callers can stay open on failure. */
   const persist = async (sites: SiteConfig[], defaultSiteIds = config.defaultSiteIds): Promise<void> => {
     setError(null);
     try {
-      await domino.saveConfig({ ...config, sites, defaultSiteIds: defaultSiteIds.filter((id) => sites.some((s) => s.id === id)) });
+      await save(sites, defaultSiteIds);
     } catch (e) {
       setError(errorMessage(e));
       throw e;
@@ -69,8 +72,11 @@ export function SettingsDialog({
     const exists = config.sites.some((s) => s.id === site.id);
     const sites = exists ? config.sites.map((s) => (s.id === site.id ? { ...site, cloudId: s.cloudId } : s)) : [...config.sites, site];
     const defaults = isDefault ? [...new Set([...config.defaultSiteIds, site.id])] : config.defaultSiteIds.filter((id) => id !== site.id);
-    await persist(sites, defaults);
+    // The token first: if the keychain refuses it, nothing is saved and the form can simply be
+    // submitted again. Failures show in the form, so not in the dialog's banner as well.
     if (token && site.auth.type === "apiToken") await domino.store.setSecret(site.auth.secretRef, token);
+    setError(null);
+    await save(sites, defaults);
     setEditing(null);
     setJustSaved(site.id);
     if (test) void domino.testConnection(site.id); // health failures land in domino.health, never a rejection
@@ -106,6 +112,7 @@ export function SettingsDialog({
       aria-labelledby="settings-title"
       onClose={() => {
         setEditing(null);
+        setError(null); // an old failure shouldn't greet the next visit
         onClose();
       }}
     >
@@ -118,6 +125,11 @@ export function SettingsDialog({
       {error && (
         <p className="banner error" role="alert">
           {error}
+        </p>
+      )}
+      {domino.configFile?.problem && (
+        <p className="banner error">
+          The settings file couldn't be read, so Domino started with no sites. Saving here replaces <code>{domino.configFile.path}</code>.
         </p>
       )}
       <BackendSection domino={domino} config={config} />
