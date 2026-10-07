@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { mockSites } from "../../data/mockData";
 import { AdfDocument, hasContent } from "../Adf";
+import { fmtDay } from "../format";
 
 const html = (doc: unknown): string => renderToStaticMarkup(createElement(AdfDocument, { doc, onOpen: () => undefined }));
 const doc = (...content: unknown[]): unknown => ({ type: "doc", version: 1, content });
@@ -89,7 +90,7 @@ describe("AdfDocument", () => {
     expect(out).toContain("@Priya Raman");
     expect(out).toContain("🚀");
     expect(out).toContain("SDK 4.2");
-    expect(out).toContain("Nov 5, 2026");
+    expect(out).toContain(fmtDay("2026-11-05", true)); // the UTC day, in the runtime's locale
     expect(out).toContain('href="https://example.com/card"');
   });
 
@@ -113,7 +114,7 @@ describe("AdfDocument", () => {
   });
 
   it("shows dates before 1970", () => {
-    expect(html(doc(p({ type: "date", attrs: { timestamp: "-86400000" } })))).toContain("Dec 31, 1969");
+    expect(html(doc(p({ type: "date", attrs: { timestamp: "-86400000" } })))).toContain(fmtDay("1969-12-31", true));
   });
 
   it("ignores out-of-range dates instead of throwing", () => {
