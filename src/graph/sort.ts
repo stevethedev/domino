@@ -44,11 +44,11 @@ export const SORT_INFO: Readonly<
 /** The current order in words, e.g. "Most severe first". */
 export const orderText = (sort: SortBy): string => (sort.key === "natural" ? "" : SORT_INFO[sort.key].order[sort.reversed ? 1 : 0]);
 
-/** A stored sort, or the natural order when it's missing or malformed. */
+/** A stored sort, or the natural order when it's missing, malformed or natural (which has no direction). */
 export function parseSortBy(raw: unknown): SortBy {
   if (!raw || typeof raw !== "object") return NATURAL_SORT;
   const r: Partial<Record<keyof SortBy, unknown>> = raw;
-  return isSortKey(r.key) ? { key: r.key, reversed: r.reversed === true } : NATURAL_SORT;
+  return isSortKey(r.key) && r.key !== "natural" ? { key: r.key, reversed: r.reversed === true } : NATURAL_SORT;
 }
 
 /** What some keys need beyond the ticket itself. */
