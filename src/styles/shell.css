@@ -1087,11 +1087,13 @@ kbd {
   max-height: 18em;
   overflow: hidden;
   overflow-wrap: anywhere;
+}
+/* Faded only when something is actually cut off (measured in IssueDetail). */
+.detail-description.clipped {
   mask-image: linear-gradient(to bottom, #000 calc(100% - 3em), transparent);
 }
 .detail-description.expanded {
   max-height: none;
-  mask-image: none;
 }
 .detail-description > :first-child {
   margin-top: 0;

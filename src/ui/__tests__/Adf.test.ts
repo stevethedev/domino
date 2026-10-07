@@ -158,7 +158,63 @@ describe("AdfDocument", () => {
   });
 });
 
+/** An array that counts how many of its items are read. */
+const counted = (items: unknown[]): { list: unknown[]; reads: () => number } => {
+  let reads = 0;
+  const list = new Proxy(items, {
+    get(target, prop, receiver): unknown {
+      if (typeof prop === "string" && /^\d+$/.test(prop)) reads++;
+      return Reflect.get(target, prop, receiver);
+    },
+  });
+  return { list, reads: () => reads };
+};
+
+describe("AdfDocument: work and attributes", () => {
+  it("stops reading a huge document once the node budget is spent", () => {
+    const { list, reads } = counted(Array.from({ length: 200_000 }, () => p(text("x"))));
+    html({ type: "doc", content: list });
+    expect(reads()).toBeLessThan(50_000);
+  });
+
+  it("charges marks and code text against the budget too", () => {
+    const marks = counted(Array.from({ length: 200_000 }, () => ({ type: "strong" })));
+    html(doc(p({ type: "text", text: "x", marks: marks.list })));
+    expect(marks.reads()).toBeLessThan(50_000);
+    const code = counted(Array.from({ length: 200_000 }, () => text("x")));
+    html(doc({ type: "codeBlock", content: code.list }));
+    expect(code.reads()).toBeLessThan(50_000);
+  });
+
+  it("starts an ordered list where the description does", () => {
+    const ol = (attrs: unknown): string =>
+      html(doc({ type: "orderedList", attrs, content: [{ type: "listItem", content: [p(text("x"))] }] }));
+    expect(ol({ order: 4 })).toContain('<ol start="4">');
+    expect(ol({ order: 1 })).toContain("<ol>");
+    for (const bad of [{ order: -2 }, { order: 2.5 }, { order: "7" }, {}]) expect(ol(bad)).toContain("<ol>");
+  });
+});
+
 describe("hasContent", () => {
+  it("is false for inline nodes that would render nothing", () => {
+    for (const blank of [
+      { type: "inlineCard", attrs: {} },
+      { type: "date", attrs: { timestamp: "soon" } },
+      { type: "status", attrs: { text: " " } },
+      { type: "emoji", attrs: {} },
+    ]) {
+      expect(hasContent(doc(p(blank)))).toBe(false);
+    }
+    expect(hasContent(doc(p({ type: "inlineCard", attrs: { url: "https://x.example" } })))).toBe(true);
+    expect(hasContent(doc(p({ type: "date", attrs: { timestamp: "1793836800000" } })))).toBe(true);
+  });
+
+  it("stops looking through a huge empty document", () => {
+    const { list, reads } = counted(Array.from({ length: 200_000 }, () => p()));
+    expect(hasContent({ type: "doc", content: list })).toBe(false);
+    expect(reads()).toBeLessThan(50_000);
+  });
+
   it("is false for missing, empty and whitespace-only documents", () => {
     expect(hasContent(null)).toBe(false);
     expect(hasContent(doc())).toBe(false);

@@ -46,8 +46,35 @@ export function safeHref(url: string): string | null {
   }
 }
 
-/** `budget` is the one mutable part: nodes left to render, shared by a single render pass. */
-type Ctx = Readonly<{ onOpen: (url: string) => void; budget: { left: number } }>;
+/** Nodes, marks and code fragments left to read in one pass; the one mutable part of a pass. */
+type Budget = { left: number };
+type Ctx = Readonly<{ onOpen: (url: string) => void; budget: Budget }>;
+
+/** Real text carries a handful of marks; more is junk, and nesting it would overflow the stack. */
+const MAX_MARKS = 16;
+
+/**
+ * `fn` over the items of `list` while the budget lasts, charging each one just before it's handled.
+ * Depth-first: a node's own content is charged before its next sibling is, so the budget runs out
+ * at a point in reading order rather than starving every node of its children.
+ */
+function mapWithin<T, R>(list: readonly T[], budget: Budget, fn: (item: T, index: number) => R): R[] {
+  const out: R[] = [];
+  for (let i = 0; i < list.length && budget.left > 0; i++) {
+    budget.left--;
+    out.push(fn(list[i], i));
+  }
+  return out;
+}
+
+/** Whether `test` holds for an item of `list`, stopping at the first that does or when the budget runs out. */
+function someWithin<T>(list: readonly T[], budget: Budget, test: (item: T) => boolean): boolean {
+  for (let i = 0; i < list.length && budget.left > 0; i++) {
+    budget.left--;
+    if (test(list[i])) return true;
+  }
+  return false;
+}
 
 function Link({ href, children, ctx }: { href: string; children: ReactNode; ctx: Ctx }): ReactElement {
   const safe = safeHref(href);
@@ -73,7 +100,7 @@ function Link({ href, children, ctx }: { href: string; children: ReactNode; ctx:
 
 /** Wraps text in its marks, innermost first. */
 function marked(n: AdfNode, ctx: Ctx): ReactNode {
-  return n.marks.reduce<ReactNode>((inner, m) => {
+  return mapWithin(n.marks.slice(0, MAX_MARKS), ctx.budget, (m) => m).reduce<ReactNode>((inner, m) => {
     const mark = asNode(m);
     switch (mark?.type) {
       case "strong":
@@ -101,7 +128,7 @@ function marked(n: AdfNode, ctx: Ctx): ReactNode {
 }
 
 function children(n: AdfNode, ctx: Ctx, depth: number): ReactNode {
-  return n.content.map((c, i) => <Fragment key={i}>{render(c, ctx, depth + 1)}</Fragment>);
+  return mapWithin(n.content, ctx.budget, (c, i) => <Fragment key={i}>{render(c, ctx, depth + 1)}</Fragment>);
 }
 
 /** A date node's calendar day. Jira stores it as UTC midnight, so it's read in UTC, not local time. */
@@ -114,8 +141,7 @@ function dateText(attrs: AdfNode["attrs"]): string {
 
 function render(raw: unknown, ctx: Ctx, depth: number): ReactNode {
   const n = asNode(raw);
-  if (!n || depth > MAX_DEPTH || ctx.budget.left <= 0) return null;
-  ctx.budget.left--;
+  if (!n || depth > MAX_DEPTH) return null; // each node was charged to the budget by `mapWithin`
   const kids = (): ReactNode => children(n, ctx, depth);
   switch (n.type) {
     case "doc":
@@ -135,8 +161,11 @@ function render(raw: unknown, ctx: Ctx, depth: number): ReactNode {
     }
     case "bulletList":
       return <ul>{kids()}</ul>;
-    case "orderedList":
-      return <ol>{kids()}</ol>;
+    case "orderedList": {
+      // A list can continue the numbering of an earlier one.
+      const order = n.attrs.order;
+      return <ol start={typeof order === "number" && Number.isInteger(order) && order > 1 ? order : undefined}>{kids()}</ol>;
+    }
     case "listItem":
       return <li>{kids()}</li>;
     case "taskList":
@@ -158,7 +187,7 @@ function render(raw: unknown, ctx: Ctx, depth: number): ReactNode {
     case "codeBlock":
       return (
         <pre>
-          <code>{n.content.map((c) => asNode(c)?.text ?? "").join("")}</code>
+          <code>{mapWithin(n.content, ctx.budget, (c) => asNode(c)?.text ?? "").join("")}</code>
         </pre>
       );
     case "blockquote":
@@ -222,27 +251,39 @@ function render(raw: unknown, ctx: Ctx, depth: number): ReactNode {
   }
 }
 
-/** Nodes that show something without any text inside them. */
-const SELF_CONTAINED = new Set([
-  "rule",
-  "media",
-  "mediaInline",
-  "mention",
-  "emoji",
-  "status",
-  "date",
-  "inlineCard",
-  "blockCard",
-  "embedCard",
-]);
+/** Whether an inline node with no content of its own would show anything. */
+function showsSomething(n: AdfNode): boolean | undefined {
+  switch (n.type) {
+    case "rule":
+    case "media":
+    case "mediaInline":
+    case "mention":
+      return true;
+    case "emoji":
+      return (str(n.attrs, "text") || str(n.attrs, "shortName")).trim() !== "";
+    case "status":
+      return str(n.attrs, "text").trim() !== "";
+    case "date":
+      return dateText(n.attrs) !== "";
+    case "inlineCard":
+    case "blockCard":
+    case "embedCard":
+      return str(n.attrs, "url").trim() !== "";
+    default:
+      return undefined; // not one of these: decided by its content
+  }
+}
 
-/** Whether a description has anything to show: some text, or a node that stands on its own (a rule, an image, a mention). */
-export function hasContent(doc: unknown, depth = 0): boolean {
-  const n = asNode(doc);
+function anyContent(raw: unknown, budget: Budget, depth: number): boolean {
+  const n = asNode(raw);
   if (!n || depth > MAX_DEPTH) return false;
   if (n.type === "text") return n.text.trim() !== "";
-  if (SELF_CONTAINED.has(n.type)) return true;
-  return n.content.some((c) => hasContent(c, depth + 1));
+  return showsSomething(n) ?? someWithin(n.content, budget, (c) => anyContent(c, budget, depth + 1));
+}
+
+/** Whether a description has anything to show: some text, or a node that stands on its own (a rule, an image, a mention). */
+export function hasContent(doc: unknown): boolean {
+  return anyContent(doc, { left: MAX_NODES }, 0);
 }
 
 export function AdfDocument({ doc, onOpen }: { doc: unknown; onOpen: (url: string) => void }): ReactElement {

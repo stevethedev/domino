@@ -132,7 +132,11 @@ function Description({
   else {
     body = (
       <>
-        <div ref={bodyRef} id="detail-description-body" className={`detail-description${expanded ? " expanded" : ""}`}>
+        <div
+          ref={bodyRef}
+          id="detail-description-body"
+          className={`detail-description${expanded ? " expanded" : overflows ? " clipped" : ""}`}
+        >
           <AdfDocument doc={state.doc} onOpen={onOpen} />
         </div>
         {(overflows || expanded) && (
