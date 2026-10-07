@@ -1,3 +1,4 @@
+import { prefersReducedMotion } from "../../lib/motion";
 import { useEffect, useRef, useState, type ReactElement } from "react";
 import type { HealthStatus, SiteConfig } from "../../config/types";
 
@@ -22,7 +23,7 @@ export function SiteRow({
   const confirmRef = useRef<HTMLButtonElement>(null);
   const rowRef = useRef<HTMLTableRowElement>(null);
   useEffect(() => {
-    if (highlight) rowRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    if (highlight) rowRef.current?.scrollIntoView({ block: "nearest", behavior: prefersReducedMotion() ? "auto" : "smooth" });
   }, [highlight]);
   useEffect(() => {
     if (confirming) confirmRef.current?.focus();

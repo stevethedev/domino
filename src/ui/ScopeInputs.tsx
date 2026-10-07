@@ -1,3 +1,4 @@
+import { NumberField } from "./NumberField";
 import { useEffect, useState, type ReactElement } from "react";
 import type { SiteConfig } from "../config/types";
 import { combineJql, JQL_PRESETS, presetById } from "../data/jqlPresets";
@@ -154,15 +155,8 @@ export function ScopeInputs({
           {mode === "seed" && (
             <label className="field">
               <span className="field-label">Depth</span>
-              <input
-                type="number"
-                min={1}
-                max={5}
-                value={depth}
-                onChange={(e) => {
-                  setDepth(Math.min(5, Math.max(1, Number(e.target.value) || 1)));
-                }}
-              />
+              {/* Keeps what you type (clearing it to type "3" doesn't jump to 13); only 1-5 is used. */}
+              <NumberField min={1} max={5} step={1} integer value={depth} onCommit={setDepth} />
             </label>
           )}
         </>

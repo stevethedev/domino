@@ -225,6 +225,7 @@ export function SettingsDialog({
         {editing?.kind !== "new" && (
           <button
             type="button"
+            id="add-site"
             className="primary"
             onClick={() => {
               guard(() => {
@@ -270,7 +271,20 @@ export function SettingsDialog({
                 });
               }}
               onRemove={() => {
-                persist(config.sites.filter((x) => x.id !== s.id)).catch(() => {});
+                const at = config.sites.indexOf(s);
+                const next: SiteConfig | undefined =
+                  at + 1 < config.sites.length ? config.sites[at + 1] : at > 0 ? config.sites[at - 1] : undefined;
+                persist(config.sites.filter((x) => x.id !== s.id))
+                  .then(() => {
+                    // The row (and the focused Confirm button) is gone: focus a neighbour, or Add site.
+                    requestAnimationFrame(() => {
+                      const target = next
+                        ? ref.current?.querySelector<HTMLElement>(`[aria-label="Edit ${CSS.escape(next.label)}"]`)
+                        : ref.current?.querySelector<HTMLElement>("#add-site");
+                      target?.focus();
+                    });
+                  })
+                  .catch(() => {});
               }}
             />
           ))}

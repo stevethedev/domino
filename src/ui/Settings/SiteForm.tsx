@@ -1,3 +1,4 @@
+import { prefersReducedMotion } from "../../lib/motion";
 import { useEffect, useId, useMemo, useRef, useState, type ReactElement } from "react";
 import type { ConfigStore } from "../../config/ConfigStore";
 import { validateSite } from "../../config/schema";
@@ -99,7 +100,7 @@ export function SiteForm({
   };
 
   useEffect(() => {
-    formRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+    formRef.current?.scrollIntoView({ block: "start", behavior: prefersReducedMotion() ? "auto" : "smooth" });
     formRef.current?.querySelector<HTMLInputElement>("input")?.focus({ preventScroll: true });
   }, []);
 
