@@ -135,6 +135,10 @@ function Description({
         <div
           ref={bodyRef}
           id="detail-description-body"
+          // Tabbing to a link below the cut would focus something out of sight: open it up first.
+          onFocus={() => {
+            if (!expanded && overflows) setExpanded(true);
+          }}
           className={`detail-description${expanded ? " expanded" : overflows ? " clipped" : ""}`}
         >
           <AdfDocument doc={state.doc} onOpen={onOpen} />
