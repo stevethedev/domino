@@ -314,7 +314,7 @@ export function mergeFoldedArrows<A extends { edge: Readonly<{ source: string; t
   };
   const merged = new Map<string, A>();
   for (const a of arrows) {
-    const key = `${end(a.edge.source)}→${end(a.edge.target)}`;
+    const key = JSON.stringify([end(a.edge.source), end(a.edge.target)]); // can't run together, whatever the names
     const first = merged.get(key);
     merged.set(
       key,

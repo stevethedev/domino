@@ -434,6 +434,18 @@ describe("mergeFoldedArrows", () => {
     expect(merged).toMatchObject({ inCycle: true, violated: true, critical: false, dimmed: false });
   });
 
+  it("never mistakes one pair of ends for another, whatever the lane names", () => {
+    // Lane ids carry display names; joined with a separator, these two pairs would read the same.
+    // "lane:p→lane:q" + "row:r" and "lane:p" + "lane:q→row:r" both join to "lane:p→lane:q→row:r".
+    const folded = new Map([
+      ["a", "p→lane:q"],
+      ["b", "p"],
+      ["c", "q→row:r"],
+    ]);
+    const kept = mergeFoldedArrows([arrow("1", "a", "r"), arrow("2", "b", "c")], folded);
+    expect(kept.map((a) => a.edge.id)).toEqual(["1", "2"]);
+  });
+
   it("keeps every arrow between unfolded rows", () => {
     expect(mergeFoldedArrows([arrow("1", "a", "x"), arrow("2", "b", "x")], new Map()).map((a) => a.edge.id)).toEqual(["1", "2"]);
   });
