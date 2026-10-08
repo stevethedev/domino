@@ -109,7 +109,18 @@ function rollupLabel(n: GraphNode, r: EpicRollup): string {
 }
 
 /** Epic-map summary card: progress across the epic's loaded issues. */
-function RollupBody({ node, rollup: r, compact }: { node: GraphNode; rollup: EpicRollup; compact: boolean }): ReactElement {
+function RollupBody({
+  node,
+  rollup: r,
+  compact,
+  inCycle,
+}: {
+  node: GraphNode;
+  rollup: EpicRollup;
+  compact: boolean;
+  /** Some of its tickets are in a blocking cycle (possibly one folding hides). */
+  inCycle: boolean;
+}): ReactElement {
   const total = r.members.length;
   return (
     <>
@@ -129,6 +140,11 @@ function RollupBody({ node, rollup: r, compact }: { node: GraphNode; rollup: Epi
         <span className="rollup-bar" aria-hidden="true">
           <span style={{ width: `${total ? (100 * r.done) / total : 0}%` }} />
         </span>
+        {inCycle && (
+          <span className="tag-cycle" title="Some of its tickets are in a blocking cycle (see Warnings)">
+            ⟲ Cycle
+          </span>
+        )}
         {r.blocked > 0 && (
           <span className="blockers">
             <Icon name="alert" /> {r.blocked} blocked
@@ -314,7 +330,7 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
       aria-expanded={onExpand ? undefined : selected}
       aria-controls={selected ? ISSUE_DETAIL_ID : undefined}
       tabIndex={!stale && tabbable ? 0 : -1}
-      aria-label={n.rollup ? rollupLabel(n, n.rollup) : `${label}. Shows details.`}
+      aria-label={n.rollup ? `${rollupLabel(n, n.rollup)}${inCycle ? " Part of a blocking cycle." : ""}` : `${label}. Shows details.`}
       aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown"
       data-uid={n.uid}
       onClick={activate}
@@ -344,7 +360,7 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
       <Handle type="target" position={Position.Left} isConnectable={false} />
       <TraverseHint direction={preview ?? "activate"} />
       {n.rollup ? (
-        <RollupBody node={n} rollup={n.rollup} compact={compact} />
+        <RollupBody node={n} rollup={n.rollup} compact={compact} inCycle={inCycle ?? false} />
       ) : compact ? (
         <CompactBody node={n} statusText={statusText} badges={badges} />
       ) : (

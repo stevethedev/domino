@@ -78,6 +78,7 @@ pub fn try_run() -> tauri::Result<()> {
             commands::fetch_epic,
             commands::config_status,
             commands::reload_config,
+            commands::start_fresh_config,
             commands::reveal_config,
             commands::fetch_issue,
             commands::fetch_description,

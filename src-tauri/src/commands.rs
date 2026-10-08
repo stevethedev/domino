@@ -86,6 +86,24 @@ pub(crate) fn reload_config(state: State<'_, AppState>) -> Result<DominoConfig, 
     Ok(loaded)
 }
 
+/// A fresh, empty config, and where the unusable file was set aside (if there was one).
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct FreshStart {
+    config: DominoConfig,
+    set_aside: Option<String>,
+}
+
+/// Sets a broken config file aside and starts with an empty one.
+#[tauri::command]
+pub(crate) fn start_fresh_config(state: State<'_, AppState>) -> Result<FreshStart, String> {
+    let (config, aside) = state.config.start_fresh()?;
+    // Every earlier site is gone, including the broken file's (the empty fallback in memory never
+    // knew them): forget all cached tickets, so a site added again with the same id starts clean.
+    state.cache.forget_sites(|_| true);
+    Ok(FreshStart { config, set_aside: aside.map(|p| p.display().to_string()) })
+}
+
 /// Shows the config file in the system file manager. Only that file: the webview names no path.
 #[tauri::command]
 pub(crate) fn reveal_config(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {

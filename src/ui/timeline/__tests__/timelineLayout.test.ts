@@ -12,6 +12,7 @@ import {
   LABEL_WIDTH,
   LANE_HEIGHT,
   layoutRows,
+  mergeFoldedArrows,
   PX_PER_DAY,
   ROW_HEIGHT,
   rowsMoved,
@@ -395,5 +396,75 @@ describe("summarizeEpics with undated children", () => {
     ).get("E");
     expect(e?.work).toEqual({ start: "2026-09-29", end: "2026-09-30" });
     expect(e?.projected).toEqual({ start: "2026-09-29", end: "2026-09-30" });
+  });
+});
+
+type Flags = { violated: boolean; inCycle: boolean; critical: boolean; dimmed: boolean };
+
+describe("mergeFoldedArrows", () => {
+  const arrow = (id: string, source: string, target: string): { edge: { id: string; source: string; target: string } } => ({
+    edge: { id, source, target },
+  });
+
+  it("draws one arrow per pair of ends, a folded lane counting as one end", () => {
+    const folded = new Map([
+      ["a1", "lane:A"],
+      ["a2", "lane:A"],
+    ]);
+    const kept = mergeFoldedArrows([arrow("1", "a1", "x"), arrow("2", "a2", "x"), arrow("3", "a1", "y"), arrow("4", "z", "x")], folded);
+    expect(kept.map((a) => a.edge.id)).toEqual(["1", "3", "4"]);
+  });
+
+  it("keeps the warnings of the arrows it merges: a cycle or late start never hides behind a plain one", () => {
+    const flagged = (id: string, source: string, f: Partial<Flags>): { edge: { id: string; source: string; target: string } } & Flags => ({
+      edge: { id, source, target: "x" },
+      violated: false,
+      inCycle: false,
+      critical: false,
+      dimmed: true,
+      ...f,
+    });
+    const [merged] = mergeFoldedArrows(
+      [flagged("1", "a1", {}), flagged("2", "a2", { inCycle: true, violated: true, dimmed: false })],
+      new Map([
+        ["a1", "lane:A"],
+        ["a2", "lane:A"],
+      ]),
+    );
+    expect(merged).toMatchObject({ inCycle: true, violated: true, critical: false, dimmed: false });
+  });
+
+  it("draws the merged arrow cross-site when any arrow it merges is", () => {
+    const edge = (
+      id: string,
+      source: string,
+      crossSite: boolean,
+    ): { edge: { id: string; source: string; target: string; crossSite?: boolean } } => ({
+      edge: { id, source, target: "x", ...(crossSite && { crossSite }) },
+    });
+    const [merged] = mergeFoldedArrows(
+      [edge("1", "a1", false), edge("2", "a2", true)],
+      new Map([
+        ["a1", "lane:A"],
+        ["a2", "lane:A"],
+      ]),
+    );
+    expect(merged.edge).toMatchObject({ id: "1", crossSite: true });
+  });
+
+  it("never mistakes one pair of ends for another, whatever the lane names", () => {
+    // Lane ids carry display names; joined with a separator, these two pairs would read the same.
+    // "lane:p→lane:q" + "row:r" and "lane:p" + "lane:q→row:r" both join to "lane:p→lane:q→row:r".
+    const folded = new Map([
+      ["a", "p→lane:q"],
+      ["b", "p"],
+      ["c", "q→row:r"],
+    ]);
+    const kept = mergeFoldedArrows([arrow("1", "a", "r"), arrow("2", "b", "c")], folded);
+    expect(kept.map((a) => a.edge.id)).toEqual(["1", "2"]);
+  });
+
+  it("keeps every arrow between unfolded rows", () => {
+    expect(mergeFoldedArrows([arrow("1", "a", "x"), arrow("2", "b", "x")], new Map()).map((a) => a.edge.id)).toEqual(["1", "2"]);
   });
 });

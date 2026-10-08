@@ -169,6 +169,47 @@ impl ConfigHandle {
         &self.file.path
     }
 
+    /// Gives up on a config file that can't be used: moves it aside (`domino.config.broken.json`,
+    /// or `-2`, `-3`… beside an earlier one, so no hand edit is ever lost) and writes an empty config
+    /// in its place, returning it and where the old file went. Only while the file is unusable; if
+    /// the write fails, the file is put back. Nothing here replaces a file, so an editor or sync
+    /// client writing the settings file meanwhile never loses its version.
+    pub(crate) fn start_fresh(&self) -> Result<(DominoConfig, Option<PathBuf>), String> {
+        // The config lock first (as reload takes it), so a reload or save can't slip in between.
+        let mut current = self.current.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        if self.problem().is_none() {
+            return Err("The settings file is fine: nothing to replace".to_owned());
+        }
+        let path = &self.file.path;
+        // One atomic rename takes the file as it is this instant, so the file checked is the one set aside.
+        let aside = match stage(path)? {
+            None => None,
+            Some(staged) => {
+                // A hand fix since startup is put back, untouched.
+                if (ConfigFile { path: staged.clone() }).read_existing().is_ok() {
+                    return Err(put_back(&staged, path, "The settings file is fine now; use Reload file".to_owned()));
+                }
+                Some(set_aside(&staged).map_err(|e| put_back(&staged, path, e))?)
+            }
+        };
+        let empty = DominoConfig { sites: vec![], default_site_ids: vec![], backend: BackendKind::Jira };
+        if let Err(e) = self.file.create(&empty) {
+            return Err(match (&aside, e.kind()) {
+                (aside, std::io::ErrorKind::AlreadyExists) => format!(
+                    "The settings file was written meanwhile; use Reload file{}",
+                    aside.as_ref().map(|a| format!(" (your old file is at {})", a.display())).unwrap_or_default()
+                ),
+                (Some(aside), _) => put_back(aside, path, format!("Could not write config: {e}")),
+                (None, _) => format!("Could not write config: {e}"),
+            });
+        }
+        empty.clone_into(&mut current);
+        // Cleared under the config lock (as reload does), so no one sees the new config with the old problem.
+        *self.problem.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = None;
+        drop(current);
+        Ok((empty, aside))
+    }
+
     /// Reads the file again (after a hand fix): swaps it in, or says why it still can't be used.
     pub(crate) fn reload(&self) -> Result<DominoConfig, String> {
         // Held across the read and the swap, so a save from Settings can't land in between.
@@ -244,6 +285,80 @@ impl ConfigHandle {
     }
 }
 
+/// Atomically renames the file at `path` (if there is one) to Start fresh's own staging name beside
+/// it, which nothing else writes; a file left there by an interrupted attempt is never replaced.
+fn stage(path: &Path) -> Result<Option<PathBuf>, String> {
+    let staged = path.with_file_name("domino.config.start-fresh.json");
+    if fs::symlink_metadata(&staged).is_ok() {
+        return Err(format!("An earlier Start fresh left {}; move it out of the folder first", staged.display()));
+    }
+    match fs::rename(path, &staged) {
+        Ok(()) => Ok(Some(staged)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(format!("Could not set the old file aside: {e}")),
+    }
+}
+
+/// Moves `path` to the first free name beside it (`domino.config.broken.json`, then `-2`, `-3`…),
+/// returning it; with every name taken, it's an error.
+fn set_aside(path: &Path) -> Result<PathBuf, String> {
+    let dir = path.parent().unwrap_or_else(|| Path::new("."));
+    for n in 1..=1000 {
+        let name = if n == 1 { "domino.config.broken.json".to_owned() } else { format!("domino.config.broken-{n}.json") };
+        let aside = dir.join(name);
+        match move_no_replace(path, &aside) {
+            Ok(()) => return Ok(aside),
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(e) => return Err(format!("Could not set the old file aside: {e}")),
+        }
+    }
+    Err("Could not set the old file aside: too many earlier ones; move some out of the folder".to_owned())
+}
+
+/// Moves a set-aside file back after a failure, returning `error`, plus where the file is if it
+/// couldn't be moved back (a file written there meanwhile is kept).
+fn put_back(aside: &Path, path: &Path, error: String) -> String {
+    match move_no_replace(aside, path) {
+        Ok(()) => error,
+        Err(e) => format!("{error}; your old settings file is at {} (could not move it back: {e})", aside.display()),
+    }
+}
+
+/// Moves `from` to `to`, failing with `AlreadyExists` rather than replace anything there: a hard
+/// link plus removal, or where hard links aren't supported (FAT, some network or synced folders), a
+/// copy into a new file.
+fn move_no_replace(from: &Path, to: &Path) -> std::io::Result<()> {
+    match fs::hard_link(from, to) {
+        Err(e) if e.kind() != std::io::ErrorKind::AlreadyExists => copy_aside(from, to),
+        linked => linked.and_then(|()| fs::remove_file(from)),
+    }
+}
+
+/// Copies `path` into a new file at `aside` (see `write_new`), then removes `path`.
+fn copy_aside(path: &Path, aside: &Path) -> std::io::Result<()> {
+    write_new(aside, |out| fs::File::open(path).and_then(|mut from| std::io::copy(&mut from, out)).map(drop))?;
+    fs::remove_file(path)
+}
+
+/// Creates a new, user-only file at `path` (failing with `AlreadyExists` if anything is there) and
+/// fills it with `fill`; a failed fill removes the partial file.
+fn write_new(path: &Path, fill: impl FnOnce(&mut fs::File) -> std::io::Result<()>) -> std::io::Result<()> {
+    let mut options = fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600); // private, like the saved file
+    let mut out = options.open(path)?;
+    let filled = fill(&mut out).and_then(|()| out.sync_all());
+    if let Err(e) = filled {
+        drop(out);
+        return Err(match fs::remove_file(path) {
+            Ok(()) => e,
+            Err(left) => std::io::Error::other(format!("{e} (a partial file is left at {}: {left})", path.display())),
+        });
+    }
+    Ok(())
+}
+
 pub(crate) struct ConfigFile {
     path: PathBuf,
 }
@@ -275,6 +390,12 @@ impl ConfigFile {
         let seed = seed.validated()?;
         self.save(&seed)?;
         Ok(seed)
+    }
+
+    /// Writes the config to a new file, failing with `AlreadyExists` rather than replace one.
+    fn create(&self, config: &DominoConfig) -> std::io::Result<()> {
+        let body = format!("{}\n", serde_json::to_string_pretty(config).map_err(std::io::Error::other)?);
+        write_new(&self.path, |f| f.write_all(body.as_bytes()))
     }
 
     pub(crate) fn save(&self, config: &DominoConfig) -> Result<(), String> {
@@ -433,6 +554,133 @@ mod tests {
         assert!(h.reload().unwrap_err().contains("is invalid"));
         assert_eq!(h.get().sites.len(), 3, "the good config stays in use");
         assert!(h.problem().is_none(), "the app isn't running on the empty fallback");
+    }
+
+    #[test]
+    fn starting_fresh_keeps_the_broken_file_aside_and_writes_an_empty_one() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("domino.config.json");
+        fs::write(&path, "{ broken").unwrap();
+        let h = ConfigHandle::load(ConfigFile::new(dir.path()));
+        let (fresh, aside) = h.start_fresh().unwrap();
+        assert!(fresh.sites.is_empty());
+        assert_eq!(aside.unwrap().file_name().unwrap(), "domino.config.broken.json", "says where the old file went");
+        assert!(h.problem().is_none());
+        assert_eq!(fs::read_to_string(dir.path().join("domino.config.broken.json")).unwrap(), "{ broken", "the hand edit is kept");
+        assert!(ConfigFile::new(dir.path()).read_existing().unwrap().sites.is_empty(), "a valid, empty file replaces it");
+        assert!(!dir.path().join("domino.config.start-fresh.json").exists(), "nothing left staged");
+    }
+
+    #[test]
+    fn starting_fresh_never_overwrites_an_earlier_broken_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("domino.config.json");
+        fs::write(dir.path().join("domino.config.broken.json"), "first").unwrap();
+        fs::write(&path, "second").unwrap();
+        let h = ConfigHandle::load(ConfigFile::new(dir.path()));
+        h.start_fresh().unwrap();
+        assert_eq!(fs::read_to_string(dir.path().join("domino.config.broken.json")).unwrap(), "first");
+        assert_eq!(fs::read_to_string(dir.path().join("domino.config.broken-2.json")).unwrap(), "second");
+    }
+
+    #[test]
+    fn copying_aside_never_replaces_a_file_already_there() {
+        let dir = tempfile::tempdir().unwrap();
+        let (path, aside) = (dir.path().join("domino.config.json"), dir.path().join("domino.config.broken.json"));
+        fs::write(&aside, "first").unwrap();
+        fs::write(&path, "second").unwrap();
+        assert_eq!(copy_aside(&path, &aside).unwrap_err().kind(), std::io::ErrorKind::AlreadyExists);
+        assert_eq!(fs::read_to_string(&aside).unwrap(), "first", "the earlier file is kept");
+        assert_eq!(fs::read_to_string(&path).unwrap(), "second", "the current file stays put");
+    }
+
+    #[test]
+    fn putting_the_file_back_after_a_failed_write_says_where_it_is_if_that_fails_too() {
+        let dir = tempfile::tempdir().unwrap();
+        let (path, aside) = (dir.path().join("domino.config.json"), dir.path().join("domino.config.broken.json"));
+        fs::write(&aside, "{ broken").unwrap();
+        assert_eq!(put_back(&aside, &path, "disk full".to_owned()), "disk full");
+        assert_eq!(fs::read_to_string(&path).unwrap(), "{ broken", "moved back");
+        // Nothing left at `aside` now, so moving it back fails.
+        let message = put_back(&aside, &path, "disk full".to_owned());
+        assert!(message.starts_with("disk full; "), "{message}");
+        assert!(message.contains(&aside.display().to_string()), "{message}");
+    }
+
+    #[test]
+    fn putting_the_file_back_never_replaces_one_written_meanwhile() {
+        let dir = tempfile::tempdir().unwrap();
+        let (path, aside) = (dir.path().join("domino.config.json"), dir.path().join("domino.config.broken.json"));
+        fs::write(&aside, "{ broken").unwrap();
+        fs::write(&path, "fixed in an editor").unwrap();
+        let message = put_back(&aside, &path, "disk full".to_owned());
+        assert!(message.contains(&aside.display().to_string()), "{message}");
+        assert_eq!(fs::read_to_string(&path).unwrap(), "fixed in an editor");
+        assert_eq!(fs::read_to_string(&aside).unwrap(), "{ broken");
+    }
+
+    #[test]
+    fn the_fresh_file_never_replaces_one_written_meanwhile() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = ConfigFile::new(dir.path());
+        fs::write(&file.path, "fixed in an editor").unwrap();
+        let empty = DominoConfig { sites: vec![], default_site_ids: vec![], backend: BackendKind::Jira };
+        assert_eq!(file.create(&empty).unwrap_err().kind(), std::io::ErrorKind::AlreadyExists);
+        assert_eq!(fs::read_to_string(&file.path).unwrap(), "fixed in an editor");
+    }
+
+    #[test]
+    fn starting_fresh_refuses_while_an_earlier_attempt_is_left_staged() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("domino.config.json");
+        fs::write(&path, "{ broken").unwrap();
+        fs::write(dir.path().join("domino.config.start-fresh.json"), "{ older").unwrap();
+        let h = ConfigHandle::load(ConfigFile::new(dir.path()));
+        assert!(h.start_fresh().unwrap_err().contains("domino.config.start-fresh.json"));
+        assert_eq!(fs::read_to_string(&path).unwrap(), "{ broken");
+        assert_eq!(fs::read_to_string(dir.path().join("domino.config.start-fresh.json")).unwrap(), "{ older");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_copied_aside_file_is_private_to_the_user() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let (path, aside) = (dir.path().join("domino.config.json"), dir.path().join("domino.config.broken.json"));
+        fs::write(&path, "{ broken").unwrap();
+        copy_aside(&path, &aside).unwrap();
+        assert_eq!(fs::metadata(&aside).unwrap().permissions().mode() & 0o777, 0o600);
+    }
+
+    #[test]
+    fn copying_aside_moves_the_file_to_a_free_name() {
+        let dir = tempfile::tempdir().unwrap();
+        let (path, aside) = (dir.path().join("domino.config.json"), dir.path().join("domino.config.broken.json"));
+        fs::write(&path, "{ broken").unwrap();
+        copy_aside(&path, &aside).unwrap();
+        assert_eq!(fs::read_to_string(&aside).unwrap(), "{ broken");
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn starting_fresh_refuses_a_file_fixed_by_hand_since_startup() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("domino.config.json");
+        fs::write(&path, "{ broken").unwrap();
+        let h = ConfigHandle::load(ConfigFile::new(dir.path()));
+        fs::write(&path, SEED_CONFIG).unwrap(); // fixed, but not reloaded
+        assert!(h.start_fresh().unwrap_err().contains("Reload file"));
+        assert_eq!(fs::read_to_string(&path).unwrap(), SEED_CONFIG, "the fixed file is left alone");
+        assert!(!dir.path().join("domino.config.broken.json").exists());
+        assert!(!dir.path().join("domino.config.start-fresh.json").exists(), "nothing left staged");
+    }
+
+    #[test]
+    fn starting_fresh_refuses_a_good_config() {
+        let dir = tempfile::tempdir().unwrap();
+        let h = ConfigHandle::load(ConfigFile::new(dir.path())); // seeds a good file
+        assert!(h.start_fresh().unwrap_err().contains("nothing to replace"));
+        assert_eq!(h.get().sites.len(), 3, "the good config is untouched");
     }
 
     #[test]
