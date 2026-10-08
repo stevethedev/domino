@@ -101,8 +101,8 @@ export function ConfigProblemBanner({
       {freshError && <p className="small banner-confirm">Couldn't start fresh: {freshError}</p>}
       {confirmFresh && (
         <p className="small banner-confirm">
-          Start with no sites? The current file is kept beside it as <code>domino.config.broken.json</code> (or <code>-2</code>,{" "}
-          <code>-3</code>… if earlier ones are there).
+          Start with no sites? If the file is still there, it's kept beside it as <code>domino.config.broken.json</code> (or <code>-2</code>
+          , <code>-3</code>… if earlier ones are there).
         </p>
       )}
     </div>

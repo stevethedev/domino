@@ -187,10 +187,10 @@ impl ConfigHandle {
         let aside = if path.exists() { Some(set_aside(path)?) } else { None };
         let empty = DominoConfig { sites: vec![], default_site_ids: vec![], backend: BackendKind::Jira };
         if let Err(e) = self.file.save(&empty) {
-            if let Some(aside) = &aside {
-                let _restored = fs::rename(aside, path); // best effort: the original stays findable either way
-            }
-            return Err(e);
+            return Err(match &aside {
+                Some(aside) => put_back(aside, path, e),
+                None => e,
+            });
         }
         empty.clone_into(&mut current);
         drop(current);
@@ -294,6 +294,15 @@ fn set_aside(path: &Path) -> Result<PathBuf, String> {
         }
     }
     Err("Could not set the old file aside: too many earlier ones; move some out of the folder".to_owned())
+}
+
+/// Moves a set-aside file back after a failed write, returning `error`, plus where the file is if
+/// it couldn't be moved back.
+fn put_back(aside: &Path, path: &Path, error: String) -> String {
+    match fs::rename(aside, path) {
+        Ok(()) => error,
+        Err(e) => format!("{error}; your old settings file is at {} (could not move it back: {e})", aside.display()),
+    }
 }
 
 /// Copies `path` into a new file at `aside` (failing with `AlreadyExists` if anything is there),
@@ -541,6 +550,19 @@ mod tests {
         assert_eq!(copy_aside(&path, &aside).unwrap_err().kind(), std::io::ErrorKind::AlreadyExists);
         assert_eq!(fs::read_to_string(&aside).unwrap(), "first", "the earlier file is kept");
         assert_eq!(fs::read_to_string(&path).unwrap(), "second", "the current file stays put");
+    }
+
+    #[test]
+    fn putting_the_file_back_after_a_failed_write_says_where_it_is_if_that_fails_too() {
+        let dir = tempfile::tempdir().unwrap();
+        let (path, aside) = (dir.path().join("domino.config.json"), dir.path().join("domino.config.broken.json"));
+        fs::write(&aside, "{ broken").unwrap();
+        assert_eq!(put_back(&aside, &path, "disk full".to_owned()), "disk full");
+        assert_eq!(fs::read_to_string(&path).unwrap(), "{ broken", "moved back");
+        // Nothing left at `aside` now, so moving it back fails.
+        let message = put_back(&aside, &path, "disk full".to_owned());
+        assert!(message.starts_with("disk full; "), "{message}");
+        assert!(message.contains(&aside.display().to_string()), "{message}");
     }
 
     #[cfg(unix)]
