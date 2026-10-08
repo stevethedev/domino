@@ -173,15 +173,13 @@ impl ConfigHandle {
     /// or `-2`, `-3`… beside an earlier one, so no hand edit is ever lost) and writes an empty config
     /// in its place. Only while the file is unusable; if the write fails, the file is put back.
     pub(crate) fn start_fresh(&self) -> Result<DominoConfig, String> {
+        // The config lock first (as reload takes it), so a reload or save can't slip in between.
+        let mut current = self.current.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         if self.problem().is_none() {
             return Err("The settings file is fine: nothing to replace".to_owned());
         }
-        let mut current = self.current.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         let path = &self.file.path;
-        let aside = path.exists().then(|| set_aside_path(path));
-        if let Some(aside) = &aside {
-            fs::rename(path, aside).map_err(|e| format!("Could not set the old file aside: {e}"))?;
-        }
+        let aside = if path.exists() { Some(set_aside(path)?) } else { None };
         let empty = DominoConfig { sites: vec![], default_site_ids: vec![], backend: BackendKind::Jira };
         if let Err(e) = self.file.save(&empty) {
             if let Some(aside) = &aside {
@@ -270,13 +268,24 @@ impl ConfigHandle {
     }
 }
 
-/// A free name beside `path` for a set-aside broken file: `domino.config.broken.json`, then `-2`, `-3`…
-fn set_aside_path(path: &Path) -> PathBuf {
+/// Moves `path` to the first free name beside it (`domino.config.broken.json`, then `-2`, `-3`…),
+/// returning it. A hard link plus removal, so an existing file is never replaced, even one created
+/// meanwhile; with every name taken, it's an error rather than an overwrite.
+fn set_aside(path: &Path) -> Result<PathBuf, String> {
     let dir = path.parent().unwrap_or_else(|| Path::new("."));
-    (1..=1000)
-        .map(|n| dir.join(if n == 1 { "domino.config.broken.json".to_owned() } else { format!("domino.config.broken-{n}.json") }))
-        .find(|p| !p.exists())
-        .unwrap_or_else(|| dir.join("domino.config.broken.json"))
+    for n in 1..=1000 {
+        let name = if n == 1 { "domino.config.broken.json".to_owned() } else { format!("domino.config.broken-{n}.json") };
+        let aside = dir.join(name);
+        match fs::hard_link(path, &aside) {
+            Ok(()) => {
+                fs::remove_file(path).map_err(|e| format!("Could not set the old file aside: {e}"))?;
+                return Ok(aside);
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(e) => return Err(format!("Could not set the old file aside: {e}")),
+        }
+    }
+    Err("Could not set the old file aside: too many earlier ones; move some out of the folder".to_owned())
 }
 
 pub(crate) struct ConfigFile {

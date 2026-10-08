@@ -1,5 +1,6 @@
 import { useRef, useState, type ReactElement } from "react";
 import type { ConfigFileStatus } from "../config/types";
+import { errorMessage } from "../data/errors";
 
 /**
  * Shown while the config file couldn't be used and the app is running on an empty config: what's
@@ -23,6 +24,7 @@ export function ConfigProblemBanner({
   const [reloading, setReloading] = useState(false);
   const [confirmFresh, setConfirmFresh] = useState(false);
   const startFreshRef = useRef<HTMLButtonElement>(null);
+  const [freshError, setFreshError] = useState<string | null>(null);
   if (status.problem === null) return null;
   return (
     <div className="banner error actionable" role="alert">
@@ -61,8 +63,10 @@ export function ConfigProblemBanner({
               className="danger"
               onClick={() => {
                 setConfirmFresh(false);
-                // A failure keeps the banner, now showing why (onStartFresh records it as the problem).
-                onStartFresh().catch(() => {
+                setFreshError(null);
+                // A failure keeps the banner, saying why beside the file's own problem.
+                onStartFresh().catch((e: unknown) => {
+                  setFreshError(errorMessage(e));
                   startFreshRef.current?.focus();
                 });
               }}
@@ -92,6 +96,7 @@ export function ConfigProblemBanner({
           </button>
         )}
       </div>
+      {freshError && <p className="small banner-confirm">Couldn't start fresh: {freshError}</p>}
       {confirmFresh && (
         <p className="small banner-confirm">
           Start with no sites? The current file is kept beside it as <code>domino.config.broken.json</code>.
