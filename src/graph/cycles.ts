@@ -133,3 +133,16 @@ export function findCycles(
   const cycles = comps.map((c) => cycleOrder(c, adj)).sort((a, b) => a[0].localeCompare(b[0]));
   return { cycles, cycleEdgeIds, brokenEdgeIds };
 }
+
+/**
+ * Whether a card is part of a blocking cycle: one in the graph as drawn (`drawnCycles`, uids), or,
+ * for a folded epic's summary card, one through any of its tickets in the full graph (`loadedCycles`),
+ * including a cycle between its own tickets that folding hides.
+ */
+export function isInCycle(
+  card: Pick<GraphNode, "uid" | "rollup">,
+  drawnCycles: ReadonlySet<string>,
+  loadedCycles: ReadonlySet<string>,
+): boolean {
+  return drawnCycles.has(card.uid) || (card.rollup?.members.some((m) => loadedCycles.has(m)) ?? false);
+}

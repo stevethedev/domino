@@ -26,6 +26,7 @@ import { SortChip } from "./SortChip";
 import { COMPACT_BELOW_ZOOM, IssueCard, SiteGroup, type IssueFlowNode, type SiteGroupNode } from "./IssueCard";
 import { isOneOf } from "../lib/guards";
 import { prefersReducedMotion } from "../lib/motion";
+import { isInCycle } from "../graph/cycles";
 import { visibleCentreShift } from "./drawerOffset";
 import { fitKeyOf } from "./fitKey";
 
@@ -241,6 +242,8 @@ export function Canvas({
   const chain = useMemo(() => (hovered ? blockingChain(graph, hovered) : null), [graph, hovered]);
   const byUid = useMemo(() => new Map(graph.nodes.map((n) => [n.uid, n])), [graph]);
   const cycleNodes = useMemo(() => new Set(graph.cycles.flat()), [graph]);
+  // Folded epics hide cycles between their own tickets: the unfolded graph's cycles catch those.
+  const loadedCycleNodes = useMemo(() => new Set(loaded.cycles.flat()), [loaded.cycles]);
   // In scope (not ghosts): only those have details worth showing from a lane name.
   const loadedUids = useMemo(() => new Set(loaded.nodes.filter((n) => !n.ghost).map((n) => n.uid)), [loaded.nodes]);
   const visibleByUid = useMemo(() => new Map(vNodes.map((n) => [n.uid, n])), [vNodes]);
@@ -321,7 +324,7 @@ export function Canvas({
             onExpand: n.rollup ? toggleEpic(n.rollup.epicUid) : undefined,
             stale,
             tabbable: n.uid === tabStop,
-            inCycle: cycleNodes.has(n.uid),
+            inCycle: isInCycle(n, cycleNodes, loadedCycleNodes),
             onFocusCard,
           },
           draggable: false,
@@ -348,6 +351,7 @@ export function Canvas({
     lastFocused,
     onFocusCard,
     cycleNodes,
+    loadedCycleNodes,
     loadedUids,
   ]);
 
