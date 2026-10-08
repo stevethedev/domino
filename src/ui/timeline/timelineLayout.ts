@@ -295,12 +295,16 @@ export const roomAfter = (x: number, viewportWidth: number, at: number): number 
 export const unobscuredWidth = (left: number, right: number, drawerLeft?: number): number =>
   Math.max(0, (drawerLeft !== undefined && drawerLeft < right ? Math.max(left, drawerLeft) : right) - left);
 
+type ArrowFlags = Partial<Readonly<{ violated: boolean; inCycle: boolean; critical: boolean; dimmed: boolean }>>;
+
 /**
  * One arrow per pair of ends, where every row in a folded lane is the same end (`foldedLane`: row
  * uid -> its lane id, folded rows only): several tickets in a folded lane linked to one ticket would
- * otherwise draw overlapping arrows from the lane's line. The first of each pair is kept.
+ * otherwise draw overlapping arrows from the lane's line. The merged arrow is the first of its pair,
+ * carrying any warning the others had (a cycle, a late start, the critical path never hides behind
+ * a plain arrow) and dimmed only if all of them were.
  */
-export function mergeFoldedArrows<A extends { edge: Readonly<{ source: string; target: string }> }>(
+export function mergeFoldedArrows<A extends { edge: Readonly<{ source: string; target: string }> } & ArrowFlags>(
   arrows: readonly A[],
   foldedLane: ReadonlyMap<string, string>,
 ): A[] {
@@ -308,11 +312,22 @@ export function mergeFoldedArrows<A extends { edge: Readonly<{ source: string; t
     const lane = foldedLane.get(uid);
     return lane === undefined ? `row:${uid}` : `lane:${lane}`;
   };
-  const seen = new Set<string>();
-  return arrows.filter((a) => {
+  const merged = new Map<string, A>();
+  for (const a of arrows) {
     const key = `${end(a.edge.source)}→${end(a.edge.target)}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+    const first = merged.get(key);
+    merged.set(
+      key,
+      first === undefined
+        ? a
+        : {
+            ...first,
+            violated: Boolean(first.violated) || Boolean(a.violated),
+            inCycle: Boolean(first.inCycle) || Boolean(a.inCycle),
+            critical: Boolean(first.critical) || Boolean(a.critical),
+            dimmed: Boolean(first.dimmed) && Boolean(a.dimmed),
+          },
+    );
+  }
+  return [...merged.values()];
 }

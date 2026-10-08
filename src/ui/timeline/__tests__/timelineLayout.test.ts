@@ -399,6 +399,8 @@ describe("summarizeEpics with undated children", () => {
   });
 });
 
+type Flags = { violated: boolean; inCycle: boolean; critical: boolean; dimmed: boolean };
+
 describe("mergeFoldedArrows", () => {
   const arrow = (id: string, source: string, target: string): { edge: { id: string; source: string; target: string } } => ({
     edge: { id, source, target },
@@ -411,6 +413,25 @@ describe("mergeFoldedArrows", () => {
     ]);
     const kept = mergeFoldedArrows([arrow("1", "a1", "x"), arrow("2", "a2", "x"), arrow("3", "a1", "y"), arrow("4", "z", "x")], folded);
     expect(kept.map((a) => a.edge.id)).toEqual(["1", "3", "4"]);
+  });
+
+  it("keeps the warnings of the arrows it merges: a cycle or late start never hides behind a plain one", () => {
+    const flagged = (id: string, source: string, f: Partial<Flags>): { edge: { id: string; source: string; target: string } } & Flags => ({
+      edge: { id, source, target: "x" },
+      violated: false,
+      inCycle: false,
+      critical: false,
+      dimmed: true,
+      ...f,
+    });
+    const [merged] = mergeFoldedArrows(
+      [flagged("1", "a1", {}), flagged("2", "a2", { inCycle: true, violated: true, dimmed: false })],
+      new Map([
+        ["a1", "lane:A"],
+        ["a2", "lane:A"],
+      ]),
+    );
+    expect(merged).toMatchObject({ inCycle: true, violated: true, critical: false, dimmed: false });
   });
 
   it("keeps every arrow between unfolded rows", () => {

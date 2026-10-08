@@ -612,7 +612,11 @@ function Shell(): ReactElement {
         <ConfigProblemBanner
           status={domino.configFile}
           onReload={domino.reloadConfigFile}
-          onStartFresh={domino.startFreshConfig}
+          onStartFresh={async () => {
+            await domino.startFreshConfig();
+            // The banner is gone: on to adding a site.
+            requestAnimationFrame(() => focusFirst(".canvas-message button", 'button[aria-label="Settings"]'));
+          }}
           onReveal={() => {
             domino.store.revealFile().catch((e: unknown) => {
               setToast({ text: errorMessage(e) }); // already says it couldn't show the file

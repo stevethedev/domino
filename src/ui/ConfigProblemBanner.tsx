@@ -1,4 +1,4 @@
-import { useState, type ReactElement } from "react";
+import { useRef, useState, type ReactElement } from "react";
 import type { ConfigFileStatus } from "../config/types";
 
 /**
@@ -22,6 +22,7 @@ export function ConfigProblemBanner({
 }): ReactElement | null {
   const [reloading, setReloading] = useState(false);
   const [confirmFresh, setConfirmFresh] = useState(false);
+  const startFreshRef = useRef<HTMLButtonElement>(null);
   if (status.problem === null) return null;
   return (
     <div className="banner error actionable" role="alert">
@@ -60,7 +61,10 @@ export function ConfigProblemBanner({
               className="danger"
               onClick={() => {
                 setConfirmFresh(false);
-                onStartFresh().catch(() => undefined); // a failure keeps the banner, with its problem
+                // A failure keeps the banner, now showing why (onStartFresh records it as the problem).
+                onStartFresh().catch(() => {
+                  startFreshRef.current?.focus();
+                });
               }}
             >
               Start fresh
@@ -70,6 +74,7 @@ export function ConfigProblemBanner({
               autoFocus
               onClick={() => {
                 setConfirmFresh(false);
+                requestAnimationFrame(() => startFreshRef.current?.focus()); // back to where they were
               }}
             >
               Keep the file
@@ -78,6 +83,7 @@ export function ConfigProblemBanner({
         ) : (
           <button
             type="button"
+            ref={startFreshRef}
             onClick={() => {
               setConfirmFresh(true);
             }}

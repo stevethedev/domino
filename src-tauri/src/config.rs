@@ -169,24 +169,33 @@ impl ConfigHandle {
         &self.file.path
     }
 
-    /// Reads the file again (after a hand fix): swaps it in, or says why it still can't be used.
     /// Gives up on a config file that can't be used: moves it aside (`domino.config.broken.json`,
-    /// replacing an older one) so a hand edit is never lost, and writes an empty config in its place.
+    /// or `-2`, `-3`… beside an earlier one, so no hand edit is ever lost) and writes an empty config
+    /// in its place. Only while the file is unusable; if the write fails, the file is put back.
     pub(crate) fn start_fresh(&self) -> Result<DominoConfig, String> {
+        if self.problem().is_none() {
+            return Err("The settings file is fine: nothing to replace".to_owned());
+        }
         let mut current = self.current.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         let path = &self.file.path;
-        if path.exists() {
-            let aside = path.with_file_name("domino.config.broken.json");
-            fs::rename(path, &aside).map_err(|e| format!("Could not set the old file aside: {e}"))?;
+        let aside = path.exists().then(|| set_aside_path(path));
+        if let Some(aside) = &aside {
+            fs::rename(path, aside).map_err(|e| format!("Could not set the old file aside: {e}"))?;
         }
         let empty = DominoConfig { sites: vec![], default_site_ids: vec![], backend: BackendKind::Jira };
-        self.file.save(&empty)?;
+        if let Err(e) = self.file.save(&empty) {
+            if let Some(aside) = &aside {
+                let _restored = fs::rename(aside, path); // best effort: the original stays findable either way
+            }
+            return Err(e);
+        }
         empty.clone_into(&mut current);
         drop(current);
         *self.problem.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = None;
         Ok(empty)
     }
 
+    /// Reads the file again (after a hand fix): swaps it in, or says why it still can't be used.
     pub(crate) fn reload(&self) -> Result<DominoConfig, String> {
         // Held across the read and the swap, so a save from Settings can't land in between.
         let mut current = self.current.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -259,6 +268,15 @@ impl ConfigHandle {
         drop(guard);
         Ok(())
     }
+}
+
+/// A free name beside `path` for a set-aside broken file: `domino.config.broken.json`, then `-2`, `-3`…
+fn set_aside_path(path: &Path) -> PathBuf {
+    let dir = path.parent().unwrap_or_else(|| Path::new("."));
+    (1..=1000)
+        .map(|n| dir.join(if n == 1 { "domino.config.broken.json".to_owned() } else { format!("domino.config.broken-{n}.json") }))
+        .find(|p| !p.exists())
+        .unwrap_or_else(|| dir.join("domino.config.broken.json"))
 }
 
 pub(crate) struct ConfigFile {
@@ -463,6 +481,26 @@ mod tests {
         assert!(h.problem().is_none());
         assert_eq!(fs::read_to_string(dir.path().join("domino.config.broken.json")).unwrap(), "{ broken", "the hand edit is kept");
         assert!(ConfigFile::new(dir.path()).read_existing().unwrap().sites.is_empty(), "a valid, empty file replaces it");
+    }
+
+    #[test]
+    fn starting_fresh_never_overwrites_an_earlier_broken_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("domino.config.json");
+        fs::write(dir.path().join("domino.config.broken.json"), "first").unwrap();
+        fs::write(&path, "second").unwrap();
+        let h = ConfigHandle::load(ConfigFile::new(dir.path()));
+        h.start_fresh().unwrap();
+        assert_eq!(fs::read_to_string(dir.path().join("domino.config.broken.json")).unwrap(), "first");
+        assert_eq!(fs::read_to_string(dir.path().join("domino.config.broken-2.json")).unwrap(), "second");
+    }
+
+    #[test]
+    fn starting_fresh_refuses_a_good_config() {
+        let dir = tempfile::tempdir().unwrap();
+        let h = ConfigHandle::load(ConfigFile::new(dir.path())); // seeds a good file
+        assert!(h.start_fresh().unwrap_err().contains("nothing to replace"));
+        assert_eq!(h.get().sites.len(), 3, "the good config is untouched");
     }
 
     #[test]

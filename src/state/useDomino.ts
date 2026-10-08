@@ -360,8 +360,15 @@ export function useDomino(store: ConfigStore, source: JiraSource, cache: TicketC
   );
 
   const startFreshConfig = useCallback(async () => {
-    setConfig(await store.startFresh());
-    setConfigFile((f) => f && { ...f, problem: null });
+    try {
+      setConfig(await store.startFresh());
+      setConfigFile((f) => f && { ...f, problem: null });
+    } catch (e) {
+      // Shown in the banner, which stays (as a failed reload's reason is).
+      const problem = errorMessage(e);
+      setConfigFile((f) => f && { ...f, problem });
+      throw new Error(problem);
+    }
   }, [store]);
 
   const reloadConfigFile = useCallback(async () => {
