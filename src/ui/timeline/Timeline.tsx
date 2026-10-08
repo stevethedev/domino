@@ -27,6 +27,7 @@ import {
   LABEL_WIDTH,
   LANE_HEIGHT,
   layoutRows,
+  mergeFoldedArrows,
   ROW_HEIGHT,
   dayAt,
   roomAfter,
@@ -228,7 +229,7 @@ export function Timeline({
   }
   const drawn = (r: TimelineRowModel): ReturnType<typeof drawnBar> =>
     drawnBar(r.node, getOrThrow(timeline, r.node.uid), epics.get(r.node.uid));
-  const arrows: ArrowModel[] = edges
+  const allArrows: ArrowModel[] = edges
     .filter((e) => e.kind === "blocks" && !graph.brokenEdgeIds.has(e.id))
     .flatMap((e) => {
       const [source, target] = [rowByUid.get(e.source), rowByUid.get(e.target)];
@@ -249,6 +250,11 @@ export function Timeline({
         },
       ];
     });
+  // Folded rows share their lane's line: arrows that now share both ends draw once.
+  const foldedLane = new Map(
+    items.flatMap((i) => (i.kind === "row" && i.folded ? [[i.node.uid, laneOfRow.get(i.node.uid) ?? ""] as const] : [])),
+  );
+  const arrows = mergeFoldedArrows(allArrows, foldedLane);
 
   const late = all.filter(isLate).length;
   // A new scope opens on today (a quarter of the way in), not on its oldest work; a new scale

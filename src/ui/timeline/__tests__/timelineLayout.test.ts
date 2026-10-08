@@ -12,6 +12,7 @@ import {
   LABEL_WIDTH,
   LANE_HEIGHT,
   layoutRows,
+  mergeFoldedArrows,
   PX_PER_DAY,
   ROW_HEIGHT,
   rowsMoved,
@@ -395,5 +396,24 @@ describe("summarizeEpics with undated children", () => {
     ).get("E");
     expect(e?.work).toEqual({ start: "2026-09-29", end: "2026-09-30" });
     expect(e?.projected).toEqual({ start: "2026-09-29", end: "2026-09-30" });
+  });
+});
+
+describe("mergeFoldedArrows", () => {
+  const arrow = (id: string, source: string, target: string): { edge: { id: string; source: string; target: string } } => ({
+    edge: { id, source, target },
+  });
+
+  it("draws one arrow per pair of ends, a folded lane counting as one end", () => {
+    const folded = new Map([
+      ["a1", "lane:A"],
+      ["a2", "lane:A"],
+    ]);
+    const kept = mergeFoldedArrows([arrow("1", "a1", "x"), arrow("2", "a2", "x"), arrow("3", "a1", "y"), arrow("4", "z", "x")], folded);
+    expect(kept.map((a) => a.edge.id)).toEqual(["1", "3", "4"]);
+  });
+
+  it("keeps every arrow between unfolded rows", () => {
+    expect(mergeFoldedArrows([arrow("1", "a", "x"), arrow("2", "b", "x")], new Map()).map((a) => a.edge.id)).toEqual(["1", "2"]);
   });
 });

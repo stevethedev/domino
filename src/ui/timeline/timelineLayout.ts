@@ -294,3 +294,25 @@ export const roomAfter = (x: number, viewportWidth: number, at: number): number 
 /** The width of a box from `left` to `right` that a drawer starting at `drawerLeft` leaves uncovered. */
 export const unobscuredWidth = (left: number, right: number, drawerLeft?: number): number =>
   Math.max(0, (drawerLeft !== undefined && drawerLeft < right ? Math.max(left, drawerLeft) : right) - left);
+
+/**
+ * One arrow per pair of ends, where every row in a folded lane is the same end (`foldedLane`: row
+ * uid -> its lane id, folded rows only): several tickets in a folded lane linked to one ticket would
+ * otherwise draw overlapping arrows from the lane's line. The first of each pair is kept.
+ */
+export function mergeFoldedArrows<A extends { edge: Readonly<{ source: string; target: string }> }>(
+  arrows: readonly A[],
+  foldedLane: ReadonlyMap<string, string>,
+): A[] {
+  const end = (uid: string): string => {
+    const lane = foldedLane.get(uid);
+    return lane === undefined ? `row:${uid}` : `lane:${lane}`;
+  };
+  const seen = new Set<string>();
+  return arrows.filter((a) => {
+    const key = `${end(a.edge.source)}→${end(a.edge.target)}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
