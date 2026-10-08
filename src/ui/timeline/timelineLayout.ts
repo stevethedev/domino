@@ -302,9 +302,9 @@ type ArrowFlags = Partial<Readonly<{ violated: boolean; inCycle: boolean; critic
  * uid -> its lane id, folded rows only): several tickets in a folded lane linked to one ticket would
  * otherwise draw overlapping arrows from the lane's line. The merged arrow is the first of its pair,
  * carrying any warning the others had (a cycle, a late start, the critical path never hides behind
- * a plain arrow) and dimmed only if all of them were.
+ * a plain arrow), cross-site if any of them is, and dimmed only if all of them were.
  */
-export function mergeFoldedArrows<A extends { edge: Readonly<{ source: string; target: string }> } & ArrowFlags>(
+export function mergeFoldedArrows<A extends { edge: Readonly<{ source: string; target: string; crossSite?: boolean }> } & ArrowFlags>(
   arrows: readonly A[],
   foldedLane: ReadonlyMap<string, string>,
 ): A[] {
@@ -322,6 +322,8 @@ export function mergeFoldedArrows<A extends { edge: Readonly<{ source: string; t
         ? a
         : {
             ...first,
+            // Dotted if any of them crosses sites, as folded epics do (collapse.ts).
+            edge: a.edge.crossSite && !first.edge.crossSite ? { ...first.edge, crossSite: true } : first.edge,
             violated: Boolean(first.violated) || Boolean(a.violated),
             inCycle: Boolean(first.inCycle) || Boolean(a.inCycle),
             critical: Boolean(first.critical) || Boolean(a.critical),

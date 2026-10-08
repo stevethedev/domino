@@ -274,29 +274,41 @@ impl ConfigHandle {
 }
 
 /// Moves `path` to the first free name beside it (`domino.config.broken.json`, then `-2`, `-3`…),
-/// returning it. A hard link plus removal, so an existing file is never replaced, even one created
-/// meanwhile (where hard links aren't supported, a check then a rename, which only another program
-/// writing that exact name in between could defeat); with every name taken, it's an error.
+/// returning it. Never replaces an existing file, even one created meanwhile: a hard link plus
+/// removal, or where hard links aren't supported, a copy into a newly created file. With every name
+/// taken, it's an error.
 fn set_aside(path: &Path) -> Result<PathBuf, String> {
     let dir = path.parent().unwrap_or_else(|| Path::new("."));
     for n in 1..=1000 {
         let name = if n == 1 { "domino.config.broken.json".to_owned() } else { format!("domino.config.broken-{n}.json") };
         let aside = dir.join(name);
-        match fs::hard_link(path, &aside) {
-            Ok(()) => {
-                fs::remove_file(path).map_err(|e| format!("Could not set the old file aside: {e}"))?;
-                return Ok(aside);
-            }
+        let moved = match fs::hard_link(path, &aside) {
+            // No hard links here (FAT, some network or synced folders).
+            Err(e) if e.kind() != std::io::ErrorKind::AlreadyExists => copy_aside(path, &aside),
+            linked => linked.and_then(|()| fs::remove_file(path)),
+        };
+        match moved {
+            Ok(()) => return Ok(aside),
             Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
-            // No hard links here (FAT, some network or synced folders): check, then rename.
-            Err(_) if !aside.exists() => {
-                fs::rename(path, &aside).map_err(|e| format!("Could not set the old file aside: {e}"))?;
-                return Ok(aside);
-            }
-            Err(_) => {}
+            Err(e) => return Err(format!("Could not set the old file aside: {e}")),
         }
     }
     Err("Could not set the old file aside: too many earlier ones; move some out of the folder".to_owned())
+}
+
+/// Copies `path` into a new file at `aside` (failing with `AlreadyExists` if anything is there),
+/// then removes `path`. A failed copy removes the partial file it created.
+fn copy_aside(path: &Path, aside: &Path) -> std::io::Result<()> {
+    let mut out = fs::OpenOptions::new().write(true).create_new(true).open(aside)?;
+    let copied = fs::File::open(path).and_then(|mut from| std::io::copy(&mut from, &mut out)).and_then(|_| out.sync_all());
+    if let Err(e) = copied {
+        drop(out);
+        return Err(match fs::remove_file(aside) {
+            Ok(()) => e,
+            Err(left) => std::io::Error::other(format!("{e} (a partial copy is left at {}: {left})", aside.display())),
+        });
+    }
+    fs::remove_file(path)
 }
 
 pub(crate) struct ConfigFile {
@@ -514,6 +526,27 @@ mod tests {
         h.start_fresh().unwrap();
         assert_eq!(fs::read_to_string(dir.path().join("domino.config.broken.json")).unwrap(), "first");
         assert_eq!(fs::read_to_string(dir.path().join("domino.config.broken-2.json")).unwrap(), "second");
+    }
+
+    #[test]
+    fn copying_aside_never_replaces_a_file_already_there() {
+        let dir = tempfile::tempdir().unwrap();
+        let (path, aside) = (dir.path().join("domino.config.json"), dir.path().join("domino.config.broken.json"));
+        fs::write(&aside, "first").unwrap();
+        fs::write(&path, "second").unwrap();
+        assert_eq!(copy_aside(&path, &aside).unwrap_err().kind(), std::io::ErrorKind::AlreadyExists);
+        assert_eq!(fs::read_to_string(&aside).unwrap(), "first", "the earlier file is kept");
+        assert_eq!(fs::read_to_string(&path).unwrap(), "second", "the current file stays put");
+    }
+
+    #[test]
+    fn copying_aside_moves_the_file_to_a_free_name() {
+        let dir = tempfile::tempdir().unwrap();
+        let (path, aside) = (dir.path().join("domino.config.json"), dir.path().join("domino.config.broken.json"));
+        fs::write(&path, "{ broken").unwrap();
+        copy_aside(&path, &aside).unwrap();
+        assert_eq!(fs::read_to_string(&aside).unwrap(), "{ broken");
+        assert!(!path.exists());
     }
 
     #[test]

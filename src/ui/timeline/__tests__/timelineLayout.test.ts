@@ -434,6 +434,24 @@ describe("mergeFoldedArrows", () => {
     expect(merged).toMatchObject({ inCycle: true, violated: true, critical: false, dimmed: false });
   });
 
+  it("draws the merged arrow cross-site when any arrow it merges is", () => {
+    const edge = (
+      id: string,
+      source: string,
+      crossSite: boolean,
+    ): { edge: { id: string; source: string; target: string; crossSite?: boolean } } => ({
+      edge: { id, source, target: "x", ...(crossSite && { crossSite }) },
+    });
+    const [merged] = mergeFoldedArrows(
+      [edge("1", "a1", false), edge("2", "a2", true)],
+      new Map([
+        ["a1", "lane:A"],
+        ["a2", "lane:A"],
+      ]),
+    );
+    expect(merged.edge).toMatchObject({ id: "1", crossSite: true });
+  });
+
   it("never mistakes one pair of ends for another, whatever the lane names", () => {
     // Lane ids carry display names; joined with a separator, these two pairs would read the same.
     // "lane:p→lane:q" + "row:r" and "lane:p" + "lane:q→row:r" both join to "lane:p→lane:q→row:r".
