@@ -135,14 +135,17 @@ export function findCycles(
 }
 
 /**
- * Whether a card is part of a blocking cycle: one in the graph as drawn (`drawnCycles`, uids), or,
- * for a folded epic's summary card, one through any of its tickets in the full graph (`loadedCycles`),
- * including a cycle between its own tickets that folding hides.
+ * Whether a card is part of a blocking cycle. A plain card: one in the graph as drawn (`drawnCycles`,
+ * uids). A folded epic's summary card: one through the epic or any of its tickets in the full graph
+ * (`loadedCycles`), including a cycle between its own tickets that folding hides. Drawn cycles don't
+ * count for it: folding can join two of its tickets into a loop that isn't real (x → z → y drawn as
+ * summary → z → summary).
  */
 export function isInCycle(
   card: Pick<GraphNode, "uid" | "rollup">,
   drawnCycles: ReadonlySet<string>,
   loadedCycles: ReadonlySet<string>,
 ): boolean {
-  return drawnCycles.has(card.uid) || (card.rollup?.members.some((m) => loadedCycles.has(m)) ?? false);
+  if (card.rollup === undefined) return drawnCycles.has(card.uid);
+  return loadedCycles.has(card.rollup.epicUid) || card.rollup.members.some((m) => loadedCycles.has(m));
 }

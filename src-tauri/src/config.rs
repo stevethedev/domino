@@ -299,7 +299,11 @@ fn set_aside(path: &Path) -> Result<PathBuf, String> {
 /// Copies `path` into a new file at `aside` (failing with `AlreadyExists` if anything is there),
 /// then removes `path`. A failed copy removes the partial file it created.
 fn copy_aside(path: &Path, aside: &Path) -> std::io::Result<()> {
-    let mut out = fs::OpenOptions::new().write(true).create_new(true).open(aside)?;
+    let mut options = fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600); // private, like the saved file
+    let mut out = options.open(aside)?;
     let copied = fs::File::open(path).and_then(|mut from| std::io::copy(&mut from, &mut out)).and_then(|_| out.sync_all());
     if let Err(e) = copied {
         drop(out);
@@ -537,6 +541,17 @@ mod tests {
         assert_eq!(copy_aside(&path, &aside).unwrap_err().kind(), std::io::ErrorKind::AlreadyExists);
         assert_eq!(fs::read_to_string(&aside).unwrap(), "first", "the earlier file is kept");
         assert_eq!(fs::read_to_string(&path).unwrap(), "second", "the current file stays put");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_copied_aside_file_is_private_to_the_user() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let (path, aside) = (dir.path().join("domino.config.json"), dir.path().join("domino.config.broken.json"));
+        fs::write(&path, "{ broken").unwrap();
+        copy_aside(&path, &aside).unwrap();
+        assert_eq!(fs::metadata(&aside).unwrap().permissions().mode() & 0o777, 0o600);
     }
 
     #[test]

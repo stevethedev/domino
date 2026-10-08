@@ -18,4 +18,12 @@ describe("isInCycle", () => {
     expect(isInCycle(card("summary:E", ["x", "y"]), new Set(), new Set(["x", "y"]))).toBe(true);
     expect(isInCycle(card("summary:E", ["x", "y"]), new Set(), new Set(["z"]))).toBe(false);
   });
+
+  it("ignores a cycle that only folding makes: x → z → y drawn as summary → z → summary", () => {
+    expect(isInCycle(card("summary:E", ["x", "y"]), new Set(["summary:E", "z"]), new Set())).toBe(false);
+  });
+
+  it("is true for a folded epic that is itself in a cycle", () => {
+    expect(isInCycle(card("summary:E", ["x"]), new Set(), new Set(["summary:E", "z"]))).toBe(true);
+  });
 });
