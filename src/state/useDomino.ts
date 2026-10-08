@@ -41,6 +41,8 @@ export type Domino = {
   configFile: ConfigFileStatus | null;
   /** Reads the config file again (after a hand fix); rejects with why it still can't be used. */
   reloadConfigFile: () => Promise<void>;
+  /** Sets the unusable config file aside and starts with an empty one. */
+  startFreshConfig: () => Promise<void>;
   /** Bumped whenever a token or the Atlassian sign-in changes: data keyed by it is from before. */
   credentialEpoch: number;
   selected: string[];
@@ -133,6 +135,9 @@ class ReloadingStore implements ConfigStore {
   }
   reloadFile(): Promise<DominoConfig> {
     return this.store.reloadFile();
+  }
+  startFresh(): Promise<DominoConfig> {
+    return this.store.startFresh();
   }
   revealFile(): Promise<void> {
     return this.store.revealFile();
@@ -354,6 +359,11 @@ export function useDomino(store: ConfigStore, source: JiraSource, cache: TicketC
     [store],
   );
 
+  const startFreshConfig = useCallback(async () => {
+    setConfig(await store.startFresh());
+    setConfigFile((f) => f && { ...f, problem: null });
+  }, [store]);
+
   const reloadConfigFile = useCallback(async () => {
     try {
       setConfig(await store.reloadFile());
@@ -432,6 +442,7 @@ export function useDomino(store: ConfigStore, source: JiraSource, cache: TicketC
     configError,
     configFile,
     reloadConfigFile,
+    startFreshConfig,
     credentialEpoch,
     selected,
     setSelected,

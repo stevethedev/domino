@@ -8,6 +8,8 @@ export interface ConfigStore {
   fileStatus(): Promise<ConfigFileStatus>;
   /** Reads the config file again, after a hand fix; rejects with why it still can't be used. */
   reloadFile(): Promise<DominoConfig>;
+  /** Sets an unusable config file aside (as domino.config.broken.json) and writes an empty one. */
+  startFresh(): Promise<DominoConfig>;
   /** Shows the config file in the system file manager. */
   revealFile(): Promise<void>;
   health(siteId: string): Promise<HealthStatus>;

@@ -143,6 +143,11 @@ export function installMockIpc(): Promise<void> {
         return config;
       case "reveal_config":
         return null;
+      case "start_fresh_config":
+        config = { sites: [], defaultSiteIds: [], backend: "jira" };
+        writeConfig(config);
+        configProblem = null;
+        return config;
       case "cache_get":
         return cache.get(str("scopeKey"), config, Date.now());
       case "cache_put":

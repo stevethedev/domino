@@ -612,6 +612,7 @@ function Shell(): ReactElement {
         <ConfigProblemBanner
           status={domino.configFile}
           onReload={domino.reloadConfigFile}
+          onStartFresh={domino.startFreshConfig}
           onReveal={() => {
             domino.store.revealFile().catch((e: unknown) => {
               setToast({ text: errorMessage(e) }); // already says it couldn't show the file

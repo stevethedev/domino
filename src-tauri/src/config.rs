@@ -170,6 +170,23 @@ impl ConfigHandle {
     }
 
     /// Reads the file again (after a hand fix): swaps it in, or says why it still can't be used.
+    /// Gives up on a config file that can't be used: moves it aside (`domino.config.broken.json`,
+    /// replacing an older one) so a hand edit is never lost, and writes an empty config in its place.
+    pub(crate) fn start_fresh(&self) -> Result<DominoConfig, String> {
+        let mut current = self.current.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let path = &self.file.path;
+        if path.exists() {
+            let aside = path.with_file_name("domino.config.broken.json");
+            fs::rename(path, &aside).map_err(|e| format!("Could not set the old file aside: {e}"))?;
+        }
+        let empty = DominoConfig { sites: vec![], default_site_ids: vec![], backend: BackendKind::Jira };
+        self.file.save(&empty)?;
+        empty.clone_into(&mut current);
+        drop(current);
+        *self.problem.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = None;
+        Ok(empty)
+    }
+
     pub(crate) fn reload(&self) -> Result<DominoConfig, String> {
         // Held across the read and the swap, so a save from Settings can't land in between.
         let mut current = self.current.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -433,6 +450,19 @@ mod tests {
         assert!(h.reload().unwrap_err().contains("is invalid"));
         assert_eq!(h.get().sites.len(), 3, "the good config stays in use");
         assert!(h.problem().is_none(), "the app isn't running on the empty fallback");
+    }
+
+    #[test]
+    fn starting_fresh_keeps_the_broken_file_aside_and_writes_an_empty_one() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("domino.config.json");
+        fs::write(&path, "{ broken").unwrap();
+        let h = ConfigHandle::load(ConfigFile::new(dir.path()));
+        let fresh = h.start_fresh().unwrap();
+        assert!(fresh.sites.is_empty());
+        assert!(h.problem().is_none());
+        assert_eq!(fs::read_to_string(dir.path().join("domino.config.broken.json")).unwrap(), "{ broken", "the hand edit is kept");
+        assert!(ConfigFile::new(dir.path()).read_existing().unwrap().sites.is_empty(), "a valid, empty file replaces it");
     }
 
     #[test]

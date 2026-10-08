@@ -247,6 +247,10 @@
   flex: 1 1 40ch;
   min-width: 0;
 }
+.banner-confirm {
+  flex-basis: 100%;
+  margin: 0;
+}
 .banner-actions {
   display: flex;
   flex-wrap: wrap;

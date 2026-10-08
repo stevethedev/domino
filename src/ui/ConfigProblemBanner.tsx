@@ -4,20 +4,24 @@ import type { ConfigFileStatus } from "../config/types";
 /**
  * Shown while the config file couldn't be used and the app is running on an empty config: what's
  * wrong and where the file is, with the ways out: fix it by hand and reload it, or set sites up
- * again in Settings (saving there replaces the file).
+ * again in Settings (saving there replaces the file), or start fresh (the file is set aside first).
  */
 export function ConfigProblemBanner({
   status,
   onReload,
   onReveal,
   onOpenSettings,
+  onStartFresh,
 }: {
   status: ConfigFileStatus;
   onReload: () => Promise<void>;
+  /** Sets the file aside and writes an empty one (asks first). */
+  onStartFresh: () => Promise<void>;
   onReveal: () => void;
   onOpenSettings: () => void;
 }): ReactElement | null {
   const [reloading, setReloading] = useState(false);
+  const [confirmFresh, setConfirmFresh] = useState(false);
   if (status.problem === null) return null;
   return (
     <div className="banner error actionable" role="alert">
@@ -49,7 +53,44 @@ export function ConfigProblemBanner({
         <button type="button" onClick={onOpenSettings}>
           Open Settings
         </button>
+        {confirmFresh ? (
+          <>
+            <button
+              type="button"
+              className="danger"
+              onClick={() => {
+                setConfirmFresh(false);
+                onStartFresh().catch(() => undefined); // a failure keeps the banner, with its problem
+              }}
+            >
+              Start fresh
+            </button>
+            <button
+              type="button"
+              autoFocus
+              onClick={() => {
+                setConfirmFresh(false);
+              }}
+            >
+              Keep the file
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              setConfirmFresh(true);
+            }}
+          >
+            Start fresh…
+          </button>
+        )}
       </div>
+      {confirmFresh && (
+        <p className="small banner-confirm">
+          Start with no sites? The current file is kept beside it as <code>domino.config.broken.json</code>.
+        </p>
+      )}
     </div>
   );
 }

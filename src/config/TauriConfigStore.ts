@@ -21,6 +21,10 @@ export class TauriConfigStore implements ConfigStore {
     return parseConfig(await invoke("reload_config"));
   }
 
+  async startFresh(): Promise<DominoConfig> {
+    return parseConfig(await invoke("start_fresh_config"));
+  }
+
   async revealFile(): Promise<void> {
     await invoke("reveal_config");
   }

@@ -86,6 +86,15 @@ pub(crate) fn reload_config(state: State<'_, AppState>) -> Result<DominoConfig, 
     Ok(loaded)
 }
 
+/// Sets a broken config file aside and starts with an empty one.
+#[tauri::command]
+pub(crate) fn start_fresh_config(state: State<'_, AppState>) -> Result<DominoConfig, String> {
+    let old = state.config.get();
+    let fresh = state.config.start_fresh()?;
+    state.cache.invalidate_changed(&old, &fresh);
+    Ok(fresh)
+}
+
 /// Shows the config file in the system file manager. Only that file: the webview names no path.
 #[tauri::command]
 pub(crate) fn reveal_config(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
