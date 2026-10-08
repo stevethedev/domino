@@ -282,7 +282,12 @@ fn set_aside(path: &Path) -> Result<PathBuf, String> {
                 return Ok(aside);
             }
             Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
-            Err(e) => return Err(format!("Could not set the old file aside: {e}")),
+            // No hard links here (FAT, some network or synced folders): check, then rename.
+            Err(_) if !aside.exists() => {
+                fs::rename(path, &aside).map_err(|e| format!("Could not set the old file aside: {e}"))?;
+                return Ok(aside);
+            }
+            Err(_) => {}
         }
     }
     Err("Could not set the old file aside: too many earlier ones; move some out of the folder".to_owned())

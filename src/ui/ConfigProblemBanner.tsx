@@ -25,6 +25,8 @@ export function ConfigProblemBanner({
   const [confirmFresh, setConfirmFresh] = useState(false);
   const startFreshRef = useRef<HTMLButtonElement>(null);
   const [freshError, setFreshError] = useState<string | null>(null);
+  // Once the file is usable again, an old start-fresh failure is no longer news.
+  if (status.problem === null && freshError !== null) setFreshError(null);
   if (status.problem === null) return null;
   return (
     <div className="banner error actionable" role="alert">
