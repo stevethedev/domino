@@ -270,7 +270,8 @@ impl ConfigHandle {
 
 /// Moves `path` to the first free name beside it (`domino.config.broken.json`, then `-2`, `-3`…),
 /// returning it. A hard link plus removal, so an existing file is never replaced, even one created
-/// meanwhile; with every name taken, it's an error rather than an overwrite.
+/// meanwhile (where hard links aren't supported, a check then a rename, which only another program
+/// writing that exact name in between could defeat); with every name taken, it's an error.
 fn set_aside(path: &Path) -> Result<PathBuf, String> {
     let dir = path.parent().unwrap_or_else(|| Path::new("."));
     for n in 1..=1000 {
