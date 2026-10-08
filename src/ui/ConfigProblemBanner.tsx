@@ -17,7 +17,7 @@ export function ConfigProblemBanner({
   status: ConfigFileStatus;
   onReload: () => Promise<void>;
   /** Sets the file aside and writes an empty one (asks first). */
-  onStartFresh: () => Promise<void>;
+  onStartFresh: () => Promise<unknown>;
   onReveal: () => void;
   onOpenSettings: () => void;
 }): ReactElement | null {
@@ -101,7 +101,8 @@ export function ConfigProblemBanner({
       {freshError && <p className="small banner-confirm">Couldn't start fresh: {freshError}</p>}
       {confirmFresh && (
         <p className="small banner-confirm">
-          Start with no sites? The current file is kept beside it as <code>domino.config.broken.json</code>.
+          Start with no sites? The current file is kept beside it as <code>domino.config.broken.json</code> (or <code>-2</code>,{" "}
+          <code>-3</code>… if earlier ones are there).
         </p>
       )}
     </div>

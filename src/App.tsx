@@ -613,7 +613,8 @@ function Shell(): ReactElement {
           status={domino.configFile}
           onReload={domino.reloadConfigFile}
           onStartFresh={async () => {
-            await domino.startFreshConfig();
+            const setAside = await domino.startFreshConfig();
+            if (setAside) setToast({ text: `Started fresh. Your old settings file is kept at ${setAside}.` });
             // The banner is gone: on to adding a site.
             requestAnimationFrame(() => focusFirst(".canvas-message button", 'button[aria-label="Settings"]'));
           }}

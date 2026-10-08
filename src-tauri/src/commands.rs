@@ -86,13 +86,21 @@ pub(crate) fn reload_config(state: State<'_, AppState>) -> Result<DominoConfig, 
     Ok(loaded)
 }
 
+/// A fresh, empty config, and where the unusable file was set aside (if there was one).
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct FreshStart {
+    config: DominoConfig,
+    set_aside: Option<String>,
+}
+
 /// Sets a broken config file aside and starts with an empty one.
 #[tauri::command]
-pub(crate) fn start_fresh_config(state: State<'_, AppState>) -> Result<DominoConfig, String> {
+pub(crate) fn start_fresh_config(state: State<'_, AppState>) -> Result<FreshStart, String> {
     let old = state.config.get();
-    let fresh = state.config.start_fresh()?;
-    state.cache.invalidate_changed(&old, &fresh);
-    Ok(fresh)
+    let (config, aside) = state.config.start_fresh()?;
+    state.cache.invalidate_changed(&old, &config);
+    Ok(FreshStart { config, set_aside: aside.map(|p| p.display().to_string()) })
 }
 
 /// Shows the config file in the system file manager. Only that file: the webview names no path.

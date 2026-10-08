@@ -143,11 +143,16 @@ export function installMockIpc(): Promise<void> {
         return config;
       case "reveal_config":
         return null;
-      case "start_fresh_config":
-        config = { sites: [], defaultSiteIds: [], backend: "jira" };
+      case "start_fresh_config": {
+        // As the desktop command: only while the file is unusable, and the old sites' cache goes.
+        if (configProblem === null) return rejectLikeTauri("The settings file is fine: nothing to replace");
+        const fresh: DominoConfig = { sites: [], defaultSiteIds: [], backend: "jira" };
+        cache.invalidateChanged(savedConfig, fresh, Date.now());
+        config = fresh;
         writeConfig(config);
         configProblem = null;
-        return config;
+        return { config, setAside: CONFIG_PATH.replace("domino.config.json", "domino.config.broken.json") };
+      }
       case "cache_get":
         return cache.get(str("scopeKey"), config, Date.now());
       case "cache_put":

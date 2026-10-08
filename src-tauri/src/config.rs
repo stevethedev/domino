@@ -171,12 +171,17 @@ impl ConfigHandle {
 
     /// Gives up on a config file that can't be used: moves it aside (`domino.config.broken.json`,
     /// or `-2`, `-3`… beside an earlier one, so no hand edit is ever lost) and writes an empty config
-    /// in its place. Only while the file is unusable; if the write fails, the file is put back.
-    pub(crate) fn start_fresh(&self) -> Result<DominoConfig, String> {
+    /// in its place, returning it and where the old file went. Only while the file is unusable (as
+    /// it is now, re-read under the lock); if the write fails, the file is put back.
+    pub(crate) fn start_fresh(&self) -> Result<(DominoConfig, Option<PathBuf>), String> {
         // The config lock first (as reload takes it), so a reload or save can't slip in between.
         let mut current = self.current.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         if self.problem().is_none() {
             return Err("The settings file is fine: nothing to replace".to_owned());
+        }
+        // The file as it is now, not as it was at startup: a hand fix since then is kept.
+        if self.file.read_existing().is_ok() {
+            return Err("The settings file is fine now; use Reload file".to_owned());
         }
         let path = &self.file.path;
         let aside = if path.exists() { Some(set_aside(path)?) } else { None };
@@ -190,7 +195,7 @@ impl ConfigHandle {
         empty.clone_into(&mut current);
         drop(current);
         *self.problem.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = None;
-        Ok(empty)
+        Ok((empty, aside))
     }
 
     /// Reads the file again (after a hand fix): swaps it in, or says why it still can't be used.
@@ -491,8 +496,9 @@ mod tests {
         let path = dir.path().join("domino.config.json");
         fs::write(&path, "{ broken").unwrap();
         let h = ConfigHandle::load(ConfigFile::new(dir.path()));
-        let fresh = h.start_fresh().unwrap();
+        let (fresh, aside) = h.start_fresh().unwrap();
         assert!(fresh.sites.is_empty());
+        assert_eq!(aside.unwrap().file_name().unwrap(), "domino.config.broken.json", "says where the old file went");
         assert!(h.problem().is_none());
         assert_eq!(fs::read_to_string(dir.path().join("domino.config.broken.json")).unwrap(), "{ broken", "the hand edit is kept");
         assert!(ConfigFile::new(dir.path()).read_existing().unwrap().sites.is_empty(), "a valid, empty file replaces it");
@@ -508,6 +514,18 @@ mod tests {
         h.start_fresh().unwrap();
         assert_eq!(fs::read_to_string(dir.path().join("domino.config.broken.json")).unwrap(), "first");
         assert_eq!(fs::read_to_string(dir.path().join("domino.config.broken-2.json")).unwrap(), "second");
+    }
+
+    #[test]
+    fn starting_fresh_refuses_a_file_fixed_by_hand_since_startup() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("domino.config.json");
+        fs::write(&path, "{ broken").unwrap();
+        let h = ConfigHandle::load(ConfigFile::new(dir.path()));
+        fs::write(&path, SEED_CONFIG).unwrap(); // fixed, but not reloaded
+        assert!(h.start_fresh().unwrap_err().contains("Reload file"));
+        assert_eq!(fs::read_to_string(&path).unwrap(), SEED_CONFIG, "the fixed file is left alone");
+        assert!(!dir.path().join("domino.config.broken.json").exists());
     }
 
     #[test]

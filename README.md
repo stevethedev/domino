@@ -35,7 +35,7 @@ Domino only reads from Jira; it never changes anything there. The credentials yo
 
 Each site can **Always filter by** some JQL (like `project in (CORE, WEB)`), ANDed onto every search on it.
 
-Settings writes `domino.config.json` in the OS app-config folder (`~/Library/Application Support/org.change.domino/` on macOS). You can edit it by hand while the app's closed. If it can't be read, Domino starts without sites, leaves the file alone and says what's wrong; fix it and choose **Reload file**, set your sites up again in Settings, or **Start fresh** (the old file is kept as `domino.config.broken.json`).
+Settings writes `domino.config.json` in the OS app-config folder (`~/Library/Application Support/org.change.domino/` on macOS). You can edit it by hand while the app's closed. If it can't be read, Domino starts without sites, leaves the file alone and says what's wrong; fix it and choose **Reload file**, set your sites up again in Settings, or **Start fresh** (the old file is kept beside it as `domino.config.broken.json`, or `-2`, `-3`… if earlier ones are there; Domino says which).
 
 To show tickets right away, Domino keeps the last ones loaded for your 12 most recent scopes, for up to 30 days, in `ticket-cache/` in the OS app-data folder. Each file is encrypted with a key kept in the OS keychain (`DOMINO_CACHE_KEY`). Changing or removing a site, its token or the Atlassian sign-in discards that site's cached tickets, and an app update discards them all. **Settings → Cached tickets** clears the cache and replaces the key.
 
