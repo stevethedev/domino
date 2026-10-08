@@ -85,6 +85,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # The release body is this version's CHANGELOG.md section (changesets/action never creates the
+      # release: tag-release.mjs tags and dispatches this build itself). Fails if the section is missing.
+      - name: Read release notes from CHANGELOG.md
+        id: notes
+        shell: bash
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          notes="$(node scripts/release-notes.mjs "$TAG")"
+          delimiter="NOTES_$(openssl rand -hex 16)" # no changelog line can end the output early
+          {
+            echo "body<<$delimiter"
+            echo "$notes"
+            echo "$delimiter"
+          } >> "$GITHUB_OUTPUT"
+
       # Signed updater artifacts and latest.json are built here only (tauri.release.conf.json), so
       # local `tauri build` works without the signing key, and only once the signing secret exists
       # (until then releases build without in-app update files). The app checks the latest
@@ -98,6 +114,7 @@ jobs:
         with:
           tagName: ${{ inputs.tag || github.ref_name }}
           releaseName: "Domino ${{ inputs.tag || github.ref_name }}"
+          releaseBody: ${{ steps.notes.outputs.body }}
           releaseDraft: true
           prerelease: false
           includeUpdaterJson: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
