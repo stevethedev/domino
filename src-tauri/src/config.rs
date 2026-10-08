@@ -204,8 +204,9 @@ impl ConfigHandle {
             });
         }
         empty.clone_into(&mut current);
-        drop(current);
+        // Cleared under the config lock (as reload does), so no one sees the new config with the old problem.
         *self.problem.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = None;
+        drop(current);
         Ok((empty, aside))
     }
 
