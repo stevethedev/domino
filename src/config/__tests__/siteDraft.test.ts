@@ -157,4 +157,11 @@ describe("chooseKind", () => {
     const named = chooseKind({ ...gh.draft, label: "Our GitHub" }, "jira", [], gh.auto).draft;
     expect(named.label).toBe("Our GitHub");
   });
+
+  it("doesn't leave a Jira site on the GitHub token's keychain entry after switching back", () => {
+    const gh = chooseKind(blank, "github", [], { id: "", label: "" });
+    const back = chooseKind(gh.draft, "jira", [], gh.auto);
+    const { draft } = applyUrl(back.draft, "acme.atlassian.net", [], back.auto);
+    expect(draft.auth).toMatchObject({ type: "apiToken", secretRef: "DOMINO_ACME_TOKEN" });
+  });
 });

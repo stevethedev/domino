@@ -184,7 +184,7 @@ class LoadRun {
           // site's filter; results outside the filter's repos are dropped instead.
           const scope = isGitHub ? repoScopeOf(site.baseJql) : null;
           const issues = scope ? found.filter((i) => inRepoScope(scope, i.key)) : found;
-          this.checkCap(issues.length);
+          this.checkCap(found.length); // over the cap is over the cap, however many the filter keeps
           await this.addFull(site.id, issues);
         });
         // JQL loads don't expand into other sites, so this site is done.
@@ -206,12 +206,15 @@ class LoadRun {
   }
 
   private async seed(siteId: string, key: string, depth: number): Promise<void> {
+    // Expansion starts from the key the site returned, which can differ (GitHub's case, a renamed repo).
+    let rootKey = key;
     const ok = await this.guard(siteId, async () => {
       const issue = await this.call(siteId, () => this.source.fetchIssue(siteId, key));
+      rootKey = issue.key;
       await this.addFull(siteId, [issue]);
     });
     if (!ok) return;
-    let frontier: Ref[] = [{ siteId, key }];
+    let frontier: Ref[] = [{ siteId, key: rootKey }];
     for (let d = 1; d <= depth && frontier.length; d++) {
       this.throwIfAborted();
       frontier = await this.expand(frontier);

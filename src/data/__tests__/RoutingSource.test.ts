@@ -131,6 +131,28 @@ describe("loading Jira and GitHub sites together", () => {
     expect(res.data[0]?.issues.every((i) => i.key.startsWith("acme/web#"))).toBe(true);
   });
 
+  it("reports over the cap even when the site filter drops most of what GitHub returned", async () => {
+    const narrowed = sites.map((s) => (s.id === "gh" ? { ...s, baseJql: "repo:acme/web" } : s));
+    const loader = new MultiSiteLoader(source, { maxNodes: 3 });
+    // repo:acme/api widens the search to 7 tickets; only 5 are in acme/web, still over 3.
+    const res = await loader.load(
+      { mode: "jql", jql: "", github: "repo:acme/api" },
+      narrowed.filter((s) => s.id === "gh"),
+      narrowed,
+    );
+    expect(res.kind).toBe("overCap");
+  });
+
+  it("follows links from a seed whose key GitHub spells differently", async () => {
+    const res = await new MultiSiteLoader(source).load({ mode: "seed", siteId: "gh", key: "ACME/Web#31", depth: 1 }, pick("gh"), sites);
+    if (res.kind !== "ok") throw new Error("expected ok");
+    expect(res.data[0]?.issues.map((i) => i.key)).toContain("acme/api#12");
+  });
+
+  it("finds tickets by key whatever their case, in the browser preview too", async () => {
+    expect((await source.fetchByKeys("gh", ["ACME/Web#42"])).map((i) => i.key)).toEqual(["acme/web#42"]);
+  });
+
   it("rejects a Jira key on a GitHub site", async () => {
     const res = await new MultiSiteLoader(source).load({ mode: "seed", siteId: "gh", key: "CORE-1", depth: 1 }, pick("gh"), sites);
     expect(res.errors).toEqual([{ siteId: "gh", message: '"CORE-1" is not a valid ticket key (expected one like acme/web#12)' }]);

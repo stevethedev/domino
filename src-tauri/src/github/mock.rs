@@ -75,8 +75,14 @@ impl GitHubMock {
 impl GitHubBackend for GitHubMock {
     async fn search(&self, site: &SiteConfig, query: &str, max_results: Option<usize>) -> GitHubResult<Vec<Value>> {
         let viewer = self.viewer_login();
-        let terms: Vec<&str> = query.split_whitespace().collect();
-        let hits = self.nodes(site)?.filter(|n| terms.iter().all(|t| matches_term(n, t, viewer)));
+        // Like GitHub, repeated repo:/org:/user: qualifiers are ORed; everything else is ANDed.
+        let is_repo_term =
+            |t: &&str| ["repo:", "org:", "user:"].iter().any(|p| t.get(..p.len()).is_some_and(|h| h.eq_ignore_ascii_case(p)));
+        let (repo_terms, rest): (Vec<&str>, Vec<&str>) = query.split_whitespace().partition(is_repo_term);
+        let hits = self.nodes(site)?.filter(|n| {
+            (repo_terms.is_empty() || repo_terms.iter().any(|t| matches_term(n, t, viewer)))
+                && rest.iter().all(|t| matches_term(n, t, viewer))
+        });
         Ok(hits.take(max_results.unwrap_or(usize::MAX)).cloned().collect())
     }
 
@@ -125,6 +131,9 @@ mod tests {
         assert_eq!(keys(&m.search(&gh(), "assignee:@me", None).await.unwrap()), ["acme/web#31", "acme/web#45"]);
         assert_eq!(m.search(&gh(), "org:acme -is:issue", Some(1)).await.unwrap().len(), 1);
         assert!(m.search(&gh(), "org:other", None).await.unwrap().is_empty());
+        // GitHub ORs repeated repository qualifiers.
+        assert_eq!(m.search(&gh(), "repo:acme/api repo:acme/nope is:open", None).await.unwrap().len(), 1);
+        assert_eq!(m.search(&gh(), "repo:acme/api org:acme", None).await.unwrap().len(), 7);
     }
 
     #[tokio::test]

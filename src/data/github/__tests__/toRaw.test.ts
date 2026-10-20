@@ -172,6 +172,14 @@ describe("jiraLinksIn", () => {
     expect(jiraLinksIn(node("a/b#1"))).toEqual([]);
   });
 
+  it("ignores links GitHub doesn't show: in HTML comments and code blocks", () => {
+    const body =
+      "<!-- Link the ticket: https://acme.atlassian.net/browse/CORE-1 -->\n```\nhttps://acme.atlassian.net/browse/CORE-2\n```\nSee https://acme.atlassian.net/browse/CORE-3";
+    expect(jiraLinksIn(node("a/b#1", { body })).map((l) => l.object.title)).toEqual(["CORE-3"]);
+    const fences = "~~~\nhttps://acme.atlassian.net/browse/CORE-4\n~~~\n````\n```\nhttps://acme.atlassian.net/browse/CORE-5\n````";
+    expect(jiraLinksIn(node("a/b#1", { body: fences }))).toEqual([]);
+  });
+
   it("reads links from the Markdown body, which keeps the URLs behind link text", () => {
     const n = node("a/b#1", {
       body: "Needed by [CORE-11](https://acme.atlassian.net/browse/CORE-11).",

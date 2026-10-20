@@ -7,6 +7,8 @@ import { keyOf } from "./toRaw";
 
 export type GitHubFixture = { issues: GhNode[]; viewer: GhViewer };
 
+const isRepoTerm = (term: string): boolean => /^(repo|org|user):/i.test(term);
+
 /** One search term against a node. Free text, and qualifiers the fixtures can't answer, match everything. */
 function matchesTerm(node: GhNode, rawTerm: string, viewer: string): boolean {
   const negate = rawTerm.startsWith("-");
@@ -48,13 +50,18 @@ export class FixtureGitHubApi implements GitHubApi {
     return settle(() => {
       const terms = query.split(/\s+/).filter(Boolean);
       const viewer = this.fixture.viewer.login ?? "";
-      const hits = this.nodes(siteId).filter((n) => terms.every((t) => matchesTerm(n, t, viewer)));
+      // Like GitHub, repeated repo:/org:/user: qualifiers are ORed; everything else is ANDed.
+      const [where, rest] = [terms.filter(isRepoTerm), terms.filter((t) => !isRepoTerm(t))];
+      const hits = this.nodes(siteId).filter(
+        (n) => (where.length === 0 || where.some((t) => matchesTerm(n, t, viewer))) && rest.every((t) => matchesTerm(n, t, viewer)),
+      );
       return maxResults === undefined ? hits : hits.slice(0, maxResults);
     });
   }
 
   issues(siteId: string, keys: readonly string[]): Promise<GhNode[]> {
-    return settle(() => this.nodes(siteId).filter((n) => keys.includes(keyOf(n) ?? "")));
+    const wanted = keys.map((k) => k.toLowerCase()); // as GitHub (and the Rust mock) ignore case
+    return settle(() => this.nodes(siteId).filter((n) => wanted.includes(keyOf(n) ?? "")));
   }
 
   subIssues(siteId: string, key: string): Promise<GhNode[]> {

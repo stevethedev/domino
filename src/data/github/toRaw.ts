@@ -125,7 +125,7 @@ function linksOf(t: GhNode, self: string): RawIssueLink[] {
   const connected = new Map<string, GhLinked | null>();
   for (const item of nodesOf(t.timelineItems)) {
     if (item.__typename === "CrossReferencedEvent") {
-      if (item.source && item.willCloseTarget === true && isPull(item.source) !== isPull(t)) closesOrRelates(item.source);
+      if (item.source && item.willCloseTarget === true && isPull(item.source) !== isPull(t)) add(LINK_TYPES.closes, item.source, isPull(t));
       else if (item.source) add(LINK_TYPES.relates, item.source, true);
       continue;
     }
@@ -167,7 +167,8 @@ export function toRawIssue(t: GhNode): RawIssue | null {
 export function jiraLinksIn(t: GhNode): RawRemoteLink[] {
   const key = keyOf(t);
   // The Markdown: rendered text drops the URL behind `[CORE-11](https://…)`.
-  const text = t.body ?? t.bodyText;
+  // Without what GitHub doesn't show: HTML comments (PR templates) and fenced code.
+  const text = (t.body ?? t.bodyText)?.replace(/<!--[\s\S]*?-->/g, "").replace(/^(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\1[`~]*[ \t]*$/gm, "");
   if (!key || !text) return [];
   const urls = new Set<string>();
   for (const m of text.matchAll(/https:\/\/[A-Za-z0-9.-]+(?::\d+)?\/browse\/[A-Za-z][A-Za-z0-9_]*-\d+/g)) {

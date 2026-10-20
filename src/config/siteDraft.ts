@@ -107,8 +107,11 @@ export function chooseKind(
   const next = withKind(draft, kind);
   if (kind === "github")
     return next.baseUrl === draft.baseUrl ? { draft: next, auto: prevAuto } : applyUrl(next, next.baseUrl, taken, prevAuto);
-  const cleared = { ...next, id: next.id === prevAuto.id ? "" : next.id, label: next.label === prevAuto.label ? "" : next.label };
-  return { draft: cleared, auto: { id: "", label: "" } };
+  const id = next.id === prevAuto.id ? "" : next.id;
+  const label = next.label === prevAuto.label ? "" : next.label;
+  // The token name follows the id, so typing the Jira URL next derives it again instead of keeping GitHub's.
+  const auth = next.auth.type === "oauth3lo" ? next.auth : { ...next.auth, secretRef: suggestedSecretRef(id) };
+  return { draft: { ...next, id, label, auth }, auto: { id: "", label: "" } };
 }
 
 /** Keys sorted, so two configs with the same fields in another order compare equal. */
