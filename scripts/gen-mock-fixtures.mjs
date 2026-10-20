@@ -1,4 +1,5 @@
-// Generates fixtures/mock/*.json in the exact shape Jira REST v3 returns.
+// Generates fixtures/mock/*.json in the exact shape Jira REST v3 returns (and github.json in the
+// shape of the GitHub GraphQL queries in src-tauri/src/github/queries/).
 // Run: node scripts/gen-mock-fixtures.mjs
 // Links are declared once here and written onto BOTH issues (outwardIssue on
 // one side, inwardIssue on the other), just like Jira does.
@@ -127,7 +128,7 @@ const REMOTE = [
   // Cross-site hop of the chain, recorded on BOTH sides (distinct remote ids).
   ["partner", "PAY-3", "20001", "blocks", `${SITES.acme}/browse/CORE-10`, "CORE-10"],
   ["acme", "CORE-10", "30001", "is blocked by", `${SITES.partner}/browse/PAY-3`, "PAY-3"],
-  // Not a Jira issue URL: must be ignored.
+  // A pull request on the configured GitHub site -> edge to acme/web#42.
   ["acme", "CORE-10", "30002", "mentioned in", "https://github.com/acme/web/pull/42", "PR #42"],
   // Cross-site cycle.
   ["acme", "CORE-21", "30003", "blocks", `${SITES.partner}/browse/PAY-10`, "PAY-10"],
@@ -383,10 +384,126 @@ for (const site of Object.keys(SITES)) {
   );
 }
 writeFileSync(join(out, "linkTypes.json"), JSON.stringify(linkTypes, null, 2) + "\n");
+
+// ---- GitHub ------------------------------------------------------------------
+// Issues and pull requests as the GraphQL fragments in src-tauri/src/github/queries/ return them.
+// Each relationship is declared once below and written onto both ends, as GitHub reports it.
+
+const GH = "https://github.com";
+const ghUser = (login, name) => ({ login, name, avatarUrl: "" });
+const GH_USERS = { jonas: ghUser("jonasberg", ME), dana: ghUser("danaw", "Dana Whitfield"), priya: ghUser("priyar", "Priya Raman") };
+const GH_MILESTONE = { id: "MI_v2", title: "Checkout v2 (web)", dueOn: at(10, 0).toISOString(), state: "OPEN" };
+
+// [key, kind, state, title, author, assignee|null, extra]; state: open | completed | not_planned | draft | merged
+const GH_ITEMS = [
+  ["acme/web#30", "issue", "open", "Checkout v2 web rollout", "dana", "dana", { type: "Feature", milestone: true, created: -12 }],
+  ["acme/web#31", "issue", "open", "Card form redesign", "dana", "jonas", { type: "Task", milestone: true, created: -9 }],
+  ["acme/web#32", "issue", "completed", "Saved cards list", "dana", "priya", { type: "Task", milestone: true, created: -9, closed: -1 }],
+  [
+    "acme/api#12",
+    "issue",
+    "open",
+    "Card tokenization endpoint",
+    "priya",
+    "priya",
+    { type: "Task", created: -6, body: `Needed by the checkout work in ${SITES.acme}/browse/CORE-11 before the web form can ship.` },
+  ],
+  ["acme/api#15", "issue", "not_planned", "Keep accepting v1 card tokens", "priya", null, { type: "Bug", created: -20, closed: -5 }],
+  ["acme/web#42", "pr", "merged", "Saved cards UI", "priya", "priya", { milestone: true, created: -4, closed: -1 }],
+  ["acme/web#45", "pr", "draft", "Card form v2", "jonas", "jonas", { milestone: true, created: -2 }],
+];
+// [parent, child]
+const GH_SUB_ISSUES = [
+  ["acme/web#30", "acme/web#31"],
+  ["acme/web#30", "acme/web#32"],
+];
+// [blocker, blocked]
+const GH_BLOCKS = [["acme/api#12", "acme/web#31"]];
+// [pull request, issue it closes]
+const GH_CLOSES = [
+  ["acme/web#42", "acme/web#32"],
+  ["acme/web#45", "acme/web#31"],
+];
+// [mentioned, mentioned in]
+const GH_MENTIONS = [["acme/api#12", "acme/api#15"]];
+
+const ghParts = (key) => {
+  const [repo, n] = key.split("#");
+  return { repo, number: Number(n) };
+};
+const ghRow = (key) => GH_ITEMS.find((r) => r[0] === key);
+const ghLinked = (key) => {
+  const [, kind, state, title] = ghRow(key);
+  const { repo, number } = ghParts(key);
+  const base = { number, title, repository: { nameWithOwner: repo } };
+  if (kind === "pr")
+    return {
+      __typename: "PullRequest",
+      ...base,
+      state: state === "merged" ? "MERGED" : "OPEN",
+      isDraft: state === "draft",
+      merged: state === "merged",
+    };
+  const closed = state !== "open";
+  return { __typename: "Issue", ...base, state: closed ? "CLOSED" : "OPEN", stateReason: closed ? state.toUpperCase() : null };
+};
+const crossRef = (source, willCloseTarget) => ({ __typename: "CrossReferencedEvent", willCloseTarget, source: ghLinked(source) });
+
+function ghNode([key, kind, state, title, author, assignee, extra]) {
+  const { repo, number } = ghParts(key);
+  const linked = ghLinked(key);
+  const node = {
+    __typename: linked.__typename,
+    id: `${kind === "pr" ? "PR" : "I"}_${repo.replace("/", "_")}_${number}`,
+    number,
+    title,
+    url: `${GH}/${repo}/${kind === "pr" ? "pull" : "issues"}/${number}`,
+    state: linked.state,
+    createdAt: at(extra.created ?? -7).toISOString(),
+    closedAt: extra.closed === undefined ? null : at(extra.closed).toISOString(),
+    bodyText: extra.body ?? "",
+    repository: { nameWithOwner: repo },
+    author: GH_USERS[author],
+    assignees: { nodes: assignee ? [GH_USERS[assignee]] : [] },
+    milestone: extra.milestone ? GH_MILESTONE : null,
+  };
+  const mentions = [
+    ...GH_MENTIONS.filter(([a]) => a === key).map(([, b]) => crossRef(b, false)),
+    ...GH_MENTIONS.filter(([, b]) => b === key).map(([a]) => crossRef(a, false)),
+  ];
+  if (kind === "pr") {
+    return {
+      ...node,
+      isDraft: linked.isDraft,
+      merged: linked.merged,
+      closingIssuesReferences: { nodes: GH_CLOSES.filter(([pr]) => pr === key).map(([, issue]) => ghLinked(issue)) },
+      timelineItems: { nodes: mentions },
+    };
+  }
+  const parent = GH_SUB_ISSUES.find(([, child]) => child === key)?.[0];
+  return {
+    ...node,
+    stateReason: linked.stateReason,
+    issueType: { name: extra.type },
+    parent: parent ? ghLinked(parent) : null,
+    subIssuesSummary: { total: GH_SUB_ISSUES.filter(([p]) => p === key).length },
+    blockedBy: { nodes: GH_BLOCKS.filter(([, b]) => b === key).map(([a]) => ghLinked(a)) },
+    blocking: { nodes: GH_BLOCKS.filter(([a]) => a === key).map(([, b]) => ghLinked(b)) },
+    // A pull request that will close an issue shows on the issue as a cross-reference that closes it.
+    timelineItems: { nodes: [...GH_CLOSES.filter(([, issue]) => issue === key).map(([pr]) => crossRef(pr, true)), ...mentions] },
+  };
+}
+
+writeFileSync(
+  join(out, "github.json"),
+  JSON.stringify({ generatedOn: GENERATED_ON.toISOString().slice(0, 10), issues: GH_ITEMS.map(ghNode), viewer: GH_USERS.jonas }, null, 2) +
+    "\n",
+);
+
 console.log(
   "wrote",
   Object.keys(SITES)
     .map((s) => `${s}.json`)
     .join(", "),
-  "linkTypes.json",
+  "linkTypes.json, github.json",
 );

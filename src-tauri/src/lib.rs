@@ -1,12 +1,15 @@
 mod cache;
 mod commands;
 mod config;
+mod github;
 mod jira;
 mod secrets;
 
 use cache::TicketCache;
 use commands::AppState;
 use config::{ConfigFile, ConfigHandle};
+use github::http::GitHubHttp;
+use github::mock::GitHubMock;
 use jira::http::{http_client, HttpBackend};
 use jira::mock::MockBackend;
 use jira::oauth::OAuth;
@@ -56,6 +59,7 @@ pub fn try_run() -> tauri::Result<()> {
             let secrets: Arc<dyn SecretStore> = Arc::new(CachedSecrets::new(Keychain));
             let http = http_client()?;
             let oauth = Arc::new(OAuth::new(http.clone(), Arc::clone(&secrets)));
+            let github_http = Arc::new(GitHubHttp::new(http.clone(), Arc::clone(&secrets)));
             let http_backend = Arc::new(HttpBackend::new(http, Arc::clone(&secrets), Arc::clone(&oauth), Arc::clone(&config)));
             let cache = Arc::new(TicketCache::new(app.path().app_data_dir()?.join("ticket-cache"), Arc::clone(&secrets)));
             cache.prune(std::time::SystemTime::now());
@@ -65,6 +69,8 @@ pub fn try_run() -> tauri::Result<()> {
                 oauth,
                 mock: Arc::new(MockBackend::from_env()?),
                 http: http_backend,
+                github_mock: Arc::new(GitHubMock::from_env()?),
+                github_http,
                 cache,
                 oauth_cancel: Arc::new(tokio::sync::Notify::new()),
             });
@@ -97,6 +103,10 @@ pub fn try_run() -> tauri::Result<()> {
             commands::oauth_connect,
             commands::oauth_cancel,
             commands::oauth_disconnect,
+            commands::gh_search,
+            commands::gh_issues,
+            commands::gh_sub_issues,
+            commands::gh_viewer,
         ])
         .run(tauri::generate_context!())
 }

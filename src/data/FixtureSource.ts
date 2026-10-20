@@ -1,7 +1,7 @@
 import type { JiraSource } from "./JiraSource";
 import type { RawIssue, RawIssueChangeLog, RawLinkType, RawPriority, RawRemoteLink, RawStatusDef, RawUser } from "./jiraTypes";
 import type { MockSite } from "./mockData";
-import { combineJql } from "./jqlPresets";
+import { combineJql, keysJql } from "./jqlPresets";
 import { matchesMockJql, parseMockJql } from "./mockJql";
 
 /** Runs `fn` as an async method body would: a throw becomes a rejection, never a synchronous exception. */
@@ -31,6 +31,10 @@ export class FixtureSource implements JiraSource {
       const hits = this.site(siteId).issues.filter((i) => matchesMockJql(i, clauses));
       return maxResults === undefined ? hits : hits.slice(0, maxResults);
     });
+  }
+
+  fetchByKeys(siteId: string, keys: readonly string[], filter?: string): Promise<RawIssue[]> {
+    return this.fetchByJql(siteId, keysJql(keys, filter), keys.length);
   }
 
   async fetchEpic(siteId: string, key: string, filter?: string): Promise<{ epic: RawIssue; children: RawIssue[] }> {

@@ -634,6 +634,12 @@ mod tests {
         // The dropped site is gone for good, even if the address changes back.
         assert_eq!(site_ids(&f.cache.get("s", &cfg, now()).unwrap()), ["partner"]);
 
+        let mut other_token = cfg.clone();
+        other_token.sites[3].auth = SiteAuth::GitHubToken { secret_ref: "DOMINO_OTHER_GITHUB".into() };
+        let t_gh = put_site(&cfg, "gh", t, "g");
+        f.cache.put(entry(&cfg, "gh", vec![t_gh]), &cfg, now()).unwrap();
+        assert!(f.cache.get("gh", &other_token, now()).is_none(), "a GitHub site with another token is another account");
+
         let mut other_account = cfg;
         other_account.sites[1].auth = SiteAuth::ApiToken { email: "me@partner.example".into(), secret_ref: "DOMINO_P".into() };
         assert!(f.cache.get("s", &other_account, now()).is_none());

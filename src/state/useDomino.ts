@@ -17,12 +17,25 @@ import type { Graph } from "../graph/types";
 export type { LoadState } from "./loadView";
 
 const QUERY_KEY = "domino.query";
+const GITHUB_QUERY_KEY = "domino.githubQuery";
 const asString = (raw: unknown): string | undefined => (typeof raw === "string" ? raw : undefined);
 
 /** The last-run top-bar query, remembered per viewer. */
 const loadQuery = (): string => readStored(QUERY_KEY, asString, presetById(DEFAULT_PRESET_ID).jql);
 export const saveQuery = (q: string): void => {
   writeStored(QUERY_KEY, q);
+};
+
+/** The last-run GitHub search, remembered like the JQL query (GitHub sites run it instead). */
+const loadGitHubQuery = (): string => readStored(GITHUB_QUERY_KEY, asString, "is:open");
+export const saveGitHubQuery = (q: string): void => {
+  writeStored(GITHUB_QUERY_KEY, q);
+};
+
+/** The query scope the app starts with: the last-run queries. */
+const initialScope = (): Scope => {
+  const github = loadGitHubQuery();
+  return github ? { mode: "jql", jql: loadQuery(), github } : { mode: "jql", jql: loadQuery() };
 };
 
 /** The configured sites a selection of ids loads: enabled ones only. */
@@ -175,7 +188,7 @@ export function useDomino(store: ConfigStore, source: JiraSource, cache: TicketC
   const [configError, setConfigError] = useState<string | null>(null);
   const [configFile, setConfigFile] = useState<ConfigFileStatus | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
-  const [scope, setScope] = useState<Scope>(() => ({ mode: "jql", jql: loadQuery() }));
+  const [scope, setScope] = useState<Scope>(initialScope);
   const [load, setLoad] = useState<LoadState>({ status: "idle" });
   const [health, setHealth] = useState<Record<string, HealthStatus>>({});
   const [credentialEpoch, setCredentialEpoch] = useState(0);
@@ -396,7 +409,7 @@ export function useDomino(store: ConfigStore, source: JiraSource, cache: TicketC
       const affected = new Set(
         sites
           .filter((s) =>
-            "oauth" in change ? s.auth.type === "oauth3lo" : s.auth.type === "apiToken" && s.auth.secretRef === change.secretRef,
+            "oauth" in change ? s.auth.type === "oauth3lo" : s.auth.type !== "oauth3lo" && s.auth.secretRef === change.secretRef,
           )
           .map((s) => s.id),
       );

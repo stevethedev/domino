@@ -1,8 +1,8 @@
 import { useEffect, useId, useMemo, useRef, useState, type ReactElement } from "react";
 import type { ConfigStore } from "../../config/ConfigStore";
 import { validateSite } from "../../config/schema";
-import { API_TOKEN_URL, applyUrl, draftChanged, parseJiraUrl, suggestedSecretRef } from "../../config/siteDraft";
-import type { BackendKind, SiteConfig } from "../../config/types";
+import { API_TOKEN_URL, applyUrl, draftChanged, gitHubTokenUrl, parseJiraUrl, suggestedSecretRef, withKind } from "../../config/siteDraft";
+import { siteKindOf, type BackendKind, type SiteConfig } from "../../config/types";
 import { errorMessage } from "../../data/errors";
 import { openExternal } from "../../platform";
 import { Icon } from "../Icon";
@@ -86,11 +86,12 @@ export function SiteForm({
   );
 
   const takenIds = useMemo(() => others.map((o) => o.id), [others]);
-  const secretRef = draft.auth.type === "apiToken" ? draft.auth.secretRef : "";
+  const secretRef = draft.auth.type === "oauth3lo" ? "" : draft.auth.secretRef;
+  const github = siteKindOf(draft) === "github";
 
   const errors = useMemo(() => {
     const e = validateSite(normalize(draft), others);
-    if (draft.auth.type === "apiToken" && !token && secretSet === false) e.token = "Paste an API token";
+    if (draft.auth.type !== "oauth3lo" && !token && secretSet === false) e.token = "Paste a token";
     return e;
   }, [draft, others, token, secretSet]);
   const hasErrors = Object.keys(errors).length > 0;
@@ -139,7 +140,11 @@ export function SiteForm({
     setDraft((d) => ({ ...d, ...patch }));
   };
   const updateAuth = (patch: { email?: string; secretRef?: string }): void => {
-    setDraft((d) => (d.auth.type === "apiToken" ? { ...d, auth: { ...d.auth, ...patch } } : d));
+    setDraft((d) => {
+      if (d.auth.type === "apiToken") return { ...d, auth: { ...d.auth, ...patch } };
+      if (d.auth.type === "githubToken" && patch.secretRef !== undefined) return { ...d, auth: { ...d.auth, secretRef: patch.secretRef } };
+      return d;
+    });
   };
 
   /** Save failures are shown in `saveError`, so callers need not handle the promise. */
@@ -201,6 +206,8 @@ export function SiteForm({
       <>
         Will use <span className="mono">{parsed.origin}</span>
       </>
+    ) : github ? (
+      <>https://github.com, or your GitHub Enterprise Server address</>
     ) : (
       <>Paste any link from the site, e.g. a ticket like https://your-team.atlassian.net/browse/ABC-1</>
     );
@@ -223,7 +230,7 @@ export function SiteForm({
         }
       }}
     >
-      <h3 id={`${uid}-title`}>{isNew ? "Add a Jira site" : `Edit ${initial.label}`}</h3>
+      <h3 id={`${uid}-title`}>{isNew ? "Add a site" : `Edit ${initial.label}`}</h3>
 
       {backend === "mock" && (
         <div className="notice" role="note">
@@ -235,17 +242,46 @@ export function SiteForm({
       )}
 
       <div className="form-grid">
+        {isNew && (
+          <fieldset className="form-field form-span">
+            <legend>Kind of site</legend>
+            <div className="radio-row">
+              <label className="check">
+                <input
+                  type="radio"
+                  name={`${uid}-kind`}
+                  checked={!github}
+                  onChange={() => {
+                    setDraft((d) => withKind(d, "jira"));
+                  }}
+                />
+                Jira
+              </label>
+              <label className="check">
+                <input
+                  type="radio"
+                  name={`${uid}-kind`}
+                  checked={github}
+                  onChange={() => {
+                    setDraft((d) => withKind(d, "github"));
+                  }}
+                />
+                GitHub (issues and pull requests)
+              </label>
+            </div>
+          </fieldset>
+        )}
         {field(
           "baseUrl",
           <>
-            Jira URL <span aria-hidden="true">*</span>
+            {github ? "GitHub URL" : "Jira URL"} <span aria-hidden="true">*</span>
           </>,
           <input
             {...aria("baseUrl", true)}
             type="url"
             inputMode="url"
             value={draft.baseUrl}
-            placeholder="https://your-team.atlassian.net"
+            placeholder={github ? "https://github.com" : "https://your-team.atlassian.net"}
             onChange={(e) => {
               const res = applyUrl(draft, e.target.value, takenIds, auto);
               setDraft(isNew ? res.draft : { ...draft, baseUrl: e.target.value });
@@ -274,47 +310,79 @@ export function SiteForm({
         )}
         {field(
           "baseJql",
-          "Always filter by (JQL)",
+          github ? "Always filter by (GitHub search)" : "Always filter by (JQL)",
           <input
             {...aria("baseJql", true)}
             value={draft.baseJql ?? ""}
             onChange={(e) => {
               update({ baseJql: e.target.value });
             }}
-            placeholder="project = ABC"
+            placeholder={github ? "org:acme" : "project = ABC"}
             spellCheck={false}
           />,
-          "Applied to every search on this site, on top of the query in the top bar. Usually a project.",
+          github
+            ? "Added to every search on this site, on top of the GitHub search in the top bar. Usually org: or repo:; linked tickets outside those stay unloaded."
+            : "Applied to every search on this site, on top of the query in the top bar. Usually a project.",
         )}
-        <fieldset className="form-field form-span">
-          <legend>How Domino signs in</legend>
-          <div className="radio-row">
-            <label className="check">
-              <input
-                type="radio"
-                name={`${uid}-auth`}
-                checked={draft.auth.type === "apiToken"}
-                onChange={() => {
-                  update({ auth: { type: "apiToken", email: "", secretRef: suggestedSecretRef(draft.id) } });
-                }}
-              />
-              Email + API token
-            </label>
-            <label className="check">
-              <input
-                type="radio"
-                name={`${uid}-auth`}
-                checked={draft.auth.type === "oauth3lo"}
-                onChange={() => {
-                  update({ auth: { type: "oauth3lo" } });
-                }}
-              />
-              Atlassian sign-in (OAuth)
-            </label>
-          </div>
-        </fieldset>
+        {!github && (
+          <fieldset className="form-field form-span">
+            <legend>How Domino signs in</legend>
+            <div className="radio-row">
+              <label className="check">
+                <input
+                  type="radio"
+                  name={`${uid}-auth`}
+                  checked={draft.auth.type === "apiToken"}
+                  onChange={() => {
+                    update({ auth: { type: "apiToken", email: "", secretRef: suggestedSecretRef(draft.id) } });
+                  }}
+                />
+                Email + API token
+              </label>
+              <label className="check">
+                <input
+                  type="radio"
+                  name={`${uid}-auth`}
+                  checked={draft.auth.type === "oauth3lo"}
+                  onChange={() => {
+                    update({ auth: { type: "oauth3lo" } });
+                  }}
+                />
+                Atlassian sign-in (OAuth)
+              </label>
+            </div>
+          </fieldset>
+        )}
 
-        {draft.auth.type === "apiToken" ? (
+        {draft.auth.type === "githubToken" ? (
+          field(
+            "token",
+            <>Personal access token {secretSet ? <span className="muted small">(stored)</span> : <span aria-hidden="true">*</span>}</>,
+            <input
+              {...aria("token", true)}
+              type="password"
+              autoComplete="off"
+              value={token}
+              onChange={(e) => {
+                setToken(e.target.value);
+              }}
+              placeholder={secretSet ? "Stored in your keychain. Paste to replace." : "Paste your token"}
+            />,
+            <>
+              <button
+                type="button"
+                className="link-btn"
+                onClick={() => {
+                  openExternal(gitHubTokenUrl(parsed?.origin ?? "https://github.com"));
+                }}
+              >
+                Create a token on GitHub <Icon name="external" />
+              </button>{" "}
+              Read-only access is enough: Issues, Pull requests and Metadata. Saved to your OS keychain, never shown again.
+            </>,
+            true,
+          )
+        ) : draft.auth.type === "apiToken" ? (
           <>
             {field(
               "auth.email",
@@ -401,13 +469,13 @@ export function SiteForm({
             />,
             isNew ? "Filled in from the URL. Used internally; can't be changed later." : "Ids can't be changed.",
           )}
-          {draft.auth.type === "apiToken" &&
+          {draft.auth.type !== "oauth3lo" &&
             field(
               "auth.secretRef",
               "Keychain entry name",
               <input
                 {...aria("auth.secretRef", true)}
-                value={draft.auth.secretRef}
+                value={secretRef}
                 onChange={(e) => {
                   updateAuth({ secretRef: e.target.value.toUpperCase() });
                 }}

@@ -83,7 +83,11 @@ const MAX_LABEL = 40;
 export function scopeLabel(scope: Scope): string {
   switch (scope.mode) {
     case "jql": {
-      const q = scope.jql.trim().replace(/\s+/g, " ");
+      const q = [scope.jql, scope.github ?? ""]
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .join(" · ")
+        .replace(/\s+/g, " ");
       if (!q) return "the default query";
       return q.length > MAX_LABEL ? `“${q.slice(0, MAX_LABEL - 1)}…”` : `“${q}”`;
     }

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { SiteConfig } from "../../config/types";
 import type { RawIssue, RawPriority } from "../../data/jiraTypes";
 import { defined } from "../../lib/guards";
 import { buildGraph } from "../buildGraph";
@@ -137,6 +138,36 @@ describe("remote links", () => {
       ),
     ).toMatchObject({ siteLabel: "other.atlassian.net", url: "https://other.atlassian.net/browse/EXT-9" });
     expect(g.edges).toHaveLength(1);
+  });
+
+  it("links Jira tickets to issues and pull requests on a configured GitHub site", () => {
+    const GH: SiteConfig = {
+      ...site("gh"),
+      kind: "github",
+      label: "GitHub",
+      baseUrl: "https://github.com",
+      auth: { type: "githubToken", secretRef: "T" },
+    };
+    const g = buildGraph({
+      sites: [A, GH],
+      data: [data("a", [issue("A-1")], { "A-1": [remote(1, "is blocked by", "https://github.com/acme/web/pull/42", "PR #42")] })],
+    });
+    const pr = defined(
+      g.nodes.find((n) => n.uid === "gh:acme/web#42"),
+      "node",
+    );
+    expect(pr).toMatchObject({ ghost: true, siteKind: "github", summary: "PR #42", url: "https://github.com/acme/web/issues/42" });
+    expect(g.edges).toMatchObject([{ source: "gh:acme/web#42", target: "a:A-1", kind: "blocks", crossSite: true }]);
+    expect(g.nodes.find((n) => n.uid === "a:A-1")?.siteKind).toBeUndefined();
+  });
+
+  it("matchRemoteUrl resolves GitHub issue and pull request pages only on GitHub sites", () => {
+    const GH = { id: "gh", kind: "github" as const, baseUrl: "https://github.com" };
+    expect(matchRemoteUrl("https://github.com/acme/web/issues/7", [A, GH])).toEqual({ kind: "site", siteId: "gh", key: "acme/web#7" });
+    expect(matchRemoteUrl("https://GitHub.com/acme/web/pull/42/", [GH])).toEqual({ kind: "site", siteId: "gh", key: "acme/web#42" });
+    expect(matchRemoteUrl("https://github.com/acme/web/blob/main/README.md", [GH])).toBeNull();
+    expect(matchRemoteUrl("https://github.com/browse/CORE-1", [GH])).toBeNull();
+    expect(matchRemoteUrl("https://ghe.example.com/acme/web/issues/7", [GH])).toBeNull();
   });
 
   it("matchRemoteUrl is case-insensitive on host and tolerant of a trailing slash", () => {

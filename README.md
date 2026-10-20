@@ -35,6 +35,16 @@ Domino only reads from Jira; it never changes anything there. The credentials yo
 
 Each site can **Always filter by** some JQL (like `project in (CORE, WEB)`), ANDed onto every search on it.
 
+## Connecting to GitHub
+
+GitHub issues and pull requests load alongside Jira tickets. **Add site**, choose **GitHub**, and use `https://github.com` (or your GitHub Enterprise Server address) with a [personal access token](https://github.com/settings/personal-access-tokens/new). Read-only access to **Issues**, **Pull requests** and **Metadata** on the repositories you want is enough; the token goes to the OS keychain, like Jira's.
+
+- Tickets are keyed `owner/repo#12`. In Epic or Seed mode, type that or paste the issue's URL.
+- **Always filter by** takes a GitHub search (like `org:acme` or `repo:acme/web`). With a GitHub site selected, the top bar has a **GitHub search** box beside the JQL one, and each site runs the box for its kind.
+- Issues with sub-issues work like epics. Blocked-by / blocking become blocking links, a pull request that will close an issue "closes" it, and mentions "relate to" each other.
+- Jira remote links to GitHub issues or pull requests, and Jira ticket URLs in a GitHub issue's description, connect the two.
+- Linked tickets in repositories outside the site's `org:` / `repo:` filter stay unloaded, like Jira tickets outside a site's JQL. GitHub has no priorities or status history, so those features skip GitHub tickets.
+
 Settings writes `domino.config.json` in the OS app-config folder (`~/Library/Application Support/org.change.domino/` on macOS). You can edit it by hand while the app's closed. If it can't be read, Domino starts without sites, leaves the file alone and says what's wrong; fix it and choose **Reload file**, set your sites up again in Settings, or **Start fresh** (the old file is kept beside it as `domino.config.broken.json`, or `-2`, `-3`… if earlier ones are there; Domino says which).
 
 To show tickets right away, Domino keeps the last ones loaded for your 12 most recent scopes, for up to 30 days, in `ticket-cache/` in the OS app-data folder. Each file is encrypted with a key kept in the OS keychain (`DOMINO_CACHE_KEY`). Changing or removing a site, its token or the Atlassian sign-in discards that site's cached tickets, and an app update discards them all. **Settings → Cached tickets** clears the cache and replaces the key.

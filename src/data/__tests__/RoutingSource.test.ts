@@ -1,0 +1,101 @@
+import { describe, expect, it } from "vitest";
+import type { SiteConfig } from "../../config/types";
+import { buildGraph } from "../../graph/buildGraph";
+import { FixtureSource } from "../FixtureSource";
+import { FixtureGitHubApi } from "../github/FixtureGitHubApi";
+import { GitHubSource } from "../github/GitHubSource";
+import { mockConfig, mockGitHub, mockLinkTypes, mockSites } from "../mockData";
+import { MultiSiteLoader } from "../MultiSiteLoader";
+import { RoutingSource, SiteKinds } from "../RoutingSource";
+
+const kinds = new SiteKinds();
+kinds.update(mockConfig);
+const source = new RoutingSource(
+  new FixtureSource(mockSites, mockLinkTypes),
+  new GitHubSource(new FixtureGitHubApi(mockGitHub)),
+  kinds.kindOf,
+);
+const sites = mockConfig.sites;
+const pick = (...ids: string[]): SiteConfig[] => sites.filter((s) => ids.includes(s.id));
+
+describe("RoutingSource", () => {
+  it("sends each site's calls to its kind's source", async () => {
+    expect(kinds.kindOf("gh")).toBe("github");
+    expect(kinds.kindOf("acme")).toBe("jira");
+    expect((await source.fetchIssue("gh", "acme/web#42")).fields.status?.name).toBe("Merged");
+    expect((await source.fetchIssue("acme", "CORE-1")).key).toBe("CORE-1");
+    expect(await source.fetchMyself("gh")).toMatchObject({ accountId: "jonasberg", displayName: "Jonas Berg" });
+  });
+});
+
+describe("loading Jira and GitHub sites together", () => {
+  it("runs each site's own query: JQL on Jira, the GitHub search on GitHub", async () => {
+    const res = await new MultiSiteLoader(source).load({ mode: "jql", jql: "project = CORE", github: "is:pr" }, pick("acme", "gh"), sites);
+    if (res.kind !== "ok") throw new Error("expected ok");
+    expect(res.errors).toEqual([]);
+    const gh = res.data.find((d) => d.siteId === "gh");
+    expect(gh?.issues.map((i) => i.key)).toEqual(["acme/web#42", "acme/web#45"]);
+    expect(res.data.find((d) => d.siteId === "acme")?.issues.every((i) => i.key.startsWith("CORE-"))).toBe(true);
+  });
+
+  it("follows links both ways across Jira and GitHub when seeding", async () => {
+    // CORE-10 links PR acme/web#42, which closes web#32, a sub-issue of web#30.
+    const res = await new MultiSiteLoader(source).load(
+      { mode: "seed", siteId: "acme", key: "CORE-10", depth: 2 },
+      pick("acme", "gh"),
+      sites,
+    );
+    if (res.kind !== "ok") throw new Error("expected ok");
+    const g = buildGraph({ sites, data: res.data });
+    const loaded = new Set(g.nodes.filter((n) => !n.ghost).map((n) => n.uid));
+    expect(loaded).toContain("gh:acme/web#42");
+    expect(loaded).toContain("gh:acme/web#32");
+    expect(g.edges).toContainEqual(expect.objectContaining({ source: "acme:CORE-10", target: "gh:acme/web#42", crossSite: true }));
+    expect(g.edges).toContainEqual(expect.objectContaining({ source: "gh:acme/web#42", target: "gh:acme/web#32", linkType: "closes" }));
+    expect(g.nodes.find((n) => n.uid === "gh:acme/web#32")?.epic?.uid).toBe("gh:acme/web#30");
+  });
+
+  it("links a GitHub issue to the Jira ticket its body mentions", async () => {
+    const res = await new MultiSiteLoader(source).load(
+      { mode: "seed", siteId: "gh", key: "acme/api#12", depth: 1 },
+      pick("acme", "gh"),
+      sites,
+    );
+    if (res.kind !== "ok") throw new Error("expected ok");
+    const g = buildGraph({ sites, data: res.data });
+    expect(g.nodes.find((n) => n.uid === "acme:CORE-11")?.ghost).toBe(false);
+    expect(g.edges).toContainEqual(expect.objectContaining({ source: "gh:acme/api#12", target: "acme:CORE-11", kind: "relates" }));
+    expect(g.edges).toContainEqual(expect.objectContaining({ source: "gh:acme/api#12", target: "gh:acme/web#31", kind: "blocks" }));
+  });
+
+  it("loads a GitHub parent issue with its sub-issues as an epic", async () => {
+    const res = await new MultiSiteLoader(source).load({ mode: "epic", siteId: "gh", key: "acme/web#30" }, pick("gh"), sites);
+    if (res.kind !== "ok") throw new Error("expected ok");
+    expect(res.errors).toEqual([]);
+    const g = buildGraph({ sites, data: res.data });
+    expect(
+      g.nodes
+        .filter((n) => n.epic?.uid === "gh:acme/web#30" && !n.ghost)
+        .map((n) => n.key)
+        .sort(),
+    ).toEqual(["acme/web#31", "acme/web#32"]);
+  });
+
+  it("keeps linked tickets outside a GitHub site's repos as ghosts", async () => {
+    const narrowed = sites.map((s) => (s.id === "gh" ? { ...s, baseJql: "repo:acme/web" } : s));
+    const res = await new MultiSiteLoader(source).load(
+      { mode: "seed", siteId: "gh", key: "acme/web#31", depth: 1 },
+      narrowed.filter((s) => s.id === "gh"),
+      narrowed,
+    );
+    if (res.kind !== "ok") throw new Error("expected ok");
+    const g = buildGraph({ sites: narrowed, data: res.data });
+    expect(g.nodes.find((n) => n.uid === "gh:acme/api#12")?.ghost).toBe(true);
+    expect(g.nodes.find((n) => n.uid === "gh:acme/web#45")?.ghost).toBe(false);
+  });
+
+  it("rejects a Jira key on a GitHub site", async () => {
+    const res = await new MultiSiteLoader(source).load({ mode: "seed", siteId: "gh", key: "CORE-1", depth: 1 }, pick("gh"), sites);
+    expect(res.errors).toEqual([{ siteId: "gh", message: '"CORE-1" is not a valid ticket key (expected one like acme/web#12)' }]);
+  });
+});

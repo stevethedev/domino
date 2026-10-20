@@ -1,0 +1,64 @@
+# Pull request fields; uses the LinkedIssue and LinkedPull fragments from issue_fragments.graphql.
+fragment PullReferences on PullRequestTimelineItemsConnection {
+  nodes {
+    __typename
+    ... on CrossReferencedEvent {
+      willCloseTarget
+      source {
+        ...LinkedIssue
+        ...LinkedPull
+      }
+    }
+    ... on ConnectedEvent {
+      subject {
+        ...LinkedIssue
+        ...LinkedPull
+      }
+    }
+  }
+}
+
+fragment PullTicket on PullRequest {
+  __typename
+  id
+  number
+  title
+  url
+  state
+  isDraft
+  merged
+  createdAt
+  closedAt
+  bodyText
+  repository {
+    nameWithOwner
+  }
+  author {
+    login
+    avatarUrl
+    ... on User {
+      name
+    }
+  }
+  assignees(first: 5) {
+    nodes {
+      login
+      name
+      avatarUrl
+    }
+  }
+  milestone {
+    id
+    title
+    dueOn
+    state
+  }
+  closingIssuesReferences(first: 50) {
+    nodes {
+      ...LinkedIssue
+    }
+  }
+  timelineItems(first: 50, itemTypes: [CROSS_REFERENCED_EVENT, CONNECTED_EVENT]) {
+    ...PullReferences
+  }
+}

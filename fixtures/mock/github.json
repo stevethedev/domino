@@ -1,0 +1,457 @@
+{
+  "generatedOn": "2026-10-20",
+  "issues": [
+    {
+      "__typename": "Issue",
+      "id": "I_acme_web_30",
+      "number": 30,
+      "title": "Checkout v2 web rollout",
+      "url": "https://github.com/acme/web/issues/30",
+      "state": "OPEN",
+      "createdAt": "2026-10-08T15:00:00.000Z",
+      "closedAt": null,
+      "bodyText": "",
+      "repository": {
+        "nameWithOwner": "acme/web"
+      },
+      "author": {
+        "login": "danaw",
+        "name": "Dana Whitfield",
+        "avatarUrl": ""
+      },
+      "assignees": {
+        "nodes": [
+          {
+            "login": "danaw",
+            "name": "Dana Whitfield",
+            "avatarUrl": ""
+          }
+        ]
+      },
+      "milestone": {
+        "id": "MI_v2",
+        "title": "Checkout v2 (web)",
+        "dueOn": "2026-10-30T00:00:00.000Z",
+        "state": "OPEN"
+      },
+      "stateReason": null,
+      "issueType": {
+        "name": "Feature"
+      },
+      "parent": null,
+      "subIssuesSummary": {
+        "total": 2
+      },
+      "blockedBy": {
+        "nodes": []
+      },
+      "blocking": {
+        "nodes": []
+      },
+      "timelineItems": {
+        "nodes": []
+      }
+    },
+    {
+      "__typename": "Issue",
+      "id": "I_acme_web_31",
+      "number": 31,
+      "title": "Card form redesign",
+      "url": "https://github.com/acme/web/issues/31",
+      "state": "OPEN",
+      "createdAt": "2026-10-11T15:00:00.000Z",
+      "closedAt": null,
+      "bodyText": "",
+      "repository": {
+        "nameWithOwner": "acme/web"
+      },
+      "author": {
+        "login": "danaw",
+        "name": "Dana Whitfield",
+        "avatarUrl": ""
+      },
+      "assignees": {
+        "nodes": [
+          {
+            "login": "jonasberg",
+            "name": "Jonas Berg",
+            "avatarUrl": ""
+          }
+        ]
+      },
+      "milestone": {
+        "id": "MI_v2",
+        "title": "Checkout v2 (web)",
+        "dueOn": "2026-10-30T00:00:00.000Z",
+        "state": "OPEN"
+      },
+      "stateReason": null,
+      "issueType": {
+        "name": "Task"
+      },
+      "parent": {
+        "__typename": "Issue",
+        "number": 30,
+        "title": "Checkout v2 web rollout",
+        "repository": {
+          "nameWithOwner": "acme/web"
+        },
+        "state": "OPEN",
+        "stateReason": null
+      },
+      "subIssuesSummary": {
+        "total": 0
+      },
+      "blockedBy": {
+        "nodes": [
+          {
+            "__typename": "Issue",
+            "number": 12,
+            "title": "Card tokenization endpoint",
+            "repository": {
+              "nameWithOwner": "acme/api"
+            },
+            "state": "OPEN",
+            "stateReason": null
+          }
+        ]
+      },
+      "blocking": {
+        "nodes": []
+      },
+      "timelineItems": {
+        "nodes": [
+          {
+            "__typename": "CrossReferencedEvent",
+            "willCloseTarget": true,
+            "source": {
+              "__typename": "PullRequest",
+              "number": 45,
+              "title": "Card form v2",
+              "repository": {
+                "nameWithOwner": "acme/web"
+              },
+              "state": "OPEN",
+              "isDraft": true,
+              "merged": false
+            }
+          }
+        ]
+      }
+    },
+    {
+      "__typename": "Issue",
+      "id": "I_acme_web_32",
+      "number": 32,
+      "title": "Saved cards list",
+      "url": "https://github.com/acme/web/issues/32",
+      "state": "CLOSED",
+      "createdAt": "2026-10-11T15:00:00.000Z",
+      "closedAt": "2026-10-19T15:00:00.000Z",
+      "bodyText": "",
+      "repository": {
+        "nameWithOwner": "acme/web"
+      },
+      "author": {
+        "login": "danaw",
+        "name": "Dana Whitfield",
+        "avatarUrl": ""
+      },
+      "assignees": {
+        "nodes": [
+          {
+            "login": "priyar",
+            "name": "Priya Raman",
+            "avatarUrl": ""
+          }
+        ]
+      },
+      "milestone": {
+        "id": "MI_v2",
+        "title": "Checkout v2 (web)",
+        "dueOn": "2026-10-30T00:00:00.000Z",
+        "state": "OPEN"
+      },
+      "stateReason": "COMPLETED",
+      "issueType": {
+        "name": "Task"
+      },
+      "parent": {
+        "__typename": "Issue",
+        "number": 30,
+        "title": "Checkout v2 web rollout",
+        "repository": {
+          "nameWithOwner": "acme/web"
+        },
+        "state": "OPEN",
+        "stateReason": null
+      },
+      "subIssuesSummary": {
+        "total": 0
+      },
+      "blockedBy": {
+        "nodes": []
+      },
+      "blocking": {
+        "nodes": []
+      },
+      "timelineItems": {
+        "nodes": [
+          {
+            "__typename": "CrossReferencedEvent",
+            "willCloseTarget": true,
+            "source": {
+              "__typename": "PullRequest",
+              "number": 42,
+              "title": "Saved cards UI",
+              "repository": {
+                "nameWithOwner": "acme/web"
+              },
+              "state": "MERGED",
+              "isDraft": false,
+              "merged": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "__typename": "Issue",
+      "id": "I_acme_api_12",
+      "number": 12,
+      "title": "Card tokenization endpoint",
+      "url": "https://github.com/acme/api/issues/12",
+      "state": "OPEN",
+      "createdAt": "2026-10-14T15:00:00.000Z",
+      "closedAt": null,
+      "bodyText": "Needed by the checkout work in https://acme.atlassian.net/browse/CORE-11 before the web form can ship.",
+      "repository": {
+        "nameWithOwner": "acme/api"
+      },
+      "author": {
+        "login": "priyar",
+        "name": "Priya Raman",
+        "avatarUrl": ""
+      },
+      "assignees": {
+        "nodes": [
+          {
+            "login": "priyar",
+            "name": "Priya Raman",
+            "avatarUrl": ""
+          }
+        ]
+      },
+      "milestone": null,
+      "stateReason": null,
+      "issueType": {
+        "name": "Task"
+      },
+      "parent": null,
+      "subIssuesSummary": {
+        "total": 0
+      },
+      "blockedBy": {
+        "nodes": []
+      },
+      "blocking": {
+        "nodes": [
+          {
+            "__typename": "Issue",
+            "number": 31,
+            "title": "Card form redesign",
+            "repository": {
+              "nameWithOwner": "acme/web"
+            },
+            "state": "OPEN",
+            "stateReason": null
+          }
+        ]
+      },
+      "timelineItems": {
+        "nodes": [
+          {
+            "__typename": "CrossReferencedEvent",
+            "willCloseTarget": false,
+            "source": {
+              "__typename": "Issue",
+              "number": 15,
+              "title": "Keep accepting v1 card tokens",
+              "repository": {
+                "nameWithOwner": "acme/api"
+              },
+              "state": "CLOSED",
+              "stateReason": "NOT_PLANNED"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "__typename": "Issue",
+      "id": "I_acme_api_15",
+      "number": 15,
+      "title": "Keep accepting v1 card tokens",
+      "url": "https://github.com/acme/api/issues/15",
+      "state": "CLOSED",
+      "createdAt": "2026-09-30T15:00:00.000Z",
+      "closedAt": "2026-10-15T15:00:00.000Z",
+      "bodyText": "",
+      "repository": {
+        "nameWithOwner": "acme/api"
+      },
+      "author": {
+        "login": "priyar",
+        "name": "Priya Raman",
+        "avatarUrl": ""
+      },
+      "assignees": {
+        "nodes": []
+      },
+      "milestone": null,
+      "stateReason": "NOT_PLANNED",
+      "issueType": {
+        "name": "Bug"
+      },
+      "parent": null,
+      "subIssuesSummary": {
+        "total": 0
+      },
+      "blockedBy": {
+        "nodes": []
+      },
+      "blocking": {
+        "nodes": []
+      },
+      "timelineItems": {
+        "nodes": [
+          {
+            "__typename": "CrossReferencedEvent",
+            "willCloseTarget": false,
+            "source": {
+              "__typename": "Issue",
+              "number": 12,
+              "title": "Card tokenization endpoint",
+              "repository": {
+                "nameWithOwner": "acme/api"
+              },
+              "state": "OPEN",
+              "stateReason": null
+            }
+          }
+        ]
+      }
+    },
+    {
+      "__typename": "PullRequest",
+      "id": "PR_acme_web_42",
+      "number": 42,
+      "title": "Saved cards UI",
+      "url": "https://github.com/acme/web/pull/42",
+      "state": "MERGED",
+      "createdAt": "2026-10-16T15:00:00.000Z",
+      "closedAt": "2026-10-19T15:00:00.000Z",
+      "bodyText": "",
+      "repository": {
+        "nameWithOwner": "acme/web"
+      },
+      "author": {
+        "login": "priyar",
+        "name": "Priya Raman",
+        "avatarUrl": ""
+      },
+      "assignees": {
+        "nodes": [
+          {
+            "login": "priyar",
+            "name": "Priya Raman",
+            "avatarUrl": ""
+          }
+        ]
+      },
+      "milestone": {
+        "id": "MI_v2",
+        "title": "Checkout v2 (web)",
+        "dueOn": "2026-10-30T00:00:00.000Z",
+        "state": "OPEN"
+      },
+      "isDraft": false,
+      "merged": true,
+      "closingIssuesReferences": {
+        "nodes": [
+          {
+            "__typename": "Issue",
+            "number": 32,
+            "title": "Saved cards list",
+            "repository": {
+              "nameWithOwner": "acme/web"
+            },
+            "state": "CLOSED",
+            "stateReason": "COMPLETED"
+          }
+        ]
+      },
+      "timelineItems": {
+        "nodes": []
+      }
+    },
+    {
+      "__typename": "PullRequest",
+      "id": "PR_acme_web_45",
+      "number": 45,
+      "title": "Card form v2",
+      "url": "https://github.com/acme/web/pull/45",
+      "state": "OPEN",
+      "createdAt": "2026-10-18T15:00:00.000Z",
+      "closedAt": null,
+      "bodyText": "",
+      "repository": {
+        "nameWithOwner": "acme/web"
+      },
+      "author": {
+        "login": "jonasberg",
+        "name": "Jonas Berg",
+        "avatarUrl": ""
+      },
+      "assignees": {
+        "nodes": [
+          {
+            "login": "jonasberg",
+            "name": "Jonas Berg",
+            "avatarUrl": ""
+          }
+        ]
+      },
+      "milestone": {
+        "id": "MI_v2",
+        "title": "Checkout v2 (web)",
+        "dueOn": "2026-10-30T00:00:00.000Z",
+        "state": "OPEN"
+      },
+      "isDraft": true,
+      "merged": false,
+      "closingIssuesReferences": {
+        "nodes": [
+          {
+            "__typename": "Issue",
+            "number": 31,
+            "title": "Card form redesign",
+            "repository": {
+              "nameWithOwner": "acme/web"
+            },
+            "state": "OPEN",
+            "stateReason": null
+          }
+        ]
+      },
+      "timelineItems": {
+        "nodes": []
+      }
+    }
+  ],
+  "viewer": {
+    "login": "jonasberg",
+    "name": "Jonas Berg",
+    "avatarUrl": ""
+  }
+}

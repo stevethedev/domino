@@ -1,12 +1,55 @@
 import { useEffect, useState, type ReactElement } from "react";
-import type { SiteConfig } from "../config/types";
+import { siteKindOf, type SiteConfig } from "../config/types";
+import { combineGitHubQuery } from "../data/github/query";
 import { combineJql, JQL_PRESETS, presetById } from "../data/jqlPresets";
-import { ISSUE_KEY_RE, type Scope } from "../data/MultiSiteLoader";
-import { saveQuery } from "../state/useDomino";
+import type { Scope } from "../data/MultiSiteLoader";
+import { exampleKey, isTicketKey, normalizeKeyInput } from "../data/ticketKey";
+import { saveGitHubQuery, saveQuery } from "../state/useDomino";
 import { isOneOf } from "../lib/guards";
 import { NumberField } from "./NumberField";
 
 type Mode = Scope["mode"];
+
+/** A query scope, with the GitHub search when there is one (so scopes without it look as they always did). */
+const withGitHub = (scope: { mode: "jql"; jql: string }, github: string): Scope =>
+  github.trim() ? { ...scope, github: github.trim() } : scope;
+
+/** A query box; hovering shows what every selected site will run. */
+function QueryField({
+  id,
+  label,
+  value,
+  onChange,
+  placeholder,
+  effective,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  effective: string;
+}): ReactElement {
+  return (
+    <label className="field grow">
+      <span className="field-label">{label}</span>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value);
+        }}
+        placeholder={placeholder}
+        title={`Runs:\n${effective}`}
+        aria-describedby={id}
+        spellCheck={false}
+      />
+      <span id={id} className="sr-only">
+        Combined with each site's filter. Runs: {effective}
+      </span>
+    </label>
+  );
+}
 const MODES: readonly Mode[] = ["jql", "epic", "seed"];
 const isMode = isOneOf(MODES);
 
@@ -21,6 +64,7 @@ export function ScopeInputs({
 }): ReactElement {
   const [mode, setMode] = useState<Mode>(scope.mode);
   const [jql, setJql] = useState(scope.mode === "jql" ? scope.jql : "");
+  const [github, setGitHub] = useState(scope.mode === "jql" ? (scope.github ?? "") : "");
   const [siteId, setSiteId] = useState(scope.mode !== "jql" ? scope.siteId : (sites[0]?.id ?? ""));
   const [key, setKey] = useState(scope.mode !== "jql" ? scope.key : "");
   const [depth, setDepth] = useState(scope.mode === "seed" ? scope.depth : 2);
@@ -35,24 +79,36 @@ export function ScopeInputs({
     if (mode === "jql") {
       setError(null);
       saveQuery(jql.trim());
-      onApply({ mode, jql: jql.trim() });
+      saveGitHubQuery(github.trim());
+      onApply(withGitHub({ mode, jql: jql.trim() }, github));
       return;
     }
-    const k = key.trim().toUpperCase();
-    if (!ISSUE_KEY_RE.test(k)) {
-      setError("Enter a ticket key like CORE-1");
-      return;
-    }
-    if (!siteId) {
+    if (!keySite) {
       setError("Select a site first");
+      return;
+    }
+    const k = normalizeKeyInput(keySite, key);
+    if (!isTicketKey(keySite, k)) {
+      setError(
+        siteKindOf(keySite) === "github" ? "Enter a key like acme/web#12, or paste the issue's URL" : "Enter a ticket key like CORE-1",
+      );
       return;
     }
     setError(null);
     onApply(mode === "epic" ? { mode, siteId, key: k } : { mode, siteId, key: k, depth });
   };
 
-  /** What each selected site will actually run: its "Always filter by" JQL AND this query. */
-  const effective = sites.map((s) => `${s.label}: ${combineJql(s.baseJql ?? "", jql.trim()) || "(nothing to load)"}`).join("\n");
+  const keySite = sites.find((s) => s.id === siteId);
+  const hasJira = sites.some((s) => siteKindOf(s) === "jira");
+  const hasGitHub = sites.some((s) => siteKindOf(s) === "github");
+
+  /** What each selected site will actually run: its "Always filter by" AND the query box for its kind. */
+  const effective = sites
+    .map((s) => {
+      const q = siteKindOf(s) === "github" ? combineGitHubQuery(s.baseJql ?? "", github) : combineJql(s.baseJql ?? "", jql.trim());
+      return `${s.label}: ${q || "(nothing to load)"}`;
+    })
+    .join("\n");
   const activePreset = JQL_PRESETS.find((p) => p.jql === jql.trim())?.id ?? "";
 
   const choosePreset = (id: string): void => {
@@ -60,7 +116,7 @@ export function ScopeInputs({
     const q = presetById(id).jql;
     setJql(q);
     saveQuery(q);
-    onApply({ mode: "jql", jql: q });
+    onApply(withGitHub({ mode: "jql", jql: q }, github));
   };
 
   return (
@@ -73,7 +129,7 @@ export function ScopeInputs({
             if (isMode(e.target.value)) setMode(e.target.value);
           }}
         >
-          <option value="jql">JQL</option>
+          <option value="jql">{hasGitHub ? "Query" : "JQL"}</option>
           <option value="epic">Epic</option>
           <option value="seed">Seed + depth</option>
         </select>
@@ -81,42 +137,47 @@ export function ScopeInputs({
 
       {mode === "jql" ? (
         <>
-          <label className="field grow">
-            <span className="field-label">Query</span>
-            <input
-              type="text"
+          {(hasJira || !hasGitHub) && (
+            <QueryField
+              id="query-desc"
+              label={hasGitHub ? "JQL" : "Query"}
               value={jql}
-              onChange={(e) => {
-                setJql(e.target.value);
-              }}
+              onChange={setJql}
               placeholder="JQL, e.g. statusCategory != Done"
-              title={`Runs:\n${effective}`}
-              aria-describedby="query-desc"
-              spellCheck={false}
+              effective={effective}
             />
-            <span id="query-desc" className="sr-only">
-              Combined with each site's filter. Runs: {effective}
-            </span>
-          </label>
-          <label className="field">
-            <span className="sr-only">Query presets</span>
-            <select
-              value={activePreset}
-              onChange={(e) => {
-                choosePreset(e.target.value);
-              }}
-              aria-label="Query presets"
-            >
-              <option value="" disabled>
-                Presets…
-              </option>
-              {JQL_PRESETS.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.label}
+          )}
+          {hasGitHub && (
+            <QueryField
+              id="github-query-desc"
+              label="GitHub search"
+              value={github}
+              onChange={setGitHub}
+              placeholder="e.g. is:open assignee:@me"
+              effective={effective}
+            />
+          )}
+          {hasJira && (
+            <label className="field">
+              <span className="sr-only">Query presets</span>
+              <select
+                value={activePreset}
+                onChange={(e) => {
+                  choosePreset(e.target.value);
+                }}
+                aria-label="Query presets"
+              >
+                <option value="" disabled>
+                  Presets…
                 </option>
-              ))}
-            </select>
-          </label>
+                {JQL_PRESETS.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
         </>
       ) : (
         <>
@@ -138,18 +199,20 @@ export function ScopeInputs({
             </label>
           )}
           <label className="field">
-            <span className="field-label">{mode === "epic" ? "Epic key" : "Ticket key"}</span>
+            <span className="field-label">
+              {mode === "epic" ? (keySite?.kind === "github" ? "Parent issue" : "Epic key") : "Ticket key"}
+            </span>
             <input
               type="text"
               value={key}
               onChange={(e) => {
                 setKey(e.target.value);
               }}
-              placeholder={mode === "epic" ? "CORE-1" : "CORE-11"}
+              placeholder={keySite?.kind === "github" ? exampleKey(keySite) : mode === "epic" ? "CORE-1" : "CORE-11"}
               aria-invalid={!!error}
               aria-describedby={error ? "scope-error" : undefined}
               spellCheck={false}
-              size={10}
+              size={keySite?.kind === "github" ? 16 : 10}
             />
           </label>
           {mode === "seed" && (

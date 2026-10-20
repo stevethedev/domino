@@ -374,7 +374,7 @@ export function IssueDetail({
             onOpen(n.url);
           }}
         >
-          Open in Jira <Icon name="external" />
+          Open in {n.siteKind === "github" ? "GitHub" : "Jira"} <Icon name="external" />
         </button>
       </div>
     </aside>

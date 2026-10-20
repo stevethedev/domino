@@ -30,7 +30,7 @@ import {
   type EpicFolds,
   type SavedView,
 } from "./state/savedViews";
-import { saveQuery, selectedSitesOf } from "./state/useDomino";
+import { saveGitHubQuery, saveQuery, selectedSitesOf } from "./state/useDomino";
 import { scopeKeyOf } from "./state/scopeKey";
 import { useChanges } from "./state/useChanges";
 import { useStatusHistory } from "./state/useStatusHistory";
@@ -263,7 +263,10 @@ function Shell(): ReactElement {
     // selection (and scope) when it has none of them, and say what couldn't be applied.
     const sites = viewSites(v, config?.sites ?? []);
     if (sites.scopeUsable && sites.siteIds.length > 0) {
-      if (v.scope.mode === "jql") saveQuery(v.scope.jql);
+      if (v.scope.mode === "jql") {
+        saveQuery(v.scope.jql);
+        if (v.scope.github !== undefined) saveGitHubQuery(v.scope.github);
+      }
       domino.applyScope(v.scope, sites.siteIds);
     }
     const notice = viewNotice(v.name, v.siteIds.length, sites);

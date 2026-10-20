@@ -18,12 +18,38 @@ pub(crate) enum SiteAuth {
     ApiToken { email: String, secret_ref: String },
     #[serde(rename = "oauth3lo")]
     OAuth3lo,
+    /// A GitHub personal access token, kept in the keychain under `secret_ref`.
+    #[serde(rename = "githubToken", rename_all = "camelCase")]
+    GitHubToken { secret_ref: String },
+}
+
+impl SiteAuth {
+    /// The keychain entry holding this site's token, if it has one (OAuth's tokens are managed separately).
+    pub(crate) fn secret_ref(&self) -> Option<&str> {
+        match self {
+            Self::ApiToken { secret_ref, .. } | Self::GitHubToken { secret_ref } => Some(secret_ref),
+            Self::OAuth3lo => None,
+        }
+    }
+}
+
+/// What a site is: a Jira Cloud site, or a GitHub host (github.com or GitHub Enterprise Server).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum SiteKind {
+    #[default]
+    Jira,
+    #[serde(rename = "github")]
+    GitHub,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct SiteConfig {
     pub id: String,
+    /// Older configs have no kind: every site was Jira then.
+    #[serde(default, skip_serializing_if = "is_jira")]
+    pub kind: SiteKind,
     pub label: String,
     pub base_url: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -31,8 +57,8 @@ pub(crate) struct SiteConfig {
     pub auth: SiteAuth,
     pub color: String,
     pub enabled: bool,
-    /// Always `ANDed` onto every search on this site (e.g. `project = CHANGE`).
-    /// Older configs called this `defaultJql`; it is read under either name.
+    /// Always `ANDed` onto every search on this site (e.g. `project = CHANGE`); on a GitHub site, a
+    /// GitHub search (e.g. `org:acme`). Older configs called this `defaultJql`; it is read under either name.
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "defaultJql")]
     pub base_jql: Option<String>,
 }
@@ -54,6 +80,11 @@ pub(crate) struct DominoConfig {
     pub default_site_ids: Vec<String>,
     #[serde(default)]
     pub backend: BackendKind,
+}
+
+#[expect(clippy::trivially_copy_pass_by_ref, reason = "serde's skip_serializing_if passes a reference")]
+fn is_jira(kind: &SiteKind) -> bool {
+    *kind == SiteKind::Jira
 }
 
 fn is_slug(s: &str) -> bool {
@@ -114,10 +145,22 @@ impl DominoConfig {
             if !is_hex_color(&s.color) {
                 return Err(format!("Site \"{}\" color must look like #7c3aed", s.id));
             }
-            if let SiteAuth::ApiToken { email, secret_ref } = &s.auth {
-                if !email.contains('@') {
+            match (s.kind, &s.auth) {
+                (SiteKind::Jira, SiteAuth::GitHubToken { .. }) => {
+                    return Err(format!("Site \"{}\" is a Jira site, so it can't use a GitHub token", s.id));
+                }
+                (SiteKind::GitHub, SiteAuth::ApiToken { .. } | SiteAuth::OAuth3lo) => {
+                    return Err(format!("Site \"{}\" is a GitHub site, so it needs a GitHub token", s.id));
+                }
+                (SiteKind::Jira, SiteAuth::ApiToken { email, .. }) if !email.contains('@') => {
                     return Err(format!("Site \"{}\" needs a valid email", s.id));
                 }
+                _ => {}
+            }
+            if s.kind == SiteKind::GitHub {
+                s.cloud_id = None; // only Atlassian OAuth sites have one
+            }
+            if let Some(secret_ref) = s.auth.secret_ref() {
                 if !is_secret_ref(secret_ref) {
                     return Err(format!("Site \"{}\" secretRef must be UPPER_SNAKE_CASE", s.id));
                 }
@@ -436,7 +479,7 @@ mod tests {
     #[test]
     fn seed_config_is_valid_and_round_trips_camel_case() {
         let cfg = seed().validated().unwrap();
-        assert_eq!(cfg.sites.len(), 3);
+        assert_eq!(cfg.sites.len(), 4);
         let json = serde_json::to_value(&cfg).unwrap();
         assert_eq!(json["sites"][0]["baseUrl"], "https://acme.atlassian.net");
         assert_eq!(json["sites"][0]["auth"]["secretRef"], "DOMINO_ACME_TOKEN");
@@ -464,6 +507,41 @@ mod tests {
         let mut c = seed();
         c.sites[0].auth = SiteAuth::ApiToken { email: "a@b.c".into(), secret_ref: "lower".into() };
         assert!(c.validated().unwrap_err().contains("secretRef"));
+    }
+
+    #[test]
+    fn github_sites_round_trip_and_jira_sites_omit_their_kind() {
+        let cfg = seed().validated().unwrap();
+        let gh = cfg.site("gh").unwrap();
+        assert_eq!(gh.kind, SiteKind::GitHub);
+        assert_eq!(gh.auth, SiteAuth::GitHubToken { secret_ref: "DOMINO_GITHUB_TOKEN".into() });
+        let json = serde_json::to_value(&cfg).unwrap();
+        assert_eq!(json["sites"][3]["kind"], "github");
+        assert_eq!(json["sites"][3]["auth"], serde_json::json!({ "type": "githubToken", "secretRef": "DOMINO_GITHUB_TOKEN" }));
+        assert!(json["sites"][0].get("kind").is_none(), "older builds must still read Jira sites");
+    }
+
+    #[test]
+    fn site_kind_and_auth_must_agree() {
+        let mut c = seed();
+        c.sites[0].auth = SiteAuth::GitHubToken { secret_ref: "DOMINO_ACME_TOKEN".into() };
+        assert!(c.validated().unwrap_err().contains("can't use a GitHub token"));
+
+        let mut c = seed();
+        c.sites[3].auth = SiteAuth::OAuth3lo;
+        assert!(c.validated().unwrap_err().contains("needs a GitHub token"));
+
+        let mut c = seed();
+        c.sites[3].auth = SiteAuth::GitHubToken { secret_ref: "lower".into() };
+        assert!(c.validated().unwrap_err().contains("secretRef"));
+
+        let mut c = seed();
+        c.sites[3].auth = SiteAuth::GitHubToken { secret_ref: crate::cache::KEY_REF.into() };
+        assert!(c.validated().unwrap_err().contains("keeps its cache key there"));
+
+        let mut c = seed();
+        c.sites[3].cloud_id = Some("x".into());
+        assert_eq!(c.validated().unwrap().sites[3].cloud_id, None);
     }
 
     #[test]
@@ -529,7 +607,7 @@ mod tests {
         // Still broken: reload says why. Fixed: reload swaps it in.
         assert!(h.reload().unwrap_err().contains("is invalid"));
         fs::write(&path, SEED_CONFIG).unwrap();
-        assert_eq!(h.reload().unwrap().sites.len(), 3);
+        assert_eq!(h.reload().unwrap().sites.len(), 4);
         assert!(h.problem().is_none());
     }
 
@@ -552,7 +630,7 @@ mod tests {
         let h = ConfigHandle::load(ConfigFile::new(dir.path())); // seeds a good file
         fs::write(dir.path().join("domino.config.json"), "broken").unwrap();
         assert!(h.reload().unwrap_err().contains("is invalid"));
-        assert_eq!(h.get().sites.len(), 3, "the good config stays in use");
+        assert_eq!(h.get().sites.len(), 4, "the good config stays in use");
         assert!(h.problem().is_none(), "the app isn't running on the empty fallback");
     }
 
@@ -680,7 +758,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let h = ConfigHandle::load(ConfigFile::new(dir.path())); // seeds a good file
         assert!(h.start_fresh().unwrap_err().contains("nothing to replace"));
-        assert_eq!(h.get().sites.len(), 3, "the good config is untouched");
+        assert_eq!(h.get().sites.len(), 4, "the good config is untouched");
     }
 
     #[test]
@@ -689,9 +767,9 @@ mod tests {
         fs::write(dir.path().join("domino.config.json"), "not json").unwrap();
         let h = ConfigHandle::load(ConfigFile::new(dir.path()));
         let saved = h.replace(seed()).unwrap();
-        assert_eq!(saved.sites.len(), 3);
+        assert_eq!(saved.sites.len(), 4);
         assert!(h.problem().is_none());
-        assert_eq!(ConfigFile::new(dir.path()).load().unwrap().sites.len(), 3);
+        assert_eq!(ConfigFile::new(dir.path()).load().unwrap().sites.len(), 4);
     }
 
     #[test]

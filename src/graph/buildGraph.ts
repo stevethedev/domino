@@ -1,5 +1,6 @@
 import type { SiteConfig } from "../config/types";
 import type { RawIssue, RawLinkedIssue, RawPriority, RawSiteData, RawStatus, RawVersion } from "../data/jiraTypes";
+import { ticketUrl } from "../data/ticketKey";
 import { getOrThrow } from "../lib/guards";
 import { findCycles } from "./cycles";
 import { DEFAULT_LINK_TYPES, kindOf, resolveRelationship } from "./linkTypes";
@@ -55,8 +56,6 @@ function priorityOf(p: RawPriority | null | undefined, ranks: PriorityRanks): Pr
   };
 }
 
-const browseUrl = (baseUrl: string, key: string): string => `${baseUrl.replace(/\/+$/, "")}/browse/${key}`;
-
 const isEpicType = (t: { name?: string; hierarchyLevel?: number } | undefined): boolean =>
   !!t && (t.hierarchyLevel !== undefined ? t.hierarchyLevel === 1 : t.name?.toLowerCase() === "epic");
 
@@ -67,7 +66,7 @@ const isEpicType = (t: { name?: string; hierarchyLevel?: number } | undefined): 
  */
 function directEpic(issue: RawIssue, site: SiteConfig): EpicRef | { viaParent: string } | undefined {
   const f = issue.fields;
-  const ref = (key: string, summary?: string): EpicRef => ({ uid: uidOf(site.id, key), key, summary, url: browseUrl(site.baseUrl, key) });
+  const ref = (key: string, summary?: string): EpicRef => ({ uid: uidOf(site.id, key), key, summary, url: ticketUrl(site, key) });
   if (isEpicType(f.issuetype)) return ref(issue.key, f.summary);
   if (f.parent) {
     if (isEpicType(f.parent.fields.issuetype)) return ref(f.parent.key, f.parent.fields.summary);
@@ -112,7 +111,7 @@ function nodeFromIssue(issue: RawIssue, site: SiteConfig, ranks: PriorityRanks):
     assigneeAccountId: f.assignee?.accountId,
     reporterAccountId: f.reporter?.accountId,
     storyPoints: typeof f.customfield_10016 === "number" ? f.customfield_10016 : undefined,
-    url: browseUrl(site.baseUrl, issue.key),
+    url: ticketUrl(site, issue.key),
     ghost: false,
     jiraId: issue.id,
     dates: {
@@ -136,7 +135,7 @@ function ghostFromLinked(ref: RawLinkedIssue, site: SiteConfig, ranks: PriorityR
     statusName: ref.fields.status?.name ?? "Unknown",
     statusCategory: statusCategoryOf(ref.fields.status),
     priority: priorityOf(ref.fields.priority, ranks),
-    url: browseUrl(site.baseUrl, ref.key),
+    url: ticketUrl(site, ref.key),
     ghost: true,
   };
 }
@@ -168,7 +167,7 @@ function ghostUnknown(
 /**
  * Turns raw per-site Jira data into one graph keyed by uid.
  * - Native links: normalized to outward direction, deduped by siteId + linkId.
- * - Remote links: matched to configured sites (edge) or unconfigured Jira hosts (ghost),
+ * - Remote links: matched to configured Jira or GitHub sites (edge) or unconfigured Jira hosts (ghost),
  *   normalized, then deduped by (source, target, linkType) so reciprocal remote links collapse.
  * - Issues referenced but not loaded become ghosts; loaded issues always win over ghosts.
  */
@@ -243,7 +242,7 @@ export function buildGraph({ sites, data }: BuildInput): Graph {
         if (match.kind === "site") {
           otherUid = uidOf(match.siteId, match.key);
           const s = getOrThrow(siteById, match.siteId);
-          addGhost(ghostUnknown(otherUid, s.id, s.label, match.key, browseUrl(s.baseUrl, match.key), rl.object.title, s.color));
+          addGhost(ghostUnknown(otherUid, s.id, s.label, match.key, ticketUrl(s, match.key), rl.object.title, s.color));
         } else {
           otherUid = uidOf(match.host, match.key);
           addGhost(ghostUnknown(otherUid, match.host, match.host, match.key, match.url, rl.object.title));
@@ -270,6 +269,9 @@ export function buildGraph({ sites, data }: BuildInput): Graph {
   }
 
   const allNodes = [...nodes.values(), ...ghosts.values()];
+  for (const n of allNodes) {
+    if (siteById.get(n.siteId)?.kind === "github") n.siteKind = "github";
+  }
   const allEdges = [...edges.values()].map((e) => ({ ...e, crossSite: siteOf(e.source) !== siteOf(e.target) }));
   const { cycles, cycleEdgeIds, brokenEdgeIds } = findCycles(allNodes, allEdges);
   return { nodes: allNodes, edges: allEdges, cycles, cycleEdgeIds, brokenEdgeIds };

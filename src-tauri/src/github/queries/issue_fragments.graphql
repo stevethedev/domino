@@ -1,0 +1,101 @@
+# The fields Domino draws, for issues and pull requests alike. The webview maps them onto its
+# Jira-shaped model (src/data/github/toRaw.ts), so keep the two in step.
+fragment LinkedIssue on Issue {
+  __typename
+  number
+  title
+  state
+  stateReason
+  repository {
+    nameWithOwner
+  }
+}
+
+fragment LinkedPull on PullRequest {
+  __typename
+  number
+  title
+  state
+  isDraft
+  merged
+  repository {
+    nameWithOwner
+  }
+}
+
+fragment References on IssueTimelineItemsConnection {
+  nodes {
+    __typename
+    ... on CrossReferencedEvent {
+      willCloseTarget
+      source {
+        ...LinkedIssue
+        ...LinkedPull
+      }
+    }
+    ... on ConnectedEvent {
+      subject {
+        ...LinkedIssue
+        ...LinkedPull
+      }
+    }
+  }
+}
+
+fragment IssueTicket on Issue {
+  __typename
+  id
+  number
+  title
+  url
+  state
+  stateReason
+  createdAt
+  closedAt
+  bodyText
+  repository {
+    nameWithOwner
+  }
+  author {
+    login
+    avatarUrl
+    ... on User {
+      name
+    }
+  }
+  assignees(first: 5) {
+    nodes {
+      login
+      name
+      avatarUrl
+    }
+  }
+  milestone {
+    id
+    title
+    dueOn
+    state
+  }
+  issueType {
+    name
+  }
+  parent {
+    ...LinkedIssue
+  }
+  subIssuesSummary {
+    total
+  }
+  blockedBy(first: 50) {
+    nodes {
+      ...LinkedIssue
+    }
+  }
+  blocking(first: 50) {
+    nodes {
+      ...LinkedIssue
+    }
+  }
+  timelineItems(first: 50, itemTypes: [CROSS_REFERENCED_EVENT, CONNECTED_EVENT]) {
+    ...References
+  }
+}

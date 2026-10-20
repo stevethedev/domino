@@ -1,16 +1,19 @@
 import pLimit, { type LimitFunction } from "p-limit";
-import type { SiteConfig } from "../config/types";
+import { siteKindOf, type SiteConfig } from "../config/types";
 import { DEFAULT_LINK_TYPES } from "../graph/linkTypes";
 import { matchRemoteUrl } from "../graph/remoteUrl";
 import { uidOf } from "../graph/types";
 import { getOrThrow } from "../lib/guards";
 import { errorMessage } from "./errors";
+import { combineGitHubQuery } from "./github/query";
 import { combineJql } from "./jqlPresets";
 import type { JiraSource } from "./JiraSource";
 import type { RawIssue, RawLinkType, RawPriority, RawRemoteLink, RawSiteData } from "./jiraTypes";
+import { exampleKey, isTicketKey } from "./ticketKey";
 
 export type Scope =
-  | { mode: "jql"; jql: string } // per-site: (site.baseJql) AND (jql)
+  // Per site: (site.baseJql) AND (jql) on Jira sites; site.baseJql plus `github` (a GitHub search) on GitHub sites.
+  | { mode: "jql"; jql: string; github?: string }
   | { mode: "epic"; siteId: string; key: string }
   | { mode: "seed"; siteId: string; key: string; depth: number };
 
@@ -39,8 +42,6 @@ class Aborted extends Error {
 }
 
 export const isAbortError = (e: unknown): boolean => e instanceof Error && e.name === "AbortError";
-
-export const ISSUE_KEY_RE = /^[A-Z][A-Z0-9_]*-\d+$/;
 
 class OverCap extends Error {
   constructor(readonly count: number) {
@@ -116,13 +117,14 @@ class LoadRun {
   }
 
   async execute(scope: Scope): Promise<void> {
-    if (scope.mode === "jql") return this.jql(scope.jql);
-    if (!this.states.has(scope.siteId)) {
+    if (scope.mode === "jql") return this.jql(scope.jql, scope.github ?? "");
+    const site = this.states.get(scope.siteId)?.site;
+    if (!site) {
       this.fail(scope.siteId, "Site is not selected");
       return;
     }
-    if (!ISSUE_KEY_RE.test(scope.key)) {
-      this.fail(scope.siteId, `"${scope.key}" is not a valid ticket key`);
+    if (!isTicketKey(site, scope.key)) {
+      this.fail(scope.siteId, `"${scope.key}" is not a valid ticket key (expected one like ${exampleKey(site)})`);
       return;
     }
     if (scope.mode === "epic") return this.epic(scope.siteId, scope.key);
@@ -166,12 +168,14 @@ class LoadRun {
 
   // ---- modes ---------------------------------------------------------------
 
-  private async jql(jql: string): Promise<void> {
+  private async jql(jql: string, github: string): Promise<void> {
     await Promise.all(
       [...this.states.values()].map(async ({ site }) => {
-        const q = combineJql(site.baseJql ?? "", jql);
+        const isGitHub = siteKindOf(site) === "github";
+        const q = isGitHub ? combineGitHubQuery(site.baseJql ?? "", github) : combineJql(site.baseJql ?? "", jql);
         if (!q) {
-          this.fail(site.id, 'Nothing to load: type a query above, or set this site\'s "Always filter by" JQL in Settings');
+          const kind = isGitHub ? "GitHub search" : "JQL";
+          this.fail(site.id, `Nothing to load: type a ${kind} query above, or set this site's "Always filter by" ${kind} in Settings`);
           return;
         }
         const ok = await this.guard(site.id, async () => {
@@ -253,13 +257,13 @@ class LoadRun {
   }
 
   private async fetchKeys(siteId: string, keys: string[]): Promise<RawIssue[]> {
-    const base = getOrThrow(this.states, siteId).site.baseJql ?? "";
-    const safe = keys.filter((k) => ISSUE_KEY_RE.test(k));
+    const { site } = getOrThrow(this.states, siteId);
+    const safe = keys.filter((k) => isTicketKey(site, k));
     const chunks: string[][] = [];
     for (let i = 0; i < safe.length; i += this.batch) chunks.push(safe.slice(i, i + this.batch));
     const results = await Promise.all(
       // Linked issues the site filter excludes aren't fetched; they stay ghosts.
-      chunks.map((c) => this.call(siteId, () => this.source.fetchByJql(siteId, combineJql(base, `key in (${c.join(",")})`), c.length))),
+      chunks.map((c) => this.call(siteId, () => this.source.fetchByKeys(siteId, c, site.baseJql))),
     );
     return results.flat();
   }

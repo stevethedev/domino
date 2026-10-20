@@ -10,6 +10,8 @@ export type GraphNode = {
   siteId: string; // configured site id, or the host for unconfigured Jira sites
   siteLabel: string;
   siteColor?: string;
+  /** Set on tickets from GitHub sites (issues and pull requests); absent for Jira. */
+  siteKind?: "github";
   key: string;
   summary: string;
   issueType: string;

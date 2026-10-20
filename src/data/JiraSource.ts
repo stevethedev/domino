@@ -1,9 +1,11 @@
 import type { RawIssue, RawIssueChangeLog, RawLinkType, RawPriority, RawRemoteLink, RawStatusDef, RawUser } from "./jiraTypes";
 
-/** Raw, Jira-shaped data access for one site at a time. */
+/** Raw, Jira-shaped data access for one site at a time (GitHub sites included: see github/GitHubSource.ts). */
 export interface JiraSource {
-  /** Pages through results; stops after `maxResults` so over-cap scopes fail fast. */
+  /** Pages through results; stops after `maxResults` so over-cap scopes fail fast. On GitHub sites, a GitHub search. */
   fetchByJql(siteId: string, jql: string, maxResults?: number): Promise<RawIssue[]>;
+  /** These tickets, where the site's `filter` allows them; the others are left out. */
+  fetchByKeys(siteId: string, keys: readonly string[], filter?: string): Promise<RawIssue[]>;
   /** The epic itself plus its children (`parent = KEY`, ANDed with `filter` when given). */
   fetchEpic(siteId: string, key: string, filter?: string): Promise<{ epic: RawIssue; children: RawIssue[] }>;
   fetchIssue(siteId: string, key: string): Promise<RawIssue>;
