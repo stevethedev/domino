@@ -10,9 +10,13 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-/** The release tag for a package.json version; throws unless it's plain semver. */
+// semver.org's recommended pattern (https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string).
+const SEMVER =
+  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/;
+
+/** The release tag for a package.json version; throws unless it's semver. */
 export function releaseTag(version) {
-  if (typeof version !== "string" || !/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/.test(version)) {
+  if (typeof version !== "string" || !SEMVER.test(version)) {
     throw new Error(`package.json version ${JSON.stringify(version)} is not semver`);
   }
   return `v${version}`;
