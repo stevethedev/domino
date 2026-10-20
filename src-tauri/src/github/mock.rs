@@ -1,5 +1,5 @@
 //! Serves fixtures/mock/github.json and evaluates a tiny GitHub search subset (kept in sync with
-//! src/data/github/mockGitHub.ts).
+//! src/data/github/FixtureGitHubApi.ts).
 
 use super::{check_key, GitHubBackend, GitHubResult};
 use crate::config::SiteConfig;

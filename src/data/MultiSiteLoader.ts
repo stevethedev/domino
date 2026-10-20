@@ -5,7 +5,7 @@ import { matchRemoteUrl } from "../graph/remoteUrl";
 import { uidOf } from "../graph/types";
 import { getOrThrow } from "../lib/guards";
 import { errorMessage } from "./errors";
-import { combineGitHubQuery } from "./github/query";
+import { combineGitHubQuery, inRepoScope, repoScopeOf } from "./github/query";
 import { combineJql } from "./jqlPresets";
 import type { JiraSource } from "./JiraSource";
 import type { RawIssue, RawLinkType, RawPriority, RawRemoteLink, RawSiteData } from "./jiraTypes";
@@ -179,7 +179,11 @@ class LoadRun {
           return;
         }
         const ok = await this.guard(site.id, async () => {
-          const issues = await this.call(site.id, () => this.source.fetchByJql(site.id, q, this.maxNodes + 1));
+          const found = await this.call(site.id, () => this.source.fetchByJql(site.id, q, this.maxNodes + 1));
+          // GitHub ORs repeated org:/repo:/user: qualifiers, so a query naming another repo would widen the
+          // site's filter; results outside the filter's repos are dropped instead.
+          const scope = isGitHub ? repoScopeOf(site.baseJql) : null;
+          const issues = scope ? found.filter((i) => inRepoScope(scope, i.key)) : found;
           this.checkCap(issues.length);
           await this.addFull(site.id, issues);
         });

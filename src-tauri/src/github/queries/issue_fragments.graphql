@@ -99,10 +99,16 @@ fragment IssueTicket on Issue {
     nodes {
       ...LinkedIssue
     }
+    pageInfo {
+      hasNextPage
+    }
   }
   blocking(first: 50) {
     nodes {
       ...LinkedIssue
+    }
+    pageInfo {
+      hasNextPage
     }
   }
   timelineItems(first: 100, itemTypes: [CROSS_REFERENCED_EVENT, CONNECTED_EVENT, DISCONNECTED_EVENT]) {

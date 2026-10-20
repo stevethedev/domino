@@ -2,7 +2,10 @@
 // filter keeps a load to.
 import { parseGitHubKey } from "../ticketKey";
 
-/** `base query`: GitHub ANDs search terms separated by spaces, so no parentheses are needed. */
+/**
+ * `base query`. GitHub has no parentheses and ORs repeated `org:` / `repo:` / `user:` qualifiers, so this
+ * alone can widen the base's repos; the loader drops results outside them (see `inRepoScope`).
+ */
 export const combineGitHubQuery = (base: string, query: string): string => [base.trim(), query.trim()].filter(Boolean).join(" ");
 
 /**

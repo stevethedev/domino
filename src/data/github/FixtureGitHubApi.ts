@@ -1,5 +1,6 @@
 // In-memory GitHubApi over fixtures/mock/github.json, evaluating the same tiny search subset as the
 // Rust mock (src-tauri/src/github/mock.rs).
+import { settle } from "../FixtureSource";
 import type { GitHubApi } from "./GitHubApi";
 import type { GhNode, GhViewer } from "./githubTypes";
 import { keyOf } from "./toRaw";
@@ -32,12 +33,6 @@ function matchesTerm(node: GhNode, rawTerm: string, viewer: string): boolean {
   return hit !== negate;
 }
 
-/** Runs `fn` as an async method body would: a throw becomes a rejection. */
-const settle = <T>(fn: () => T): Promise<T> =>
-  new Promise((resolve) => {
-    resolve(fn());
-  });
-
 export class FixtureGitHubApi implements GitHubApi {
   constructor(
     private readonly fixture: GitHubFixture,
@@ -63,7 +58,7 @@ export class FixtureGitHubApi implements GitHubApi {
   }
 
   subIssues(siteId: string, key: string): Promise<GhNode[]> {
-    return settle(() => this.nodes(siteId).filter((n) => keyOf(n.parent) === key));
+    return settle(() => this.nodes(siteId).filter((n) => keyOf(n.parent) === key.toLowerCase()));
   }
 
   viewer(siteId: string): Promise<GhViewer> {

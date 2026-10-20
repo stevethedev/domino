@@ -149,6 +149,8 @@ describe("toRawIssue", () => {
   it("flags tickets whose timeline had more events than one page", () => {
     expect(raw(node("a/b#1", { timelineItems: { nodes: [], pageInfo: { hasNextPage: true } } })).linksIncomplete).toBe(true);
     expect(raw(node("a/b#1", { timelineItems: { nodes: [], pageInfo: { hasNextPage: false } } })).linksIncomplete).toBeUndefined();
+    expect(raw(node("a/b#1", { blockedBy: { nodes: [], pageInfo: { hasNextPage: true } } })).linksIncomplete).toBe(true);
+    expect(raw(node("a/b#1", { closingIssuesReferences: { nodes: [], pageInfo: { hasNextPage: true } } })).linksIncomplete).toBe(true);
   });
 
   it("skips nodes without a repository or number", () => {

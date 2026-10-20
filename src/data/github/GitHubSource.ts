@@ -43,7 +43,9 @@ export class GitHubSource implements JiraSource {
     const key = rawKey.toLowerCase();
     const known = remembered ? this.remembered.get(`${siteId}|${key}`) : undefined;
     if (known) return known;
-    const hit = (await this.api.issues(siteId, [key])).find((n) => keyOf(n) === key);
+    const nodes = await this.api.issues(siteId, [key]);
+    // A renamed repo or transferred issue comes back under its new key: one answer to one question is it.
+    const hit = nodes.find((n) => keyOf(n) === key) ?? (nodes.length === 1 && keyOf(nodes[0]) ? nodes[0] : undefined);
     if (!hit) throw new Error(`${key} does not exist, or the token can't see it`);
     this.remember(siteId, [hit]);
     return hit;
@@ -63,7 +65,7 @@ export class GitHubSource implements JiraSource {
     const [epic] = this.remember(siteId, [await this.node(siteId, key)]);
     if (epic.fields.issuetype?.hierarchyLevel !== 1) throw new Error(`${key} has no sub-issues`);
     const scope = repoScopeOf(filter);
-    const children = (await this.api.subIssues(siteId, key)).filter((n) => inRepoScope(scope, keyOf(n) ?? ""));
+    const children = (await this.api.subIssues(siteId, epic.key)).filter((n) => inRepoScope(scope, keyOf(n) ?? ""));
     return { epic, children: this.remember(siteId, children) };
   }
 

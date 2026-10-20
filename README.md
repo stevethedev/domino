@@ -37,7 +37,7 @@ Each site can **Always filter by** some JQL (like `project in (CORE, WEB)`), AND
 
 ## Connecting to GitHub
 
-GitHub issues and pull requests load alongside Jira tickets. **Add site**, choose **GitHub**, and use `https://github.com` (or your GitHub Enterprise Server address) with a [personal access token](https://github.com/settings/personal-access-tokens/new). Read-only access to **Issues**, **Pull requests** and **Metadata** on the repositories you want is enough; the token goes to the OS keychain, like Jira's.
+GitHub issues and pull requests load alongside Jira tickets. **Add site**, choose **GitHub**, and use `https://github.com` (or your GitHub Enterprise Server address) with a [personal access token](https://github.com/settings/personal-access-tokens/new). Read-only access to **Issues**, **Pull requests** and **Metadata** on the repositories you want is enough; the token goes to the OS keychain, like Jira's. Enterprise Server needs a release with issue types, sub-issues and issue dependencies; on older ones, loads fail with GitHub's "Field … doesn't exist" error.
 
 - Tickets are keyed `owner/repo#12`. In Epic or Seed mode, type that or paste the issue's URL.
 - **Always filter by** takes a GitHub search (like `org:acme` or `repo:acme/web`). With a GitHub site selected, the top bar has a **GitHub search** box beside the JQL one, and each site runs the box for its kind.

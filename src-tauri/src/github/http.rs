@@ -33,13 +33,15 @@ pub(crate) struct GitHubHttp {
     backoff: Duration,
 }
 
-/// Where a site's GraphQL API lives: github.com's is on its own host, Enterprise Server's under /api.
+/// Where a site's GraphQL API lives: github.com's and GHE.com's (data residency) on their own `api.`
+/// host, Enterprise Server's under /api.
 fn endpoint(site: &SiteConfig) -> String {
     let base = site.base_url.trim_end_matches('/');
-    if base.eq_ignore_ascii_case("https://github.com") {
-        "https://api.github.com/graphql".to_owned()
-    } else {
-        format!("{base}/api/graphql")
+    let host = base.strip_prefix("https://").unwrap_or(base).to_ascii_lowercase();
+    match host.as_str() {
+        "github.com" | "www.github.com" | "api.github.com" => "https://api.github.com/graphql".to_owned(),
+        h if h.ends_with(".ghe.com") => format!("https://api.{}/graphql", h.strip_prefix("api.").unwrap_or(h)),
+        _ => format!("{base}/api/graphql"),
     }
 }
 
@@ -101,8 +103,9 @@ impl GitHubHttp {
             let wait = requested_wait(res.headers());
             let retryable = matches!(status, StatusCode::TOO_MANY_REQUESTS | StatusCode::BAD_GATEWAY | StatusCode::SERVICE_UNAVAILABLE)
                 || (status == StatusCode::FORBIDDEN && wait.is_some());
-            if retryable && attempt < MAX_RETRIES {
-                let wait = wait.unwrap_or_else(|| self.backoff * 2_u32.pow(attempt)).min(MAX_RETRY_WAIT);
+            // A wait longer than we'd sit through (an exhausted hourly limit) fails now rather than spin.
+            if retryable && attempt < MAX_RETRIES && !wait.is_some_and(|w| w > MAX_RETRY_WAIT) {
+                let wait = wait.unwrap_or_else(|| self.backoff * 2_u32.pow(attempt));
                 attempt += 1;
                 log::warn!("{} rate limited ({}), retry {attempt} in {wait:?}", site.id, status.as_u16());
                 tokio::time::sleep(wait).await;
@@ -110,7 +113,7 @@ impl GitHubHttp {
             }
             let reply: Value = res.json().await.unwrap_or(Value::Null);
             if !status.is_success() {
-                return Err(describe_error(site, status, &reply));
+                return Err(describe_error(site, status, &reply, wait));
             }
             return data_of(site, reply, allow_missing);
         }
@@ -118,6 +121,9 @@ impl GitHubHttp {
 
     async fn search_all(&self, site: &SiteConfig, q: &str, max: Option<usize>) -> GitHubResult<Vec<Value>> {
         let limit = max.unwrap_or(usize::MAX);
+        if limit == 0 {
+            return Ok(Vec::new()); // GitHub rejects `first: 0`
+        }
         let query = search_query();
         let mut out = Vec::new();
         let mut after: Option<String> = None;
@@ -153,14 +159,17 @@ fn next_cursor(conn: &Value) -> Option<String> {
     page.get("endCursor").and_then(Value::as_str).map(String::from)
 }
 
-/// `data` from a 200 reply, unless it carries errors (other than not-found ones, when allowed).
+/// `data` from a 200 reply, unless it carries errors. With `allow_missing`, an error about one field
+/// that's missing or can't be seen (a deleted issue, a repo behind SAML SSO the token isn't authorized
+/// for) only leaves that field null.
 fn data_of(site: &SiteConfig, reply: Value, allow_missing: bool) -> GitHubResult<Value> {
     let errors: Vec<&Value> = reply.get("errors").and_then(Value::as_array).into_iter().flatten().collect();
-    let fatal: Vec<&str> = errors
-        .iter()
-        .filter(|e| !(allow_missing && e.get("type").and_then(Value::as_str) == Some("NOT_FOUND")))
-        .map(|e| e.get("message").and_then(Value::as_str).unwrap_or("unknown error"))
-        .collect();
+    let forgiven = |e: &Value| {
+        let one_field = e.get("path").and_then(Value::as_array).is_some_and(|p| !p.is_empty());
+        allow_missing && one_field && matches!(e.get("type").and_then(Value::as_str), Some("NOT_FOUND" | "FORBIDDEN"))
+    };
+    let fatal: Vec<&str> =
+        errors.iter().filter(|e| !forgiven(e)).map(|e| e.get("message").and_then(Value::as_str).unwrap_or("unknown error")).collect();
     if !fatal.is_empty() {
         return Err(format!("{} returned an error: {}", site.label, truncate(&fatal.join("; "), 300)));
     }
@@ -174,13 +183,16 @@ fn data_of(site: &SiteConfig, reply: Value, allow_missing: bool) -> GitHubResult
     })
 }
 
-fn describe_error(site: &SiteConfig, status: StatusCode, detail: &Value) -> String {
+fn describe_error(site: &SiteConfig, status: StatusCode, detail: &Value, wait: Option<Duration>) -> String {
     let message = detail.get("message").and_then(Value::as_str).map(|m| format!(": {}", truncate(m, 300))).unwrap_or_default();
-    let hint = match status {
-        StatusCode::UNAUTHORIZED => " (check the GitHub token)",
-        StatusCode::FORBIDDEN => " (the token lacks permission, or is rate limited)",
-        StatusCode::TOO_MANY_REQUESTS => " (rate limited; try again shortly)",
-        _ => "",
+    let hint = match (status, wait) {
+        (StatusCode::FORBIDDEN | StatusCode::TOO_MANY_REQUESTS, Some(w)) => {
+            format!(" (rate limited; try again in about {} min)", w.as_secs().div_ceil(60).max(1))
+        }
+        (StatusCode::UNAUTHORIZED, _) => " (check the GitHub token)".to_owned(),
+        (StatusCode::FORBIDDEN, None) => " (the token lacks permission)".to_owned(),
+        (StatusCode::TOO_MANY_REQUESTS, None) => " (rate limited; try again shortly)".to_owned(),
+        _ => String::new(),
     };
     format!("{} returned {}{hint}{message}", site.label, status.as_u16())
 }
@@ -278,6 +290,15 @@ mod tests {
         assert_eq!(endpoint(&site), "https://api.github.com/graphql");
         site.base_url = "https://ghe.acme.example".into();
         assert_eq!(endpoint(&site), "https://ghe.acme.example/api/graphql");
+        for (base, api) in [
+            ("https://www.github.com", "https://api.github.com/graphql"),
+            ("https://api.github.com", "https://api.github.com/graphql"),
+            ("https://acme.ghe.com", "https://api.acme.ghe.com/graphql"),
+            ("https://api.acme.ghe.com", "https://api.acme.ghe.com/graphql"),
+        ] {
+            site.base_url = base.into();
+            assert_eq!(endpoint(&site), api, "{base}");
+        }
     }
 
     #[tokio::test]
@@ -321,13 +342,22 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a_zero_result_search_sends_nothing() {
+        let f = fixture().await;
+        assert!(f.backend.search(&f.site, "org:acme", Some(0)).await.unwrap().is_empty());
+        assert!(f.server.received_requests().await.unwrap().is_empty());
+    }
+
+    #[tokio::test]
     async fn issues_skip_missing_ones_but_fail_on_other_errors() {
         let f = fixture().await;
         Mock::given(method("POST"))
             .and(body_partial_json(json!({ "variables": { "o0": "acme", "r0": "web", "n0": 42, "r1": "gone", "n1": 1 } })))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "data": { "k0": { "issueOrPullRequest": node("acme/web#42") }, "k1": null },
-                "errors": [{ "type": "NOT_FOUND", "message": "Could not resolve to a Repository with the name 'acme/gone'." }]
+                "errors": [
+                    { "type": "NOT_FOUND", "path": ["k1"], "message": "Could not resolve to a Repository with the name 'acme/gone'." },
+                ]
             })))
             .mount(&f.server)
             .await;
@@ -343,6 +373,49 @@ mod tests {
             .await;
         let err = f.backend.issues(&f.site, &["acme/bad#1".into()]).await.unwrap_err();
         assert!(err.contains("required scopes"), "{err}");
+    }
+
+    #[tokio::test]
+    async fn issues_behind_sso_are_left_out_but_query_wide_errors_fail() {
+        let f = fixture().await;
+        Mock::given(method("POST"))
+            .and(body_partial_json(json!({ "variables": { "r0": "web", "r1": "secret" } })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "data": { "k0": { "issueOrPullRequest": node("acme/web#1") }, "k1": null },
+                "errors": [{ "type": "FORBIDDEN", "path": ["k1"], "message": "Resource protected by organization SAML enforcement." }]
+            })))
+            .mount(&f.server)
+            .await;
+        let got = f.backend.issues(&f.site, &["acme/web#1".into(), "other/secret#2".into()]).await.unwrap();
+        assert_eq!(got, vec![node("acme/web#1")]);
+
+        // Without a path, the error is about the whole query: it fails.
+        Mock::given(method("POST"))
+            .and(body_partial_json(json!({ "variables": { "r0": "denied" } })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "data": null, "errors": [{ "type": "FORBIDDEN", "message": "Token is not allowed" }]
+            })))
+            .mount(&f.server)
+            .await;
+        assert!(f.backend.issues(&f.site, &["acme/denied#1".into()]).await.unwrap_err().contains("not allowed"));
+    }
+
+    #[tokio::test]
+    async fn an_exhausted_hourly_limit_fails_at_once_and_says_when_to_retry() {
+        let f = fixture().await;
+        let reset = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() + 3600;
+        Mock::given(method("POST"))
+            .respond_with(
+                ResponseTemplate::new(403)
+                    .insert_header("x-ratelimit-remaining", "0")
+                    .insert_header("x-ratelimit-reset", reset.to_string().as_str())
+                    .set_body_json(json!({ "message": "API rate limit exceeded" })),
+            )
+            .expect(1)
+            .mount(&f.server)
+            .await;
+        let err = f.backend.viewer(&f.site).await.unwrap_err();
+        assert!(err.contains("try again in about 60 min"), "{err}");
     }
 
     #[tokio::test]

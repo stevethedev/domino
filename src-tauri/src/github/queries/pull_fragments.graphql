@@ -68,6 +68,9 @@ fragment PullTicket on PullRequest {
     nodes {
       ...LinkedIssue
     }
+    pageInfo {
+      hasNextPage
+    }
   }
   timelineItems(first: 100, itemTypes: [CROSS_REFERENCED_EVENT, CONNECTED_EVENT, DISCONNECTED_EVENT]) {
     ...PullReferences

@@ -81,6 +81,8 @@ describe("scopeLabel", () => {
     expect(scopeLabel({ mode: "jql", jql: "  project =  X " })).toBe("“project = X”");
     expect(scopeLabel({ mode: "jql", jql: "x".repeat(60) })).toBe(`“${"x".repeat(39)}…”`);
     expect(scopeLabel({ mode: "jql", jql: "" })).toBe("the default query");
+    expect(scopeLabel({ mode: "jql", jql: "project = X", github: " is:open " })).toBe("“project = X · is:open”");
+    expect(scopeLabel({ mode: "jql", jql: "", github: "is:pr" })).toBe("“is:pr”");
     expect(scopeLabel({ mode: "epic", siteId: "a", key: "A-1" })).toBe("epic A-1");
     expect(scopeLabel({ mode: "seed", siteId: "a", key: "A-1", depth: 2 })).toBe("A-1 and its links (depth 2)");
   });

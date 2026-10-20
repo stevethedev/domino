@@ -12,7 +12,7 @@ import type {
   RawUser,
   RawVersion,
 } from "../jiraTypes";
-import { gitHubKey, JIRA_KEY_RE } from "../ticketKey";
+import { gitHubKey } from "../ticketKey";
 import type { GhConnection, GhLinked, GhNode, GhUser } from "./githubTypes";
 
 const category = {
@@ -145,7 +145,9 @@ export function toRawIssue(t: GhNode): RawIssue | null {
     id: t.id ?? key,
     key,
     self: t.url,
-    ...(t.timelineItems?.pageInfo?.hasNextPage ? { linksIncomplete: true } : {}),
+    ...([t.timelineItems, t.blockedBy, t.blocking, t.closingIssuesReferences].some((c) => c?.pageInfo?.hasNextPage === true)
+      ? { linksIncomplete: true }
+      : {}),
     fields: {
       summary: t.title ?? key,
       issuetype: typeOf(t),
@@ -168,8 +170,8 @@ export function jiraLinksIn(t: GhNode): RawRemoteLink[] {
   const text = t.body ?? t.bodyText;
   if (!key || !text) return [];
   const urls = new Set<string>();
-  for (const m of text.matchAll(/https:\/\/[A-Za-z0-9.-]+(?::\d+)?\/browse\/([A-Za-z][A-Za-z0-9_]*-\d+)/g)) {
-    if (JIRA_KEY_RE.test(m[1].toUpperCase())) urls.add(m[0]);
+  for (const m of text.matchAll(/https:\/\/[A-Za-z0-9.-]+(?::\d+)?\/browse\/[A-Za-z][A-Za-z0-9_]*-\d+/g)) {
+    urls.add(m[0]);
   }
   return [...urls].map((url) => ({
     id: remoteId(`${key} ${url}`),

@@ -120,6 +120,17 @@ describe("loading Jira and GitHub sites together", () => {
     expect(g.nodes.find((n) => n.uid === "gh:acme/web#45")?.ghost).toBe(false);
   });
 
+  it("keeps a query from widening the site's repos (GitHub ORs repeated repo qualifiers)", async () => {
+    const narrowed = sites.map((s) => (s.id === "gh" ? { ...s, baseJql: "repo:acme/web" } : s));
+    const res = await new MultiSiteLoader(source).load(
+      { mode: "jql", jql: "", github: "repo:acme/api" },
+      narrowed.filter((s) => s.id === "gh"),
+      narrowed,
+    );
+    if (res.kind !== "ok") throw new Error("expected ok");
+    expect(res.data[0]?.issues.every((i) => i.key.startsWith("acme/web#"))).toBe(true);
+  });
+
   it("rejects a Jira key on a GitHub site", async () => {
     const res = await new MultiSiteLoader(source).load({ mode: "seed", siteId: "gh", key: "CORE-1", depth: 1 }, pick("gh"), sites);
     expect(res.errors).toEqual([{ siteId: "gh", message: '"CORE-1" is not a valid ticket key (expected one like acme/web#12)' }]);

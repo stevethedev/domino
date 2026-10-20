@@ -41,6 +41,32 @@ describe("GitHubSource", () => {
     expect((await source.fetchIssue("gh", "acme/web#1")).key).toBe("acme/web#1");
   });
 
+  it("follows a renamed repo or transferred issue to where GitHub says it is now", async () => {
+    const api = fakeApi(new Map());
+    api.issues = (): Promise<GhNode[]> => Promise.resolve([{ ...ticket("Moved"), repository: { nameWithOwner: "acme/new" } }]);
+    expect((await new GitHubSource(api).fetchIssue("gh", "acme/old#1")).key).toBe("acme/new#1");
+  });
+
+  it("doesn't take a lone reply that has no key for the ticket asked for", async () => {
+    const api = fakeApi(new Map());
+    api.issues = (): Promise<GhNode[]> => Promise.resolve([{ title: "no repository or number" }]);
+    await expect(new GitHubSource(api).fetchIssue("gh", "acme/web#1")).rejects.toThrow("does not exist");
+  });
+
+  it("loads an epic's sub-issues whatever case its key was typed in", async () => {
+    const parent: GhNode = { ...ticket("Epic"), subIssuesSummary: { total: 1 } };
+    const child: GhNode = { ...ticket("Child"), number: 2 };
+    const api = fakeApi(new Map([["acme/web#1", parent]]));
+    let asked = "";
+    api.subIssues = (_site: string, key: string): Promise<GhNode[]> => {
+      asked = key;
+      return Promise.resolve([child]);
+    };
+    const { children } = await new GitHubSource(api).fetchEpic("gh", "ACME/Web#1");
+    expect(asked).toBe("acme/web#1");
+    expect(children.map((c) => c.key)).toEqual(["acme/web#2"]);
+  });
+
   it("reuses a loaded ticket for its follow-up calls until it's cleared", async () => {
     const nodes = new Map([["acme/web#1", ticket("T", "See https://acme.atlassian.net/browse/CORE-1")]]);
     const api = fakeApi(nodes);

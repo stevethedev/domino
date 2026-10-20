@@ -5,7 +5,7 @@ import { combineJql, keysJql } from "./jqlPresets";
 import { matchesMockJql, parseMockJql } from "./mockJql";
 
 /** Runs `fn` as an async method body would: a throw becomes a rejection, never a synchronous exception. */
-const settle = <T>(fn: () => T): Promise<T> =>
+export const settle = <T>(fn: () => T): Promise<T> =>
   new Promise((resolve) => {
     resolve(fn());
   });

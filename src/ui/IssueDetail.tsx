@@ -356,7 +356,8 @@ export function IssueDetail({
       />
       {n.linksIncomplete && (
         <p className="hint" role="note">
-          GitHub returned only this ticket's first 100 mentions and linked pull requests, so some of its links may be missing.
+          This ticket has more links on GitHub than Domino loads at once (100 mentions, 50 blockers, blocked or closed issues each), so some
+          may be missing.
         </p>
       )}
       {history && history.length > 0 && (
