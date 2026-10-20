@@ -12,6 +12,8 @@ export type GraphNode = {
   siteColor?: string;
   /** Set on tickets from GitHub sites (issues and pull requests); absent for Jira. */
   siteKind?: "github";
+  /** GitHub only: the ticket had more timeline events than one page, so some of its links may be missing. */
+  linksIncomplete?: true;
   key: string;
   summary: string;
   issueType: string;

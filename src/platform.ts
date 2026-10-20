@@ -12,9 +12,13 @@ import type { TicketCache } from "./data/TicketCache";
 // Everything goes through the Rust core. In `npm run dev:web` the same invoke() calls are
 // answered by src/dev/mockIpc.ts instead.
 // Data requests go to Jira or GitHub by the kind of site they're for, as the config says.
-const siteKinds = new SiteKinds();
+// GitHub tickets kept for follow-up calls are dropped whenever the config or a token changes.
+const githubSource = new GitHubSource(new TauriGitHubApi());
+const siteKinds = new SiteKinds(() => {
+  githubSource.clear();
+});
 export const configStore: ConfigStore = siteKinds.track(new TauriConfigStore());
-export const jiraSource: JiraSource = new RoutingSource(new TauriSource(), new GitHubSource(new TauriGitHubApi()), siteKinds.kindOf);
+export const jiraSource: JiraSource = new RoutingSource(new TauriSource(), githubSource, siteKinds.kindOf);
 export const ticketCache: TicketCache = new TauriTicketCache();
 
 /** Opens an https URL in the system browser. */

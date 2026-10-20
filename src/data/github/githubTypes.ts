@@ -11,7 +11,10 @@ export type GhLinked = {
   __typename?: "Issue" | "PullRequest";
   number?: number;
   title?: string;
-  state?: "OPEN" | "CLOSED" | "MERGED";
+  /** Issues only (pull requests send `pullState`). */
+  state?: "OPEN" | "CLOSED";
+  /** Pull requests only: their `state`, aliased because GraphQL can't give IssueState and PullRequestState one name. */
+  pullState?: "OPEN" | "CLOSED" | "MERGED";
   /** Issues only: why it was closed. */
   stateReason?: "COMPLETED" | "NOT_PLANNED" | "DUPLICATE" | "REOPENED" | null;
   /** Pull requests only. */
@@ -20,11 +23,11 @@ export type GhLinked = {
   repository?: GhRepository;
 };
 
-export type GhConnection<T> = { nodes?: (T | null)[] };
+export type GhConnection<T> = { nodes?: (T | null)[]; pageInfo?: { hasNextPage?: boolean } };
 
 export type GhTimelineItem =
   | { __typename: "CrossReferencedEvent"; willCloseTarget?: boolean; source?: GhLinked | null }
-  | { __typename: "ConnectedEvent"; subject?: GhLinked | null };
+  | { __typename: "ConnectedEvent" | "DisconnectedEvent"; subject?: GhLinked | null };
 
 export type GhMilestone = { id?: string; title?: string; dueOn?: string | null; state?: "OPEN" | "CLOSED" };
 
@@ -35,6 +38,8 @@ export type GhNode = GhLinked & {
   url?: string;
   createdAt?: string;
   closedAt?: string | null;
+  /** The raw Markdown (where link URLs survive) and the rendered plain text (for display). */
+  body?: string;
   bodyText?: string;
   author?: GhUser | null;
   assignees?: GhConnection<GhUser>;

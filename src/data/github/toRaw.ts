@@ -52,8 +52,8 @@ export function keyOf(t: GhLinked | null | undefined): string | null {
 
 function statusOf(t: GhLinked): RawStatus {
   if (isPull(t)) {
-    if (t.merged || t.state === "MERGED") return STATUSES.merged;
-    if (t.state === "CLOSED") return STATUSES.closed;
+    if (t.merged || t.pullState === "MERGED") return STATUSES.merged;
+    if (t.pullState === "CLOSED") return STATUSES.closed;
     return t.isDraft ? STATUSES.draft : STATUSES.inReview;
   }
   if (t.state !== "CLOSED") return STATUSES.open;
@@ -115,14 +115,24 @@ function linksOf(t: GhNode, self: string): RawIssueLink[] {
   for (const b of nodesOf(t.blockedBy)) add(LINK_TYPES.blocks, b, false);
   for (const b of nodesOf(t.blocking)) add(LINK_TYPES.blocks, b, true);
   for (const issue of nodesOf(t.closingIssuesReferences)) add(LINK_TYPES.closes, issue, true);
-  for (const item of nodesOf(t.timelineItems)) {
-    const other = item.__typename === "CrossReferencedEvent" ? item.source : item.subject;
-    if (!other) continue;
-    // A pull request linked to an issue (from its sidebar, or by "fixes #12") closes it when merged.
-    const closes = isPull(other) !== isPull(t) && (item.__typename === "ConnectedEvent" || item.willCloseTarget === true);
-    if (closes) add(LINK_TYPES.closes, other, isPull(t));
+  // A pull request that closes an issue when merged: by "fixes #12" (a cross-reference that will close it),
+  // or linked from the sidebar. Sidebar links can be undone, so connections are replayed in timeline order
+  // and only the ones still standing count.
+  const closesOrRelates = (other: GhLinked): void => {
+    if (isPull(other) !== isPull(t)) add(LINK_TYPES.closes, other, isPull(t));
     else add(LINK_TYPES.relates, other, true);
+  };
+  const connected = new Map<string, GhLinked | null>();
+  for (const item of nodesOf(t.timelineItems)) {
+    if (item.__typename === "CrossReferencedEvent") {
+      if (item.source && item.willCloseTarget === true && isPull(item.source) !== isPull(t)) closesOrRelates(item.source);
+      else if (item.source) add(LINK_TYPES.relates, item.source, true);
+      continue;
+    }
+    const otherKey = keyOf(item.subject);
+    if (item.subject && otherKey) connected.set(otherKey, item.__typename === "ConnectedEvent" ? item.subject : null);
   }
+  for (const other of connected.values()) if (other) closesOrRelates(other);
   return [...links.values()];
 }
 
@@ -135,6 +145,7 @@ export function toRawIssue(t: GhNode): RawIssue | null {
     id: t.id ?? key,
     key,
     self: t.url,
+    ...(t.timelineItems?.pageInfo?.hasNextPage ? { linksIncomplete: true } : {}),
     fields: {
       summary: t.title ?? key,
       issuetype: typeOf(t),
@@ -153,9 +164,11 @@ export function toRawIssue(t: GhNode): RawIssue | null {
 /** Jira tickets the body links to (`https://…/browse/KEY`), as remote links that relate to them. */
 export function jiraLinksIn(t: GhNode): RawRemoteLink[] {
   const key = keyOf(t);
-  if (!key || !t.bodyText) return [];
+  // The Markdown: rendered text drops the URL behind `[CORE-11](https://…)`.
+  const text = t.body ?? t.bodyText;
+  if (!key || !text) return [];
   const urls = new Set<string>();
-  for (const m of t.bodyText.matchAll(/https:\/\/[A-Za-z0-9.-]+(?::\d+)?\/browse\/([A-Za-z][A-Za-z0-9_]*-\d+)/g)) {
+  for (const m of text.matchAll(/https:\/\/[A-Za-z0-9.-]+(?::\d+)?\/browse\/([A-Za-z][A-Za-z0-9_]*-\d+)/g)) {
     if (JIRA_KEY_RE.test(m[1].toUpperCase())) urls.add(m[0]);
   }
   return [...urls].map((url) => ({

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyUrl, draftChanged, parseJiraUrl, uniqueId, withKind } from "../siteDraft";
+import { applyUrl, chooseKind, draftChanged, parseJiraUrl, uniqueId, withKind } from "../siteDraft";
 import type { SiteConfig } from "../types";
 
 describe("parseJiraUrl", () => {
@@ -126,5 +126,35 @@ describe("withKind", () => {
 
   it("keeps an Enterprise Server address", () => {
     expect(withKind({ ...jira, baseUrl: "https://ghe.acme.example" }, "github").baseUrl).toBe("https://ghe.acme.example");
+  });
+});
+
+describe("chooseKind", () => {
+  const blank: SiteConfig = {
+    id: "",
+    label: "",
+    baseUrl: "",
+    auth: { type: "apiToken", email: "", secretRef: "" },
+    color: "#123456",
+    enabled: true,
+  };
+
+  it("fills in a new GitHub site's id, name and token name, as typing its URL would", () => {
+    const { draft, auto } = chooseKind(blank, "github", ["acme"], { id: "", label: "" });
+    expect(draft).toMatchObject({
+      id: "github",
+      label: "GitHub",
+      kind: "github",
+      baseUrl: "https://github.com",
+      auth: { type: "githubToken", secretRef: "DOMINO_GITHUB_TOKEN" },
+    });
+    expect(auto).toEqual({ id: "github", label: "GitHub" });
+  });
+
+  it("clears what it filled in when switching back to Jira, but keeps the user's own values", () => {
+    const gh = chooseKind(blank, "github", [], { id: "", label: "" });
+    expect(chooseKind(gh.draft, "jira", [], gh.auto).draft).toMatchObject({ id: "", label: "", baseUrl: "" });
+    const named = chooseKind({ ...gh.draft, label: "Our GitHub" }, "jira", [], gh.auto).draft;
+    expect(named.label).toBe("Our GitHub");
   });
 });

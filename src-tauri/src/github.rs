@@ -152,6 +152,36 @@ mod tests {
     }
 
     #[test]
+    fn pull_request_fragments_alias_state() {
+        // Issue.state (IssueState) and PullRequest.state (PullRequestState) can't share a response
+        // name: GraphQL rejects the document even though the fragments never both match.
+        for fragments in [ISSUE_FRAGMENTS, PULL_FRAGMENTS] {
+            for block in fragments.split("fragment ").filter(|b| b.contains(" on PullRequest ")) {
+                // Top-level fields only: `milestone { state }` is a MilestoneState on both types.
+                assert!(!block.lines().any(|l| l == "  state"), "unaliased state in {}", block.lines().next().unwrap_or_default());
+                assert!(block.contains("pullState: state"), "{}", block.lines().next().unwrap_or_default());
+            }
+        }
+    }
+
+    #[test]
+    fn timelines_report_whether_they_were_cut_short_and_include_disconnections() {
+        for (fragments, name) in [(ISSUE_FRAGMENTS, "References"), (PULL_FRAGMENTS, "PullReferences")] {
+            let block = fragments.split("fragment ").find(|b| b.starts_with(name)).unwrap();
+            assert!(block.contains("pageInfo") && block.contains("hasNextPage"), "{name}");
+            assert!(block.contains("... on DisconnectedEvent"), "{name}");
+        }
+        for (fragments, name) in [(ISSUE_FRAGMENTS, "IssueTicket"), (PULL_FRAGMENTS, "PullTicket")] {
+            let block = fragments.split("fragment ").find(|b| b.starts_with(name)).unwrap();
+            assert!(
+                block.contains("timelineItems(first: 100, itemTypes: [CROSS_REFERENCED_EVENT, CONNECTED_EVENT, DISCONNECTED_EVENT])"),
+                "{name}"
+            );
+            assert!(block.lines().any(|l| l.trim() == "body"), "{name} fetches the raw Markdown body");
+        }
+    }
+
+    #[test]
     fn issue_lookups_pass_keys_as_variables() {
         let refs = [parse_key("acme/web#42").unwrap(), parse_key("acme/api#7").unwrap()];
         let q = issues_query(refs.len());

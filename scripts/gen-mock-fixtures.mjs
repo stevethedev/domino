@@ -406,7 +406,11 @@ const GH_ITEMS = [
     "Card tokenization endpoint",
     "priya",
     "priya",
-    { type: "Task", created: -6, body: `Needed by the checkout work in ${SITES.acme}/browse/CORE-11 before the web form can ship.` },
+    {
+      type: "Task",
+      created: -6,
+      body: `Needed by the checkout work in [CORE-11](${SITES.acme}/browse/CORE-11) before the web form can ship.`,
+    },
   ],
   ["acme/api#15", "issue", "not_planned", "Keep accepting v1 card tokens", "priya", null, { type: "Bug", created: -20, closed: -5 }],
   ["acme/web#42", "pr", "merged", "Saved cards UI", "priya", "priya", { milestone: true, created: -4, closed: -1 }],
@@ -440,7 +444,7 @@ const ghLinked = (key) => {
     return {
       __typename: "PullRequest",
       ...base,
-      state: state === "merged" ? "MERGED" : "OPEN",
+      pullState: state === "merged" ? "MERGED" : "OPEN", // aliased: see pull_fragments.graphql
       isDraft: state === "draft",
       merged: state === "merged",
     };
@@ -458,10 +462,12 @@ function ghNode([key, kind, state, title, author, assignee, extra]) {
     number,
     title,
     url: `${GH}/${repo}/${kind === "pr" ? "pull" : "issues"}/${number}`,
-    state: linked.state,
+    ...(kind === "pr" ? { pullState: linked.pullState } : { state: linked.state }),
     createdAt: at(extra.created ?? -7).toISOString(),
     closedAt: extra.closed === undefined ? null : at(extra.closed).toISOString(),
-    bodyText: extra.body ?? "",
+    // GitHub sends the Markdown and its rendered text; the text loses link URLs.
+    body: extra.body ?? "",
+    bodyText: (extra.body ?? "").replace(/\[([^\]]+)\]\([^)]+\)/g, "$1"),
     repository: { nameWithOwner: repo },
     author: GH_USERS[author],
     assignees: { nodes: assignee ? [GH_USERS[assignee]] : [] },
@@ -477,7 +483,7 @@ function ghNode([key, kind, state, title, author, assignee, extra]) {
       isDraft: linked.isDraft,
       merged: linked.merged,
       closingIssuesReferences: { nodes: GH_CLOSES.filter(([pr]) => pr === key).map(([, issue]) => ghLinked(issue)) },
-      timelineItems: { nodes: mentions },
+      timelineItems: { nodes: mentions, pageInfo: { hasNextPage: false } },
     };
   }
   const parent = GH_SUB_ISSUES.find(([, child]) => child === key)?.[0];
@@ -490,7 +496,10 @@ function ghNode([key, kind, state, title, author, assignee, extra]) {
     blockedBy: { nodes: GH_BLOCKS.filter(([, b]) => b === key).map(([a]) => ghLinked(a)) },
     blocking: { nodes: GH_BLOCKS.filter(([a]) => a === key).map(([, b]) => ghLinked(b)) },
     // A pull request that will close an issue shows on the issue as a cross-reference that closes it.
-    timelineItems: { nodes: [...GH_CLOSES.filter(([, issue]) => issue === key).map(([pr]) => crossRef(pr, true)), ...mentions] },
+    timelineItems: {
+      nodes: [...GH_CLOSES.filter(([, issue]) => issue === key).map(([pr]) => crossRef(pr, true)), ...mentions],
+      pageInfo: { hasNextPage: false },
+    },
   };
 }
 

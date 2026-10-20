@@ -299,3 +299,13 @@ describe("partial Jira data", () => {
     expect([n.statusName, n.statusCategory]).toEqual(["Open", "unknown"]);
   });
 });
+
+describe("GitHub tickets", () => {
+  it("carries the incomplete-links flag onto the node", () => {
+    const GH: SiteConfig = { ...site("gh"), kind: "github", baseUrl: "https://github.com", auth: { type: "githubToken", secretRef: "T" } };
+    const busy = { ...issue("acme/web#1"), linksIncomplete: true };
+    const g = buildGraph({ sites: [GH], data: [data("gh", [busy, issue("acme/web#2")])] });
+    expect(g.nodes.find((n) => n.key === "acme/web#1")?.linksIncomplete).toBe(true);
+    expect(g.nodes.find((n) => n.key === "acme/web#2")?.linksIncomplete).toBeUndefined();
+  });
+});

@@ -120,6 +120,7 @@ function nodeFromIssue(issue: RawIssue, site: SiteConfig, ranks: PriorityRanks):
       created: f.created ? toDay(f.created) : undefined,
     },
     releases: releasesOf(f.fixVersions, site),
+    ...(issue.linksIncomplete === true ? { linksIncomplete: true } : {}),
   };
 }
 

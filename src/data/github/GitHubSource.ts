@@ -5,7 +5,11 @@ import type { GhNode } from "./githubTypes";
 import { inRepoScope, repoScopeOf } from "./query";
 import { descriptionOf, GITHUB_LINK_TYPES, GITHUB_STATUSES, jiraLinksIn, keyOf, toRawIssue } from "./toRaw";
 
-/** Nodes kept for follow-up calls (remote links, descriptions) so they don't each cost a request. */
+/**
+ * Nodes kept for the follow-up calls a load makes (remote links, descriptions), so they don't each cost a
+ * request. Tickets themselves are always fetched afresh, and `clear` drops everything when the config or a
+ * token changes, so nothing loaded with an old account is served again.
+ */
 const MAX_REMEMBERED = 5000;
 
 /**
@@ -29,8 +33,15 @@ export class GitHubSource implements JiraSource {
     });
   }
 
-  private async node(siteId: string, key: string): Promise<GhNode> {
-    const known = this.remembered.get(`${siteId}|${key}`);
+  /** Forgets every remembered node. */
+  clear(): void {
+    this.remembered.clear();
+  }
+
+  /** The ticket, from GitHub (or, with `remembered`, from this load when it's known). */
+  private async node(siteId: string, rawKey: string, remembered = false): Promise<GhNode> {
+    const key = rawKey.toLowerCase();
+    const known = remembered ? this.remembered.get(`${siteId}|${key}`) : undefined;
     if (known) return known;
     const hit = (await this.api.issues(siteId, [key])).find((n) => keyOf(n) === key);
     if (!hit) throw new Error(`${key} does not exist, or the token can't see it`);
@@ -62,11 +73,11 @@ export class GitHubSource implements JiraSource {
   }
 
   async fetchDescription(siteId: string, key: string): Promise<unknown> {
-    return descriptionOf(await this.node(siteId, key));
+    return descriptionOf(await this.node(siteId, key, true));
   }
 
   async fetchRemoteLinks(siteId: string, key: string): Promise<RawRemoteLink[]> {
-    return jiraLinksIn(await this.node(siteId, key));
+    return jiraLinksIn(await this.node(siteId, key, true));
   }
 
   fetchLinkTypes(): Promise<RawLinkType[]> {

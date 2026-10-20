@@ -354,6 +354,11 @@ export function IssueDetail({
         nodes={nodes}
         onSelect={onSelect}
       />
+      {n.linksIncomplete && (
+        <p className="hint" role="note">
+          GitHub returned only this ticket's first 100 mentions and linked pull requests, so some of its links may be missing.
+        </p>
+      )}
       {history && history.length > 0 && (
         <section className="detail-section">
           <h3 className="subhead">Status history</h3>

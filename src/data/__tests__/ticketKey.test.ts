@@ -34,13 +34,15 @@ describe("ticket keys", () => {
   it("reads issue and pull request pages as keys", () => {
     expect(gitHubKeyFromPath("/acme/web/pull/42")).toBe("acme/web#42");
     expect(gitHubKeyFromPath("/acme/web/issues/7/")).toBe("acme/web#7");
+    expect(gitHubKeyFromPath("/Acme/Web/pull/42")).toBe("acme/web#42"); // GitHub names are case-insensitive
     expect(gitHubKeyFromPath("/acme/web/blob/main/x")).toBeNull();
     expect(gitHubKeyFromPath("/acme/web/issues/0")).toBeNull();
   });
 
   it("normalizes typed keys: Jira upper-cased, GitHub URLs turned into keys", () => {
     expect(normalizeKeyInput(jira, " core-1 ")).toBe("CORE-1");
-    expect(normalizeKeyInput(github, " Acme/Web#3 ")).toBe("Acme/Web#3");
+    expect(normalizeKeyInput(github, " Acme/Web#3 ")).toBe("acme/web#3");
+    expect(normalizeKeyInput(github, "https://github.com/Acme/Web/issues/3")).toBe("acme/web#3");
     expect(normalizeKeyInput(github, "https://github.com/acme/web/pull/42#discussion")).toBe("acme/web#42");
   });
 

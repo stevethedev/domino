@@ -16,12 +16,13 @@ function matchesTerm(node: GhNode, rawTerm: string, viewer: string): boolean {
   const value = term.slice(colon + 1).toLowerCase();
   const repo = (node.repository?.nameWithOwner ?? "").toLowerCase();
   const pull = node.__typename === "PullRequest";
+  const state = pull ? node.pullState : node.state;
   let hit: boolean;
   if (qualifier === "repo") hit = repo === value;
   else if (qualifier === "org" || qualifier === "user") hit = repo.split("/")[0] === value;
-  else if ((qualifier === "is" || qualifier === "state") && value === "open") hit = node.state === "OPEN";
-  else if ((qualifier === "is" || qualifier === "state") && value === "closed") hit = node.state !== "OPEN";
-  else if (qualifier === "is" && value === "merged") hit = node.state === "MERGED";
+  else if ((qualifier === "is" || qualifier === "state") && value === "open") hit = state === "OPEN";
+  else if ((qualifier === "is" || qualifier === "state") && value === "closed") hit = state !== "OPEN";
+  else if (qualifier === "is" && value === "merged") hit = state === "MERGED";
   else if ((qualifier === "is" || qualifier === "type") && value === "issue") hit = !pull;
   else if ((qualifier === "is" || qualifier === "type") && value === "pr") hit = pull;
   else if (qualifier === "assignee") {

@@ -45,6 +45,8 @@ export type RawIssue = {
   id: string;
   key: string;
   self?: string;
+  /** Not Jira's: set on GitHub tickets whose timeline had more events than one page, so some links may be missing. */
+  linksIncomplete?: boolean;
   fields: {
     summary: string;
     /** Optional for the same reason as on RawLinkedIssue. */

@@ -15,7 +15,7 @@ fragment LinkedPull on PullRequest {
   __typename
   number
   title
-  state
+  pullState: state
   isDraft
   merged
   repository {
@@ -39,6 +39,15 @@ fragment References on IssueTimelineItemsConnection {
         ...LinkedPull
       }
     }
+    ... on DisconnectedEvent {
+      subject {
+        ...LinkedIssue
+        ...LinkedPull
+      }
+    }
+  }
+  pageInfo {
+    hasNextPage
   }
 }
 
@@ -52,6 +61,7 @@ fragment IssueTicket on Issue {
   stateReason
   createdAt
   closedAt
+  body
   bodyText
   repository {
     nameWithOwner
@@ -95,7 +105,7 @@ fragment IssueTicket on Issue {
       ...LinkedIssue
     }
   }
-  timelineItems(first: 50, itemTypes: [CROSS_REFERENCED_EVENT, CONNECTED_EVENT]) {
+  timelineItems(first: 100, itemTypes: [CROSS_REFERENCED_EVENT, CONNECTED_EVENT, DISCONNECTED_EVENT]) {
     ...References
   }
 }

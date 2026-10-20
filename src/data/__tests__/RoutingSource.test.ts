@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { ConfigStore } from "../../config/ConfigStore";
 import type { SiteConfig } from "../../config/types";
 import { buildGraph } from "../../graph/buildGraph";
 import { FixtureSource } from "../FixtureSource";
@@ -25,6 +26,31 @@ describe("RoutingSource", () => {
     expect((await source.fetchIssue("gh", "acme/web#42")).fields.status?.name).toBe("Merged");
     expect((await source.fetchIssue("acme", "CORE-1")).key).toBe("CORE-1");
     expect(await source.fetchMyself("gh")).toMatchObject({ accountId: "jonasberg", displayName: "Jonas Berg" });
+  });
+});
+
+describe("SiteKinds.track", () => {
+  it("reports every config or credential change, so cached GitHub data can be dropped", async () => {
+    let changes = 0;
+    const tracking = new SiteKinds(() => {
+      changes++;
+    });
+    const config = mockConfig;
+    const inner = {
+      load: () => Promise.resolve(config),
+      save: (c: typeof config) => Promise.resolve(c),
+      reloadFile: () => Promise.resolve(config),
+      startFresh: () => Promise.resolve({ config, setAside: null }),
+      setSecret: () => Promise.resolve(),
+    } as unknown as ConfigStore;
+    const store = tracking.track(inner);
+    await store.load();
+    await store.save(config);
+    await store.reloadFile();
+    await store.startFresh();
+    await store.setSecret("DOMINO_GITHUB_TOKEN", "new");
+    expect(changes).toBe(5);
+    expect(tracking.kindOf("gh")).toBe("github");
   });
 });
 

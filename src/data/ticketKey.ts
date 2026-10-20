@@ -20,7 +20,8 @@ export function parseGitHubKey(key: string): GitHubKey | null {
   return number <= MAX_GITHUB_NUMBER ? { owner: m[1], repo: m[2], number } : null;
 }
 
-export const gitHubKey = (repo: string, number: number): string => `${repo}#${number}`;
+/** GitHub names are case-insensitive, so keys are lower-cased: every spelling of a repo is one ticket. */
+export const gitHubKey = (repo: string, number: number): string => `${repo.toLowerCase()}#${number}`;
 
 type KindOnly = Pick<SiteConfig, "kind">;
 
@@ -41,9 +42,9 @@ export function normalizeKeyInput(site: KindOnly, input: string): string {
   const t = input.trim();
   if (siteKindOf(site) !== "github") return t.toUpperCase();
   try {
-    return gitHubKeyFromPath(new URL(t).pathname) ?? t;
+    return gitHubKeyFromPath(new URL(t).pathname) ?? t.toLowerCase();
   } catch {
-    return t;
+    return t.toLowerCase();
   }
 }
 

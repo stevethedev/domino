@@ -265,7 +265,7 @@ function Shell(): ReactElement {
     if (sites.scopeUsable && sites.siteIds.length > 0) {
       if (v.scope.mode === "jql") {
         saveQuery(v.scope.jql);
-        if (v.scope.github !== undefined) saveGitHubQuery(v.scope.github);
+        saveGitHubQuery(v.scope.github ?? ""); // a view without one has an empty GitHub search
       }
       domino.applyScope(v.scope, sites.siteIds);
     }

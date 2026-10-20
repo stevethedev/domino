@@ -94,6 +94,23 @@ export function applyUrl(
   return { draft: next, auto };
 }
 
+/**
+ * Switches a new site's kind. Picking GitHub fills in github.com and, from it, the id, name and token
+ * name, as typing the URL would; switching back clears what was filled in, keeping the user's own values.
+ */
+export function chooseKind(
+  draft: SiteConfig,
+  kind: SiteKind,
+  taken: readonly string[],
+  prevAuto: AutoFields,
+): { draft: SiteConfig; auto: AutoFields } {
+  const next = withKind(draft, kind);
+  if (kind === "github")
+    return next.baseUrl === draft.baseUrl ? { draft: next, auto: prevAuto } : applyUrl(next, next.baseUrl, taken, prevAuto);
+  const cleared = { ...next, id: next.id === prevAuto.id ? "" : next.id, label: next.label === prevAuto.label ? "" : next.label };
+  return { draft: cleared, auto: { id: "", label: "" } };
+}
+
 /** Keys sorted, so two configs with the same fields in another order compare equal. */
 const canonical = (v: unknown): string =>
   JSON.stringify(v, (_key, value: unknown) =>

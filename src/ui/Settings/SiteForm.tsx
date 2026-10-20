@@ -1,7 +1,15 @@
 import { useEffect, useId, useMemo, useRef, useState, type ReactElement } from "react";
 import type { ConfigStore } from "../../config/ConfigStore";
 import { validateSite } from "../../config/schema";
-import { API_TOKEN_URL, applyUrl, draftChanged, gitHubTokenUrl, parseJiraUrl, suggestedSecretRef, withKind } from "../../config/siteDraft";
+import {
+  API_TOKEN_URL,
+  applyUrl,
+  chooseKind,
+  draftChanged,
+  gitHubTokenUrl,
+  parseJiraUrl,
+  suggestedSecretRef,
+} from "../../config/siteDraft";
 import { siteKindOf, type BackendKind, type SiteConfig } from "../../config/types";
 import { errorMessage } from "../../data/errors";
 import { openExternal } from "../../platform";
@@ -252,7 +260,9 @@ export function SiteForm({
                   name={`${uid}-kind`}
                   checked={!github}
                   onChange={() => {
-                    setDraft((d) => withKind(d, "jira"));
+                    const res = chooseKind(draft, "jira", takenIds, auto);
+                    setDraft(res.draft);
+                    setAuto(res.auto);
                   }}
                 />
                 Jira
@@ -263,7 +273,9 @@ export function SiteForm({
                   name={`${uid}-kind`}
                   checked={github}
                   onChange={() => {
-                    setDraft((d) => withKind(d, "github"));
+                    const res = chooseKind(draft, "github", takenIds, auto);
+                    setDraft(res.draft);
+                    setAuto(res.auto);
                   }}
                 />
                 GitHub (issues and pull requests)

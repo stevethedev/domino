@@ -14,18 +14,19 @@ pub(crate) struct GitHubMock {
     fail_sites: HashSet<String>,
 }
 
-/// `owner/repo#number` of a node, or of a linked issue embedded in one.
+/// `owner/repo#number` of a node, or of a linked issue embedded in one, lower-cased as the webview keys it.
 fn key_of(node: &Value) -> Option<String> {
     let repo = node.pointer("/repository/nameWithOwner")?.as_str()?;
-    Some(format!("{repo}#{}", node.get("number")?.as_u64()?))
+    Some(format!("{}#{}", repo.to_ascii_lowercase(), node.get("number")?.as_u64()?))
 }
 
 /// One search qualifier against a node. Free text and qualifiers the fixtures can't answer match everything.
 fn matches_term(node: &Value, term: &str, viewer: &str) -> bool {
     let (negate, term) = term.strip_prefix('-').map_or((false, term), |t| (true, t));
     let repo = node.pointer("/repository/nameWithOwner").and_then(Value::as_str).unwrap_or_default();
-    let state = node.get("state").and_then(Value::as_str).unwrap_or_default();
     let is_pr = node.get("__typename").and_then(Value::as_str) == Some("PullRequest");
+    // Pull requests' state is aliased to `pullState` (see pull_fragments.graphql).
+    let state = node.get(if is_pr { "pullState" } else { "state" }).and_then(Value::as_str).unwrap_or_default();
     let Some((qualifier, value)) = term.split_once(':') else { return true };
     let hit = match (qualifier.to_ascii_lowercase().as_str(), value.to_ascii_lowercase().as_str()) {
         ("repo", v) => repo.eq_ignore_ascii_case(v),
@@ -83,12 +84,14 @@ impl GitHubBackend for GitHubMock {
         for k in keys {
             check_key(k)?;
         }
-        Ok(self.nodes(site)?.filter(|n| key_of(n).is_some_and(|k| keys.contains(&k))).cloned().collect())
+        let wanted: Vec<String> = keys.iter().map(|k| k.to_ascii_lowercase()).collect();
+        Ok(self.nodes(site)?.filter(|n| key_of(n).is_some_and(|k| wanted.contains(&k))).cloned().collect())
     }
 
     async fn sub_issues(&self, site: &SiteConfig, key: &str) -> GitHubResult<Vec<Value>> {
         check_key(key)?;
-        let parent_is = |n: &&Value| n.get("parent").and_then(key_of).as_deref() == Some(key);
+        let key = key.to_ascii_lowercase();
+        let parent_is = |n: &&Value| n.get("parent").and_then(key_of).as_deref() == Some(key.as_str());
         Ok(self.nodes(site)?.filter(parent_is).cloned().collect())
     }
 

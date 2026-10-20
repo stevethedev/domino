@@ -10,6 +10,7 @@
       "state": "OPEN",
       "createdAt": "2026-10-08T15:00:00.000Z",
       "closedAt": null,
+      "body": "",
       "bodyText": "",
       "repository": {
         "nameWithOwner": "acme/web"
@@ -49,7 +50,10 @@
         "nodes": []
       },
       "timelineItems": {
-        "nodes": []
+        "nodes": [],
+        "pageInfo": {
+          "hasNextPage": false
+        }
       }
     },
     {
@@ -61,6 +65,7 @@
       "state": "OPEN",
       "createdAt": "2026-10-11T15:00:00.000Z",
       "closedAt": null,
+      "body": "",
       "bodyText": "",
       "repository": {
         "nameWithOwner": "acme/web"
@@ -131,12 +136,15 @@
               "repository": {
                 "nameWithOwner": "acme/web"
               },
-              "state": "OPEN",
+              "pullState": "OPEN",
               "isDraft": true,
               "merged": false
             }
           }
-        ]
+        ],
+        "pageInfo": {
+          "hasNextPage": false
+        }
       }
     },
     {
@@ -148,6 +156,7 @@
       "state": "CLOSED",
       "createdAt": "2026-10-11T15:00:00.000Z",
       "closedAt": "2026-10-19T15:00:00.000Z",
+      "body": "",
       "bodyText": "",
       "repository": {
         "nameWithOwner": "acme/web"
@@ -207,12 +216,15 @@
               "repository": {
                 "nameWithOwner": "acme/web"
               },
-              "state": "MERGED",
+              "pullState": "MERGED",
               "isDraft": false,
               "merged": true
             }
           }
-        ]
+        ],
+        "pageInfo": {
+          "hasNextPage": false
+        }
       }
     },
     {
@@ -224,7 +236,8 @@
       "state": "OPEN",
       "createdAt": "2026-10-14T15:00:00.000Z",
       "closedAt": null,
-      "bodyText": "Needed by the checkout work in https://acme.atlassian.net/browse/CORE-11 before the web form can ship.",
+      "body": "Needed by the checkout work in [CORE-11](https://acme.atlassian.net/browse/CORE-11) before the web form can ship.",
+      "bodyText": "Needed by the checkout work in CORE-11 before the web form can ship.",
       "repository": {
         "nameWithOwner": "acme/api"
       },
@@ -284,7 +297,10 @@
               "stateReason": "NOT_PLANNED"
             }
           }
-        ]
+        ],
+        "pageInfo": {
+          "hasNextPage": false
+        }
       }
     },
     {
@@ -296,6 +312,7 @@
       "state": "CLOSED",
       "createdAt": "2026-09-30T15:00:00.000Z",
       "closedAt": "2026-10-15T15:00:00.000Z",
+      "body": "",
       "bodyText": "",
       "repository": {
         "nameWithOwner": "acme/api"
@@ -339,7 +356,10 @@
               "stateReason": null
             }
           }
-        ]
+        ],
+        "pageInfo": {
+          "hasNextPage": false
+        }
       }
     },
     {
@@ -348,9 +368,10 @@
       "number": 42,
       "title": "Saved cards UI",
       "url": "https://github.com/acme/web/pull/42",
-      "state": "MERGED",
+      "pullState": "MERGED",
       "createdAt": "2026-10-16T15:00:00.000Z",
       "closedAt": "2026-10-19T15:00:00.000Z",
+      "body": "",
       "bodyText": "",
       "repository": {
         "nameWithOwner": "acme/web"
@@ -392,7 +413,10 @@
         ]
       },
       "timelineItems": {
-        "nodes": []
+        "nodes": [],
+        "pageInfo": {
+          "hasNextPage": false
+        }
       }
     },
     {
@@ -401,9 +425,10 @@
       "number": 45,
       "title": "Card form v2",
       "url": "https://github.com/acme/web/pull/45",
-      "state": "OPEN",
+      "pullState": "OPEN",
       "createdAt": "2026-10-18T15:00:00.000Z",
       "closedAt": null,
+      "body": "",
       "bodyText": "",
       "repository": {
         "nameWithOwner": "acme/web"
@@ -445,7 +470,10 @@
         ]
       },
       "timelineItems": {
-        "nodes": []
+        "nodes": [],
+        "pageInfo": {
+          "hasNextPage": false
+        }
       }
     }
   ],

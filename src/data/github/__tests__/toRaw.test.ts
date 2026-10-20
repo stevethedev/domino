@@ -9,7 +9,10 @@ const linkedIssue = (key: string, extra: Partial<GhLinked> = {}): GhLinked => {
   const [repo, n] = key.split("#");
   return { __typename: "Issue", number: Number(n), title: key, state: "OPEN", repository: { nameWithOwner: repo }, ...extra };
 };
-const linkedPull = (key: string, extra: Partial<GhLinked> = {}): GhLinked => ({ ...linkedIssue(key), __typename: "PullRequest", ...extra });
+const linkedPull = (key: string, extra: Partial<GhLinked> = {}): GhLinked => {
+  const { state: _state, stateReason: _reason, ...base } = linkedIssue(key);
+  return { ...base, __typename: "PullRequest", pullState: "OPEN", ...extra };
+};
 const node = (key: string, extra: Partial<GhNode> = {}): GhNode => ({ ...linkedIssue(key), id: `I_${key}`, ...extra });
 const raw = (n: GhNode): RawIssue => defined(toRawIssue(n), "issue");
 const fixture = (key: string): GhNode =>
@@ -59,11 +62,13 @@ describe("toRawIssue", () => {
     expect(status(node("a/b#1", { state: "CLOSED", stateReason: "COMPLETED" }))).toBe("Closed/done");
     expect(status(node("a/b#1", { state: "CLOSED", stateReason: "NOT_PLANNED" }))).toBe("Not planned/done");
     expect(status(node("a/b#1", { state: "CLOSED", stateReason: "DUPLICATE" }))).toBe("Not planned/done");
-    const pr = (extra: Partial<GhNode>): GhNode => node("a/b#2", { __typename: "PullRequest", ...extra });
+    const pr = (extra: Partial<GhNode>): GhNode => ({ ...linkedPull("a/b#2"), id: "PR_2", ...extra });
     expect(status(pr({ isDraft: true }))).toBe("Draft/indeterminate");
     expect(status(pr({}))).toBe("In review/indeterminate");
-    expect(status(pr({ state: "MERGED", merged: true }))).toBe("Merged/done");
-    expect(status(pr({ state: "CLOSED" }))).toBe("Closed/done");
+    // Pull requests read their state from `pullState` (see pull_fragments.graphql).
+    expect(status(pr({ pullState: "MERGED", merged: true }))).toBe("Merged/done");
+    expect(status(pr({ pullState: "CLOSED" }))).toBe("Closed/done");
+    expect(status(pr({ pullState: "MERGED" }))).toBe("Merged/done");
     expect(raw(pr({})).fields.issuetype).toEqual({ name: "Pull request" });
   });
 
@@ -117,6 +122,35 @@ describe("toRawIssue", () => {
     expect(issue.fields.issuelinks?.map((l) => l.id)).toEqual(["blocks:a/b#3>a/b#1", "closes:a/b#4>a/b#1", "relates:a/b#1|a/b#5"]);
   });
 
+  it("keys tickets in lower case, whatever spelling GitHub returns", () => {
+    expect(keyOf(linkedIssue("Acme/Web#7"))).toBe("acme/web#7");
+    expect(raw(node("Acme/Web#7", { blocking: { nodes: [linkedIssue("Acme/API#2")] } })).fields.issuelinks?.[0]?.id).toBe(
+      "blocks:acme/web#7>acme/api#2",
+    );
+  });
+
+  it("keeps a pull request linked from the sidebar only while it's still connected", () => {
+    const links = (...events: ("connect" | "disconnect")[]): string[] =>
+      raw(
+        node("a/b#1", {
+          timelineItems: {
+            nodes: events.map((e) => ({
+              __typename: e === "connect" ? "ConnectedEvent" : "DisconnectedEvent",
+              subject: linkedPull("a/b#4"),
+            })),
+          },
+        }),
+      ).fields.issuelinks?.map((l) => l.id) ?? [];
+    expect(links("connect")).toEqual(["closes:a/b#4>a/b#1"]);
+    expect(links("connect", "disconnect")).toEqual([]);
+    expect(links("connect", "disconnect", "connect")).toEqual(["closes:a/b#4>a/b#1"]);
+  });
+
+  it("flags tickets whose timeline had more events than one page", () => {
+    expect(raw(node("a/b#1", { timelineItems: { nodes: [], pageInfo: { hasNextPage: true } } })).linksIncomplete).toBe(true);
+    expect(raw(node("a/b#1", { timelineItems: { nodes: [], pageInfo: { hasNextPage: false } } })).linksIncomplete).toBeUndefined();
+  });
+
   it("skips nodes without a repository or number", () => {
     expect(toRawIssue({ title: "?" })).toBeNull();
   });
@@ -134,6 +168,14 @@ describe("jiraLinksIn", () => {
     ]);
     expect(jiraLinksIn(node("a/b#2", { bodyText: n.bodyText }))[0]?.id).not.toBe(links[0]?.id);
     expect(jiraLinksIn(node("a/b#1"))).toEqual([]);
+  });
+
+  it("reads links from the Markdown body, which keeps the URLs behind link text", () => {
+    const n = node("a/b#1", {
+      body: "Needed by [CORE-11](https://acme.atlassian.net/browse/CORE-11).",
+      bodyText: "Needed by CORE-11.",
+    });
+    expect(jiraLinksIn(n).map((l) => l.object.url)).toEqual(["https://acme.atlassian.net/browse/CORE-11"]);
   });
 });
 

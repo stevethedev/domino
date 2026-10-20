@@ -3,20 +3,26 @@ import { siteKindOf, type ConfigFileStatus, type DominoConfig, type HealthStatus
 import type { JiraSource } from "./JiraSource";
 import type { RawIssue, RawIssueChangeLog, RawLinkType, RawPriority, RawRemoteLink, RawStatusDef, RawUser } from "./jiraTypes";
 
-/** Each configured site's kind, kept current by watching the configs a ConfigStore hands out. */
+/**
+ * Each configured site's kind, kept current by watching the configs a ConfigStore hands out.
+ * `onChange` hears of every config it sees and every secret set through the store.
+ */
 export class SiteKinds {
   private kinds = new Map<string, SiteKind>();
+
+  constructor(private readonly onChange: () => void = (): void => undefined) {}
 
   readonly kindOf = (siteId: string): SiteKind => this.kinds.get(siteId) ?? "jira";
 
   update(config: DominoConfig): DominoConfig {
     this.kinds = new Map(config.sites.map((s) => [s.id, siteKindOf(s)]));
+    this.onChange();
     return config;
   }
 
   /** `store`, noting the kinds of every config it loads or saves. */
   track(store: ConfigStore): ConfigStore {
-    return new TrackedConfigStore(store, (c) => this.update(c));
+    return new TrackedConfigStore(store, (c) => this.update(c), this.onChange);
   }
 }
 
@@ -24,6 +30,7 @@ class TrackedConfigStore implements ConfigStore {
   constructor(
     private readonly store: ConfigStore,
     private readonly seen: (config: DominoConfig) => DominoConfig,
+    private readonly secretSet: () => void,
   ) {}
 
   async load(): Promise<DominoConfig> {
@@ -49,8 +56,9 @@ class TrackedConfigStore implements ConfigStore {
   health(siteId: string): Promise<HealthStatus> {
     return this.store.health(siteId);
   }
-  setSecret(secretRef: string, value: string): Promise<void> {
-    return this.store.setSecret(secretRef, value);
+  async setSecret(secretRef: string, value: string): Promise<void> {
+    await this.store.setSecret(secretRef, value);
+    this.secretSet();
   }
   secretStatus(secretRef: string): Promise<boolean> {
     return this.store.secretStatus(secretRef);

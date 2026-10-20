@@ -1,4 +1,5 @@
-# Pull request fields; uses the LinkedIssue and LinkedPull fragments from issue_fragments.graphql.
+# Pull request fields (state is aliased to pullState: GraphQL rejects one response name with two
+# enum types, IssueState and PullRequestState); uses the LinkedIssue and LinkedPull fragments from issue_fragments.graphql.
 fragment PullReferences on PullRequestTimelineItemsConnection {
   nodes {
     __typename
@@ -15,6 +16,15 @@ fragment PullReferences on PullRequestTimelineItemsConnection {
         ...LinkedPull
       }
     }
+    ... on DisconnectedEvent {
+      subject {
+        ...LinkedIssue
+        ...LinkedPull
+      }
+    }
+  }
+  pageInfo {
+    hasNextPage
   }
 }
 
@@ -24,11 +34,12 @@ fragment PullTicket on PullRequest {
   number
   title
   url
-  state
+  pullState: state
   isDraft
   merged
   createdAt
   closedAt
+  body
   bodyText
   repository {
     nameWithOwner
@@ -58,7 +69,7 @@ fragment PullTicket on PullRequest {
       ...LinkedIssue
     }
   }
-  timelineItems(first: 50, itemTypes: [CROSS_REFERENCED_EVENT, CONNECTED_EVENT]) {
+  timelineItems(first: 100, itemTypes: [CROSS_REFERENCED_EVENT, CONNECTED_EVENT, DISCONNECTED_EVENT]) {
     ...PullReferences
   }
 }

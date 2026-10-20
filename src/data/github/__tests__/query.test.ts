@@ -18,6 +18,16 @@ describe("repoScopeOf / inRepoScope", () => {
     expect(inRepoScope(scope, "not a key")).toBe(false);
   });
 
+  it("keeps excluded owners and repos out", () => {
+    const scope = repoScopeOf("org:acme -repo:acme/legacy");
+    expect(inRepoScope(scope, "acme/web#1")).toBe(true);
+    expect(inRepoScope(scope, "acme/legacy#2")).toBe(false);
+    const onlyExcluded = repoScopeOf("-repo:acme/legacy -org:other is:open");
+    expect(inRepoScope(onlyExcluded, "acme/web#1")).toBe(true);
+    expect(inRepoScope(onlyExcluded, "Acme/Legacy#2")).toBe(false);
+    expect(inRepoScope(onlyExcluded, "other/x#3")).toBe(false);
+  });
+
   it("allows any repo when the filter names none", () => {
     expect(repoScopeOf("is:open label:bug")).toBeNull();
     expect(inRepoScope(repoScopeOf(undefined), "x/y#1")).toBe(true);

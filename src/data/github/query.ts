@@ -5,19 +5,32 @@ import { parseGitHubKey } from "../ticketKey";
 /** `base query`: GitHub ANDs search terms separated by spaces, so no parentheses are needed. */
 export const combineGitHubQuery = (base: string, query: string): string => [base.trim(), query.trim()].filter(Boolean).join(" ");
 
-/** The owners and repositories a search is limited to (`org:`, `user:`, `repo:`), or null when it names none. */
-export type RepoScope = Readonly<{ owners: ReadonlySet<string>; repos: ReadonlySet<string> }> | null;
+/**
+ * The owners and repositories a search is limited to (`org:`, `user:`, `repo:`) and the ones it
+ * excludes (`-org:`, `-user:`, `-repo:`), or null when it names none.
+ */
+export type RepoScope = Readonly<{
+  owners: ReadonlySet<string>;
+  repos: ReadonlySet<string>;
+  excludedOwners: ReadonlySet<string>;
+  excludedRepos: ReadonlySet<string>;
+}> | null;
 
 export function repoScopeOf(filter: string | undefined): RepoScope {
-  const owners = new Set<string>();
-  const repos = new Set<string>();
+  const scope = {
+    owners: new Set<string>(),
+    repos: new Set<string>(),
+    excludedOwners: new Set<string>(),
+    excludedRepos: new Set<string>(),
+  };
   for (const term of (filter ?? "").split(/\s+/)) {
-    const m = /^(org|user|repo):(\S+)$/i.exec(term);
+    const m = /^(-?)(org|user|repo):(\S+)$/i.exec(term);
     if (!m) continue;
-    if (m[1].toLowerCase() === "repo") repos.add(m[2].toLowerCase());
-    else owners.add(m[2].toLowerCase());
+    const repo = m[2].toLowerCase() === "repo";
+    const into = m[1] ? (repo ? scope.excludedRepos : scope.excludedOwners) : repo ? scope.repos : scope.owners;
+    into.add(m[3].toLowerCase());
   }
-  return owners.size || repos.size ? { owners, repos } : null;
+  return Object.values(scope).some((s) => s.size > 0) ? scope : null;
 }
 
 /**
@@ -28,5 +41,8 @@ export function inRepoScope(scope: RepoScope, key: string): boolean {
   const k = parseGitHubKey(key);
   if (!k) return false;
   if (!scope) return true;
-  return scope.owners.has(k.owner.toLowerCase()) || scope.repos.has(`${k.owner}/${k.repo}`.toLowerCase());
+  const owner = k.owner.toLowerCase();
+  const repo = `${owner}/${k.repo.toLowerCase()}`;
+  if (scope.excludedOwners.has(owner) || scope.excludedRepos.has(repo)) return false;
+  return (scope.owners.size === 0 && scope.repos.size === 0) || scope.owners.has(owner) || scope.repos.has(repo);
 }
