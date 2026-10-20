@@ -32,12 +32,12 @@ jobs:
             patchelf
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@master
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
         with:
           toolchain: 1.93.1 # keep in step with src-tauri/rust-toolchain.toml
 
       - name: Cache cargo registry and build artifacts
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: src-tauri
 
@@ -58,7 +58,7 @@ jobs:
       # `publish`, which tags the release commit instead of publishing to
       # npm — tag-release.mjs then dispatches release.yml's cross-platform build.
       - name: Version or release
-        uses: changesets/action@v2
+        uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
         with:
           version-script: npm run release:version
           publish-script: node scripts/tag-release.mjs

@@ -220,7 +220,7 @@ pub(crate) fn set_secret(state: State<'_, AppState>, secret_ref: String, value: 
         return Err("That secret is managed by Connect/Disconnect".into());
     }
     state.secrets.set(&secret_ref, &value)?;
-    log::info!("secret {secret_ref} updated");
+    log::info!("secret updated");
     // A new token can belong to another account: forget what the sites using it cached.
     let cfg = state.config.get();
     state
