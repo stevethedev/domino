@@ -163,12 +163,36 @@ export function toRawIssue(t: GhNode): RawIssue | null {
   };
 }
 
+type Fence = Readonly<{ char: string; length: number }>;
+
+/**
+ * The text without fenced code blocks, as CommonMark reads them: a fence closes on the same
+ * character, at least as long, with nothing after it; an unclosed fence runs to the end; any indent
+ * is allowed (fences in list items). One pass over the lines, whatever the input.
+ */
+function withoutFencedCode(text: string): string {
+  const kept: string[] = [];
+  let open: Fence | null = null;
+  for (const line of text.split(/\r?\n/)) {
+    const m = /^[ \t]*(`{3,}|~{3,})(.*)$/.exec(line);
+    if (open) {
+      if (m && m[1][0] === open.char && m[1].length >= open.length && m[2].trim() === "") open = null;
+    } else if (m && !(m[1][0] === "`" && m[2].includes("`"))) {
+      open = { char: m[1][0], length: m[1].length };
+    } else {
+      kept.push(line);
+    }
+  }
+  return kept.join("\n");
+}
+
 /** Jira tickets the body links to (`https://…/browse/KEY`), as remote links that relate to them. */
 export function jiraLinksIn(t: GhNode): RawRemoteLink[] {
   const key = keyOf(t);
-  // The Markdown: rendered text drops the URL behind `[CORE-11](https://…)`.
-  // Without what GitHub doesn't show: HTML comments (PR templates) and fenced code.
-  const text = (t.body ?? t.bodyText)?.replace(/<!--[\s\S]*?-->/g, "").replace(/^(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\1[`~]*[ \t]*$/gm, "");
+  // The Markdown: rendered text drops the URL behind `[CORE-11](https://…)`. HTML comments (PR
+  // templates; an unclosed one hides the rest) and fenced code aren't shown, so they don't count.
+  const body = t.body ?? t.bodyText;
+  const text = body && withoutFencedCode(body.replace(/<!--[\s\S]*?(?:-->|$)/g, ""));
   if (!key || !text) return [];
   const urls = new Set<string>();
   for (const m of text.matchAll(/https:\/\/[A-Za-z0-9.-]+(?::\d+)?\/browse\/[A-Za-z][A-Za-z0-9_]*-\d+/g)) {

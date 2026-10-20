@@ -180,6 +180,23 @@ describe("jiraLinksIn", () => {
     expect(jiraLinksIn(node("a/b#1", { body: fences }))).toEqual([]);
   });
 
+  it("reads code fences as CommonMark does", () => {
+    const url = (n: number): string => `https://acme.atlassian.net/browse/CORE-${n}`;
+    const found = (body: string): (string | undefined)[] => jiraLinksIn(node("a/b#1", { body })).map((l) => l.object.title);
+    expect(found(`1. step\n   \`\`\`\n   ${url(1)}\n   \`\`\`\nSee ${url(9)}`)).toEqual(["CORE-9"]); // list-item fence
+    expect(found(`\`\`\`\n${url(1)}\n  \`\`\`\nSee ${url(9)}`)).toEqual(["CORE-9"]); // indented close
+    expect(found(`See ${url(9)}\n\`\`\`\n${url(1)}`)).toEqual(["CORE-9"]); // unclosed: runs to the end
+    expect(found(`\`\`\`\n${url(1)}\n\`\`\`~\n${url(2)}\n\`\`\`\nSee ${url(9)}`)).toEqual(["CORE-9"]); // \`\`\`~ doesn't close
+    expect(found(`Use \`\`\`x\`\`\` here ${url(9)}`)).toEqual(["CORE-9"]); // not an opener
+    expect(found(`See ${url(9)}\n<!-- unclosed ${url(1)}`)).toEqual(["CORE-9"]);
+  });
+
+  it("scans a hostile body in linear time", () => {
+    const started = performance.now();
+    jiraLinksIn(node("a/b#1", { body: "\`\`\`a\n".repeat(16000) + "<!--".repeat(16000) }));
+    expect(performance.now() - started).toBeLessThan(200);
+  });
+
   it("reads links from the Markdown body, which keeps the URLs behind link text", () => {
     const n = node("a/b#1", {
       body: "Needed by [CORE-11](https://acme.atlassian.net/browse/CORE-11).",
