@@ -6,6 +6,9 @@ on:
   pull_request:
   workflow_call:
 
+permissions:
+  contents: read
+
 jobs:
   clippy-and-test:
     runs-on: ubuntu-latest
