@@ -50,6 +50,9 @@ describe("ticket keys", () => {
     const ghe = { kind: "github" as const, baseUrl: "https://ghe.acme.example" };
     expect(normalizeKeyInput(ghe, "https://ghe.acme.example/acme/web/issues/3")).toBe("acme/web#3");
     expect(isTicketKey(ghe, normalizeKeyInput(ghe, "https://github.com/acme/web/issues/3"))).toBe(false);
+    expect(normalizeKeyInput({ ...ghe, baseUrl: "https://ghe.acme.example/github/" }, "https://ghe.acme.example/acme/web/issues/3")).toBe(
+      "acme/web#3",
+    );
   });
 
   it("links to each kind's ticket page", () => {

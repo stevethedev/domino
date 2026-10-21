@@ -37,6 +37,14 @@ export function gitHubKeyFromPath(pathname: string): string | null {
   return parseGitHubKey(key) ? key : null;
 }
 
+const originOf = (baseUrl: string): string | null => {
+  try {
+    return new URL(baseUrl.trim()).origin;
+  } catch {
+    return null;
+  }
+};
+
 /**
  * What the user typed as a key, in the site's spelling: Jira keys upper-cased, GitHub keys lower-cased,
  * and the site's own issue URLs turned into keys. A URL from another host is left as typed (so it isn't a
@@ -51,8 +59,7 @@ export function normalizeKeyInput(site: Pick<SiteConfig, "kind" | "baseUrl">, in
   } catch {
     return t.toLowerCase();
   }
-  const sameSite = url.origin.toLowerCase() === site.baseUrl.trim().replace(/\/+$/, "").toLowerCase();
-  return (sameSite && gitHubKeyFromPath(url.pathname)) || t;
+  return (url.origin === originOf(site.baseUrl) && gitHubKeyFromPath(url.pathname)) || t;
 }
 
 /** An example key for the site's kind, for placeholders and validation messages. */
