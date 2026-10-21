@@ -82,6 +82,13 @@ export function SiteForm({
   const [secretSet, setSecretSet] = useState<boolean | null>(null);
   const [oauthConnected, setOauthConnected] = useState<boolean | null>(null);
 
+  // A token pasted for one kind of site never goes to the other: switching kind (by the radios or a
+  // pasted github.com link) drops it.
+  const kind = siteKindOf(draft);
+  useEffect(() => {
+    setToken("");
+  }, [kind]);
+
   const dirty = draftChanged({ initial, draft, initialDefault, isDefault, token });
   useEffect(() => {
     onDirty(dirty);

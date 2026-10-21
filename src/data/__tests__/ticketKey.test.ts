@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { gitHubKeyFromPath, isTicketKey, normalizeKeyInput, parseGitHubKey, ticketUrl } from "../ticketKey";
 
-const jira = {};
-const github = { kind: "github" as const };
+const jira = { kind: "jira" as const, baseUrl: "https://acme.atlassian.net" };
+const github = { kind: "github" as const, baseUrl: "https://github.com" };
 
 describe("ticket keys", () => {
   it("checks keys by the kind of site", () => {
@@ -44,6 +44,12 @@ describe("ticket keys", () => {
     expect(normalizeKeyInput(github, " Acme/Web#3 ")).toBe("acme/web#3");
     expect(normalizeKeyInput(github, "https://github.com/Acme/Web/issues/3")).toBe("acme/web#3");
     expect(normalizeKeyInput(github, "https://github.com/acme/web/pull/42#discussion")).toBe("acme/web#42");
+  });
+
+  it("only reads issue URLs from the selected site's own host", () => {
+    const ghe = { kind: "github" as const, baseUrl: "https://ghe.acme.example" };
+    expect(normalizeKeyInput(ghe, "https://ghe.acme.example/acme/web/issues/3")).toBe("acme/web#3");
+    expect(isTicketKey(ghe, normalizeKeyInput(ghe, "https://github.com/acme/web/issues/3"))).toBe(false);
   });
 
   it("links to each kind's ticket page", () => {

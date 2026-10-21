@@ -8,7 +8,8 @@ import { descriptionOf, GITHUB_LINK_TYPES, GITHUB_STATUSES, jiraLinksIn, keyOf, 
 /**
  * Nodes kept for the follow-up calls a load makes (remote links, descriptions), so they don't each cost a
  * request. Tickets themselves are always fetched afresh, and `clear` drops everything when the config or a
- * token changes, so nothing loaded with an old account is served again.
+ * token changes, so nothing loaded with an old account is served again; replies to requests made before
+ * the last `clear` are never kept either.
  */
 const MAX_REMEMBERED = 5000;
 
@@ -18,13 +19,17 @@ const MAX_REMEMBERED = 5000;
  */
 export class GitHubSource implements JiraSource {
   private readonly remembered = new Map<string, GhNode>();
+  /** Bumped by `clear`: a reply to a request made under an older generation isn't remembered. */
+  private generation = 0;
 
   constructor(private readonly api: GitHubApi) {}
 
-  private remember(siteId: string, nodes: readonly GhNode[]): RawIssue[] {
+  /** The nodes as issues, remembered for follow-up calls if they were requested in the current generation. */
+  private remember(siteId: string, nodes: readonly GhNode[], requestedIn: number): RawIssue[] {
     return nodes.flatMap((n) => {
       const issue = toRawIssue(n);
       if (!issue) return [];
+      if (requestedIn !== this.generation) return [issue];
       const id = `${siteId}|${issue.key}`;
       this.remembered.delete(id); // re-inserted last, so the oldest go first
       this.remembered.set(id, n);
@@ -35,6 +40,7 @@ export class GitHubSource implements JiraSource {
 
   /** Forgets every remembered node. */
   clear(): void {
+    this.generation++;
     this.remembered.clear();
   }
 
@@ -43,34 +49,42 @@ export class GitHubSource implements JiraSource {
     const key = rawKey.toLowerCase();
     const known = remembered ? this.remembered.get(`${siteId}|${key}`) : undefined;
     if (known) return known;
+    const requestedIn = this.generation;
     const nodes = await this.api.issues(siteId, [key]);
     // A renamed repo or transferred issue comes back under its new key: one answer to one question is it.
     const hit = nodes.find((n) => keyOf(n) === key) ?? (nodes.length === 1 && keyOf(nodes[0]) ? nodes[0] : undefined);
     if (!hit) throw new Error(`${key} does not exist, or the token can't see it`);
-    this.remember(siteId, [hit]);
+    this.remember(siteId, [hit], requestedIn);
     return hit;
   }
 
   async fetchByJql(siteId: string, query: string, maxResults?: number): Promise<RawIssue[]> {
-    return this.remember(siteId, await this.api.search(siteId, query, maxResults));
+    const requestedIn = this.generation;
+    return this.remember(siteId, await this.api.search(siteId, query, maxResults), requestedIn);
   }
 
   async fetchByKeys(siteId: string, keys: readonly string[], filter?: string): Promise<RawIssue[]> {
     const scope = repoScopeOf(filter);
     const wanted = keys.filter((k) => inRepoScope(scope, k));
-    return wanted.length ? this.remember(siteId, await this.api.issues(siteId, wanted)) : [];
+    if (!wanted.length) return [];
+    const requestedIn = this.generation;
+    // By the key GitHub answers with too: a renamed repo can land outside the filter.
+    const found = (await this.api.issues(siteId, wanted)).filter((n) => inRepoScope(scope, keyOf(n) ?? ""));
+    return this.remember(siteId, found, requestedIn);
   }
 
   async fetchEpic(siteId: string, key: string, filter?: string): Promise<{ epic: RawIssue; children: RawIssue[] }> {
-    const [epic] = this.remember(siteId, [await this.node(siteId, key)]);
+    const requestedIn = this.generation;
+    const [epic] = this.remember(siteId, [await this.node(siteId, key)], requestedIn);
     if (epic.fields.issuetype?.hierarchyLevel !== 1) throw new Error(`${key} has no sub-issues`);
     const scope = repoScopeOf(filter);
     const children = (await this.api.subIssues(siteId, epic.key)).filter((n) => inRepoScope(scope, keyOf(n) ?? ""));
-    return { epic, children: this.remember(siteId, children) };
+    return { epic, children: this.remember(siteId, children, requestedIn) };
   }
 
   async fetchIssue(siteId: string, key: string): Promise<RawIssue> {
-    const [issue] = this.remember(siteId, [await this.node(siteId, key)]);
+    const requestedIn = this.generation;
+    const [issue] = this.remember(siteId, [await this.node(siteId, key)], requestedIn);
     return issue;
   }
 

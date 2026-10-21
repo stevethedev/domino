@@ -90,7 +90,9 @@ export function ScopeInputs({
     const k = normalizeKeyInput(keySite, key);
     if (!isTicketKey(keySite, k)) {
       setError(
-        siteKindOf(keySite) === "github" ? "Enter a key like acme/web#12, or paste the issue's URL" : "Enter a ticket key like CORE-1",
+        siteKindOf(keySite) === "github"
+          ? "Enter a key like acme/web#12, or paste the issue's URL from this site"
+          : "Enter a ticket key like CORE-1",
       );
       return;
     }

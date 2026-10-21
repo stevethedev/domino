@@ -146,6 +146,21 @@ describe("toRawIssue", () => {
     expect(links("connect", "disconnect", "connect")).toEqual(["closes:a/b#4>a/b#1"]);
   });
 
+  it("doesn't trust sidebar connections on a timeline that was cut short (the unlink may be on a later page)", () => {
+    const issue = raw(
+      node("a/b#1", {
+        timelineItems: {
+          nodes: [
+            { __typename: "ConnectedEvent", subject: linkedPull("a/b#4") },
+            { __typename: "CrossReferencedEvent", willCloseTarget: true, source: linkedPull("a/b#5") },
+          ],
+          pageInfo: { hasNextPage: true },
+        },
+      }),
+    );
+    expect(issue.fields.issuelinks?.map((l) => l.id)).toEqual(["closes:a/b#5>a/b#1"]);
+  });
+
   it("flags tickets whose timeline had more events than one page", () => {
     expect(raw(node("a/b#1", { timelineItems: { nodes: [], pageInfo: { hasNextPage: true } } })).linksIncomplete).toBe(true);
     expect(raw(node("a/b#1", { timelineItems: { nodes: [], pageInfo: { hasNextPage: false } } })).linksIncomplete).toBeUndefined();

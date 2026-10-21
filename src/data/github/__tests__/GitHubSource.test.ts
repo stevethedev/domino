@@ -67,6 +67,30 @@ describe("GitHubSource", () => {
     expect(children.map((c) => c.key)).toEqual(["acme/web#2"]);
   });
 
+  it("doesn't let a reply that lands after clear() repopulate the cache", async () => {
+    const nodes = new Map([["acme/web#1", ticket("Old account", "See https://acme.atlassian.net/browse/CORE-1")]]);
+    const api = fakeApi(nodes);
+    let resolveSearch: (nodes: GhNode[]) => void = () => undefined;
+    api.search = (): Promise<GhNode[]> =>
+      new Promise((resolve) => {
+        resolveSearch = resolve;
+      });
+    const source = new GitHubSource(api);
+    const pending = source.fetchByJql("gh", "org:acme");
+    source.clear(); // a token or host change while the search is in flight
+    resolveSearch([...nodes.values()]);
+    await pending;
+    nodes.set("acme/web#1", ticket("New account"));
+    expect(await source.fetchRemoteLinks("gh", "acme/web#1")).toEqual([]);
+    expect(api.calls).toBe(1);
+  });
+
+  it("keeps a renamed repo's tickets out when the new name is outside the site filter", async () => {
+    const api = fakeApi(new Map());
+    api.issues = (): Promise<GhNode[]> => Promise.resolve([{ ...ticket("Moved"), repository: { nameWithOwner: "acme/new" } }]);
+    expect(await new GitHubSource(api).fetchByKeys("gh", ["acme/old#1"], "repo:acme/old")).toEqual([]);
+  });
+
   it("reuses a loaded ticket for its follow-up calls until it's cleared", async () => {
     const nodes = new Map([["acme/web#1", ticket("T", "See https://acme.atlassian.net/browse/CORE-1")]]);
     const api = fakeApi(nodes);

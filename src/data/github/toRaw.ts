@@ -117,7 +117,8 @@ function linksOf(t: GhNode, self: string): RawIssueLink[] {
   for (const issue of nodesOf(t.closingIssuesReferences)) add(LINK_TYPES.closes, issue, true);
   // A pull request that closes an issue when merged: by "fixes #12" (a cross-reference that will close it),
   // or linked from the sidebar. Sidebar links can be undone, so connections are replayed in timeline order
-  // and only the ones still standing count.
+  // and only the ones still standing count; on a timeline cut short, the undoing may be on a page not
+  // fetched, so its connections don't count at all.
   const closesOrRelates = (other: GhLinked): void => {
     if (isPull(other) !== isPull(t)) add(LINK_TYPES.closes, other, isPull(t));
     else add(LINK_TYPES.relates, other, true);
@@ -132,7 +133,7 @@ function linksOf(t: GhNode, self: string): RawIssueLink[] {
     const otherKey = keyOf(item.subject);
     if (item.subject && otherKey) connected.set(otherKey, item.__typename === "ConnectedEvent" ? item.subject : null);
   }
-  for (const other of connected.values()) if (other) closesOrRelates(other);
+  if (t.timelineItems?.pageInfo?.hasNextPage !== true) for (const other of connected.values()) if (other) closesOrRelates(other);
   return [...links.values()];
 }
 

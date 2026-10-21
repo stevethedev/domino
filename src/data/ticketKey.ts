@@ -37,15 +37,22 @@ export function gitHubKeyFromPath(pathname: string): string | null {
   return parseGitHubKey(key) ? key : null;
 }
 
-/** What the user typed as a key, in the site's spelling: Jira keys upper-cased, GitHub URLs turned into keys. */
-export function normalizeKeyInput(site: KindOnly, input: string): string {
+/**
+ * What the user typed as a key, in the site's spelling: Jira keys upper-cased, GitHub keys lower-cased,
+ * and the site's own issue URLs turned into keys. A URL from another host is left as typed (so it isn't a
+ * key): the same `owner/repo#12` on another GitHub can be an unrelated ticket.
+ */
+export function normalizeKeyInput(site: Pick<SiteConfig, "kind" | "baseUrl">, input: string): string {
   const t = input.trim();
   if (siteKindOf(site) !== "github") return t.toUpperCase();
+  let url: URL;
   try {
-    return gitHubKeyFromPath(new URL(t).pathname) ?? t.toLowerCase();
+    url = new URL(t);
   } catch {
     return t.toLowerCase();
   }
+  const sameSite = url.origin.toLowerCase() === site.baseUrl.trim().replace(/\/+$/, "").toLowerCase();
+  return (sameSite && gitHubKeyFromPath(url.pathname)) || t;
 }
 
 /** An example key for the site's kind, for placeholders and validation messages. */
