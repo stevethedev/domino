@@ -167,21 +167,33 @@ export function toRawIssue(t: GhNode): RawIssue | null {
 type Fence = Readonly<{ char: string; length: number }>;
 
 /**
- * The text without fenced code blocks, as CommonMark reads them: a fence closes on the same
- * character, at least as long, with nothing after it; an unclosed fence runs to the end; any indent
- * is allowed (fences in list items). One pass over the lines, whatever the input.
+ * The Markdown GitHub shows: without HTML comments (an unclosed one runs to the end) or fenced code
+ * blocks, read together so a comment marker in code, or a fence in a comment, hides nothing after it.
+ * Fences as CommonMark reads them: one closes on the same character, at least as long, with nothing
+ * after it; an unclosed fence runs to the end; any indent is allowed (fences in list items). One pass,
+ * whatever the input.
  */
-function withoutFencedCode(text: string): string {
+function shownMarkdown(text: string): string {
   const kept: string[] = [];
-  let open: Fence | null = null;
+  let fence: Fence | null = null;
+  let inComment = false;
   for (const line of text.split(/\r?\n/)) {
     const m = /^[ \t]*(`{3,}|~{3,})(.*)$/.exec(line);
-    if (open) {
-      if (m && m[1][0] === open.char && m[1].length >= open.length && m[2].trim() === "") open = null;
-    } else if (m && !(m[1][0] === "`" && m[2].includes("`"))) {
-      open = { char: m[1][0], length: m[1].length };
+    if (fence) {
+      if (m && m[1][0] === fence.char && m[1].length >= fence.length && m[2].trim() === "") fence = null;
+    } else if (!inComment && m && !(m[1][0] === "`" && m[2].includes("`"))) {
+      fence = { char: m[1][0], length: m[1].length };
     } else {
-      kept.push(line);
+      let shown = "";
+      for (let at = 0; at < line.length;) {
+        const marker = line.indexOf(inComment ? "-->" : "<!--", at);
+        const until = marker < 0 ? line.length : marker;
+        if (!inComment) shown += line.slice(at, until);
+        if (marker < 0) break;
+        at = marker + (inComment ? 3 : 4);
+        inComment = !inComment;
+      }
+      kept.push(shown);
     }
   }
   return kept.join("\n");
@@ -190,10 +202,10 @@ function withoutFencedCode(text: string): string {
 /** Jira tickets the body links to (`https://…/browse/KEY`), as remote links that relate to them. */
 export function jiraLinksIn(t: GhNode): RawRemoteLink[] {
   const key = keyOf(t);
-  // The Markdown: rendered text drops the URL behind `[CORE-11](https://…)`. HTML comments (PR
-  // templates; an unclosed one hides the rest) and fenced code aren't shown, so they don't count.
+  // The Markdown: rendered text drops the URL behind `[CORE-11](https://…)`. What GitHub doesn't show
+  // (PR template comments, fenced code) doesn't count.
   const body = t.body ?? t.bodyText;
-  const text = body && withoutFencedCode(body.replace(/<!--[\s\S]*?(?:-->|$)/g, ""));
+  const text = body && shownMarkdown(body);
   if (!key || !text) return [];
   const urls = new Set<string>();
   for (const m of text.matchAll(/https:\/\/[A-Za-z0-9.-]+(?::\d+)?\/browse\/[A-Za-z][A-Za-z0-9_]*-\d+/g)) {

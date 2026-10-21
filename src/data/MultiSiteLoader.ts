@@ -180,10 +180,10 @@ class LoadRun {
         }
         const ok = await this.guard(site.id, async () => {
           const found = await this.call(site.id, () => this.source.fetchByJql(site.id, q, this.maxNodes + 1));
-          // GitHub ORs repeated org:/repo:/user: qualifiers, so a query naming another repo would widen the
-          // site's filter; results outside the filter's repos are dropped instead.
-          const scope = isGitHub ? repoScopeOf(site.baseJql) : null;
-          const issues = scope ? found.filter((i) => inRepoScope(scope, i.key)) : found;
+          // GitHub ORs repeated org:/repo:/user: qualifiers, so the site's filter and the query each widen
+          // the other; only results inside both of their repo scopes are kept.
+          const scopes = isGitHub ? [repoScopeOf(site.baseJql), repoScopeOf(github)] : [];
+          const issues = found.filter((i) => scopes.every((scope) => inRepoScope(scope, i.key)));
           this.checkCap(found.length); // over the cap is over the cap, however many the filter keeps
           await this.addFull(site.id, issues);
         });

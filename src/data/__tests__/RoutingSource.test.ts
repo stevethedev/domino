@@ -131,6 +131,19 @@ describe("loading Jira and GitHub sites together", () => {
     expect(res.data[0]?.issues.every((i) => i.key.startsWith("acme/web#"))).toBe(true);
   });
 
+  it("lets a query's repo qualifiers narrow the site's repos", async () => {
+    const narrowed = sites.map((s) => (s.id === "gh" ? { ...s, baseJql: "repo:acme/web repo:acme/api" } : s));
+    const res = await new MultiSiteLoader(source).load(
+      { mode: "jql", jql: "", github: "repo:acme/api" },
+      narrowed.filter((s) => s.id === "gh"),
+      narrowed,
+    );
+    if (res.kind !== "ok") throw new Error("expected ok");
+    const keys = res.data[0]?.issues.map((i) => i.key) ?? [];
+    expect(keys.length).toBeGreaterThan(0);
+    expect(keys.every((k) => k.startsWith("acme/api#"))).toBe(true);
+  });
+
   it("reports over the cap even when the site filter drops most of what GitHub returned", async () => {
     const narrowed = sites.map((s) => (s.id === "gh" ? { ...s, baseJql: "repo:acme/web" } : s));
     const loader = new MultiSiteLoader(source, { maxNodes: 3 });

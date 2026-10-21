@@ -434,6 +434,8 @@ export function useDomino(store: ConfigStore, source: JiraSource, cache: TicketC
       const { config: cfg, selectedSites: sites, scope: cur, load: current } = latest.current;
       const nextSites = cfg && siteIds ? selectedSitesOf(cfg.sites, siteIds) : sites;
       if (sites.length > 0 && scopeKeyOf(nextSites, next) === scopeKeyOf(sites, cur)) {
+        // Same tickets, but keep what the key leaves out (a GitHub search while only Jira is selected).
+        setScope(next);
         if (current.status === "done") void refresh();
         else reload();
         return;

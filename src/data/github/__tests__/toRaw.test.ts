@@ -206,6 +206,14 @@ describe("jiraLinksIn", () => {
     expect(found(`See ${url(9)}\n<!-- unclosed ${url(1)}`)).toEqual(["CORE-9"]);
   });
 
+  it("reads comments and fences together: neither hides prose after the other closes", () => {
+    const url = (n: number): string => `https://acme.atlassian.net/browse/CORE-${n}`;
+    const found = (body: string): (string | undefined)[] => jiraLinksIn(node("a/b#1", { body })).map((l) => l.object.title);
+    expect(found(`\`\`\`html\n<!-- ${url(1)}\n\`\`\`\nSee ${url(9)}`)).toEqual(["CORE-9"]); // a comment opener in code
+    expect(found(`<!--\n\`\`\`\n${url(1)}\n-->\nSee ${url(9)}`)).toEqual(["CORE-9"]); // a fence in a comment
+    expect(found(`<!-- a --> See ${url(9)} <!-- ${url(1)} --> and ${url(8)}`)).toEqual(["CORE-9", "CORE-8"]);
+  });
+
   it("scans a hostile body in linear time", () => {
     const started = performance.now();
     jiraLinksIn(node("a/b#1", { body: "\`\`\`a\n".repeat(16000) + "<!--".repeat(16000) }));

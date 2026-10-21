@@ -131,12 +131,10 @@ impl GitHubHttp {
             let first = PAGE_SIZE.min(limit - out.len());
             let data = self.graphql(site, &query, json!({ "q": q, "first": first, "after": after }), false).await?;
             let conn = data.get("search").unwrap_or(&Value::Null);
-            let nodes = nodes_of(conn);
-            let empty = nodes.is_empty();
-            out.extend(nodes);
+            out.extend(nodes_of(conn)); // a page can be all hidden nodes and still have more after it
             let prev = after.take();
             after = next_cursor(conn);
-            if empty || after.is_none() || after == prev || out.len() >= limit {
+            if after.is_none() || after == prev || out.len() >= limit {
                 break;
             }
         }
@@ -226,12 +224,10 @@ impl GitHubBackend for GitHubHttp {
             let vars = json!({ "owner": r.owner, "repo": r.repo, "number": r.number, "after": after });
             let data = self.graphql(site, &query, vars, false).await?;
             let conn = data.pointer("/repository/issue/subIssues").unwrap_or(&Value::Null);
-            let nodes = nodes_of(conn);
-            let empty = nodes.is_empty();
-            out.extend(nodes);
+            out.extend(nodes_of(conn)); // a page can be all hidden nodes and still have more after it
             let prev = after.take();
             after = next_cursor(conn);
-            if empty || after.is_none() || after == prev {
+            if after.is_none() || after == prev {
                 break;
             }
         }
@@ -445,6 +441,34 @@ mod tests {
             .mount(&f.server)
             .await;
         assert_eq!(f.backend.sub_issues(&f.site, "acme/web#1").await.unwrap(), vec![node("acme/web#2"), node("acme/web#3")]);
+    }
+
+    #[tokio::test]
+    async fn a_page_of_only_hidden_nodes_doesnt_end_paging() {
+        let f = fixture().await;
+        let subs = |nodes: &[Value], next: Option<&str>| json!({ "data": { "repository": { "issue": { "subIssues": { "nodes": nodes, "pageInfo": { "hasNextPage": next.is_some(), "endCursor": next } } } } } });
+        Mock::given(method("POST"))
+            .and(body_partial_json(json!({ "variables": { "q": "org:acme", "after": null } })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(page(&[Value::Null, Value::Null], Some("c2"))))
+            .mount(&f.server)
+            .await;
+        Mock::given(method("POST"))
+            .and(body_partial_json(json!({ "variables": { "q": "org:acme", "after": "c2" } })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(page(&[node("acme/web#3")], None)))
+            .mount(&f.server)
+            .await;
+        Mock::given(method("POST"))
+            .and(body_partial_json(json!({ "variables": { "number": 1, "after": null } })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(subs(&[Value::Null], Some("p2"))))
+            .mount(&f.server)
+            .await;
+        Mock::given(method("POST"))
+            .and(body_partial_json(json!({ "variables": { "number": 1, "after": "p2" } })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(subs(&[node("acme/web#2")], None)))
+            .mount(&f.server)
+            .await;
+        assert_eq!(f.backend.search(&f.site, "org:acme", None).await.unwrap(), vec![node("acme/web#3")]);
+        assert_eq!(f.backend.sub_issues(&f.site, "acme/web#1").await.unwrap(), vec![node("acme/web#2")]);
     }
 
     struct LimitedOnce(std::sync::atomic::AtomicBool, u16);

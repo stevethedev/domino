@@ -6,8 +6,8 @@ import { inRepoScope, repoScopeOf } from "./query";
 import { descriptionOf, GITHUB_LINK_TYPES, GITHUB_STATUSES, jiraLinksIn, keyOf, toRawIssue } from "./toRaw";
 
 /**
- * Nodes kept for the follow-up calls a load makes (remote links, descriptions), so they don't each cost a
- * request. Tickets themselves are always fetched afresh, and `clear` drops everything when the config or a
+ * Nodes kept for the follow-up calls a load makes (remote links), so they don't each cost a
+ * request. Tickets and descriptions are always fetched afresh, and `clear` drops everything when the config or a
  * token changes, so nothing loaded with an old account is served again; replies to requests made before
  * the last `clear` are never kept either.
  */
@@ -88,8 +88,9 @@ export class GitHubSource implements JiraSource {
     return issue;
   }
 
+  /** Asked afresh: the ticket may be a ghost now, its remembered body from an earlier load. */
   async fetchDescription(siteId: string, key: string): Promise<unknown> {
-    return descriptionOf(await this.node(siteId, key, true));
+    return descriptionOf(await this.node(siteId, key));
   }
 
   async fetchRemoteLinks(siteId: string, key: string): Promise<RawRemoteLink[]> {

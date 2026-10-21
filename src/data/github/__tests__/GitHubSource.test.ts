@@ -91,6 +91,14 @@ describe("GitHubSource", () => {
     expect(await new GitHubSource(api).fetchByKeys("gh", ["acme/old#1"], "repo:acme/old")).toEqual([]);
   });
 
+  it("fetches a description afresh, even for a ticket loaded earlier (it may be a ghost now)", async () => {
+    const nodes = new Map([["acme/web#1", { ...ticket("T"), bodyText: "Before" }]]);
+    const source = new GitHubSource(fakeApi(nodes));
+    await source.fetchByJql("gh", "org:acme");
+    nodes.set("acme/web#1", { ...ticket("T"), bodyText: "After" });
+    expect(JSON.stringify(await source.fetchDescription("gh", "acme/web#1"))).toContain("After");
+  });
+
   it("reuses a loaded ticket for its follow-up calls until it's cleared", async () => {
     const nodes = new Map([["acme/web#1", ticket("T", "See https://acme.atlassian.net/browse/CORE-1")]]);
     const api = fakeApi(nodes);
