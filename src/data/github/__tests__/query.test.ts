@@ -6,6 +6,20 @@ describe("combineGitHubQuery", () => {
     expect(combineGitHubQuery(" org:acme ", "is:open ")).toBe("org:acme is:open");
     expect(combineGitHubQuery("", "is:open")).toBe("is:open");
     expect(combineGitHubQuery("", " ")).toBe("");
+    expect(combineGitHubQuery("org:acme -repo:acme/legacy", "is:open")).toBe("org:acme -repo:acme/legacy is:open");
+  });
+
+  it("sends only the repos both allow when both name some (GitHub would OR them)", () => {
+    expect(combineGitHubQuery("repo:acme/web repo:acme/api", "repo:acme/api is:open")).toBe("is:open repo:acme/api");
+    expect(combineGitHubQuery("org:acme is:issue", "repo:Acme/API")).toBe("is:issue repo:acme/api");
+    expect(combineGitHubQuery("org:acme", "org:acme label:bug")).toBe("label:bug org:acme");
+    expect(combineGitHubQuery("user:octo", "repo:octo/tools repo:acme/web")).toBe("repo:octo/tools");
+    expect(combineGitHubQuery("org:acme -repo:acme/old", "repo:acme/api")).toBe("-repo:acme/old repo:acme/api");
+  });
+
+  it("is null when the site and the query share no repo", () => {
+    expect(combineGitHubQuery("repo:acme/web", "repo:acme/api")).toBeNull();
+    expect(combineGitHubQuery("org:acme", "org:other")).toBeNull();
   });
 });
 

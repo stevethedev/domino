@@ -202,8 +202,16 @@ export function buildGraph({ sites, data }: BuildInput): Graph {
     if (n.epic && !n.epic.summary) n.epic = { ...n.epic, summary: nodes.get(n.epic.uid)?.summary };
   }
 
+  // Keys a loaded ticket was also asked for under (a renamed GitHub repo) are that ticket.
+  const canonical = new Map<string, string>();
+  for (const d of data) {
+    for (const issue of d.issues) {
+      for (const alias of issue.aliases ?? []) canonical.set(uidOf(d.siteId, alias), uidOf(d.siteId, issue.key));
+    }
+  }
+  const resolve = (uid: string): string => canonical.get(uid) ?? uid;
   const addGhost = (g: GraphNode): void => {
-    if (!nodes.has(g.uid) && !ghosts.has(g.uid)) ghosts.set(g.uid, g);
+    if (!nodes.has(g.uid) && !ghosts.has(g.uid) && !canonical.has(g.uid)) ghosts.set(g.uid, g);
   };
   const siteOf = (uid: string): string | undefined => (nodes.get(uid) ?? ghosts.get(uid))?.siteId;
 
@@ -219,7 +227,7 @@ export function buildGraph({ sites, data }: BuildInput): Graph {
       for (const link of issue.fields.issuelinks ?? []) {
         const other = link.outwardIssue ?? link.inwardIssue;
         if (!other) continue;
-        const otherUid = uidOf(site.id, other.key);
+        const otherUid = resolve(uidOf(site.id, other.key));
         addGhost(ghostFromLinked(other, site, ranks));
         const id = `${site.id}:link:${link.id}`;
         if (edges.has(id)) continue;
@@ -241,7 +249,7 @@ export function buildGraph({ sites, data }: BuildInput): Graph {
         if (!match) continue;
         let otherUid: string;
         if (match.kind === "site") {
-          otherUid = uidOf(match.siteId, match.key);
+          otherUid = resolve(uidOf(match.siteId, match.key));
           const s = getOrThrow(siteById, match.siteId);
           addGhost(ghostUnknown(otherUid, s.id, s.label, match.key, ticketUrl(s, match.key), rl.object.title, s.color));
         } else {

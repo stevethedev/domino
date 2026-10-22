@@ -4,6 +4,7 @@ import type { SiteConfig } from "../../config/types";
 import { buildGraph } from "../../graph/buildGraph";
 import { FixtureSource } from "../FixtureSource";
 import { FixtureGitHubApi } from "../github/FixtureGitHubApi";
+import type { GhNode } from "../github/githubTypes";
 import { GitHubSource } from "../github/GitHubSource";
 import { mockConfig, mockGitHub, mockLinkTypes, mockSites } from "../mockData";
 import { MultiSiteLoader } from "../MultiSiteLoader";
@@ -144,16 +145,35 @@ describe("loading Jira and GitHub sites together", () => {
     expect(keys.every((k) => k.startsWith("acme/api#"))).toBe(true);
   });
 
-  it("reports over the cap even when the site filter drops most of what GitHub returned", async () => {
-    const narrowed = sites.map((s) => (s.id === "gh" ? { ...s, baseJql: "repo:acme/web" } : s));
-    const loader = new MultiSiteLoader(source, { maxNodes: 3 });
-    // repo:acme/api widens the search to 7 tickets; only 5 are in acme/web, still over 3.
-    const res = await loader.load(
+  it("counts only the repos both the site and the query allow toward the cap", async () => {
+    const narrowed = sites.map((s) => (s.id === "gh" ? { ...s, baseJql: "repo:acme/web repo:acme/api" } : s));
+    // Searched as GitHub would OR them, both repos return 7 tickets: over a cap of 4. acme/api alone is 2.
+    const res = await new MultiSiteLoader(source, { maxNodes: 4 }).load(
       { mode: "jql", jql: "", github: "repo:acme/api" },
       narrowed.filter((s) => s.id === "gh"),
       narrowed,
     );
-    expect(res.kind).toBe("overCap");
+    if (res.kind !== "ok") throw new Error("expected ok");
+    expect(res.data[0]?.issues).toHaveLength(2);
+  });
+
+  it("connects a link to a renamed repo's old name to the ticket GitHub answers with", async () => {
+    // acme/web has been renamed acme/site: GitHub answers for acme/web#42 under its new name.
+    const fixture = new FixtureGitHubApi(mockGitHub);
+    const renamed = new FixtureGitHubApi(mockGitHub);
+    renamed.issues = async (siteId, keys): Promise<GhNode[]> =>
+      (await fixture.issues(siteId, keys)).map((n) => ({ ...n, repository: { nameWithOwner: "acme/site" } }));
+    const routed = new RoutingSource(new FixtureSource(mockSites, mockLinkTypes), new GitHubSource(renamed), kinds.kindOf);
+    const res = await new MultiSiteLoader(routed).load(
+      { mode: "seed", siteId: "acme", key: "CORE-10", depth: 1 },
+      pick("acme", "gh"),
+      sites,
+    );
+    if (res.kind !== "ok") throw new Error("expected ok");
+    const g = buildGraph({ sites, data: res.data });
+    expect(g.nodes.find((n) => n.uid === "gh:acme/site#42")?.ghost).toBe(false);
+    expect(g.nodes.some((n) => n.uid === "gh:acme/web#42")).toBe(false);
+    expect(g.edges).toContainEqual(expect.objectContaining({ source: "acme:CORE-10", target: "gh:acme/site#42" }));
   });
 
   it("follows links from a seed whose key GitHub spells differently", async () => {

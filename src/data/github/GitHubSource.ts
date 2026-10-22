@@ -2,6 +2,7 @@ import type { JiraSource } from "../JiraSource";
 import type { RawIssue, RawIssueChangeLog, RawLinkType, RawPriority, RawRemoteLink, RawStatusDef, RawUser } from "../jiraTypes";
 import type { GitHubApi } from "./GitHubApi";
 import type { GhNode } from "./githubTypes";
+import { parseGitHubKey } from "../ticketKey";
 import { inRepoScope, repoScopeOf } from "./query";
 import { descriptionOf, GITHUB_LINK_TYPES, GITHUB_STATUSES, jiraLinksIn, keyOf, toRawIssue } from "./toRaw";
 
@@ -70,12 +71,12 @@ export class GitHubSource implements JiraSource {
     const requestedIn = this.generation;
     // By the key GitHub answers with too: a renamed repo can land outside the filter.
     const found = (await this.api.issues(siteId, wanted)).filter((n) => inRepoScope(scope, keyOf(n) ?? ""));
-    return this.remember(siteId, found, requestedIn);
+    return withAliases(wanted, this.remember(siteId, found, requestedIn));
   }
 
   async fetchEpic(siteId: string, key: string, filter?: string): Promise<{ epic: RawIssue; children: RawIssue[] }> {
     const requestedIn = this.generation;
-    const [epic] = this.remember(siteId, [await this.node(siteId, key)], requestedIn);
+    const [epic] = withAliases([key], this.remember(siteId, [await this.node(siteId, key)], requestedIn));
     if (epic.fields.issuetype?.hierarchyLevel !== 1) throw new Error(`${key} has no sub-issues`);
     const scope = repoScopeOf(filter);
     const children = (await this.api.subIssues(siteId, epic.key)).filter((n) => inRepoScope(scope, keyOf(n) ?? ""));
@@ -84,7 +85,7 @@ export class GitHubSource implements JiraSource {
 
   async fetchIssue(siteId: string, key: string): Promise<RawIssue> {
     const requestedIn = this.generation;
-    const [issue] = this.remember(siteId, [await this.node(siteId, key)], requestedIn);
+    const [issue] = withAliases([key], this.remember(siteId, [await this.node(siteId, key)], requestedIn));
     return issue;
   }
 
@@ -118,4 +119,25 @@ export class GitHubSource implements JiraSource {
     if (!v.login) throw new Error("GitHub didn't say who the token belongs to");
     return { accountId: v.login, displayName: v.name || v.login, avatarUrls: v.avatarUrl ? { "48x48": v.avatarUrl } : undefined };
   }
+}
+
+/**
+ * The issues, each with the key it was asked for under when GitHub answered under another. A renamed
+ * repo keeps the issue's number, so an answer pairs with the one unanswered key of its number; a
+ * transferred issue doesn't, so it pairs only as the one answer left over for the one key left over.
+ */
+function withAliases(asked: readonly string[], issues: readonly RawIssue[]): RawIssue[] {
+  const askedKeys = new Set(asked.map((k) => k.toLowerCase()));
+  const answered = new Set(issues.map((i) => i.key));
+  const unanswered = [...askedKeys].filter((k) => !answered.has(k));
+  const unasked = issues.filter((i) => !askedKeys.has(i.key));
+  const numberOf = (key: string): number | undefined => parseGitHubKey(key)?.number;
+  const onlyPair = unanswered.length === 1 && unasked.length === 1;
+  return issues.map((i) => {
+    if (askedKeys.has(i.key)) return i;
+    const sameNumber = (key: string): boolean => numberOf(key) === numberOf(i.key);
+    const candidates = onlyPair ? unanswered : unanswered.filter(sameNumber);
+    const rivals = onlyPair ? [i] : unasked.filter((o) => sameNumber(o.key));
+    return candidates.length === 1 && rivals.length === 1 ? { ...i, aliases: candidates } : i;
+  });
 }

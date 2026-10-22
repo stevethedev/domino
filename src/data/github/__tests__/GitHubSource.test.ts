@@ -99,6 +99,23 @@ describe("GitHubSource", () => {
     expect(JSON.stringify(await source.fetchDescription("gh", "acme/web#1"))).toContain("After");
   });
 
+  it("says which key a ticket was asked for when GitHub answers under another (a renamed repo)", async () => {
+    const at = (repo: string, number: number): GhNode => ({ ...ticket(`${repo}#${number}`), number, repository: { nameWithOwner: repo } });
+    const api = fakeApi(new Map());
+    api.issues = (_site, keys): Promise<GhNode[]> =>
+      Promise.resolve(keys.map((k) => (k.startsWith("acme/old#") ? at("acme/new", Number(k.split("#")[1])) : at("acme/web", 2))));
+    const source = new GitHubSource(api);
+    expect((await source.fetchIssue("gh", "acme/old#1")).aliases).toEqual(["acme/old#1"]);
+    const byKey = new Map((await source.fetchByKeys("gh", ["acme/old#1", "acme/old#3", "acme/web#2"])).map((i) => [i.key, i.aliases]));
+    expect(byKey).toEqual(
+      new Map([
+        ["acme/new#1", ["acme/old#1"]],
+        ["acme/new#3", ["acme/old#3"]],
+        ["acme/web#2", undefined],
+      ]),
+    );
+  });
+
   it("reuses a loaded ticket for its follow-up calls until it's cleared", async () => {
     const nodes = new Map([["acme/web#1", ticket("T", "See https://acme.atlassian.net/browse/CORE-1")]]);
     const api = fakeApi(nodes);

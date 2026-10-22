@@ -2,11 +2,39 @@
 // filter keeps a load to.
 import { parseGitHubKey } from "../ticketKey";
 
+/** A term limiting a search to an owner or repository (`org:`, `user:`, `repo:`). */
+const SCOPE_TERM = /^(org|user|repo):(\S+)$/i;
+
 /**
- * `base query`. GitHub has no parentheses and ORs repeated `org:` / `repo:` / `user:` qualifiers, so this
- * alone can widen the base's repos; the loader drops results outside them (see `inRepoScope`).
+ * `base query` as one search. GitHub has no parentheses and ORs repeated `org:` / `user:` / `repo:`
+ * qualifiers, so when both name some, only the ones both allow are sent; null when they share none
+ * (nothing can match). The loader still drops results outside the base's repos (see `inRepoScope`).
  */
-export const combineGitHubQuery = (base: string, query: string): string => [base.trim(), query.trim()].filter(Boolean).join(" ");
+export function combineGitHubQuery(base: string, query: string): string | null {
+  const [b, q] = [termsOf(base), termsOf(query)];
+  const [bScope, qScope] = [repoScopeOf(base), repoScopeOf(query)];
+  const limits = (scope: RepoScope): boolean => scope !== null && (scope.owners.size > 0 || scope.repos.size > 0);
+  if (!limits(bScope) || !limits(qScope)) return [...b, ...q].join(" ");
+  const allows = (scope: RepoScope, repo: string): boolean => inRepoScope(scope, `${repo}#1`);
+  const owners = [...b, ...q].flatMap((t) => {
+    const m = SCOPE_TERM.exec(t);
+    return m && m[1].toLowerCase() !== "repo" ? [{ kind: m[1].toLowerCase(), owner: m[2].toLowerCase() }] : [];
+  });
+  const sharedOwners = owners.filter(
+    ({ owner }, i) => bScope?.owners.has(owner) && qScope?.owners.has(owner) && owners.findIndex((o) => o.owner === owner) === i,
+  );
+  const repos = [...new Set([...(bScope?.repos ?? []), ...(qScope?.repos ?? [])])].filter(
+    (r) => allows(bScope, r) && allows(qScope, r) && !sharedOwners.some(({ owner }) => r.startsWith(`${owner}/`)),
+  );
+  const shared = [...sharedOwners.map(({ kind, owner }) => `${kind}:${owner}`), ...repos.map((r) => `repo:${r}`)];
+  if (!shared.length) return null;
+  return [...b, ...q]
+    .filter((t) => !SCOPE_TERM.test(t))
+    .concat(shared)
+    .join(" ");
+}
+
+const termsOf = (search: string): string[] => search.split(/\s+/).filter(Boolean);
 
 /**
  * The owners and repositories a search is limited to (`org:`, `user:`, `repo:`) and the ones it

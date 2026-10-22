@@ -208,7 +208,8 @@ export function jiraLinksIn(t: GhNode): RawRemoteLink[] {
   const text = body && shownMarkdown(body);
   if (!key || !text) return [];
   const urls = new Set<string>();
-  for (const m of text.matchAll(/https:\/\/[A-Za-z0-9.-]+(?::\d+)?\/browse\/[A-Za-z][A-Za-z0-9_]*-\d+/g)) {
+  // The whole key: `/browse/CORE-11-extra` or `/browse/CORE-11/sub` isn't a link to CORE-11.
+  for (const m of text.matchAll(/https:\/\/[A-Za-z0-9.-]+(?::\d+)?\/browse\/[A-Za-z][A-Za-z0-9_]*-\d+(?![\w-]|\/[\w-])/g)) {
     urls.add(m[0]);
   }
   return [...urls].map((url) => ({

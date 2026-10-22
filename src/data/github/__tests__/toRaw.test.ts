@@ -220,6 +220,19 @@ describe("jiraLinksIn", () => {
     expect(performance.now() - started).toBeLessThan(200);
   });
 
+  it("takes only whole ticket URLs, not the start of a longer path", () => {
+    const base = "https://acme.atlassian.net/browse";
+    const found = (body: string): (string | undefined)[] => jiraLinksIn(node("a/b#1", { body })).map((l) => l.object.title);
+    expect(found(`${base}/CORE-11-extra ${base}/CORE-12x ${base}/CORE-13/sub`)).toEqual([]);
+    expect(found(`(${base}/CORE-1). ${base}/CORE-2/ ${base}/CORE-3?focused=1 ${base}/CORE-4#c, ${base}/CORE-5`)).toEqual([
+      "CORE-1",
+      "CORE-2",
+      "CORE-3",
+      "CORE-4",
+      "CORE-5",
+    ]);
+  });
+
   it("reads links from the Markdown body, which keeps the URLs behind link text", () => {
     const n = node("a/b#1", {
       body: "Needed by [CORE-11](https://acme.atlassian.net/browse/CORE-11).",

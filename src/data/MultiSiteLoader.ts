@@ -52,6 +52,8 @@ class OverCap extends Error {
 type SiteState = {
   site: SiteConfig;
   issues: Map<string, RawIssue>;
+  /** Other keys loaded issues were asked for under (a renamed GitHub repo) -> the issue's key. */
+  aliases: Map<string, string>;
   remoteLinks: Record<string, RawRemoteLink[]>;
   linkTypes: RawLinkType[];
   priorities: RawPriority[];
@@ -111,7 +113,14 @@ class LoadRun {
     private readonly opts: LoadOptions,
   ) {
     for (const site of selected) {
-      this.states.set(site.id, { site, issues: new Map(), remoteLinks: {}, linkTypes: DEFAULT_LINK_TYPES, priorities: [] });
+      this.states.set(site.id, {
+        site,
+        issues: new Map(),
+        aliases: new Map(),
+        remoteLinks: {},
+        linkTypes: DEFAULT_LINK_TYPES,
+        priorities: [],
+      });
       this.limits.set(site.id, pLimit(perSite));
     }
   }
@@ -173,6 +182,10 @@ class LoadRun {
       [...this.states.values()].map(async ({ site }) => {
         const isGitHub = siteKindOf(site) === "github";
         const q = isGitHub ? combineGitHubQuery(site.baseJql ?? "", github) : combineJql(site.baseJql ?? "", jql);
+        if (q === null) {
+          this.report(site.id, "loaded"); // the query names only repos outside the site's filter
+          return;
+        }
         if (!q) {
           const kind = isGitHub ? "GitHub search" : "JQL";
           this.fail(site.id, `Nothing to load: type a ${kind} query above, or set this site's "Always filter by" ${kind} in Settings`);
@@ -180,8 +193,8 @@ class LoadRun {
         }
         const ok = await this.guard(site.id, async () => {
           const found = await this.call(site.id, () => this.source.fetchByJql(site.id, q, this.maxNodes + 1));
-          // GitHub ORs repeated org:/repo:/user: qualifiers, so the site's filter and the query each widen
-          // the other; only results inside both of their repo scopes are kept.
+          // A safety net for what combineGitHubQuery couldn't intersect: only results inside both the site's
+          // and the query's repos are kept.
           const scopes = isGitHub ? [repoScopeOf(site.baseJql), repoScopeOf(github)] : [];
           const issues = found.filter((i) => scopes.every((scope) => inRepoScope(scope, i.key)));
           this.checkCap(found.length); // over the cap is over the cap, however many the filter keeps
@@ -227,7 +240,7 @@ class LoadRun {
     for (const ref of refs) {
       for (const n of this.neighbours(ref)) {
         const st = this.states.get(n.siteId);
-        if (!st || st.issues.has(n.key) || this.errors.has(n.siteId)) continue;
+        if (!st || st.issues.has(n.key) || st.aliases.has(n.key) || this.errors.has(n.siteId)) continue;
         const keys = wanted.get(n.siteId) ?? new Set<string>();
         wanted.set(n.siteId, keys.add(n.key));
       }
@@ -280,6 +293,7 @@ class LoadRun {
     await Promise.all([this.ensureLinkTypes(siteId), this.ensurePriorities(siteId)]);
     const fresh = issues.filter((i) => !st.issues.has(i.key));
     for (const i of fresh) st.issues.set(i.key, i);
+    for (const i of issues) for (const alias of i.aliases ?? []) st.aliases.set(alias, i.key);
     this.checkCap();
     await Promise.all(
       fresh.map(async (i) => {
@@ -320,16 +334,18 @@ class LoadRun {
   /** Distinct in-scope issues plus every issue they reference (future ghosts). */
   private nodeCount(): number {
     const uids = new Set<string>();
+    // A key some loaded issue was also asked for under counts as that issue.
+    const uid = (siteId: string, key: string): string => uidOf(siteId, this.states.get(siteId)?.aliases.get(key) ?? key);
     for (const st of this.states.values()) {
       for (const i of st.issues.values()) {
         uids.add(uidOf(st.site.id, i.key));
         for (const l of i.fields.issuelinks ?? []) {
           const other = l.outwardIssue ?? l.inwardIssue;
-          if (other) uids.add(uidOf(st.site.id, other.key));
+          if (other) uids.add(uid(st.site.id, other.key));
         }
         for (const rl of st.remoteLinks[i.key] ?? []) {
           const m = matchRemoteUrl(rl.object.url, this.allSites);
-          if (m) uids.add(uidOf(m.kind === "site" ? m.siteId : m.host, m.key));
+          if (m) uids.add(m.kind === "site" ? uid(m.siteId, m.key) : uidOf(m.host, m.key));
         }
       }
     }
