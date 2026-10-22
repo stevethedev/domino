@@ -26,6 +26,14 @@ describe("combineGitHubQuery", () => {
     expect(repoScopeOf('label:"foo repo:other/tools')).toBeNull(); // an unclosed quote runs to the end
   });
 
+  it("reads a quoted owner or repo as that owner or repo", () => {
+    expect(combineGitHubQuery("org:acme", 'repo:"acme/web" is:open')).toBe("is:open repo:acme/web");
+    expect(combineGitHubQuery('org:"acme"', 'org:acme label:"a b"')).toBe('label:"a b" org:acme');
+    expect(inRepoScope(repoScopeOf('repo:"Acme/Web"'), "acme/web#1")).toBe(true);
+    expect(inRepoScope(repoScopeOf('org:acme -repo:"acme/old"'), "acme/old#1")).toBe(false);
+    expect(inRepoScope(repoScopeOf('org:acme -org:"other"'), "other/x#1")).toBe(false);
+  });
+
   it("is null when the site and the query share no repo", () => {
     expect(combineGitHubQuery("repo:acme/web", "repo:acme/api")).toBeNull();
     expect(combineGitHubQuery("org:acme", "org:other")).toBeNull();

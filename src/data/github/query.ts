@@ -2,8 +2,16 @@
 // filter keeps a load to.
 import { parseGitHubKey } from "../ticketKey";
 
-/** A term limiting a search to an owner or repository (`org:`, `user:`, `repo:`). */
-const SCOPE_TERM = /^(org|user|repo):(\S+)$/i;
+/** `kind` is `org`, `user` or `repo`. */
+type ScopeTerm = Readonly<{ excluded: boolean; kind: string; value: string }>;
+
+/** A term limiting a search to (or, with `-`, excluding) an owner or repository, its value unquoted and lower-cased. */
+function scopeTermOf(term: string): ScopeTerm | null {
+  const m = /^(-?)(org|user|repo):(?:"([^"]*)"?|([^\s"]+))$/i.exec(term);
+  const value = (m?.[3] ?? m?.[4] ?? "").toLowerCase();
+  if (!m || !value) return null;
+  return { excluded: m[1] === "-", kind: m[2].toLowerCase(), value };
+}
 
 /**
  * `base query` as one search. GitHub has no parentheses and ORs repeated `org:` / `user:` / `repo:`
@@ -17,8 +25,8 @@ export function combineGitHubQuery(base: string, query: string): string | null {
   if (!bScope || !qScope || !limits(bScope) || !limits(qScope)) return [...b, ...q].join(" ");
   const allows = (scope: RepoScope, repo: string): boolean => inRepoScope(scope, `${repo}#1`);
   const owners = [...b, ...q].flatMap((t) => {
-    const m = SCOPE_TERM.exec(t);
-    return m && m[1].toLowerCase() !== "repo" ? [{ kind: m[1].toLowerCase(), owner: m[2].toLowerCase() }] : [];
+    const term = scopeTermOf(t);
+    return term && !term.excluded && term.kind !== "repo" ? [{ kind: term.kind, owner: term.value }] : [];
   });
   const sharedOwners = owners.filter(
     ({ owner }, i) => bScope.owners.has(owner) && qScope.owners.has(owner) && owners.findIndex((o) => o.owner === owner) === i,
@@ -29,7 +37,7 @@ export function combineGitHubQuery(base: string, query: string): string | null {
   const shared = [...sharedOwners.map(({ kind, owner }) => `${kind}:${owner}`), ...repos.map((r) => `repo:${r}`)];
   if (!shared.length) return null;
   return [...b, ...q]
-    .filter((t) => !SCOPE_TERM.test(t))
+    .filter((t) => scopeTermOf(t)?.excluded ?? true)
     .concat(shared)
     .join(" ");
 }
@@ -55,12 +63,11 @@ export function repoScopeOf(filter: string | undefined): RepoScope {
     excludedOwners: new Set<string>(),
     excludedRepos: new Set<string>(),
   };
-  for (const term of termsOf(filter ?? "")) {
-    const m = /^(-?)(org|user|repo):(\S+)$/i.exec(term);
-    if (!m) continue;
-    const repo = m[2].toLowerCase() === "repo";
-    const into = m[1] ? (repo ? scope.excludedRepos : scope.excludedOwners) : repo ? scope.repos : scope.owners;
-    into.add(m[3].toLowerCase());
+  for (const term of termsOf(filter ?? "").map(scopeTermOf)) {
+    if (!term) continue;
+    const repo = term.kind === "repo";
+    const into = term.excluded ? (repo ? scope.excludedRepos : scope.excludedOwners) : repo ? scope.repos : scope.owners;
+    into.add(term.value);
   }
   return Object.values(scope).some((s) => s.size > 0) ? scope : null;
 }

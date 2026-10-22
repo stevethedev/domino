@@ -18,38 +18,48 @@ const MAX_REMEMBERED = 5000;
  * Queries are GitHub searches; there are no priorities, and no status history yet.
  */
 export class GitHubSource implements JiraSource {
-  private readonly remembered = new Map<string, GhNode>();
-  /** Bumped by `clear`: a reply to a request made under an older generation isn't remembered. */
-  private generation = 0;
+  /** Each remembered node with the number of the request that brought it. */
+  private readonly remembered = new Map<string, Readonly<{ node: GhNode; request: number }>>();
+  /** Requests are numbered in the order they're made. */
+  private requests = 0;
+  /** The last request made before `clear`: no reply to it or an earlier one is remembered. */
+  private clearedAfter = 0;
 
   constructor(private readonly api: GitHubApi) {}
 
-  /** The nodes as issues, remembered for follow-up calls if they were requested in the current generation. */
-  private remember(siteId: string, nodes: readonly GhNode[], requestedIn: number): RawIssue[] {
+  private nextRequest(): number {
+    return ++this.requests;
+  }
+
+  /**
+   * The nodes as issues, remembered for follow-up calls unless they were requested before the last
+   * `clear`, or a later request's reply is already remembered (an older one can finish last).
+   */
+  private remember(siteId: string, nodes: readonly GhNode[], request: number): RawIssue[] {
     return nodes.flatMap((n) => {
       const issue = toRawIssue(n);
       if (!issue) return [];
-      if (requestedIn !== this.generation) return [issue];
       const id = `${siteId}|${issue.key}`;
+      if (request <= this.clearedAfter || (this.remembered.get(id)?.request ?? 0) > request) return [issue];
       this.remembered.delete(id); // re-inserted last, so the oldest go first
-      this.remembered.set(id, n);
+      this.remembered.set(id, { node: n, request });
       if (this.remembered.size > MAX_REMEMBERED) this.remembered.delete(this.remembered.keys().next().value ?? "");
       return [issue];
     });
   }
 
-  /** Forgets every remembered node. */
+  /** Forgets every remembered node, and every reply still to come. */
   clear(): void {
-    this.generation++;
+    this.clearedAfter = this.requests;
     this.remembered.clear();
   }
 
   /** The ticket, from GitHub (or, with `remembered`, from this load when it's known). */
   private async node(siteId: string, rawKey: string, remembered = false): Promise<GhNode> {
     const key = rawKey.toLowerCase();
-    const known = remembered ? this.remembered.get(`${siteId}|${key}`) : undefined;
+    const known = remembered ? this.remembered.get(`${siteId}|${key}`)?.node : undefined;
     if (known) return known;
-    const requestedIn = this.generation;
+    const requestedIn = this.nextRequest();
     const nodes = await this.api.issues(siteId, [key]);
     // A renamed repo or transferred issue comes back under its new key, still saying what was asked for.
     const hit = nodes.find((n) => keyOf(n) === key || n.requestedKey?.toLowerCase() === key);
@@ -59,7 +69,7 @@ export class GitHubSource implements JiraSource {
   }
 
   async fetchByJql(siteId: string, query: string, maxResults?: number): Promise<RawIssue[]> {
-    const requestedIn = this.generation;
+    const requestedIn = this.nextRequest();
     return this.remember(siteId, await this.api.search(siteId, query, maxResults), requestedIn);
   }
 
@@ -67,14 +77,14 @@ export class GitHubSource implements JiraSource {
     const scope = repoScopeOf(filter);
     const wanted = keys.filter((k) => inRepoScope(scope, k));
     if (!wanted.length) return [];
-    const requestedIn = this.generation;
+    const requestedIn = this.nextRequest();
     // By the key GitHub answers with too: a renamed repo can land outside the filter.
     const found = (await this.api.issues(siteId, wanted)).filter((n) => inRepoScope(scope, keyOf(n) ?? ""));
     return this.remember(siteId, found, requestedIn);
   }
 
   async fetchEpic(siteId: string, key: string, filter?: string): Promise<{ epic: RawIssue; children: RawIssue[] }> {
-    const requestedIn = this.generation;
+    const requestedIn = this.nextRequest();
     const [epic] = this.remember(siteId, [await this.node(siteId, key)], requestedIn);
     if (epic.fields.issuetype?.hierarchyLevel !== 1) throw new Error(`${key} has no sub-issues`);
     const scope = repoScopeOf(filter);
@@ -83,7 +93,7 @@ export class GitHubSource implements JiraSource {
   }
 
   async fetchIssue(siteId: string, key: string): Promise<RawIssue> {
-    const requestedIn = this.generation;
+    const requestedIn = this.nextRequest();
     const [issue] = this.remember(siteId, [await this.node(siteId, key)], requestedIn);
     return issue;
   }

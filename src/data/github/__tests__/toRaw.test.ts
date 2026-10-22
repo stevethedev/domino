@@ -227,6 +227,13 @@ describe("jiraLinksIn", () => {
     expect(jiraLinksIn(node("a/b#1", { body: hidden }))).toEqual([]);
   });
 
+  it("reads inline code that wraps onto the next line as code, but not past a blank line", () => {
+    const titles = (body: string): (string | undefined)[] => jiraLinksIn(node("a/b#1", { body })).map((l) => l.object.title);
+    expect(titles("Use `<!--\nin code`.\nNeeds https://acme.atlassian.net/browse/CORE-11")).toEqual(["CORE-11"]);
+    // A blank line ends the paragraph: the backtick is plain, and the comment hides what follows.
+    expect(titles("Use `\n\n<!-- https://acme.atlassian.net/browse/CORE-12 `")).toEqual([]);
+  });
+
   it("takes only whole ticket URLs, not the start of a longer path", () => {
     const base = "https://acme.atlassian.net/browse";
     const found = (body: string): (string | undefined)[] => jiraLinksIn(node("a/b#1", { body })).map((l) => l.object.title);

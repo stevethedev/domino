@@ -172,36 +172,45 @@ type Fence = Readonly<{ char: string; length: number }>;
  * The Markdown GitHub shows: without HTML comments (an unclosed one runs to the end) or fenced code
  * blocks, read together so a comment marker in code, or a fence in a comment, hides nothing after it.
  * Fences as CommonMark reads them: one closes on the same character, at least as long, with nothing
- * after it; an unclosed fence runs to the end; any indent is allowed (fences in list items). One pass,
- * whatever the input.
+ * after it; an unclosed fence runs to the end; any indent is allowed (fences in list items). Inline
+ * code can wrap onto the next line, so a paragraph's lines (up to a blank or fence-like line) are read
+ * together. One pass, whatever the input.
  */
 function shownMarkdown(text: string): string {
   const kept: string[] = [];
+  let paragraph: string[] = [];
   let fence: Fence | null = null;
   let inComment = false;
+  /** Keeps the paragraph's shown text; whether a comment is still open after it. */
+  const endParagraph = (): boolean => {
+    if (!paragraph.length) return inComment;
+    const shown = shownText(paragraph.join("\n"), inComment);
+    kept.push(shown.text);
+    paragraph = [];
+    return shown.inComment;
+  };
   for (const line of text.split(/\r?\n/)) {
     const m = /^[ \t]*(`{3,}|~{3,})(.*)$/.exec(line);
     if (fence) {
       if (m && m[1][0] === fence.char && m[1].length >= fence.length && m[2].trim() === "") fence = null;
-    } else if (!inComment && m && !(m[1][0] === "`" && m[2].includes("`"))) {
-      fence = { char: m[1][0], length: m[1].length };
-    } else {
-      const shown = shownLine(line, inComment);
-      kept.push(shown.text);
-      inComment = shown.inComment;
+      continue;
     }
+    if (m || line.trim() === "") inComment = endParagraph();
+    if (!inComment && m && !(m[1][0] === "`" && m[2].includes("`"))) fence = { char: m[1][0], length: m[1].length };
+    else paragraph.push(line);
   }
+  endParagraph();
   return kept.join("\n");
 }
 
 type CodeRun = Readonly<{ start: number; end: number }>;
 
 /**
- * A line's text outside HTML comments, starting inside one when `inComment`. A `<!--` in an inline
- * code span (a backtick run closed by the next run as long) is code, not a comment; an unclosed run is
- * plain backticks. One pass: each run's closer is looked up, not searched for.
+ * The text outside HTML comments, starting inside one when `inComment`. A `<!--` in an inline code span
+ * (a backtick run closed by the next run as long) is code, not a comment; an unclosed run is plain
+ * backticks. One pass: each run's closer is looked up, not searched for.
  */
-function shownLine(line: string, inComment: boolean): { text: string; inComment: boolean } {
+function shownText(line: string, inComment: boolean): { text: string; inComment: boolean } {
   const runs: CodeRun[] = [...line.matchAll(/`+/g)].map((m) => ({ start: m.index, end: m.index + m[0].length }));
   const closerOf = new Map<number, number>();
   const nextOfLength = new Map<number, number>();

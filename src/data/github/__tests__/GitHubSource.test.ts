@@ -135,6 +135,20 @@ describe("GitHubSource", () => {
     );
   });
 
+  it("keeps the newer reply when an older request for the same ticket finishes after it", async () => {
+    const api = fakeApi(new Map());
+    const replies: ((n: GhNode[]) => void)[] = [];
+    api.issues = (): Promise<GhNode[]> => new Promise((resolve) => replies.push(resolve));
+    const source = new GitHubSource(api);
+    const older = source.fetchByKeys("gh", ["acme/web#1"]); // a cancelled load's request, still in flight
+    const newer = source.fetchByKeys("gh", ["acme/web#1"]);
+    replies[1]([ticket("T", "See https://acme.atlassian.net/browse/CORE-2")]);
+    await newer;
+    replies[0]([ticket("T", "See https://acme.atlassian.net/browse/CORE-1")]);
+    await older;
+    expect((await source.fetchRemoteLinks("gh", "acme/web#1")).map((l) => l.object.title)).toEqual(["CORE-2"]);
+  });
+
   it("reuses a loaded ticket for its follow-up calls until it's cleared", async () => {
     const nodes = new Map([["acme/web#1", ticket("T", "See https://acme.atlassian.net/browse/CORE-1")]]);
     const api = fakeApi(nodes);
