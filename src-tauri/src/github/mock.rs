@@ -90,8 +90,19 @@ impl GitHubBackend for GitHubMock {
         for k in keys {
             check_key(k)?;
         }
-        let wanted: Vec<String> = keys.iter().map(|k| k.to_ascii_lowercase()).collect();
-        Ok(self.nodes(site)?.filter(|n| key_of(n).is_some_and(|k| wanted.contains(&k))).cloned().collect())
+        let nodes: Vec<&Value> = self.nodes(site)?.collect();
+        // Answered as GitHub's batch is: each node says which key it was asked for.
+        Ok(keys
+            .iter()
+            .filter_map(|k| {
+                let wanted = k.to_ascii_lowercase();
+                let mut node = (*nodes.iter().find(|n| key_of(n).as_deref() == Some(wanted.as_str()))?).clone();
+                if let Some(fields) = node.as_object_mut() {
+                    fields.insert("requestedKey".into(), k.as_str().into());
+                }
+                Some(node)
+            })
+            .collect())
     }
 
     async fn sub_issues(&self, site: &SiteConfig, key: &str) -> GitHubResult<Vec<Value>> {
@@ -139,8 +150,9 @@ mod tests {
     #[tokio::test]
     async fn serves_issues_sub_issues_and_the_viewer() {
         let m = GitHubMock::new(HashSet::new()).unwrap();
-        let got = m.issues(&gh(), &["acme/web#42".into(), "acme/web#999".into()]).await.unwrap();
+        let got = m.issues(&gh(), &["ACME/Web#42".into(), "acme/web#999".into()]).await.unwrap();
         assert_eq!(keys(&got), ["acme/web#42"]);
+        assert_eq!(got[0]["requestedKey"], "ACME/Web#42");
         assert_eq!(keys(&m.sub_issues(&gh(), "acme/web#30").await.unwrap()), ["acme/web#31", "acme/web#32"]);
         assert_eq!(m.viewer(&gh()).await.unwrap()["login"], "jonasberg");
         m.issues(&gh(), &["../x".into()]).await.unwrap_err();

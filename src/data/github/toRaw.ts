@@ -142,10 +142,12 @@ export function toRawIssue(t: GhNode): RawIssue | null {
   const key = keyOf(t);
   if (!key) return null;
   const parentKey = keyOf(t.parent);
+  const asked = t.requestedKey?.toLowerCase();
   return {
     id: t.id ?? key,
     key,
     self: t.url,
+    ...(asked && asked !== key ? { aliases: [asked] } : {}),
     ...([t.timelineItems, t.blockedBy, t.blocking, t.closingIssuesReferences].some((c) => c?.pageInfo?.hasNextPage === true)
       ? { linksIncomplete: true }
       : {}),

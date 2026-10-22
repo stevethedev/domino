@@ -53,6 +53,8 @@ export type GhNode = GhLinked & {
   /** Pull requests only: the issues merging it will close. */
   closingIssuesReferences?: GhConnection<GhLinked>;
   timelineItems?: GhConnection<GhTimelineItem>;
+  /** Not GitHub's: on `issues` answers, the key it was asked for (a renamed or moved ticket answers under another). */
+  requestedKey?: string;
 };
 
 export type GhViewer = { login?: string; name?: string | null; avatarUrl?: string };

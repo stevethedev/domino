@@ -10,7 +10,12 @@ function fakeApi(nodes: Map<string, GhNode>): GitHubApi & { calls: number } {
     search: (): Promise<GhNode[]> => Promise.resolve([...nodes.values()]),
     issues: (_site: string, keys: readonly string[]): Promise<GhNode[]> => {
       api.calls++;
-      return Promise.resolve(keys.flatMap((k) => nodes.get(k) ?? []));
+      return Promise.resolve(
+        keys.flatMap((k) => {
+          const n = nodes.get(k);
+          return n ? [{ ...n, requestedKey: k }] : [];
+        }),
+      );
     },
     subIssues: (): Promise<GhNode[]> => Promise.resolve([]),
     viewer: (): Promise<GhViewer> => Promise.resolve({ login: "me" }),
@@ -43,7 +48,8 @@ describe("GitHubSource", () => {
 
   it("follows a renamed repo or transferred issue to where GitHub says it is now", async () => {
     const api = fakeApi(new Map());
-    api.issues = (): Promise<GhNode[]> => Promise.resolve([{ ...ticket("Moved"), repository: { nameWithOwner: "acme/new" } }]);
+    api.issues = (): Promise<GhNode[]> =>
+      Promise.resolve([{ ...ticket("Moved"), repository: { nameWithOwner: "acme/new" }, requestedKey: "acme/old#1" }]);
     expect((await new GitHubSource(api).fetchIssue("gh", "acme/old#1")).key).toBe("acme/new#1");
   });
 
@@ -87,7 +93,8 @@ describe("GitHubSource", () => {
 
   it("keeps a renamed repo's tickets out when the new name is outside the site filter", async () => {
     const api = fakeApi(new Map());
-    api.issues = (): Promise<GhNode[]> => Promise.resolve([{ ...ticket("Moved"), repository: { nameWithOwner: "acme/new" } }]);
+    api.issues = (): Promise<GhNode[]> =>
+      Promise.resolve([{ ...ticket("Moved"), repository: { nameWithOwner: "acme/new" }, requestedKey: "acme/old#1" }]);
     expect(await new GitHubSource(api).fetchByKeys("gh", ["acme/old#1"], "repo:acme/old")).toEqual([]);
   });
 
@@ -99,31 +106,33 @@ describe("GitHubSource", () => {
     expect(JSON.stringify(await source.fetchDescription("gh", "acme/web#1"))).toContain("After");
   });
 
-  it("says which key a ticket was asked for when GitHub answers under another (a renamed repo)", async () => {
-    const at = (repo: string, number: number): GhNode => ({ ...ticket(`${repo}#${number}`), number, repository: { nameWithOwner: repo } });
+  it("says which key a ticket was asked for when GitHub answers under another (renamed or moved)", async () => {
+    // acme/old#1 moved to acme/new#2 and acme/other#2 to acme/x#7: the numbers alone would cross them.
+    const moved = new Map([
+      ["acme/old#1", "acme/new#2"],
+      ["acme/other#2", "acme/x#7"],
+      ["acme/old#3", "acme/new#3"],
+    ]);
     const api = fakeApi(new Map());
     api.issues = (_site, keys): Promise<GhNode[]> =>
-      Promise.resolve(keys.map((k) => (k.startsWith("acme/old#") ? at("acme/new", Number(k.split("#")[1])) : at("acme/web", 2))));
+      Promise.resolve(
+        keys.map((k) => {
+          const [repo, number] = (moved.get(k) ?? k).split("#");
+          return { ...ticket(k), number: Number(number), repository: { nameWithOwner: repo }, requestedKey: k };
+        }),
+      );
     const source = new GitHubSource(api);
-    expect((await source.fetchIssue("gh", "acme/old#1")).aliases).toEqual(["acme/old#1"]);
-    const byKey = new Map((await source.fetchByKeys("gh", ["acme/old#1", "acme/old#3", "acme/web#2"])).map((i) => [i.key, i.aliases]));
+    expect((await source.fetchIssue("gh", "ACME/Old#1")).aliases).toEqual(["acme/old#1"]);
+    const keys = ["acme/old#1", "acme/other#2", "acme/old#3", "acme/web#2"];
+    const byKey = new Map((await source.fetchByKeys("gh", keys)).map((i) => [i.key, i.aliases]));
     expect(byKey).toEqual(
       new Map([
-        ["acme/new#1", ["acme/old#1"]],
+        ["acme/new#2", ["acme/old#1"]],
+        ["acme/x#7", ["acme/other#2"]],
         ["acme/new#3", ["acme/old#3"]],
         ["acme/web#2", undefined],
       ]),
     );
-  });
-
-  it("gives no other key to a ticket it can't pair with one for sure", async () => {
-    const at = (repo: string, number: number): GhNode => ({ ...ticket(`${repo}#${number}`), number, repository: { nameWithOwner: repo } });
-    const api = fakeApi(new Map());
-    // acme/old#1 moved to acme/new#2, and acme/other#2 is missing: the number alone would pick acme/other#2.
-    api.issues = (): Promise<GhNode[]> => Promise.resolve([at("acme/new", 2)]);
-    const [issue] = await new GitHubSource(api).fetchByKeys("gh", ["acme/old#1", "acme/other#2"]);
-    expect(issue.key).toBe("acme/new#2");
-    expect(issue.aliases).toBeUndefined();
   });
 
   it("reuses a loaded ticket for its follow-up calls until it's cleared", async () => {

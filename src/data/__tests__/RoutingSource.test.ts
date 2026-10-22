@@ -181,17 +181,14 @@ describe("loading Jira and GitHub sites together", () => {
     // links back to it under the old name, acme/web#42.
     const fixture = new FixtureGitHubApi(mockGitHub);
     const renamed = new FixtureGitHubApi(mockGitHub);
-    renamed.issues = async (siteId, keys): Promise<GhNode[]> =>
-      (
-        await fixture.issues(
-          siteId,
-          keys.map((k) => k.replace(/^acme\/site#/, "acme/web#")),
-        )
-      ).map((n) => ({
+    const answer = async (siteId: string, key: string): Promise<GhNode[]> =>
+      (await fixture.issues(siteId, [key.replace(/^acme\/site#/, "acme/web#")])).map((n) => ({
         ...n,
         body: "Fixes https://acme.atlassian.net/browse/CORE-10",
         repository: { nameWithOwner: "acme/site" },
+        requestedKey: key,
       }));
+    renamed.issues = async (siteId, keys): Promise<GhNode[]> => (await Promise.all(keys.map((k) => answer(siteId, k)))).flat();
     const routed = new RoutingSource(new FixtureSource(mockSites, mockLinkTypes), new GitHubSource(renamed), kinds.kindOf);
     const res = await new MultiSiteLoader(routed).load(
       { mode: "seed", siteId: "gh", key: "acme/site#42", depth: 2 },

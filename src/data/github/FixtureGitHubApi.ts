@@ -60,8 +60,13 @@ export class FixtureGitHubApi implements GitHubApi {
   }
 
   issues(siteId: string, keys: readonly string[]): Promise<GhNode[]> {
-    const wanted = keys.map((k) => k.toLowerCase()); // as GitHub (and the Rust mock) ignore case
-    return settle(() => this.nodes(siteId).filter((n) => wanted.includes(keyOf(n) ?? "")));
+    const wanted = [...new Set(keys.map((k) => k.toLowerCase()))]; // as GitHub (and the Rust mock) ignore case
+    return settle(() =>
+      wanted.flatMap((k) => {
+        const n = this.nodes(siteId).find((node) => keyOf(node) === k);
+        return n ? [{ ...n, requestedKey: k }] : [];
+      }),
+    );
   }
 
   subIssues(siteId: string, key: string): Promise<GhNode[]> {

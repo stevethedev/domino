@@ -204,11 +204,16 @@ impl GitHubBackend for GitHubHttp {
     async fn issues(&self, site: &SiteConfig, keys: &[String]) -> GitHubResult<Vec<Value>> {
         let refs = keys.iter().map(|k| check_key(k)).collect::<GitHubResult<Vec<IssueRef<'_>>>>()?;
         let mut out = Vec::new();
-        for batch in refs.chunks(KEY_BATCH) {
+        for (batch, batch_keys) in refs.chunks(KEY_BATCH).zip(keys.chunks(KEY_BATCH)) {
             let data = self.graphql(site, &issues_query(batch.len()), issues_variables(batch), true).await?;
-            for i in 0..batch.len() {
+            for (i, key) in batch_keys.iter().enumerate() {
                 if let Some(node) = data.pointer(&format!("/k{i}/issueOrPullRequest")).filter(|n| n.is_object()) {
-                    out.push(node.clone());
+                    // A renamed repo or moved issue answers under its new key: say which key was asked for.
+                    let mut node = node.clone();
+                    if let Some(fields) = node.as_object_mut() {
+                        fields.insert("requestedKey".into(), key.as_str().into());
+                    }
+                    out.push(node);
                 }
             }
         }
@@ -270,6 +275,13 @@ mod tests {
     fn node(key: &str) -> Value {
         let (repo, number) = key.split_once('#').unwrap();
         json!({ "__typename": "Issue", "number": number.parse::<u32>().unwrap(), "title": key, "repository": { "nameWithOwner": repo } })
+    }
+
+    /// `node`, as `issues` answers it when asked for `requested`.
+    fn answer(key: &str, requested: &str) -> Value {
+        let mut n = node(key);
+        n["requestedKey"] = requested.into();
+        n
     }
 
     fn page(nodes: &[Value], next: Option<&str>) -> Value {
@@ -358,7 +370,7 @@ mod tests {
             .mount(&f.server)
             .await;
         let got = f.backend.issues(&f.site, &["acme/web#42".into(), "acme/gone#1".into()]).await.unwrap();
-        assert_eq!(got, vec![node("acme/web#42")]);
+        assert_eq!(got, vec![answer("acme/web#42", "acme/web#42")]);
 
         Mock::given(method("POST"))
             .and(body_partial_json(json!({ "variables": { "r0": "bad" } })))
@@ -383,7 +395,7 @@ mod tests {
             .mount(&f.server)
             .await;
         let got = f.backend.issues(&f.site, &["acme/web#1".into(), "other/secret#2".into()]).await.unwrap();
-        assert_eq!(got, vec![node("acme/web#1")]);
+        assert_eq!(got, vec![answer("acme/web#1", "acme/web#1")]);
 
         // Without a path, the error is about the whole query: it fails.
         Mock::given(method("POST"))
@@ -412,6 +424,20 @@ mod tests {
             .await;
         let err = f.backend.viewer(&f.site).await.unwrap_err();
         assert!(err.contains("try again in about 60 min"), "{err}");
+    }
+
+    #[tokio::test]
+    async fn issues_say_which_key_each_answers_even_when_github_answers_under_another() {
+        let f = fixture().await;
+        // acme/old#1 moved to acme/new#2 and acme/other#2 to acme/x#7: only the field alias pairs them.
+        Mock::given(method("POST"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "data": { "k0": { "issueOrPullRequest": node("acme/new#2") }, "k1": { "issueOrPullRequest": node("acme/x#7") } }
+            })))
+            .mount(&f.server)
+            .await;
+        let got = f.backend.issues(&f.site, &["acme/old#1".into(), "acme/other#2".into()]).await.unwrap();
+        assert_eq!(got, vec![answer("acme/new#2", "acme/old#1"), answer("acme/x#7", "acme/other#2")]);
     }
 
     #[tokio::test]
