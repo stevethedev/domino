@@ -59,43 +59,48 @@ export class GitHubSource implements JiraSource {
     const key = rawKey.toLowerCase();
     const known = remembered ? this.remembered.get(`${siteId}|${key}`)?.node : undefined;
     if (known) return known;
-    const requestedIn = this.nextRequest();
+    const request = this.nextRequest();
     const nodes = await this.api.issues(siteId, [key]);
     // A renamed repo or transferred issue comes back under its new key, still saying what was asked for.
     const hit = nodes.find((n) => keyOf(n) === key || n.requestedKey?.toLowerCase() === key);
     if (!hit) throw new Error(`${key} does not exist, or the token can't see it`);
-    this.remember(siteId, [hit], requestedIn);
+    this.remember(siteId, [hit], request);
     return hit;
   }
 
   async fetchByJql(siteId: string, query: string, maxResults?: number): Promise<RawIssue[]> {
-    const requestedIn = this.nextRequest();
-    return this.remember(siteId, await this.api.search(siteId, query, maxResults), requestedIn);
+    const request = this.nextRequest();
+    return this.remember(siteId, await this.api.search(siteId, query, maxResults), request);
   }
 
   async fetchByKeys(siteId: string, keys: readonly string[], filter?: string): Promise<RawIssue[]> {
     const scope = repoScopeOf(filter);
     const wanted = keys.filter((k) => inRepoScope(scope, k));
     if (!wanted.length) return [];
-    const requestedIn = this.nextRequest();
+    const request = this.nextRequest();
     // By the key GitHub answers with too: a renamed repo can land outside the filter.
     const found = (await this.api.issues(siteId, wanted)).filter((n) => inRepoScope(scope, keyOf(n) ?? ""));
-    return this.remember(siteId, found, requestedIn);
+    return this.remember(siteId, found, request);
+  }
+
+  /** The ticket as an issue (remembered by `node`). */
+  private async issue(siteId: string, key: string): Promise<RawIssue> {
+    const issue = toRawIssue(await this.node(siteId, key));
+    if (!issue) throw new Error(`${key} does not exist, or the token can't see it`);
+    return issue;
   }
 
   async fetchEpic(siteId: string, key: string, filter?: string): Promise<{ epic: RawIssue; children: RawIssue[] }> {
-    const requestedIn = this.nextRequest();
-    const [epic] = this.remember(siteId, [await this.node(siteId, key)], requestedIn);
+    const epic = await this.issue(siteId, key);
     if (epic.fields.issuetype?.hierarchyLevel !== 1) throw new Error(`${key} has no sub-issues`);
     const scope = repoScopeOf(filter);
+    const childrenRequest = this.nextRequest();
     const children = (await this.api.subIssues(siteId, epic.key)).filter((n) => inRepoScope(scope, keyOf(n) ?? ""));
-    return { epic, children: this.remember(siteId, children, requestedIn) };
+    return { epic, children: this.remember(siteId, children, childrenRequest) };
   }
 
-  async fetchIssue(siteId: string, key: string): Promise<RawIssue> {
-    const requestedIn = this.nextRequest();
-    const [issue] = this.remember(siteId, [await this.node(siteId, key)], requestedIn);
-    return issue;
+  fetchIssue(siteId: string, key: string): Promise<RawIssue> {
+    return this.issue(siteId, key);
   }
 
   /** Asked afresh: the ticket may be a ghost now, its remembered body from an earlier load. */
