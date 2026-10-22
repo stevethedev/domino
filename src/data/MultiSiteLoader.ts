@@ -293,7 +293,12 @@ class LoadRun {
     await Promise.all([this.ensureLinkTypes(siteId), this.ensurePriorities(siteId)]);
     const fresh = issues.filter((i) => !st.issues.has(i.key));
     for (const i of fresh) st.issues.set(i.key, i);
-    for (const i of issues) for (const alias of i.aliases ?? []) st.aliases.set(alias, i.key);
+    for (const i of issues) {
+      const stored = getOrThrow(st.issues, i.key);
+      const aliases = [...new Set([...(stored.aliases ?? []), ...(i.aliases ?? [])])];
+      if (aliases.length > (stored.aliases?.length ?? 0)) st.issues.set(i.key, { ...stored, aliases }); // also asked for under another key
+      for (const alias of aliases) st.aliases.set(alias, i.key);
+    }
     this.checkCap();
     await Promise.all(
       fresh.map(async (i) => {

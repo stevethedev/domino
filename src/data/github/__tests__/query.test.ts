@@ -17,6 +17,14 @@ describe("combineGitHubQuery", () => {
     expect(combineGitHubQuery("org:acme -repo:acme/old", "repo:acme/api")).toBe("-repo:acme/old repo:acme/api");
   });
 
+  it("reads a quoted phrase as words to search for, not as qualifiers", () => {
+    expect(combineGitHubQuery("org:acme", '"mentions repo:other/tools here"')).toBe('org:acme "mentions repo:other/tools here"');
+    expect(combineGitHubQuery("repo:acme/web repo:acme/api", 'label:"needs  review" repo:acme/api')).toBe(
+      'label:"needs  review" repo:acme/api',
+    );
+    expect(repoScopeOf('"see repo:other/tools" is:open')).toBeNull();
+  });
+
   it("is null when the site and the query share no repo", () => {
     expect(combineGitHubQuery("repo:acme/web", "repo:acme/api")).toBeNull();
     expect(combineGitHubQuery("org:acme", "org:other")).toBeNull();

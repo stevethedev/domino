@@ -34,7 +34,8 @@ export function combineGitHubQuery(base: string, query: string): string | null {
     .join(" ");
 }
 
-const termsOf = (search: string): string[] => search.split(/\s+/).filter(Boolean);
+/** A search's terms, each quoted phrase (an unclosed one runs to the end) part of its term, as written. */
+const termsOf = (search: string): string[] => search.match(/(?:[^\s"]+|"[^"]*"?)+/g) ?? [];
 
 /**
  * The owners and repositories a search is limited to (`org:`, `user:`, `repo:`) and the ones it
@@ -54,7 +55,7 @@ export function repoScopeOf(filter: string | undefined): RepoScope {
     excludedOwners: new Set<string>(),
     excludedRepos: new Set<string>(),
   };
-  for (const term of (filter ?? "").split(/\s+/)) {
+  for (const term of termsOf(filter ?? "")) {
     const m = /^(-?)(org|user|repo):(\S+)$/i.exec(term);
     if (!m) continue;
     const repo = m[2].toLowerCase() === "repo";

@@ -220,6 +220,13 @@ describe("jiraLinksIn", () => {
     expect(performance.now() - started).toBeLessThan(200);
   });
 
+  it("reads a comment marker inside inline code as code, hiding nothing after it", () => {
+    const body = "Use `<!--` or `` a `<!--` b `` to begin a comment.\nNeeds https://acme.atlassian.net/browse/CORE-11";
+    expect(jiraLinksIn(node("a/b#1", { body })).map((l) => l.object.title)).toEqual(["CORE-11"]);
+    const hidden = "`code` <!-- https://acme.atlassian.net/browse/CORE-12 --> ``unclosed <!-- https://acme.atlassian.net/browse/CORE-13";
+    expect(jiraLinksIn(node("a/b#1", { body: hidden }))).toEqual([]);
+  });
+
   it("takes only whole ticket URLs, not the start of a longer path", () => {
     const base = "https://acme.atlassian.net/browse";
     const found = (body: string): (string | undefined)[] => jiraLinksIn(node("a/b#1", { body })).map((l) => l.object.title);

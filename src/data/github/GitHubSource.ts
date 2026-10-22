@@ -125,14 +125,16 @@ export class GitHubSource implements JiraSource {
  * The issues, each with the key it was asked for under when GitHub answered under another. A renamed
  * repo keeps the issue's number, so an answer pairs with the one unanswered key of its number; a
  * transferred issue doesn't, so it pairs only as the one answer left over for the one key left over.
+ * With more keys unanswered than answers left over, any of them could be a moved issue's, so none pair.
  */
 function withAliases(asked: readonly string[], issues: readonly RawIssue[]): RawIssue[] {
   const askedKeys = new Set(asked.map((k) => k.toLowerCase()));
   const answered = new Set(issues.map((i) => i.key));
   const unanswered = [...askedKeys].filter((k) => !answered.has(k));
   const unasked = issues.filter((i) => !askedKeys.has(i.key));
+  if (unanswered.length !== unasked.length) return [...issues];
   const numberOf = (key: string): number | undefined => parseGitHubKey(key)?.number;
-  const onlyPair = unanswered.length === 1 && unasked.length === 1;
+  const onlyPair = unanswered.length === 1;
   return issues.map((i) => {
     if (askedKeys.has(i.key)) return i;
     const sameNumber = (key: string): boolean => numberOf(key) === numberOf(i.key);

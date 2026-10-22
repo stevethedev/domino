@@ -176,6 +176,35 @@ describe("loading Jira and GitHub sites together", () => {
     expect(g.edges).toContainEqual(expect.objectContaining({ source: "acme:CORE-10", target: "gh:acme/site#42" }));
   });
 
+  it("connects a renamed repo's old name reached after the ticket loaded under its new one", async () => {
+    // Seeded as acme/site#42 (acme/web's new name), which links to CORE-10; CORE-10, a round later,
+    // links back to it under the old name, acme/web#42.
+    const fixture = new FixtureGitHubApi(mockGitHub);
+    const renamed = new FixtureGitHubApi(mockGitHub);
+    renamed.issues = async (siteId, keys): Promise<GhNode[]> =>
+      (
+        await fixture.issues(
+          siteId,
+          keys.map((k) => k.replace(/^acme\/site#/, "acme/web#")),
+        )
+      ).map((n) => ({
+        ...n,
+        body: "Fixes https://acme.atlassian.net/browse/CORE-10",
+        repository: { nameWithOwner: "acme/site" },
+      }));
+    const routed = new RoutingSource(new FixtureSource(mockSites, mockLinkTypes), new GitHubSource(renamed), kinds.kindOf);
+    const res = await new MultiSiteLoader(routed).load(
+      { mode: "seed", siteId: "gh", key: "acme/site#42", depth: 2 },
+      pick("acme", "gh"),
+      sites,
+    );
+    if (res.kind !== "ok") throw new Error("expected ok");
+    const g = buildGraph({ sites, data: res.data });
+    expect(g.nodes.some((n) => n.uid === "acme:CORE-10")).toBe(true);
+    expect(g.nodes.some((n) => n.uid === "gh:acme/web#42")).toBe(false);
+    expect(g.edges).toContainEqual(expect.objectContaining({ source: "acme:CORE-10", target: "gh:acme/site#42" }));
+  });
+
   it("follows links from a seed whose key GitHub spells differently", async () => {
     const res = await new MultiSiteLoader(source).load({ mode: "seed", siteId: "gh", key: "ACME/Web#31", depth: 1 }, pick("gh"), sites);
     if (res.kind !== "ok") throw new Error("expected ok");

@@ -116,6 +116,16 @@ describe("GitHubSource", () => {
     );
   });
 
+  it("gives no other key to a ticket it can't pair with one for sure", async () => {
+    const at = (repo: string, number: number): GhNode => ({ ...ticket(`${repo}#${number}`), number, repository: { nameWithOwner: repo } });
+    const api = fakeApi(new Map());
+    // acme/old#1 moved to acme/new#2, and acme/other#2 is missing: the number alone would pick acme/other#2.
+    api.issues = (): Promise<GhNode[]> => Promise.resolve([at("acme/new", 2)]);
+    const [issue] = await new GitHubSource(api).fetchByKeys("gh", ["acme/old#1", "acme/other#2"]);
+    expect(issue.key).toBe("acme/new#2");
+    expect(issue.aliases).toBeUndefined();
+  });
+
   it("reuses a loaded ticket for its follow-up calls until it's cleared", async () => {
     const nodes = new Map([["acme/web#1", ticket("T", "See https://acme.atlassian.net/browse/CORE-1")]]);
     const api = fakeApi(nodes);

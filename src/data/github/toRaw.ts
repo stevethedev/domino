@@ -184,19 +184,63 @@ function shownMarkdown(text: string): string {
     } else if (!inComment && m && !(m[1][0] === "`" && m[2].includes("`"))) {
       fence = { char: m[1][0], length: m[1].length };
     } else {
-      let shown = "";
-      for (let at = 0; at < line.length;) {
-        const marker = line.indexOf(inComment ? "-->" : "<!--", at);
-        const until = marker < 0 ? line.length : marker;
-        if (!inComment) shown += line.slice(at, until);
-        if (marker < 0) break;
-        at = marker + (inComment ? 3 : 4);
-        inComment = !inComment;
-      }
-      kept.push(shown);
+      const shown = shownLine(line, inComment);
+      kept.push(shown.text);
+      inComment = shown.inComment;
     }
   }
   return kept.join("\n");
+}
+
+type CodeRun = Readonly<{ start: number; end: number }>;
+
+/**
+ * A line's text outside HTML comments, starting inside one when `inComment`. A `<!--` in an inline
+ * code span (a backtick run closed by the next run as long) is code, not a comment; an unclosed run is
+ * plain backticks. One pass: each run's closer is looked up, not searched for.
+ */
+function shownLine(line: string, inComment: boolean): { text: string; inComment: boolean } {
+  const runs: CodeRun[] = [...line.matchAll(/`+/g)].map((m) => ({ start: m.index, end: m.index + m[0].length }));
+  const closerOf = new Map<number, number>();
+  const nextOfLength = new Map<number, number>();
+  for (let r = runs.length - 1; r >= 0; r--) {
+    const length = runs[r].end - runs[r].start;
+    const next = nextOfLength.get(length);
+    if (next !== undefined) closerOf.set(r, next);
+    nextOfLength.set(length, r);
+  }
+  let text = "";
+  let at = 0;
+  let run = 0;
+  let marker = -2; // the next `<!--` at or after `at`; -1 once there is none
+  let commented = inComment;
+  while (at < line.length) {
+    if (commented) {
+      const close = line.indexOf("-->", at);
+      if (close < 0) break;
+      at = close + 3;
+      commented = false;
+      continue;
+    }
+    while (run < runs.length && runs[run].start < at) run++;
+    if (marker !== -1 && marker < at) marker = line.indexOf("<!--", at);
+    const next = run < runs.length ? runs[run] : undefined;
+    if (marker >= 0 && (!next || marker < next.start)) {
+      text += line.slice(at, marker);
+      at = marker + 4;
+      commented = true;
+    } else if (!next) {
+      text += line.slice(at);
+      break;
+    } else {
+      const closer = closerOf.get(run);
+      const end = closer === undefined ? next.end : runs[closer].end;
+      text += line.slice(at, end);
+      at = end;
+      run = closer === undefined ? run + 1 : closer + 1;
+    }
+  }
+  return { text, inComment: commented };
 }
 
 /** Jira tickets the body links to (`https://…/browse/KEY`), as remote links that relate to them. */
