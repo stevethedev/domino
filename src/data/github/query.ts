@@ -13,17 +13,17 @@ const SCOPE_TERM = /^(org|user|repo):(\S+)$/i;
 export function combineGitHubQuery(base: string, query: string): string | null {
   const [b, q] = [termsOf(base), termsOf(query)];
   const [bScope, qScope] = [repoScopeOf(base), repoScopeOf(query)];
-  const limits = (scope: RepoScope): boolean => scope !== null && (scope.owners.size > 0 || scope.repos.size > 0);
-  if (!limits(bScope) || !limits(qScope)) return [...b, ...q].join(" ");
+  const limits = (scope: NonNullable<RepoScope>): boolean => scope.owners.size > 0 || scope.repos.size > 0;
+  if (!bScope || !qScope || !limits(bScope) || !limits(qScope)) return [...b, ...q].join(" ");
   const allows = (scope: RepoScope, repo: string): boolean => inRepoScope(scope, `${repo}#1`);
   const owners = [...b, ...q].flatMap((t) => {
     const m = SCOPE_TERM.exec(t);
     return m && m[1].toLowerCase() !== "repo" ? [{ kind: m[1].toLowerCase(), owner: m[2].toLowerCase() }] : [];
   });
   const sharedOwners = owners.filter(
-    ({ owner }, i) => bScope?.owners.has(owner) && qScope?.owners.has(owner) && owners.findIndex((o) => o.owner === owner) === i,
+    ({ owner }, i) => bScope.owners.has(owner) && qScope.owners.has(owner) && owners.findIndex((o) => o.owner === owner) === i,
   );
-  const repos = [...new Set([...(bScope?.repos ?? []), ...(qScope?.repos ?? [])])].filter(
+  const repos = [...new Set([...bScope.repos, ...qScope.repos])].filter(
     (r) => allows(bScope, r) && allows(qScope, r) && !sharedOwners.some(({ owner }) => r.startsWith(`${owner}/`)),
   );
   const shared = [...sharedOwners.map(({ kind, owner }) => `${kind}:${owner}`), ...repos.map((r) => `repo:${r}`)];
