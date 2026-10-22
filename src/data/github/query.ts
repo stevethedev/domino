@@ -35,7 +35,7 @@ export function combineGitHubQuery(base: string, query: string): string | null {
 }
 
 /** A search's terms, each quoted phrase (an unclosed one runs to the end) part of its term, as written. */
-const termsOf = (search: string): string[] => search.match(/(?:[^\s"]+|"[^"]*"?)+/g) ?? [];
+const termsOf = (search: string): string[] => search.match(/(?:[^\s"]|"[^"]*"?)+/g) ?? [];
 
 /**
  * The owners and repositories a search is limited to (`org:`, `user:`, `repo:`) and the ones it

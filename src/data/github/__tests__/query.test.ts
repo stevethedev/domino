@@ -23,6 +23,7 @@ describe("combineGitHubQuery", () => {
       'label:"needs  review" repo:acme/api',
     );
     expect(repoScopeOf('"see repo:other/tools" is:open')).toBeNull();
+    expect(repoScopeOf('label:"foo repo:other/tools')).toBeNull(); // an unclosed quote runs to the end
   });
 
   it("is null when the site and the query share no repo", () => {
