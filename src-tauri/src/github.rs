@@ -24,7 +24,8 @@ pub(crate) const KEY_BATCH: usize = 50;
 pub(crate) trait GitHubBackend: Send + Sync {
     /// Issues and pull requests matching a GitHub search, paging until done or `max_results` is reached.
     async fn search(&self, site: &SiteConfig, query: &str, max_results: Option<usize>) -> GitHubResult<Vec<Value>>;
-    /// Issues and pull requests by key (`owner/repo#12`). Ones that don't exist, or can't be seen, are left out.
+    /// Issues and pull requests by key (`owner/repo#12`), each with the key it was asked for as `requestedKey`
+    /// (a renamed repo or moved issue answers under another). Ones that don't exist, or can't be seen, are left out.
     async fn issues(&self, site: &SiteConfig, keys: &[String]) -> GitHubResult<Vec<Value>>;
     /// Every sub-issue of the issue `key`.
     async fn sub_issues(&self, site: &SiteConfig, key: &str) -> GitHubResult<Vec<Value>>;
