@@ -23,6 +23,14 @@ describe("scopeKeyOf", () => {
     );
   });
 
+  it("counts the GitHub search only when a GitHub site is selected", () => {
+    const gh = site("gh", { kind: "github", baseUrl: "https://github.com", auth: { type: "githubToken", secretRef: "T" } });
+    const scope: Scope = { mode: "jql", jql: "project = X", github: " is:open " };
+    expect(scopeKeyOf([site("a")], scope)).toBe(scopeKeyOf([site("a")], { mode: "jql", jql: "project = X" }));
+    expect(scopeKeyOf([site("a"), gh], scope)).toBe('{"sites":["a","gh"],"scope":{"mode":"jql","jql":"project = X","github":"is:open"}}');
+    expect(scopeKeyOf([gh], { ...scope, github: "" })).toBe('{"sites":["gh"],"scope":{"mode":"jql","jql":"project = X"}}');
+  });
+
   it("is the same however the scope object was built", () => {
     const reordered = JSON.parse('{"key":"A-1","siteId":"a","mode":"epic"}') as Scope;
     expect(scopeKeyOf([site("a")], reordered)).toBe(scopeKeyOf([site("a")], { mode: "epic", siteId: "a", key: "A-1" }));

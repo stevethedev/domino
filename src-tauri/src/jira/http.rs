@@ -84,6 +84,7 @@ impl HttpBackend {
                 let basic = base64::engine::general_purpose::STANDARD.encode(format!("{email}:{token}"));
                 Ok(Target { base: site.base_url.trim_end_matches('/').into(), auth: format!("Basic {basic}") })
             }
+            SiteAuth::GitHubToken { .. } => Err(format!("{} is a GitHub site, not a Jira site", site.label)),
             SiteAuth::OAuth3lo => {
                 let token = self.oauth.access_token().await?;
                 let cloud_id = match self.config.site(&site.id).and_then(|s| s.cloud_id).or_else(|| site.cloud_id.clone()) {
@@ -196,6 +197,7 @@ fn describe_error(site: &SiteConfig, status: StatusCode, detail: &Value) -> Stri
         StatusCode::UNAUTHORIZED => match site.auth {
             SiteAuth::ApiToken { .. } => " (check the email and API token)",
             SiteAuth::OAuth3lo => " (reconnect with Atlassian in Settings)",
+            SiteAuth::GitHubToken { .. } => "",
         },
         StatusCode::FORBIDDEN => " (your account lacks permission)",
         StatusCode::TOO_MANY_REQUESTS => " (rate limited; try again shortly)",

@@ -4,7 +4,8 @@ import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { configSchema } from "../config/schema";
 import type { DominoConfig, SiteConfig } from "../config/types";
 import { FixtureSource } from "../data/FixtureSource";
-import { mockConfig, mockLinkTypes, mockSites } from "../data/mockData";
+import { FixtureGitHubApi } from "../data/github/FixtureGitHubApi";
+import { mockConfig, mockGitHub, mockLinkTypes, mockSites } from "../data/mockData";
 import type { PutEntry } from "../data/TicketCache";
 import { version } from "../../package.json";
 import { MockTicketCache, type MockCacheStore } from "./mockTicketCache";
@@ -82,6 +83,7 @@ export function installMockIpc(): Promise<void> {
   const params = new URLSearchParams(location.search);
   const failSites = new Set(params.getAll("failSite"));
   const source = new FixtureSource(mockSites, mockLinkTypes, failSites);
+  const github = new FixtureGitHubApi(mockGitHub, failSites);
   const storage = cacheStorage();
   const cache = new MockTicketCache(version, storage.read, storage.write);
   const secrets = new Set<string>();
@@ -93,10 +95,21 @@ export function installMockIpc(): Promise<void> {
   if (configProblem) config = { sites: [], defaultSiteIds: [], backend: "jira" };
   const CONFIG_PATH = "~/Library/Application Support/org.change.domino/domino.config.json";
 
-  const site = (id: string, requireEnabled = true): SiteConfig => {
+  const anySite = (id: string, requireEnabled = true): SiteConfig => {
     const s = config.sites.find((x) => x.id === id);
     if (!s) throw new MockIpcError(`Unknown site "${id}"`);
     if (requireEnabled && !s.enabled) throw new MockIpcError(`${s.label} is disabled`);
+    return s;
+  };
+  // As the desktop commands: Jira commands refuse GitHub sites, and the reverse.
+  const site = (id: string): SiteConfig => {
+    const s = anySite(id);
+    if (s.kind === "github") throw new MockIpcError(`${s.label} is a GitHub site, not a Jira site`);
+    return s;
+  };
+  const gitHubSite = (id: string): SiteConfig => {
+    const s = anySite(id);
+    if (s.kind !== "github") throw new MockIpcError(`${s.label} is a Jira site, not a GitHub site`);
     return s;
   };
   const wrap = async <T>(fn: () => Promise<T>): Promise<T> => {
@@ -121,7 +134,7 @@ export function installMockIpc(): Promise<void> {
     const siteId = str("siteId");
     const key = str("key");
     // small latency so loading states are visible (more with ?delayMs=)
-    const delay = 30 + (cmd.startsWith("fetch_") ? requestDelay(params, siteId) : 0);
+    const delay = 30 + (cmd.startsWith("fetch_") || cmd.startsWith("gh_") ? requestDelay(params, siteId) : 0);
     await new Promise((r) => setTimeout(r, delay));
     switch (cmd) {
       case "get_config":
@@ -163,7 +176,23 @@ export function installMockIpc(): Promise<void> {
         cache.clear(Date.now());
         return null;
       case "site_health":
-        return wrap(async () => void (await source.fetchLinkTypes(site(siteId, false).id)));
+        return wrap(async () => {
+          const s = anySite(siteId, false);
+          if (s.kind === "github") await github.viewer(s.id);
+          else await source.fetchLinkTypes(s.id);
+        });
+      case "gh_search":
+        return wrap(() =>
+          github.search(gitHubSite(siteId).id, str("query"), typeof args.maxResults === "number" ? args.maxResults : undefined),
+        );
+      case "gh_issues": {
+        const keys = Array.isArray(args.keys) ? args.keys.filter((x): x is string => typeof x === "string") : [];
+        return wrap(() => github.issues(gitHubSite(siteId).id, keys));
+      }
+      case "gh_sub_issues":
+        return wrap(() => github.subIssues(gitHubSite(siteId).id, key));
+      case "gh_viewer":
+        return wrap(() => github.viewer(gitHubSite(siteId).id));
       case "fetch_by_jql":
         return wrap(() =>
           source.fetchByJql(site(siteId).id, str("jql"), typeof args.maxResults === "number" ? args.maxResults : undefined),
@@ -192,7 +221,7 @@ export function installMockIpc(): Promise<void> {
         const ref = str("secretRef");
         secrets.add(ref);
         cache.forgetSites(
-          (id) => config.sites.some((s) => s.id === id && s.auth.type === "apiToken" && s.auth.secretRef === ref),
+          (id) => config.sites.some((s) => s.id === id && s.auth.type !== "oauth3lo" && s.auth.secretRef === ref),
           Date.now(),
         );
         return null;

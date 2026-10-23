@@ -22,14 +22,15 @@ const g = buildGraph({
 });
 
 describe("mock fixtures", () => {
-  it("has about 30 issues including exactly 3 ghosts", () => {
+  it("has about 30 issues including exactly 4 ghosts", () => {
     expect(g.nodes.length).toBeGreaterThanOrEqual(28);
     expect(
       g.nodes
         .filter((n) => n.ghost)
         .map((n) => n.uid)
         .sort(),
-    ).toEqual(["acme:OPS-3", "legacy:LEG-4", "other.atlassian.net:EXT-9"]);
+      // gh:acme/web#42: CORE-10's remote link to a pull request on the configured GitHub site.
+    ).toEqual(["acme:OPS-3", "gh:acme/web#42", "legacy:LEG-4", "other.atlassian.net:EXT-9"]);
   });
 
   it("contains the 5-hop chain with a partner -> acme hop", () => {

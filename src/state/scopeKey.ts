@@ -1,11 +1,17 @@
-import type { DominoConfig, SiteConfig } from "../config/types";
+import { siteKindOf, type DominoConfig, type SiteConfig } from "../config/types";
 import type { Scope } from "../data/MultiSiteLoader";
 
-/** The scope's fields in a fixed order, so equal scopes always serialize the same way. */
-function canonicalScope(scope: Scope): Scope {
+/**
+ * The scope's fields in a fixed order, so equal scopes always serialize the same way. The GitHub
+ * search counts only when a GitHub site is selected (only those run it), so Jira-only scopes keep
+ * the keys they had before GitHub support.
+ */
+function canonicalScope(scope: Scope, sites: readonly SiteConfig[]): Scope {
   switch (scope.mode) {
-    case "jql":
-      return { mode: "jql", jql: scope.jql };
+    case "jql": {
+      const github = sites.some((s) => siteKindOf(s) === "github") ? scope.github?.trim() : undefined;
+      return github ? { mode: "jql", jql: scope.jql, github } : { mode: "jql", jql: scope.jql };
+    }
     case "epic":
       return { mode: "epic", siteId: scope.siteId, key: scope.key };
     case "seed":
@@ -18,7 +24,7 @@ function canonicalScope(scope: Scope): Scope {
  * "Since you last looked" and the ticket cache, so the format must not change.
  */
 export const scopeKeyOf = (sites: readonly SiteConfig[], scope: Scope): string =>
-  JSON.stringify({ sites: sites.map((s) => s.id).sort(), scope: canonicalScope(scope) });
+  JSON.stringify({ sites: sites.map((s) => s.id).sort(), scope: canonicalScope(scope, sites) });
 
 /**
  * Everything a load's result depends on: the scope, where the data comes from, and each selected

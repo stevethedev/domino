@@ -36,6 +36,16 @@ describe("saved views", () => {
     expect(parseSavedViews(JSON.parse(JSON.stringify(views)))).toEqual(views);
   });
 
+  it("keeps a query view's GitHub search, and drops an empty or malformed one", () => {
+    const withSearch = (github: unknown): unknown => ({ ...view("Q"), scope: { mode: "jql", jql: "project = X", github } });
+    const scopes = parseSavedViews(JSON.parse(JSON.stringify([withSearch("is:open"), withSearch(""), withSearch(3)])))?.map((v) => v.scope);
+    expect(scopes).toEqual([
+      { mode: "jql", jql: "project = X", github: "is:open" },
+      { mode: "jql", jql: "project = X" },
+      { mode: "jql", jql: "project = X" },
+    ]);
+  });
+
   it("drops invalid entries instead of failing the whole list", () => {
     const stored = [
       view("Good"),

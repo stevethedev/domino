@@ -1,4 +1,4 @@
-import type { SiteConfig } from "./types";
+import { siteKindOf, type SiteConfig, type SiteKind } from "./types";
 
 export type ParsedJiraUrl = { origin: string; host: string; suggestedId: string; suggestedLabel: string };
 
@@ -46,6 +46,29 @@ export const suggestedSecretRef = (id: string): string => `DOMINO_${(id || "SITE
 
 export const API_TOKEN_URL = "https://id.atlassian.com/manage-profile/security/api-tokens";
 
+export const GITHUB_URL = "https://github.com";
+
+/** Where to create a GitHub token: a fine-grained one on github.com, the token settings on Enterprise Server. */
+export const gitHubTokenUrl = (origin: string): string =>
+  origin === GITHUB_URL ? `${GITHUB_URL}/settings/personal-access-tokens/new` : `${origin.replace(/\/+$/, "")}/settings/tokens`;
+
+/** The draft as a site of `kind`: sign-in (and a github.com address, for a new GitHub site) set to suit it. */
+export function withKind(draft: SiteConfig, kind: SiteKind): SiteConfig {
+  if (siteKindOf(draft) === kind) return draft;
+  const secretRef = suggestedSecretRef(draft.id);
+  if (kind === "github") {
+    const { cloudId: _cloudId, ...rest } = draft;
+    return { ...rest, kind, baseUrl: draft.baseUrl.trim() || GITHUB_URL, auth: { type: "githubToken", secretRef }, baseJql: "" };
+  }
+  const { kind: _kind, ...rest } = draft;
+  return {
+    ...rest,
+    baseUrl: draft.baseUrl === GITHUB_URL ? "" : draft.baseUrl,
+    auth: { type: "apiToken", email: "", secretRef },
+    baseJql: "",
+  };
+}
+
 /** The id and label last derived from the URL, so later edits can tell whether the user customized them. */
 export type AutoFields = { id: string; label: string };
 
@@ -57,15 +80,38 @@ export function applyUrl(
   prevAuto: AutoFields,
 ): { draft: SiteConfig; auto: AutoFields } {
   const parsed = parseJiraUrl(input);
-  const next: SiteConfig = { ...draft, baseUrl: input };
+  let next: SiteConfig = { ...draft, baseUrl: input };
   if (!parsed) return { draft: next, auto: prevAuto };
-  const auto = { id: uniqueId(parsed.suggestedId, taken), label: parsed.suggestedLabel };
+  const github = parsed.host === "github.com";
+  const auto = { id: uniqueId(parsed.suggestedId, taken), label: github ? "GitHub" : parsed.suggestedLabel };
   if (draft.id === "" || draft.id === prevAuto.id) next.id = auto.id;
   if (draft.label === "" || draft.label === prevAuto.label) next.label = auto.label;
-  if (next.auth.type === "apiToken" && (next.auth.secretRef === "" || next.auth.secretRef === suggestedSecretRef(draft.id))) {
+  // A github.com link can only be a GitHub site (Enterprise Server hosts are picked by hand).
+  if (github) next = { ...withKind(next, "github"), baseUrl: input };
+  if (next.auth.type !== "oauth3lo" && (next.auth.secretRef === "" || next.auth.secretRef === suggestedSecretRef(draft.id))) {
     next.auth = { ...next.auth, secretRef: suggestedSecretRef(next.id) };
   }
   return { draft: next, auto };
+}
+
+/**
+ * Switches a new site's kind. Picking GitHub fills in github.com and, from it, the id, name and token
+ * name, as typing the URL would; switching back clears what was filled in, keeping the user's own values.
+ */
+export function chooseKind(
+  draft: SiteConfig,
+  kind: SiteKind,
+  taken: readonly string[],
+  prevAuto: AutoFields,
+): { draft: SiteConfig; auto: AutoFields } {
+  const next = withKind(draft, kind);
+  if (kind === "github")
+    return next.baseUrl === draft.baseUrl ? { draft: next, auto: prevAuto } : applyUrl(next, next.baseUrl, taken, prevAuto);
+  const id = next.id === prevAuto.id ? "" : next.id;
+  const label = next.label === prevAuto.label ? "" : next.label;
+  // The token name follows the id, so typing the Jira URL next derives it again instead of keeping GitHub's.
+  const auth = next.auth.type === "oauth3lo" ? next.auth : { ...next.auth, secretRef: suggestedSecretRef(id) };
+  return { draft: { ...next, id, label, auth }, auto: { id: "", label: "" } };
 }
 
 /** Keys sorted, so two configs with the same fields in another order compare equal. */

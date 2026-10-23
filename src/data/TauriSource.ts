@@ -1,11 +1,15 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { JiraSource } from "./JiraSource";
+import { keysJql } from "./jqlPresets";
 import type { RawIssue, RawIssueChangeLog, RawLinkType, RawPriority, RawRemoteLink, RawStatusDef, RawUser } from "./jiraTypes";
 
 /** Calls the Rust core, which holds credentials and talks to Jira (or the mock backend). */
 export class TauriSource implements JiraSource {
   fetchByJql(siteId: string, jql: string, maxResults?: number): Promise<RawIssue[]> {
     return invoke("fetch_by_jql", { siteId, jql, maxResults });
+  }
+  fetchByKeys(siteId: string, keys: readonly string[], filter?: string): Promise<RawIssue[]> {
+    return this.fetchByJql(siteId, keysJql(keys, filter), keys.length);
   }
   fetchEpic(siteId: string, key: string, filter?: string): Promise<{ epic: RawIssue; children: RawIssue[] }> {
     return invoke("fetch_epic", { siteId, key, filter });

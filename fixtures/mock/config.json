@@ -25,6 +25,16 @@
       "auth": { "type": "apiToken", "email": "bot@acme.example", "secretRef": "DOMINO_LEGACY_TOKEN" },
       "color": "#0f766e",
       "enabled": false
+    },
+    {
+      "id": "gh",
+      "kind": "github",
+      "label": "GitHub",
+      "baseUrl": "https://github.com",
+      "auth": { "type": "githubToken", "secretRef": "DOMINO_GITHUB_TOKEN" },
+      "color": "#24292f",
+      "enabled": true,
+      "baseJql": "org:acme"
     }
   ],
   "defaultSiteIds": ["acme", "partner"],

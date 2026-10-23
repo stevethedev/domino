@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyUrl, draftChanged, parseJiraUrl, uniqueId } from "../siteDraft";
+import { applyUrl, chooseKind, draftChanged, parseJiraUrl, uniqueId, withKind } from "../siteDraft";
 import type { SiteConfig } from "../types";
 
 describe("parseJiraUrl", () => {
@@ -48,6 +48,17 @@ describe("applyUrl", () => {
     expect(draft.baseUrl).toBe("https://beta.atlassian.net/browse/X-1"); // normalized on submit, not while typing
   });
 
+  it("makes a github.com link a GitHub site", () => {
+    const { draft } = applyUrl(blank, "https://github.com/acme/web/issues/3", [], { id: "", label: "" });
+    expect(draft).toMatchObject({
+      id: "github",
+      label: "GitHub",
+      kind: "github",
+      baseUrl: "https://github.com/acme/web/issues/3",
+      auth: { type: "githubToken", secretRef: "DOMINO_GITHUB_TOKEN" },
+    });
+  });
+
   it("keeps values the user customized", () => {
     const first = applyUrl(blank, "beta.atlassian.net", [], { id: "", label: "" });
     const edited = { ...first.draft, label: "Beta Corp" };
@@ -80,5 +91,77 @@ describe("draftChanged", () => {
 
   it("ignores the cloudId the backend fills in (the form never edits it)", () => {
     expect(draftChanged({ ...base, initial: { ...initial, cloudId: "cloud-1" } })).toBe(false);
+  });
+});
+
+describe("withKind", () => {
+  const jira: SiteConfig = {
+    id: "acme",
+    label: "Acme",
+    baseUrl: "https://acme.atlassian.net",
+    cloudId: "c1",
+    auth: { type: "oauth3lo" },
+    color: "#123456",
+    enabled: true,
+    baseJql: "project = A",
+  };
+
+  it("switches sign-in and filter to suit the kind, and back", () => {
+    const gh = withKind({ ...jira, baseUrl: "" }, "github");
+    expect(gh).toEqual({
+      id: "acme",
+      label: "Acme",
+      kind: "github",
+      baseUrl: "https://github.com",
+      auth: { type: "githubToken", secretRef: "DOMINO_ACME_TOKEN" },
+      color: "#123456",
+      enabled: true,
+      baseJql: "",
+    });
+    const back = withKind(gh, "jira");
+    expect(back).toMatchObject({ baseUrl: "", auth: { type: "apiToken", email: "", secretRef: "DOMINO_ACME_TOKEN" } });
+    expect("kind" in back).toBe(false);
+    expect(withKind(jira, "jira")).toBe(jira);
+  });
+
+  it("keeps an Enterprise Server address", () => {
+    expect(withKind({ ...jira, baseUrl: "https://ghe.acme.example" }, "github").baseUrl).toBe("https://ghe.acme.example");
+  });
+});
+
+describe("chooseKind", () => {
+  const blank: SiteConfig = {
+    id: "",
+    label: "",
+    baseUrl: "",
+    auth: { type: "apiToken", email: "", secretRef: "" },
+    color: "#123456",
+    enabled: true,
+  };
+
+  it("fills in a new GitHub site's id, name and token name, as typing its URL would", () => {
+    const { draft, auto } = chooseKind(blank, "github", ["acme"], { id: "", label: "" });
+    expect(draft).toMatchObject({
+      id: "github",
+      label: "GitHub",
+      kind: "github",
+      baseUrl: "https://github.com",
+      auth: { type: "githubToken", secretRef: "DOMINO_GITHUB_TOKEN" },
+    });
+    expect(auto).toEqual({ id: "github", label: "GitHub" });
+  });
+
+  it("clears what it filled in when switching back to Jira, but keeps the user's own values", () => {
+    const gh = chooseKind(blank, "github", [], { id: "", label: "" });
+    expect(chooseKind(gh.draft, "jira", [], gh.auto).draft).toMatchObject({ id: "", label: "", baseUrl: "" });
+    const named = chooseKind({ ...gh.draft, label: "Our GitHub" }, "jira", [], gh.auto).draft;
+    expect(named.label).toBe("Our GitHub");
+  });
+
+  it("doesn't leave a Jira site on the GitHub token's keychain entry after switching back", () => {
+    const gh = chooseKind(blank, "github", [], { id: "", label: "" });
+    const back = chooseKind(gh.draft, "jira", [], gh.auto);
+    const { draft } = applyUrl(back.draft, "acme.atlassian.net", [], back.auto);
+    expect(draft.auth).toMatchObject({ type: "apiToken", secretRef: "DOMINO_ACME_TOKEN" });
   });
 });

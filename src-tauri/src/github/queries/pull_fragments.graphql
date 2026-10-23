@@ -1,0 +1,78 @@
+# Pull request fields (state is aliased to pullState: GraphQL rejects one response name with two
+# enum types, IssueState and PullRequestState); uses the LinkedIssue and LinkedPull fragments from issue_fragments.graphql.
+fragment PullReferences on PullRequestTimelineItemsConnection {
+  nodes {
+    __typename
+    ... on CrossReferencedEvent {
+      willCloseTarget
+      source {
+        ...LinkedIssue
+        ...LinkedPull
+      }
+    }
+    ... on ConnectedEvent {
+      subject {
+        ...LinkedIssue
+        ...LinkedPull
+      }
+    }
+    ... on DisconnectedEvent {
+      subject {
+        ...LinkedIssue
+        ...LinkedPull
+      }
+    }
+  }
+  pageInfo {
+    hasNextPage
+  }
+}
+
+fragment PullTicket on PullRequest {
+  __typename
+  id
+  number
+  title
+  url
+  pullState: state
+  isDraft
+  merged
+  createdAt
+  closedAt
+  body
+  bodyText
+  repository {
+    nameWithOwner
+  }
+  author {
+    login
+    avatarUrl
+    ... on User {
+      name
+    }
+  }
+  assignees(first: 5) {
+    nodes {
+      login
+      name
+      avatarUrl
+    }
+  }
+  milestone {
+    id
+    title
+    dueOn
+    state
+  }
+  closingIssuesReferences(first: 50) {
+    nodes {
+      ...LinkedIssue
+    }
+    pageInfo {
+      hasNextPage
+    }
+  }
+  timelineItems(first: 100, itemTypes: [CROSS_REFERENCED_EVENT, CONNECTED_EVENT, DISCONNECTED_EVENT]) {
+    ...PullReferences
+  }
+}
