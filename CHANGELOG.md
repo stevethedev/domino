@@ -1,5 +1,11 @@
 # domino
 
+## 0.4.1
+
+### Patch Changes
+
+- [#20](https://github.com/stevethedev/domino/pull/20) [`695545a`](https://github.com/stevethedev/domino/commit/695545a85fee2f172761c3e6955c56fcbf860402) Thanks [@stevethedev](https://github.com/stevethedev)! - - Saving a secret no longer writes its keychain name to the log.
+
 ## 0.4.0
 
 ### Minor Changes
