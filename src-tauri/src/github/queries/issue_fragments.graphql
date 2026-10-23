@@ -91,6 +91,9 @@ fragment IssueTicket on Issue {
   }
   parent {
     ...LinkedIssue
+    parent {
+      id
+    }
   }
   subIssuesSummary {
     total

@@ -3,7 +3,7 @@ import type { RawIssue, RawIssueChangeLog, RawLinkType, RawPriority, RawRemoteLi
 import type { GitHubApi } from "./GitHubApi";
 import type { GhNode } from "./githubTypes";
 import { inRepoScope, repoScopeOf } from "./query";
-import { descriptionOf, GITHUB_LINK_TYPES, GITHUB_STATUSES, jiraLinksIn, keyOf, toRawIssue } from "./toRaw";
+import { descriptionOf, GITHUB_LINK_TYPES, GITHUB_STATUSES, hasSubIssues, jiraLinksIn, keyOf, toRawIssue } from "./toRaw";
 
 /**
  * Nodes kept for the follow-up calls a load makes (remote links), so they don't each cost a
@@ -85,14 +85,20 @@ export class GitHubSource implements JiraSource {
 
   /** The ticket as an issue (remembered by `node`). */
   private async issue(siteId: string, key: string): Promise<RawIssue> {
-    const issue = toRawIssue(await this.node(siteId, key));
+    return this.asIssue(key, await this.node(siteId, key));
+  }
+
+  private asIssue(key: string, node: GhNode): RawIssue {
+    const issue = toRawIssue(node);
     if (!issue) throw new Error(`${key} does not exist, or the token can't see it`);
     return issue;
   }
 
   async fetchEpic(siteId: string, key: string, filter?: string): Promise<{ epic: RawIssue; children: RawIssue[] }> {
-    const epic = await this.issue(siteId, key);
-    if (epic.fields.issuetype?.hierarchyLevel !== 1) throw new Error(`${key} has no sub-issues`);
+    const node = await this.node(siteId, key);
+    const epic = this.asIssue(key, node);
+    // Not only epics: a sub-issue with sub-issues of its own is a story, but Epic mode can still start there.
+    if (!hasSubIssues(node)) throw new Error(`${key} has no sub-issues`);
     const scope = repoScopeOf(filter);
     const childrenRequest = this.nextRequest();
     const children = (await this.api.subIssues(siteId, epic.key)).filter((n) => inRepoScope(scope, keyOf(n) ?? ""));

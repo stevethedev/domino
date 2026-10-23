@@ -73,6 +73,22 @@ describe("GitHubSource", () => {
     expect(children.map((c) => c.key)).toEqual(["acme/web#2"]);
   });
 
+  it("loads the sub-issues of a sub-issue that has its own", async () => {
+    const middle: GhNode = {
+      ...ticket("Middle"),
+      number: 2,
+      subIssuesSummary: { total: 1 },
+      parent: { number: 1, repository: { nameWithOwner: "Acme/Web" } },
+    };
+    const api = fakeApi(new Map([["acme/web#2", middle]]));
+    api.subIssues = (): Promise<GhNode[]> => Promise.resolve([{ ...ticket("Bottom"), number: 3 }]);
+    const { children } = await new GitHubSource(api).fetchEpic("gh", "acme/web#2");
+    expect(children.map((c) => c.key)).toEqual(["acme/web#3"]);
+    await expect(new GitHubSource(fakeApi(new Map([["acme/web#1", ticket("Leaf")]]))).fetchEpic("gh", "acme/web#1")).rejects.toThrow(
+      "has no sub-issues",
+    );
+  });
+
   it("doesn't let a reply that lands after clear() repopulate the cache", async () => {
     const nodes = new Map([["acme/web#1", ticket("Old account", "See https://acme.atlassian.net/browse/CORE-1")]]);
     const api = fakeApi(nodes);

@@ -28,6 +28,7 @@ fn matches_term(node: &Value, term: &str, viewer: &str) -> bool {
     // Pull requests' state is aliased to `pullState` (see pull_fragments.graphql).
     let state = node.get(if is_pr { "pullState" } else { "state" }).and_then(Value::as_str).unwrap_or_default();
     let Some((qualifier, value)) = term.split_once(':') else { return true };
+    let value = value.strip_prefix('"').map_or(value, |v| v.strip_suffix('"').unwrap_or(v));
     let hit = match (qualifier.to_ascii_lowercase().as_str(), value.to_ascii_lowercase().as_str()) {
         ("repo", v) => repo.eq_ignore_ascii_case(v),
         ("org" | "user", v) => repo.split('/').next().is_some_and(|o| o.eq_ignore_ascii_case(v)),
@@ -145,6 +146,20 @@ mod tests {
         // GitHub ORs repeated repository qualifiers.
         assert_eq!(m.search(&gh(), "repo:acme/api repo:acme/nope is:open", None).await.unwrap().len(), 1);
         assert_eq!(m.search(&gh(), "repo:acme/api org:acme", None).await.unwrap().len(), 7);
+    }
+
+    #[tokio::test]
+    async fn reads_a_quoted_qualifier_value_as_the_value() {
+        let m = GitHubMock::new(HashSet::new()).unwrap();
+        for (quoted, plain) in [
+            ("org:\"acme\" is:open", "org:acme is:open"),
+            ("repo:\"acme/api\"", "repo:acme/api"),
+            ("org:acme -repo:\"acme/api\"", "org:acme -repo:acme/api"),
+        ] {
+            let want = keys(&m.search(&gh(), plain, None).await.unwrap());
+            assert!(!want.is_empty(), "{plain}");
+            assert_eq!(keys(&m.search(&gh(), quoted, None).await.unwrap()), want, "{quoted}");
+        }
     }
 
     #[tokio::test]

@@ -16,7 +16,10 @@ function matchesTerm(node: GhNode, rawTerm: string, viewer: string): boolean {
   const colon = term.indexOf(":");
   if (colon < 0) return true;
   const qualifier = term.slice(0, colon).toLowerCase();
-  const value = term.slice(colon + 1).toLowerCase();
+  const value = term
+    .slice(colon + 1)
+    .replace(/^"(.*?)"?$/, "$1")
+    .toLowerCase();
   const repo = (node.repository?.nameWithOwner ?? "").toLowerCase();
   const pull = node.__typename === "PullRequest";
   const state = pull ? node.pullState : node.state;

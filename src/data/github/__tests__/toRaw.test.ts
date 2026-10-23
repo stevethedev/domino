@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { buildGraph } from "../../../graph/buildGraph";
+import { data, site } from "../../../graph/__tests__/helpers";
 import { defined } from "../../../lib/guards";
 import { mockGitHub } from "../../mockData";
 import type { GhLinked, GhNode } from "../githubTypes";
@@ -77,6 +79,18 @@ describe("toRawIssue", () => {
     expect(raw(node("a/b#1", { subIssuesSummary: { total: 0 } })).fields.issuetype).toEqual({ name: "Issue" });
     const child = raw(node("a/b#2", { parent: linkedIssue("a/b#1", { title: "Rollout" }) }));
     expect(child.fields.parent).toMatchObject({ key: "a/b#1", fields: { summary: "Rollout", issuetype: { hierarchyLevel: 1 } } });
+  });
+
+  it("groups a three-level hierarchy under its top issue, as Jira groups sub-tasks under the story's epic", () => {
+    const top = node("a/b#1", { subIssuesSummary: { total: 1 } });
+    const middle = node("a/b#2", { subIssuesSummary: { total: 1 }, parent: linkedIssue("a/b#1") });
+    const bottom = node("a/b#3", { parent: { ...linkedIssue("a/b#2"), parent: { id: "I_a/b#1" } } });
+    const graph = buildGraph({ sites: [site("gh")], data: [data("gh", [top, middle, bottom].map(raw))] });
+    expect(graph.nodes.map((n) => [n.key, n.epic?.key])).toEqual([
+      ["a/b#1", "a/b#1"],
+      ["a/b#2", "a/b#1"],
+      ["a/b#3", "a/b#1"],
+    ]);
   });
 
   it("writes each link with the same id from both ends, so they collapse into one edge", () => {

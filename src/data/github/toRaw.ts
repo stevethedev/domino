@@ -60,24 +60,28 @@ function statusOf(t: GhLinked): RawStatus {
   return t.stateReason === "NOT_PLANNED" || t.stateReason === "DUPLICATE" ? STATUSES.notPlanned : STATUSES.closed;
 }
 
-/** An issue with sub-issues stands in for an epic: Domino groups its sub-issues under it. */
+/**
+ * A top-level issue with sub-issues stands in for an epic: Domino groups its sub-issues under it. A
+ * sub-issue that has its own sub-issues is a story, so those group under the top issue too.
+ */
 const EPIC_LEVEL = 1;
+
+export const hasSubIssues = (t: GhNode): boolean => (t.subIssuesSummary?.total ?? 0) > 0;
 
 function typeOf(t: GhNode): RawIssueType {
   if (isPull(t)) return { name: "Pull request" };
   const name = t.issueType?.name ?? "Issue";
-  return (t.subIssuesSummary?.total ?? 0) > 0 ? { name, hierarchyLevel: EPIC_LEVEL } : { name };
+  return hasSubIssues(t) && !t.parent ? { name, hierarchyLevel: EPIC_LEVEL } : { name };
 }
 
-function linked(t: GhLinked, key: string, parent = false): RawLinkedIssue {
+function linked(t: GhLinked, key: string, epic = false): RawLinkedIssue {
   return {
     id: key,
     key,
     fields: {
       summary: t.title ?? key,
       status: statusOf(t),
-      // A parent has sub-issues by definition, so it's an epic.
-      issuetype: isPull(t) ? { name: "Pull request" } : parent ? { name: "Issue", hierarchyLevel: EPIC_LEVEL } : { name: "Issue" },
+      issuetype: isPull(t) ? { name: "Pull request" } : epic ? { name: "Issue", hierarchyLevel: EPIC_LEVEL } : { name: "Issue" },
     },
   };
 }
@@ -160,7 +164,8 @@ export function toRawIssue(t: GhNode): RawIssue | null {
       resolutiondate: t.closedAt ?? null,
       created: t.createdAt,
       fixVersions: releasesOf(t),
-      parent: t.parent && parentKey ? linked(t.parent, parentKey, true) : undefined,
+      // A parent has sub-issues by definition, so it's an epic unless it's a sub-issue itself.
+      parent: t.parent && parentKey ? linked(t.parent, parentKey, !t.parent.parent) : undefined,
       issuelinks: linksOf(t, key),
     },
   };

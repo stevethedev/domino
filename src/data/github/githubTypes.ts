@@ -46,7 +46,8 @@ export type GhNode = GhLinked & {
   milestone?: GhMilestone | null;
   /** Issues only. */
   issueType?: { name?: string } | null;
-  parent?: GhLinked | null;
+  /** `parent.parent` is set only to say whether the parent is itself a sub-issue. */
+  parent?: (GhLinked & { parent?: { id?: string } | null }) | null;
   subIssuesSummary?: { total?: number };
   blockedBy?: GhConnection<GhLinked>;
   blocking?: GhConnection<GhLinked>;
