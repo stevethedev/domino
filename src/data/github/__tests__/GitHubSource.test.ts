@@ -73,7 +73,7 @@ describe("GitHubSource", () => {
     expect(children.map((c) => c.key)).toEqual(["acme/web#2"]);
   });
 
-  it("loads the sub-issues of a sub-issue that has its own", async () => {
+  it("loads a sub-issue with its own sub-issues, so they find their epic through it", async () => {
     const middle: GhNode = {
       ...ticket("Middle"),
       number: 2,
@@ -83,7 +83,7 @@ describe("GitHubSource", () => {
     const api = fakeApi(new Map([["acme/web#2", middle]]));
     api.subIssues = (): Promise<GhNode[]> => Promise.resolve([{ ...ticket("Bottom"), number: 3 }]);
     const { children } = await new GitHubSource(api).fetchEpic("gh", "acme/web#2");
-    expect(children.map((c) => c.key)).toEqual(["acme/web#3"]);
+    expect(children.map((c) => c.key)).toEqual(["acme/web#2", "acme/web#3"]);
     await expect(new GitHubSource(fakeApi(new Map([["acme/web#1", ticket("Leaf")]]))).fetchEpic("gh", "acme/web#1")).rejects.toThrow(
       "has no sub-issues",
     );

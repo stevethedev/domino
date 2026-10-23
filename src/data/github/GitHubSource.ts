@@ -97,12 +97,16 @@ export class GitHubSource implements JiraSource {
   async fetchEpic(siteId: string, key: string, filter?: string): Promise<{ epic: RawIssue; children: RawIssue[] }> {
     const node = await this.node(siteId, key);
     const epic = this.asIssue(key, node);
-    // Not only epics: a sub-issue with sub-issues of its own is a story, but Epic mode can still start there.
     if (!hasSubIssues(node)) throw new Error(`${key} has no sub-issues`);
     const scope = repoScopeOf(filter);
     const childrenRequest = this.nextRequest();
-    const children = (await this.api.subIssues(siteId, epic.key)).filter((n) => inRepoScope(scope, keyOf(n) ?? ""));
-    return { epic, children: this.remember(siteId, children, childrenRequest) };
+    const children = this.remember(
+      siteId,
+      (await this.api.subIssues(siteId, epic.key)).filter((n) => inRepoScope(scope, keyOf(n) ?? "")),
+      childrenRequest,
+    );
+    // A sub-issue with sub-issues of its own is a story: its sub-issues find their epic through it, so it loads too.
+    return { epic, children: node.parent ? [epic, ...children] : children };
   }
 
   fetchIssue(siteId: string, key: string): Promise<RawIssue> {
