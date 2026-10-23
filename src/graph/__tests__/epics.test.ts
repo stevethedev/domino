@@ -55,6 +55,23 @@ describe("epic assignment", () => {
     expect(epicOf(g, "a:S-3")).toBeUndefined();
   });
 
+  it("follows a chain of non-epic parents to the epic, whatever order the tickets arrive in", () => {
+    const epic = typed("E-1", "Epic", 1);
+    const s2 = withParent(typed("S-2", "Story", 0), epic);
+    const s3 = withParent(typed("S-3", "Story", 0), s2);
+    const s4 = withParent(typed("S-4", "Story", 0), s3);
+    const g = buildGraph({ sites: [A], data: [data("a", [s4, s3, s2, epic])] });
+    expect(["a:S-2", "a:S-3", "a:S-4"].map((uid) => epicOf(g, uid))).toEqual(["a:E-1", "a:E-1", "a:E-1"]);
+  });
+
+  it("leaves a parent cycle without an epic", () => {
+    const x = typed("S-1", "Story", 0);
+    const y = withParent(typed("S-2", "Story", 0), x);
+    withParent(x, y);
+    const g = buildGraph({ sites: [A], data: [data("a", [x, y])] });
+    expect([epicOf(g, "a:S-1"), epicOf(g, "a:S-2")]).toEqual([undefined, undefined]);
+  });
+
   it("falls back to the legacy Epic Link field and fills its summary when the epic is loaded", () => {
     const story = typed("S-1", "Story", 0);
     story.fields.customfield_10014 = "E-7";

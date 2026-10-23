@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { buildGraph } from "../../../graph/buildGraph";
+import { data, site } from "../../../graph/__tests__/helpers";
 import type { GitHubApi } from "../GitHubApi";
 import type { GhNode, GhViewer } from "../githubTypes";
 import { GitHubSource } from "../GitHubSource";
@@ -87,6 +89,29 @@ describe("GitHubSource", () => {
     await expect(new GitHubSource(fakeApi(new Map([["acme/web#1", ticket("Leaf")]]))).fetchEpic("gh", "acme/web#1")).rejects.toThrow(
       "has no sub-issues",
     );
+  });
+
+  it("loads the stories between a deep sub-issue and its epic, so its sub-issues are grouped under the epic", async () => {
+    // acme/web#1 → #2 → #3 → #4, starting at #3: #2 is a story too, so it has to load for #3 and #4 to reach #1.
+    const ref = (number: number, nested = false): NonNullable<GhNode["parent"]> => ({
+      number,
+      repository: { nameWithOwner: "Acme/Web" },
+      ...(nested ? { parent: { id: "I_up" } } : {}),
+    });
+    const nodes = new Map<string, GhNode>([
+      ["acme/web#2", { ...ticket("Two"), number: 2, subIssuesSummary: { total: 1 }, parent: ref(1) }],
+      ["acme/web#3", { ...ticket("Three"), number: 3, subIssuesSummary: { total: 1 }, parent: ref(2, true) }],
+    ]);
+    const api = fakeApi(nodes);
+    api.subIssues = (): Promise<GhNode[]> => Promise.resolve([{ ...ticket("Four"), number: 4, parent: ref(3, true) }]);
+    const { children } = await new GitHubSource(api).fetchEpic("gh", "acme/web#3");
+    expect(children.map((c) => c.key)).toEqual(["acme/web#3", "acme/web#2", "acme/web#4"]);
+    const graph = buildGraph({ sites: [site("gh")], data: [data("gh", children)] });
+    expect(graph.nodes.map((n) => [n.key, n.epic?.key])).toEqual([
+      ["acme/web#3", "acme/web#1"],
+      ["acme/web#2", "acme/web#1"],
+      ["acme/web#4", "acme/web#1"],
+    ]);
   });
 
   it("doesn't let a reply that lands after clear() repopulate the cache", async () => {

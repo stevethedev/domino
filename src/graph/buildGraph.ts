@@ -192,9 +192,15 @@ export function buildGraph({ sites, data }: BuildInput): Graph {
       nodes.set(node.uid, node);
     }
   }
-  // Sub-tasks inherit the epic of their (loaded) parent story; a missing story leaves them epic-less.
-  for (const [uid, parentUid] of pendingEpic) {
-    const epic = nodes.get(parentUid)?.epic;
+  // Sub-tasks inherit the epic of their (loaded) parent story, up however many levels (GitHub nests
+  // sub-issues); a missing story or a cycle leaves them epic-less.
+  const inherited = (uid: string, seen: ReadonlySet<string>): EpicRef | undefined => {
+    const parentUid = pendingEpic.get(uid);
+    if (parentUid === undefined) return nodes.get(uid)?.epic;
+    return seen.has(parentUid) ? undefined : inherited(parentUid, new Set([...seen, uid]));
+  };
+  for (const uid of pendingEpic.keys()) {
+    const epic = inherited(uid, new Set());
     if (epic) getOrThrow(nodes, uid).epic = epic;
   }
   // Fill in summaries for Epic Link references when the epic itself is loaded.

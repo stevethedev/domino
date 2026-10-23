@@ -13,6 +13,9 @@ import { descriptionOf, GITHUB_LINK_TYPES, GITHUB_STATUSES, hasSubIssues, jiraLi
  */
 const MAX_REMEMBERED = 5000;
 
+/** GitHub nests sub-issues at most this deep, which bounds the walk up to an epic. */
+const MAX_SUB_ISSUE_DEPTH = 8;
+
 /**
  * A JiraSource for GitHub sites: GitHub's issues and pull requests in Jira's shape (see toRaw.ts).
  * Queries are GitHub searches; there are no priorities, and no status history yet.
@@ -105,8 +108,24 @@ export class GitHubSource implements JiraSource {
       (await this.api.subIssues(siteId, epic.key)).filter((n) => inRepoScope(scope, keyOf(n) ?? "")),
       childrenRequest,
     );
-    // A sub-issue with sub-issues of its own is a story: its sub-issues find their epic through it, so it loads too.
-    return { epic, children: node.parent ? [epic, ...children] : children };
+    return { epic, children: [...(await this.storiesUp(siteId, node)), ...children] };
+  }
+
+  /**
+   * A sub-issue with sub-issues of its own is a story, and so is each of its ancestors below the top
+   * one: its sub-issues find their epic through them all, so they load too.
+   */
+  private async storiesUp(siteId: string, start: GhNode): Promise<RawIssue[]> {
+    const stories: RawIssue[] = [];
+    let story: GhNode | undefined = start.parent ? start : undefined;
+    while (story && stories.length < MAX_SUB_ISSUE_DEPTH) {
+      const issue = toRawIssue(story);
+      if (!issue || stories.some((s) => s.key === issue.key)) break;
+      stories.push(issue);
+      const parentKey = story.parent?.parent ? keyOf(story.parent) : null;
+      story = parentKey ? await this.node(siteId, parentKey) : undefined;
+    }
+    return stories;
   }
 
   fetchIssue(siteId: string, key: string): Promise<RawIssue> {
