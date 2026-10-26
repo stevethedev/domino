@@ -73,7 +73,7 @@ fragment IssueTicket on Issue {
       name
     }
   }
-  assignees(first: 5) {
+  assignees(first: 10) {
     nodes {
       login
       name
