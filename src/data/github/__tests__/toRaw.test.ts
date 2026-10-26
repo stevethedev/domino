@@ -252,6 +252,8 @@ describe("jiraLinksIn", () => {
     expect(found(`- \`\`\`\n  ${url(1)}\n  \`\`\`\n\nSee ${url(9)}`)).toEqual(["CORE-9"]);
     expect(found(`1. ~~~\n   ${url(1)}\n   ~~~\n\nSee ${url(9)}`)).toEqual(["CORE-9"]);
     expect(found(`-     \`\`\`\n\nSee ${url(9)}`)).toEqual(["CORE-9"]); // 5 spaces in: indented code, not a fence
+    expect(found(`-\t\`\`\`\n  ${url(1)}\n  \`\`\`\n\nSee ${url(9)}`)).toEqual(["CORE-9"]); // a tab after the marker
+    expect(found(`1.    ~~~\n   ${url(1)}\n   ~~~\n\nSee ${url(9)}`)).toEqual(["CORE-9"]); // 4 spaces: still a fence
   });
 
   it("reads comments and fences together: neither hides prose after the other closes", () => {
