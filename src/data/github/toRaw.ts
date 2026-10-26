@@ -149,11 +149,14 @@ export function toRawIssue(t: GhNode): RawIssue | null {
   if (!key) return null;
   const parentKey = keyOf(t.parent);
   const asked = t.requestedKey?.toLowerCase();
+  const assignees = nodesOf(t.assignees).flatMap((u) => userOf(u) ?? []);
+  const others = assignees.slice(1);
   return {
     id: t.id ?? key,
     key,
     self: t.url,
     ...(asked && asked !== key ? { aliases: [asked] } : {}),
+    ...(others.length > 0 ? { otherAssignees: others.flatMap((u) => u.accountId ?? []) } : {}),
     ...([t.timelineItems, t.blockedBy, t.blocking, t.closingIssuesReferences].some((c) => c?.pageInfo?.hasNextPage === true)
       ? { linksIncomplete: true }
       : {}),
@@ -161,7 +164,7 @@ export function toRawIssue(t: GhNode): RawIssue | null {
       summary: t.title ?? key,
       issuetype: typeOf(t),
       status: statusOf(t),
-      assignee: userOf(nodesOf(t.assignees)[0]),
+      assignee: assignees.length > 0 ? assignees[0] : null,
       reporter: userOf(t.author),
       resolutiondate: t.closedAt ?? null,
       created: t.createdAt,
@@ -175,11 +178,21 @@ export function toRawIssue(t: GhNode): RawIssue | null {
 
 type Fence = Readonly<{ char: string; length: number }>;
 
+const LIST_ITEM = /^[ \t]*(?:[-*+]|\d{1,9}[.)])(?:[ \t]|$)/;
+
+/** How far leading whitespace indents, with tabs to the next multiple of 4 as CommonMark counts them. */
+function columnsOf(indent: string): number {
+  let col = 0;
+  for (const c of indent) col = c === "\t" ? col + 4 - (col % 4) : col + 1;
+  return col;
+}
+
 /**
  * The Markdown GitHub shows: without HTML comments (an unclosed one runs to the end) or fenced code
  * blocks, read together so a comment marker in code, or a fence in a comment, hides nothing after it.
  * Fences as CommonMark reads them: one closes on the same character, at least as long, with nothing
- * after it; an unclosed fence runs to the end; any indent is allowed (fences in list items). Inline
+ * after it; an unclosed fence runs to the end; it opens indented at most 3 spaces, or any amount in a
+ * list item (which lasts until unindented text after a blank line), since 4 is indented code. Inline
  * code can wrap onto the next line, so a paragraph's lines (up to a blank or fence-like line) are read
  * together. One pass, whatever the input.
  */
@@ -196,15 +209,23 @@ function shownMarkdown(text: string): string {
     paragraph = [];
     return shown.inComment;
   };
+  let inList = false;
+  let afterBlank = false;
   for (const line of text.split(/\r?\n/)) {
-    const m = /^[ \t]*(`{3,}|~{3,})(.*)$/.exec(line);
+    const m = /^([ \t]*)(`{3,}|~{3,})(.*)$/.exec(line);
     if (fence) {
-      if (m && m[1][0] === fence.char && m[1].length >= fence.length && m[2].trim() === "") fence = null;
+      if (m && m[2][0] === fence.char && m[2].length >= fence.length && m[3].trim() === "") fence = null;
       continue;
     }
-    if (m || line.trim() === "") inComment = endParagraph();
-    if (!inComment && m && !(m[1][0] === "`" && m[2].includes("`"))) fence = { char: m[1][0], length: m[1].length };
-    else paragraph.push(line);
+    const blank = line.trim() === "";
+    if (LIST_ITEM.test(line)) inList = true;
+    else if (afterBlank && !blank && !/^[ \t]/.test(line)) inList = false;
+    afterBlank = blank;
+    const opener = m && (inList || columnsOf(m[1]) <= 3) ? m : null;
+    if (opener || blank) inComment = endParagraph();
+    if (!inComment && opener && !(opener[2][0] === "`" && opener[3].includes("`"))) {
+      fence = { char: opener[2][0], length: opener[2].length };
+    } else paragraph.push(line);
   }
   endParagraph();
   return kept.join("\n");

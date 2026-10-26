@@ -13,7 +13,9 @@ export function myIssues(nodes: readonly GraphNode[], me: Me): MyIssues {
   const loaded = nodes.filter((n) => !n.ghost);
   const isMine = (n: GraphNode, accountId: string | undefined): boolean => accountId !== undefined && me.get(n.siteId) === accountId;
   return {
-    assigned: new Set(loaded.filter((n) => isMine(n, n.assigneeAccountId)).map((n) => n.uid)),
+    assigned: new Set(
+      loaded.filter((n) => [n.assigneeAccountId, ...(n.otherAssigneeAccountIds ?? [])].some((id) => isMine(n, id))).map((n) => n.uid),
+    ),
     reported: new Set(loaded.filter((n) => isMine(n, n.reporterAccountId)).map((n) => n.uid)),
   };
 }

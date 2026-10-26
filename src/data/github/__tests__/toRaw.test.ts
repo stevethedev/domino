@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildGraph } from "../../../graph/buildGraph";
+import { myIssues } from "../../../graph/mine";
 import { data, site } from "../../../graph/__tests__/helpers";
 import { defined } from "../../../lib/guards";
 import { mockGitHub } from "../../mockData";
@@ -101,6 +102,13 @@ describe("toRawIssue", () => {
       ["a/b#1", "a/b#1"],
       ["a/b#2", "a/b#1"],
     ]);
+  });
+
+  it("counts a ticket as assigned to me when I'm any of its assignees, not only the first", () => {
+    const shared = node("a/b#1", { assignees: { nodes: [{ login: "other" }, { login: "me" }] } });
+    const graph = buildGraph({ sites: [site("gh")], data: [data("gh", [raw(shared)])] });
+    expect(myIssues(graph.nodes, new Map([["gh", "me"]])).assigned).toEqual(new Set(["gh:a/b#1"]));
+    expect(raw(shared).fields.assignee?.accountId).toBe("other");
   });
 
   it("writes each link with the same id from both ends, so they collapse into one edge", () => {
@@ -228,6 +236,14 @@ describe("jiraLinksIn", () => {
     expect(found(`\`\`\`\n${url(1)}\n\`\`\`~\n${url(2)}\n\`\`\`\nSee ${url(9)}`)).toEqual(["CORE-9"]); // \`\`\`~ doesn't close
     expect(found(`Use \`\`\`x\`\`\` here ${url(9)}`)).toEqual(["CORE-9"]); // not an opener
     expect(found(`See ${url(9)}\n<!-- unclosed ${url(1)}`)).toEqual(["CORE-9"]);
+  });
+
+  it("reads four-space-indented backticks as indented code at the top level, but as a fence in a list item", () => {
+    const url = (n: number): string => `https://acme.atlassian.net/browse/CORE-${n}`;
+    const found = (body: string): (string | undefined)[] => jiraLinksIn(node("a/b#1", { body })).map((l) => l.object.title);
+    expect(found(`Intro\n\n    \`\`\`\n\nSee ${url(9)}`)).toEqual(["CORE-9"]);
+    expect(found(`- a\n  - b\n\n      \`\`\`\n      ${url(1)}\n      \`\`\`\n\nSee ${url(9)}`)).toEqual(["CORE-9"]);
+    expect(found(`- a\n\nDone.\n\n    \`\`\`\n\nSee ${url(9)}`)).toEqual(["CORE-9"]); // the list ended
   });
 
   it("reads comments and fences together: neither hides prose after the other closes", () => {

@@ -25,6 +25,8 @@ export type GraphNode = {
   assigneeAvatarUrl?: string;
   /** Jira account ids, for matching "assigned to me" / "reported by me" against `GET /myself`. */
   assigneeAccountId?: string;
+  /** Further assignees' account ids (GitHub tickets can have several); `assigneeName` shows only the first. */
+  otherAssigneeAccountIds?: readonly string[];
   reporterAccountId?: string;
   storyPoints?: number;
   url: string;

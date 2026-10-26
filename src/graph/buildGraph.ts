@@ -109,6 +109,7 @@ function nodeFromIssue(issue: RawIssue, site: SiteConfig, ranks: PriorityRanks):
     assigneeName: f.assignee?.displayName,
     assigneeAvatarUrl: avatars?.["48x48"] ?? avatars?.["24x24"],
     assigneeAccountId: f.assignee?.accountId,
+    otherAssigneeAccountIds: issue.otherAssignees,
     reporterAccountId: f.reporter?.accountId,
     storyPoints: typeof f.customfield_10016 === "number" ? f.customfield_10016 : undefined,
     url: ticketUrl(site, issue.key),
