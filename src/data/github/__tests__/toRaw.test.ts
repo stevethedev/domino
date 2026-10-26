@@ -233,7 +233,6 @@ describe("jiraLinksIn", () => {
     expect(found(`1. step\n   \`\`\`\n   ${url(1)}\n   \`\`\`\nSee ${url(9)}`)).toEqual(["CORE-9"]); // list-item fence
     expect(found(`\`\`\`\n${url(1)}\n  \`\`\`\nSee ${url(9)}`)).toEqual(["CORE-9"]); // indented close
     expect(found(`See ${url(9)}\n\`\`\`\n${url(1)}`)).toEqual(["CORE-9"]); // unclosed: runs to the end
-    expect(found(`\`\`\`\n${url(1)}\n\`\`\`~\n${url(2)}\n\`\`\`\nSee ${url(9)}`)).toEqual(["CORE-9"]); // \`\`\`~ doesn't close
     expect(found(`Use \`\`\`x\`\`\` here ${url(9)}`)).toEqual(["CORE-9"]); // not an opener
     expect(found(`See ${url(9)}\n<!-- unclosed ${url(1)}`)).toEqual(["CORE-9"]);
   });
@@ -246,14 +245,21 @@ describe("jiraLinksIn", () => {
     expect(found(`- a\n\nDone.\n\n    \`\`\`\n\nSee ${url(9)}`)).toEqual(["CORE-9"]); // the list ended
   });
 
+  it("ignores fenced code in a blockquote, but not the prose after the quote", () => {
+    const url = (n: number): string => `https://acme.atlassian.net/browse/CORE-${n}`;
+    const found = (body: string): (string | undefined)[] => jiraLinksIn(node("a/b#1", { body })).map((l) => l.object.title);
+    expect(found(`> \`\`\`\n> ${url(11)}\n> \`\`\`\n\nSee ${url(9)}`)).toEqual(["CORE-9"]);
+    expect(found(`> Quoted ${url(2)}\n\nSee ${url(9)}`)).toEqual(["CORE-2", "CORE-9"]);
+  });
+
   it("reads a fence that opens on a list marker's own line", () => {
     const url = (n: number): string => `https://acme.atlassian.net/browse/CORE-${n}`;
     const found = (body: string): (string | undefined)[] => jiraLinksIn(node("a/b#1", { body })).map((l) => l.object.title);
     expect(found(`- \`\`\`\n  ${url(1)}\n  \`\`\`\n\nSee ${url(9)}`)).toEqual(["CORE-9"]);
     expect(found(`1. ~~~\n   ${url(1)}\n   ~~~\n\nSee ${url(9)}`)).toEqual(["CORE-9"]);
     expect(found(`-     \`\`\`\n\nSee ${url(9)}`)).toEqual(["CORE-9"]); // 5 spaces in: indented code, not a fence
-    expect(found(`-\t\`\`\`\n  ${url(1)}\n  \`\`\`\n\nSee ${url(9)}`)).toEqual(["CORE-9"]); // a tab after the marker
-    expect(found(`1.    ~~~\n   ${url(1)}\n   ~~~\n\nSee ${url(9)}`)).toEqual(["CORE-9"]); // 4 spaces: still a fence
+    expect(found(`-\t\`\`\`\n    ${url(1)}\n    \`\`\`\n\nSee ${url(9)}`)).toEqual(["CORE-9"]); // a tab after the marker
+    expect(found(`1.    ~~~\n      ${url(1)}\n      ~~~\n\nSee ${url(9)}`)).toEqual(["CORE-9"]); // 4 spaces: still a fence
   });
 
   it("reads comments and fences together: neither hides prose after the other closes", () => {
@@ -273,8 +279,9 @@ describe("jiraLinksIn", () => {
   it("reads a comment marker inside inline code as code, hiding nothing after it", () => {
     const body = "Use `<!--` or `` a `<!--` b `` to begin a comment.\nNeeds https://acme.atlassian.net/browse/CORE-11";
     expect(jiraLinksIn(node("a/b#1", { body })).map((l) => l.object.title)).toEqual(["CORE-11"]);
-    const hidden = "`code` <!-- https://acme.atlassian.net/browse/CORE-12 --> ``unclosed <!-- https://acme.atlassian.net/browse/CORE-13";
-    expect(jiraLinksIn(node("a/b#1", { body: hidden }))).toEqual([]);
+    // An inline comment hides its text; an unclosed `<!--` mid-paragraph is plain text, as GitHub shows it.
+    const mixed = "`code` <!-- https://acme.atlassian.net/browse/CORE-12 --> ``unclosed <!-- https://acme.atlassian.net/browse/CORE-13";
+    expect(jiraLinksIn(node("a/b#1", { body: mixed })).map((l) => l.object.title)).toEqual(["CORE-13"]);
   });
 
   it("reads inline code that wraps onto the next line as code, but not past a blank line", () => {

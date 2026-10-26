@@ -12,6 +12,7 @@ import type {
   RawUser,
   RawVersion,
 } from "../jiraTypes";
+import { marked } from "marked";
 import { gitHubKey } from "../ticketKey";
 import type { GhConnection, GhLinked, GhNode, GhUser } from "./githubTypes";
 
@@ -176,112 +177,24 @@ export function toRawIssue(t: GhNode): RawIssue | null {
   };
 }
 
-type Fence = Readonly<{ char: string; length: number }>;
-
-const LIST_ITEM = /^[ \t]*(?:[-*+]|\d{1,9}[.)])(?:[ \t]|$)/;
-
-/** How far leading whitespace indents, with tabs to the next multiple of 4 as CommonMark counts them. */
-function columnsOf(indent: string): number {
-  let col = 0;
-  for (const c of indent) col = c === "\t" ? col + 4 - (col % 4) : col + 1;
-  return col;
-}
+/** HTML comments, as GitHub hides them; an unclosed one runs to the end of its block. */
+const HTML_COMMENT = /<!--[\s\S]*?(?:-->|$)/g;
 
 /**
- * The Markdown GitHub shows: without HTML comments (an unclosed one runs to the end) or fenced code
- * blocks, read together so a comment marker in code, or a fence in a comment, hides nothing after it.
- * Fences as CommonMark reads them: one closes on the same character, at least as long, with nothing
- * after it; an unclosed fence runs to the end; it opens indented at most 3 spaces, or any amount in a
- * list item (which lasts until unindented text after a blank line), since 4 is indented code. Inline
- * code can wrap onto the next line, so a paragraph's lines (up to a blank or fence-like line) are read
- * together. One pass, whatever the input.
+ * The Markdown GitHub shows, as plain text plus link targets: CommonMark (via marked) decides what is
+ * a code block or a comment, so fenced and indented code (in lists and quotes too) and HTML comments
+ * drop out. Inline code stays: GitHub shows it.
  */
-function shownMarkdown(text: string): string {
-  const kept: string[] = [];
-  let paragraph: string[] = [];
-  let fence: Fence | null = null;
-  let inComment = false;
-  /** Keeps the paragraph's shown text; whether a comment is still open after it. */
-  const endParagraph = (): boolean => {
-    if (!paragraph.length) return inComment;
-    const shown = shownText(paragraph.join("\n"), inComment);
-    kept.push(shown.text);
-    paragraph = [];
-    return shown.inComment;
-  };
-  let inList = false;
-  let afterBlank = false;
-  for (const line of text.split(/\r?\n/)) {
-    const m = /^([ \t]*)(`{3,}|~{3,})(.*)$/.exec(line);
-    if (fence) {
-      if (m && m[2][0] === fence.char && m[2].length >= fence.length && m[3].trim() === "") fence = null;
-      continue;
+function shownMarkdown(markdown: string): string {
+  const parts: string[] = [];
+  void marked.walkTokens(marked.lexer(markdown), (token) => {
+    if (token.type === "link" || token.type === "image") parts.push(String(token.href));
+    else if (token.type === "html") parts.push(String(token.text).replace(HTML_COMMENT, ""));
+    else if ((token.type === "text" || token.type === "codespan" || token.type === "escape") && !("tokens" in token && token.tokens)) {
+      parts.push(String(token.text));
     }
-    const blank = line.trim() === "";
-    if (LIST_ITEM.test(line)) inList = true;
-    else if (afterBlank && !blank && !/^[ \t]/.test(line)) inList = false;
-    afterBlank = blank;
-    // An opener may follow a list marker on the same line ("- ```"); a closer never does.
-    const candidate = m ?? /^([ \t]*)(?:[-*+]|\d{1,9}[.)])(?: {1,4}|\t)(`{3,}|~{3,})(.*)$/.exec(line);
-    const opener = candidate && (inList || columnsOf(candidate[1]) <= 3) ? candidate : null;
-    if (opener || blank) inComment = endParagraph();
-    if (!inComment && opener && !(opener[2][0] === "`" && opener[3].includes("`"))) {
-      fence = { char: opener[2][0], length: opener[2].length };
-    } else paragraph.push(line);
-  }
-  endParagraph();
-  return kept.join("\n");
-}
-
-type CodeRun = Readonly<{ start: number; end: number }>;
-
-/**
- * The text outside HTML comments, starting inside one when `inComment`. A `<!--` in an inline code span
- * (a backtick run closed by the next run as long) is code, not a comment; an unclosed run is plain
- * backticks. One pass: each run's closer is looked up, not searched for.
- */
-function shownText(line: string, inComment: boolean): { text: string; inComment: boolean } {
-  const runs: CodeRun[] = [...line.matchAll(/`+/g)].map((m) => ({ start: m.index, end: m.index + m[0].length }));
-  const closerOf = new Map<number, number>();
-  const nextOfLength = new Map<number, number>();
-  for (let r = runs.length - 1; r >= 0; r--) {
-    const length = runs[r].end - runs[r].start;
-    const next = nextOfLength.get(length);
-    if (next !== undefined) closerOf.set(r, next);
-    nextOfLength.set(length, r);
-  }
-  let text = "";
-  let at = 0;
-  let run = 0;
-  let marker = -2; // the next `<!--` at or after `at`; -1 once there is none
-  let commented = inComment;
-  while (at < line.length) {
-    if (commented) {
-      const close = line.indexOf("-->", at);
-      if (close < 0) break;
-      at = close + 3;
-      commented = false;
-      continue;
-    }
-    while (run < runs.length && runs[run].start < at) run++;
-    if (marker !== -1 && marker < at) marker = line.indexOf("<!--", at);
-    const next = run < runs.length ? runs[run] : undefined;
-    if (marker >= 0 && (!next || marker < next.start)) {
-      text += line.slice(at, marker);
-      at = marker + 4;
-      commented = true;
-    } else if (!next) {
-      text += line.slice(at);
-      break;
-    } else {
-      const closer = closerOf.get(run);
-      const end = closer === undefined ? next.end : runs[closer].end;
-      text += line.slice(at, end);
-      at = end;
-      run = closer === undefined ? run + 1 : closer + 1;
-    }
-  }
-  return { text, inComment: commented };
+  });
+  return parts.join("\n");
 }
 
 /** Jira tickets the body links to (`https://…/browse/KEY`), as remote links that relate to them. */
