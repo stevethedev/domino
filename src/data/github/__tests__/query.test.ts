@@ -72,6 +72,9 @@ describe("repoScopeOf / inRepoScope", () => {
     expect(["acme/web#1", "acme/api#2", "acme/other#3"].map((k) => inRepoScope(grouped, k))).toEqual([true, true, false]);
     const not = repoScopeOf("org:acme NOT repo:acme/old");
     expect(["acme/web#1", "acme/old#2"].map((k) => inRepoScope(not, k))).toEqual([true, false]);
+    const notGroup = repoScopeOf("org:acme NOT (repo:acme/a OR repo:acme/b) is:open");
+    expect(["acme/a#1", "acme/b#2", "acme/c#3"].map((k) => inRepoScope(notGroup, k))).toEqual([false, false, true]);
+    expect(inRepoScope(repoScopeOf("org:acme NOT -repo:acme/x"), "acme/x#1")).toBe(true); // excluded twice: included
   });
 
   it("allows any repo when the filter names none", () => {

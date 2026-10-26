@@ -69,17 +69,24 @@ export function repoScopeOf(filter: string | undefined): RepoScope {
     excludedOwners: new Set<string>(),
     excludedRepos: new Set<string>(),
   };
-  // Groups and `OR` change nothing here (repeated qualifiers are ORed anyway); `NOT` excludes the term after it.
-  let negated = false;
+  // `OR` changes nothing here (repeated qualifiers are ORed anyway). `NOT` excludes the term or group
+  // after it; each open group remembers whether it was NOT-ed, and two NOTs cancel out.
+  const groups: boolean[] = [];
+  let afterNot = false;
   for (const raw of termsOf(filter ?? "")) {
     if (raw === "NOT") {
-      negated = true;
+      afterNot = true;
       continue;
     }
-    const term = scopeTermOf(raw.replace(/^\(+/, "").replace(/\)+$/, ""));
-    const excluded = term ? term.excluded !== negated : false;
-    negated = false;
+    const opens = /^\(*/.exec(raw)?.[0].length ?? 0;
+    const closes = /\)*$/.exec(raw)?.[0].length ?? 0;
+    for (let i = 0; i < opens; i++) groups.push(i === 0 && afterNot);
+    const negated = (opens === 0 && afterNot) !== (groups.filter(Boolean).length % 2 === 1);
+    afterNot = false;
+    const term = scopeTermOf(raw.slice(opens, raw.length - closes));
+    groups.splice(Math.max(0, groups.length - closes));
     if (!term) continue;
+    const excluded = term.excluded !== negated;
     const repo = term.kind === "repo";
     const into = excluded ? (repo ? scope.excludedRepos : scope.excludedOwners) : repo ? scope.repos : scope.owners;
     into.add(term.value);
