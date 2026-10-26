@@ -125,6 +125,12 @@ describe("toRawIssue", () => {
     ]);
   });
 
+  it("reads owner/repo#n only within the ticket's own owner, and never an image's target", () => {
+    const body = "Path docs/readme#2, other/tool#4 but https://github.com/other/tool/issues/5 ![x](https://github.com/acme/web/issues/6)";
+    const issue = raw(node("acme/web#1", { url: "https://github.com/acme/web/issues/1", body }));
+    expect((issue.fields.issuelinks ?? []).map((l) => l.outwardIssue?.key)).toEqual(["other/tool#5"]);
+  });
+
   it("doesn't add a mention for a ticket already linked another way", () => {
     const pr = raw(
       node("acme/web#9", {
