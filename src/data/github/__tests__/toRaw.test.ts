@@ -246,6 +246,13 @@ describe("jiraLinksIn", () => {
     expect(found(`- a\n\nDone.\n\n    \`\`\`\n\nSee ${url(9)}`)).toEqual(["CORE-9"]); // the list ended
   });
 
+  it("reads a fence that opens on a list marker's own line", () => {
+    const url = (n: number): string => `https://acme.atlassian.net/browse/CORE-${n}`;
+    const found = (body: string): (string | undefined)[] => jiraLinksIn(node("a/b#1", { body })).map((l) => l.object.title);
+    expect(found(`- \`\`\`\n  ${url(1)}\n  \`\`\`\n\nSee ${url(9)}`)).toEqual(["CORE-9"]);
+    expect(found(`1. ~~~\n   ${url(1)}\n   ~~~\n\nSee ${url(9)}`)).toEqual(["CORE-9"]);
+  });
+
   it("reads comments and fences together: neither hides prose after the other closes", () => {
     const url = (n: number): string => `https://acme.atlassian.net/browse/CORE-${n}`;
     const found = (body: string): (string | undefined)[] => jiraLinksIn(node("a/b#1", { body })).map((l) => l.object.title);

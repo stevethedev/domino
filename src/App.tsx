@@ -661,7 +661,7 @@ function Shell(): ReactElement {
                 }}
                 everyoneSummary={
                   stale ? (
-                    `Loading ${scopeLabel(domino.scope)}…`
+                    `Loading ${scopeLabel(domino.scope, domino.selectedSites)}…`
                   ) : loaded ? (
                     <>
                       {full} tickets · {graph.nodes.length - full} outside scope ·{" "}
@@ -812,12 +812,12 @@ function Shell(): ReactElement {
           <LoadPill
             view={loadView}
             sites={domino.selectedSites}
-            scopeLabel={scopeLabel(domino.scope)}
+            scopeLabel={scopeLabel(domino.scope, domino.selectedSites)}
             failureText={
               loadView.failure === null
                 ? null
                 : loadView.mode === "other"
-                  ? otherScopeFailureText(scopeLabel(domino.scope), loadView.failure)
+                  ? otherScopeFailureText(scopeLabel(domino.scope, domino.selectedSites), loadView.failure)
                   : failureText(loadView.failure, shownAt, Date.now())
             }
             onRetry={domino.reload}
