@@ -65,13 +65,15 @@ function statusOf(t: GhLinked): RawStatus {
  * sub-issue that has its own sub-issues is a story, so those group under the top issue too.
  */
 const EPIC_LEVEL = 1;
+/** Every other issue, set outright so a custom issue type named "Epic" can't make it one. */
+const STORY_LEVEL = 0;
 
 export const hasSubIssues = (t: GhNode): boolean => (t.subIssuesSummary?.total ?? 0) > 0;
 
 function typeOf(t: GhNode): RawIssueType {
   if (isPull(t)) return { name: "Pull request" };
   const name = t.issueType?.name ?? "Issue";
-  return hasSubIssues(t) && !t.parent ? { name, hierarchyLevel: EPIC_LEVEL } : { name };
+  return { name, hierarchyLevel: hasSubIssues(t) && !t.parent ? EPIC_LEVEL : STORY_LEVEL };
 }
 
 function linked(t: GhLinked, key: string, epic = false): RawLinkedIssue {
@@ -81,7 +83,7 @@ function linked(t: GhLinked, key: string, epic = false): RawLinkedIssue {
     fields: {
       summary: t.title ?? key,
       status: statusOf(t),
-      issuetype: isPull(t) ? { name: "Pull request" } : epic ? { name: "Issue", hierarchyLevel: EPIC_LEVEL } : { name: "Issue" },
+      issuetype: isPull(t) ? { name: "Pull request" } : { name: "Issue", hierarchyLevel: epic ? EPIC_LEVEL : STORY_LEVEL },
     },
   };
 }

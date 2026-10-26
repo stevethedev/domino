@@ -76,7 +76,7 @@ describe("toRawIssue", () => {
 
   it("treats an issue with sub-issues as an epic, and a sub-issue's parent as its epic", () => {
     expect(raw(node("a/b#1", { subIssuesSummary: { total: 2 } })).fields.issuetype).toEqual({ name: "Issue", hierarchyLevel: 1 });
-    expect(raw(node("a/b#1", { subIssuesSummary: { total: 0 } })).fields.issuetype).toEqual({ name: "Issue" });
+    expect(raw(node("a/b#1", { subIssuesSummary: { total: 0 } })).fields.issuetype).toEqual({ name: "Issue", hierarchyLevel: 0 });
     const child = raw(node("a/b#2", { parent: linkedIssue("a/b#1", { title: "Rollout" }) }));
     expect(child.fields.parent).toMatchObject({ key: "a/b#1", fields: { summary: "Rollout", issuetype: { hierarchyLevel: 1 } } });
   });
@@ -90,6 +90,16 @@ describe("toRawIssue", () => {
       ["a/b#1", "a/b#1"],
       ["a/b#2", "a/b#1"],
       ["a/b#3", "a/b#1"],
+    ]);
+  });
+
+  it("groups by sub-issues alone, even when a sub-issue's own type is named Epic", () => {
+    const top = node("a/b#1", { subIssuesSummary: { total: 1 } });
+    const typedEpic = node("a/b#2", { issueType: { name: "Epic" }, parent: linkedIssue("a/b#1") });
+    const graph = buildGraph({ sites: [site("gh")], data: [data("gh", [top, typedEpic].map(raw))] });
+    expect(graph.nodes.map((n) => [n.key, n.epic?.key])).toEqual([
+      ["a/b#1", "a/b#1"],
+      ["a/b#2", "a/b#1"],
     ]);
   });
 

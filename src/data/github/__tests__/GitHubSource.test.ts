@@ -114,6 +114,41 @@ describe("GitHubSource", () => {
     ]);
   });
 
+  it("walks up only through stories the site's filter allows", async () => {
+    // acme/web#1 → acme/api#2 → acme/web#3 → #4, with the site limited to acme/web.
+    const story = (repo: string, number: number, parent: GhNode["parent"]): GhNode => ({
+      ...ticket(`${repo}#${number}`),
+      number,
+      repository: { nameWithOwner: repo },
+      subIssuesSummary: { total: 1 },
+      parent,
+    });
+    const three = story("acme/web", 3, { number: 2, repository: { nameWithOwner: "acme/api" }, parent: { id: "I_1" } });
+    const asked: string[] = [];
+    const four = (): Promise<GhNode[]> => Promise.resolve([{ ...ticket("Four"), number: 4 }]);
+    const inner = fakeApi(new Map([["acme/web#3", three]]));
+    const api = fakeApi(new Map());
+    api.issues = (site, keys): Promise<GhNode[]> => {
+      asked.push(...keys);
+      return inner.issues(site, keys);
+    };
+    api.subIssues = four;
+    const { children } = await new GitHubSource(api).fetchEpic("gh", "acme/web#3", "repo:acme/web");
+    expect(asked).toEqual(["acme/web#3"]);
+    expect(children.map((c) => c.key)).toEqual(["acme/web#3", "acme/web#4"]);
+
+    // A story that answers from outside the filter (its repo was renamed or it moved) isn't loaded either.
+    const moved = fakeApi(
+      new Map([
+        ["acme/web#3", { ...three, parent: { number: 2, repository: { nameWithOwner: "acme/web" }, parent: { id: "I_1" } } }],
+        ["acme/web#2", story("acme/gone", 2, { number: 1, repository: { nameWithOwner: "acme/web" } })],
+      ]),
+    );
+    moved.subIssues = four;
+    const keys = (await new GitHubSource(moved).fetchEpic("gh", "acme/web#3", "repo:acme/web")).children.map((c) => c.key);
+    expect(keys).toEqual(["acme/web#3", "acme/web#4"]);
+  });
+
   it("doesn't let a reply that lands after clear() repopulate the cache", async () => {
     const nodes = new Map([["acme/web#1", ticket("Old account", "See https://acme.atlassian.net/browse/CORE-1")]]);
     const api = fakeApi(nodes);

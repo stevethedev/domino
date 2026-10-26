@@ -2,7 +2,7 @@ import type { JiraSource } from "../JiraSource";
 import type { RawIssue, RawIssueChangeLog, RawLinkType, RawPriority, RawRemoteLink, RawStatusDef, RawUser } from "../jiraTypes";
 import type { GitHubApi } from "./GitHubApi";
 import type { GhNode } from "./githubTypes";
-import { inRepoScope, repoScopeOf } from "./query";
+import { inRepoScope, type RepoScope, repoScopeOf } from "./query";
 import { descriptionOf, GITHUB_LINK_TYPES, GITHUB_STATUSES, hasSubIssues, jiraLinksIn, keyOf, toRawIssue } from "./toRaw";
 
 /**
@@ -108,22 +108,24 @@ export class GitHubSource implements JiraSource {
       (await this.api.subIssues(siteId, epic.key)).filter((n) => inRepoScope(scope, keyOf(n) ?? "")),
       childrenRequest,
     );
-    return { epic, children: [...(await this.storiesUp(siteId, node)), ...children] };
+    return { epic, children: [...(await this.storiesUp(siteId, node, scope)), ...children] };
   }
 
   /**
    * A sub-issue with sub-issues of its own is a story, and so is each of its ancestors below the top
    * one: its sub-issues find their epic through them all, so they load too.
    */
-  private async storiesUp(siteId: string, start: GhNode): Promise<RawIssue[]> {
+  private async storiesUp(siteId: string, start: GhNode, scope: RepoScope): Promise<RawIssue[]> {
     const stories: RawIssue[] = [];
     let story: GhNode | undefined = start.parent ? start : undefined;
     while (story && stories.length < MAX_SUB_ISSUE_DEPTH) {
       const issue = toRawIssue(story);
-      if (!issue || stories.some((s) => s.key === issue.key)) break;
+      // Past the start, a story outside the site's filter (perhaps answering under a new key) ends the walk.
+      const outside = stories.length > 0 && !inRepoScope(scope, issue?.key ?? "");
+      if (!issue || outside || stories.some((s) => s.key === issue.key)) break;
       stories.push(issue);
       const parentKey = story.parent?.parent ? keyOf(story.parent) : null;
-      story = parentKey ? await this.node(siteId, parentKey) : undefined;
+      story = parentKey && inRepoScope(scope, parentKey) ? await this.node(siteId, parentKey) : undefined;
     }
     return stories;
   }
