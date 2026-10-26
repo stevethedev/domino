@@ -219,6 +219,24 @@ describe("loading Jira and GitHub sites together", () => {
     expect(res.data[0]?.issues.map((i) => i.key).sort()).toEqual(["acme/web#1", "acme/web#2"]);
   });
 
+  it("keeps the tickets a grouped GitHub search returns, from every repo it names", async () => {
+    const api = new FixtureGitHubApi(mockGitHub);
+    // As GitHub answers it (the fixture's search subset can't read groups).
+    api.search = (): Promise<GhNode[]> =>
+      Promise.resolve(
+        mockGitHub.issues.filter((n) => ["acme/web", "acme/api"].includes((n.repository?.nameWithOwner ?? "").toLowerCase())),
+      );
+    const routed = new RoutingSource(new FixtureSource(mockSites, mockLinkTypes), new GitHubSource(api), kinds.kindOf);
+    const res = await new MultiSiteLoader(routed).load(
+      { mode: "jql", jql: "", github: "(repo:acme/web OR repo:acme/api) is:open" },
+      pick("gh"),
+      sites,
+    );
+    if (res.kind !== "ok") throw new Error("expected ok");
+    const repos = new Set(res.data[0]?.issues.map((i) => i.key.split("#")[0]));
+    expect(repos).toEqual(new Set(["acme/web", "acme/api"]));
+  });
+
   it("follows links from a seed whose key GitHub spells differently", async () => {
     const res = await new MultiSiteLoader(source).load({ mode: "seed", siteId: "gh", key: "ACME/Web#31", depth: 1 }, pick("gh"), sites);
     if (res.kind !== "ok") throw new Error("expected ok");

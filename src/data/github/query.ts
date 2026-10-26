@@ -69,10 +69,19 @@ export function repoScopeOf(filter: string | undefined): RepoScope {
     excludedOwners: new Set<string>(),
     excludedRepos: new Set<string>(),
   };
-  for (const term of termsOf(filter ?? "").map(scopeTermOf)) {
+  // Groups and `OR` change nothing here (repeated qualifiers are ORed anyway); `NOT` excludes the term after it.
+  let negated = false;
+  for (const raw of termsOf(filter ?? "")) {
+    if (raw === "NOT") {
+      negated = true;
+      continue;
+    }
+    const term = scopeTermOf(raw.replace(/^\(+/, "").replace(/\)+$/, ""));
+    const excluded = term ? term.excluded !== negated : false;
+    negated = false;
     if (!term) continue;
     const repo = term.kind === "repo";
-    const into = term.excluded ? (repo ? scope.excludedRepos : scope.excludedOwners) : repo ? scope.repos : scope.owners;
+    const into = excluded ? (repo ? scope.excludedRepos : scope.excludedOwners) : repo ? scope.repos : scope.owners;
     into.add(term.value);
   }
   return Object.values(scope).some((s) => s.size > 0) ? scope : null;

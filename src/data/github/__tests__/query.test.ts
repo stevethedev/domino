@@ -67,6 +67,13 @@ describe("repoScopeOf / inRepoScope", () => {
     expect(inRepoScope(onlyExcluded, "other/x#3")).toBe(false);
   });
 
+  it("reads grouped and NOT-ed qualifiers as GitHub does", () => {
+    const grouped = repoScopeOf("(repo:acme/web OR repo:acme/api) is:open");
+    expect(["acme/web#1", "acme/api#2", "acme/other#3"].map((k) => inRepoScope(grouped, k))).toEqual([true, true, false]);
+    const not = repoScopeOf("org:acme NOT repo:acme/old");
+    expect(["acme/web#1", "acme/old#2"].map((k) => inRepoScope(not, k))).toEqual([true, false]);
+  });
+
   it("allows any repo when the filter names none", () => {
     expect(repoScopeOf("is:open label:bug")).toBeNull();
     expect(inRepoScope(repoScopeOf(undefined), "x/y#1")).toBe(true);
