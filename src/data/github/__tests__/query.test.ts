@@ -34,6 +34,14 @@ describe("combineGitHubQuery", () => {
     expect(inRepoScope(repoScopeOf('org:acme -org:"other"'), "other/x#1")).toBe(false);
   });
 
+  it("joins a Boolean or grouped search as written, rather than rewriting its qualifiers", () => {
+    expect(combineGitHubQuery("org:acme", "repo:acme/web OR repo:acme/api")).toBe("org:acme repo:acme/web OR repo:acme/api");
+    expect(combineGitHubQuery("org:acme", "(repo:acme/web OR repo:acme/api) is:open")).toBe(
+      "org:acme (repo:acme/web OR repo:acme/api) is:open",
+    );
+    expect(combineGitHubQuery("org:acme", 'repo:acme/web "this OR that"')).toBe('"this OR that" repo:acme/web'); // quoted: plain text
+  });
+
   it("is null when the site and the query share no repo", () => {
     expect(combineGitHubQuery("repo:acme/web", "repo:acme/api")).toBeNull();
     expect(combineGitHubQuery("org:acme", "org:other")).toBeNull();

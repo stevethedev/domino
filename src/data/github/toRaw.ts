@@ -120,7 +120,7 @@ function mentionsIn(t: GhNode, self: string): string[] {
     if (parseGitHubKey(key)) keys.add(key);
   };
   const escapedHost = host.replace(/[.*+?^$()|[\]\\{}]/g, "\\$&");
-  const urls = new RegExp(String.raw`https://${escapedHost}/([\w.-]+/[\w.-]+)/(?:issues|pull)/(\d+)(?!\d)`, "gi");
+  const urls = new RegExp(String.raw`https://${escapedHost}/([\w.-]+/[\w.-]+)/(?:issues|pull)/(\d+)(?![\w-])`, "gi");
   for (const m of text.matchAll(urls)) add(m[1], m[2]);
   for (const m of text.matchAll(/(?<![\w./#-])([A-Za-z0-9-]+)\/([\w.-]+)#(\d+)(?!\w)/g)) {
     if (m[1].toLowerCase() === owner) add(`${m[1]}/${m[2]}`, m[3]);

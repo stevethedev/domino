@@ -131,6 +131,13 @@ describe("toRawIssue", () => {
     expect((issue.fields.issuelinks ?? []).map((l) => l.outwardIssue?.key)).toEqual(["other/tool#5"]);
   });
 
+  it("reads a ticket URL only up to a clean end of its number", () => {
+    const base = "https://github.com/acme/web";
+    const body = `${base}/issues/42-extra ${base}/issues/43abc ${base}/pull/44/files ${base}/issues/45#c1 See ${base}/issues/46.`;
+    const issue = raw(node("acme/web#1", { url: `${base}/issues/1`, body }));
+    expect((issue.fields.issuelinks ?? []).map((l) => l.outwardIssue?.key)).toEqual(["acme/web#44", "acme/web#45", "acme/web#46"]);
+  });
+
   it("doesn't add a mention for a ticket already linked another way", () => {
     const pr = raw(
       node("acme/web#9", {

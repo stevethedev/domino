@@ -22,7 +22,9 @@ export function combineGitHubQuery(base: string, query: string): string | null {
   const [b, q] = [termsOf(base), termsOf(query)];
   const [bScope, qScope] = [repoScopeOf(base), repoScopeOf(query)];
   const limits = (scope: NonNullable<RepoScope>): boolean => scope.owners.size > 0 || scope.repos.size > 0;
-  if (!bScope || !qScope || !limits(bScope) || !limits(qScope)) return [...b, ...q].join(" ");
+  // A Boolean or grouped search can't be rewritten term by term: it goes as written, and the loader
+  // keeps only results inside both scopes.
+  if (!bScope || !qScope || !limits(bScope) || !limits(qScope) || isBoolean(b) || isBoolean(q)) return [...b, ...q].join(" ");
   const allows = (scope: RepoScope, repo: string): boolean => inRepoScope(scope, `${repo}#1`);
   const owners = [...b, ...q].flatMap((t) => {
     const term = scopeTermOf(t);
@@ -41,6 +43,10 @@ export function combineGitHubQuery(base: string, query: string): string | null {
     .concat(shared)
     .join(" ");
 }
+
+/** Whether a search's terms use Boolean operators or parentheses (outside quoted phrases). */
+const isBoolean = (terms: readonly string[]): boolean =>
+  terms.some((t) => /^(?:AND|OR|NOT)$/.test(t) || /[()]/.test(t.replace(/"[^"]*"?/g, "")));
 
 /** A search's terms, each quoted phrase (an unclosed one runs to the end) part of its term, as written. */
 const termsOf = (search: string): string[] => search.match(/(?:[^\s"]|"[^"]*"?)+/g) ?? [];
