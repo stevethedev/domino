@@ -1,5 +1,6 @@
 // Maps GitHub's issues and pull requests onto the Jira-shaped model the loader and graph read, so a
 // GitHub site loads, links and draws like any Jira site.
+import { Marked } from "marked";
 import type {
   RawIssue,
   RawIssueLink,
@@ -12,7 +13,6 @@ import type {
   RawUser,
   RawVersion,
 } from "../jiraTypes";
-import { marked } from "marked";
 import { gitHubKey } from "../ticketKey";
 import type { GhConnection, GhLinked, GhNode, GhUser } from "./githubTypes";
 
@@ -177,6 +177,12 @@ export function toRawIssue(t: GhNode): RawIssue | null {
   };
 }
 
+/** A token field as a string: marked types a token's fields loosely (`any`), so check rather than trust them. */
+const stringOf = (v: unknown): string => (typeof v === "string" ? v : "");
+
+/** Our own parser, so another module's `marked.use()` can't change what counts as code or a comment. */
+const markdown = new Marked();
+
 /** HTML comments, as GitHub hides them; an unclosed one runs to the end of its block. */
 const HTML_COMMENT = /<!--[\s\S]*?(?:-->|$)/g;
 
@@ -185,13 +191,13 @@ const HTML_COMMENT = /<!--[\s\S]*?(?:-->|$)/g;
  * a code block or a comment, so fenced and indented code (in lists and quotes too) and HTML comments
  * drop out. Inline code stays: GitHub shows it.
  */
-function shownMarkdown(markdown: string): string {
+function shownMarkdown(body: string): string {
   const parts: string[] = [];
-  void marked.walkTokens(marked.lexer(markdown), (token) => {
-    if (token.type === "link" || token.type === "image") parts.push(String(token.href));
-    else if (token.type === "html") parts.push(String(token.text).replace(HTML_COMMENT, ""));
+  void markdown.walkTokens(markdown.lexer(body), (token) => {
+    if (token.type === "link" || token.type === "image") parts.push(stringOf(token.href));
+    else if (token.type === "html") parts.push(stringOf(token.text).replace(HTML_COMMENT, ""));
     else if ((token.type === "text" || token.type === "codespan" || token.type === "escape") && !("tokens" in token && token.tokens)) {
-      parts.push(String(token.text));
+      parts.push(stringOf(token.text));
     }
   });
   return parts.join("\n");
