@@ -222,8 +222,8 @@ function shownMarkdown(text: string): string {
     else if (afterBlank && !blank && !/^[ \t]/.test(line)) inList = false;
     afterBlank = blank;
     // An opener may follow a list marker on the same line ("- ```"); a closer never does.
-    const o = m ?? /^([ \t]*)(?:[-*+]|\d{1,9}[.)])[ \t]+(`{3,}|~{3,})(.*)$/.exec(line);
-    const opener = o && (inList || columnsOf(o[1]) <= 3) ? o : null;
+    const candidate = m ?? /^([ \t]*)(?:[-*+]|\d{1,9}[.)]) {1,4}(`{3,}|~{3,})(.*)$/.exec(line);
+    const opener = candidate && (inList || columnsOf(candidate[1]) <= 3) ? candidate : null;
     if (opener || blank) inComment = endParagraph();
     if (!inComment && opener && !(opener[2][0] === "`" && opener[3].includes("`"))) {
       fence = { char: opener[2][0], length: opener[2].length };
