@@ -149,6 +149,27 @@ describe("GitHubSource", () => {
     expect(keys).toEqual(["acme/web#3", "acme/web#4"]);
   });
 
+  it("stops walking up at a story the token can't see, but not at a failed request", async () => {
+    // acme/web#1 → #2 → #3 → #4, starting at #3, where the token can't see #2.
+    const three: GhNode = {
+      ...ticket("Three"),
+      number: 3,
+      subIssuesSummary: { total: 1 },
+      parent: { number: 2, repository: { nameWithOwner: "Acme/Web" }, parent: { id: "I_1" } },
+    };
+    const four = (): Promise<GhNode[]> => Promise.resolve([{ ...ticket("Four"), number: 4 }]);
+    const hidden = fakeApi(new Map([["acme/web#3", three]]));
+    hidden.subIssues = four;
+    const { children } = await new GitHubSource(hidden).fetchEpic("gh", "acme/web#3");
+    expect(children.map((c) => c.key)).toEqual(["acme/web#3", "acme/web#4"]);
+
+    const failing = fakeApi(new Map());
+    failing.issues = (site, keys): Promise<GhNode[]> =>
+      keys.includes("acme/web#2") ? Promise.reject(new Error("502 Bad Gateway")) : hidden.issues(site, keys);
+    failing.subIssues = four;
+    await expect(new GitHubSource(failing).fetchEpic("gh", "acme/web#3")).rejects.toThrow("502");
+  });
+
   it("doesn't let a reply that lands after clear() repopulate the cache", async () => {
     const nodes = new Map([["acme/web#1", ticket("Old account", "See https://acme.atlassian.net/browse/CORE-1")]]);
     const api = fakeApi(nodes);

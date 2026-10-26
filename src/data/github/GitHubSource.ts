@@ -59,6 +59,13 @@ export class GitHubSource implements JiraSource {
 
   /** The ticket, from GitHub (or, with `remembered`, from this load when it's known). */
   private async node(siteId: string, rawKey: string, remembered = false): Promise<GhNode> {
+    const hit = await this.lookup(siteId, rawKey, remembered);
+    if (!hit) throw new Error(`${rawKey.toLowerCase()} does not exist, or the token can't see it`);
+    return hit;
+  }
+
+  /** The ticket, or undefined when GitHub doesn't answer for it (it doesn't exist, or the token can't see it). */
+  private async lookup(siteId: string, rawKey: string, remembered = false): Promise<GhNode | undefined> {
     const key = rawKey.toLowerCase();
     const known = remembered ? this.remembered.get(`${siteId}|${key}`)?.node : undefined;
     if (known) return known;
@@ -66,8 +73,7 @@ export class GitHubSource implements JiraSource {
     const nodes = await this.api.issues(siteId, [key]);
     // A renamed repo or transferred issue comes back under its new key, still saying what was asked for.
     const hit = nodes.find((n) => keyOf(n) === key || n.requestedKey?.toLowerCase() === key);
-    if (!hit) throw new Error(`${key} does not exist, or the token can't see it`);
-    this.remember(siteId, [hit], request);
+    if (hit) this.remember(siteId, [hit], request);
     return hit;
   }
 
@@ -125,7 +131,8 @@ export class GitHubSource implements JiraSource {
       if (!issue || outside || stories.some((s) => s.key === issue.key)) break;
       stories.push(issue);
       const parentKey = story.parent?.parent ? keyOf(story.parent) : null;
-      story = parentKey && inRepoScope(scope, parentKey) ? await this.node(siteId, parentKey) : undefined;
+      // One the token can't see ends the walk too: the stories below it load, just not under the epic.
+      story = parentKey && inRepoScope(scope, parentKey) ? await this.lookup(siteId, parentKey) : undefined;
     }
     return stories;
   }
