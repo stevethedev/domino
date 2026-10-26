@@ -13,7 +13,7 @@ import type {
   RawUser,
   RawVersion,
 } from "../jiraTypes";
-import { gitHubKey } from "../ticketKey";
+import { gitHubKey, parseGitHubKey } from "../ticketKey";
 import type { GhConnection, GhLinked, GhNode, GhUser } from "./githubTypes";
 
 const category = {
@@ -103,6 +103,28 @@ function releasesOf(t: GhNode): RawVersion[] | undefined {
 }
 
 /**
+ * GitHub tickets the shown body mentions, outside code: by URL on the ticket's own host
+ * (`…/owner/repo/issues/12`, `…/pull/12/files`) or as `owner/repo#12`. Bare `#12` doesn't count: it
+ * reads as a number as often as a ticket. GitHub records these only on the mentioned ticket.
+ */
+function mentionsIn(t: GhNode): string[] {
+  const body = t.body ?? t.bodyText;
+  if (!body) return [];
+  const text = shownMarkdown(body, false);
+  const host = /^https:\/\/([^/]+)\//.exec(t.url ?? "")?.[1] ?? "github.com";
+  const keys = new Set<string>();
+  const add = (repo: string, number: string): void => {
+    const key = gitHubKey(repo, Number(number));
+    if (parseGitHubKey(key)) keys.add(key);
+  };
+  const escapedHost = host.replace(/[.*+?^$()|[\]\\{}]/g, "\\$&");
+  const urls = new RegExp(String.raw`https://${escapedHost}/([\w.-]+/[\w.-]+)/(?:issues|pull)/(\d+)(?!\d)`, "gi");
+  for (const m of text.matchAll(urls)) add(m[1], m[2]);
+  for (const m of text.matchAll(/(?<![\w./#-])([A-Za-z0-9-]+\/[\w.-]+)#(\d+)(?!\w)/g)) add(m[1], m[2]);
+  return [...keys];
+}
+
+/**
  * The node's links, in Jira's shape: `outwardIssue` when this ticket is the source ("blocks",
  * "closes"), `inwardIssue` when it's the target. Link ids are built from both ends, so the copy of a
  * link GitHub reports on each of them collapses into one edge.
@@ -141,6 +163,14 @@ function linksOf(t: GhNode, self: string): RawIssueLink[] {
     if (item.subject && otherKey) connected.set(otherKey, item.__typename === "ConnectedEvent" ? item.subject : null);
   }
   if (t.timelineItems?.pageInfo?.hasNextPage !== true) for (const other of connected.values()) if (other) closesOrRelates(other);
+  // Mentions, last: a ticket already linked another way (a PR that closes it) keeps just that link.
+  const linkedKeys = new Set([...links.values()].map((l) => (l.outwardIssue ?? l.inwardIssue)?.key));
+  for (const other of mentionsIn(t)) {
+    if (other === self || linkedKeys.has(other)) continue;
+    const id = `relates:${[self, other].sort().join("|")}`;
+    // Only the key is known: the status is left out rather than guessed.
+    links.set(id, { id, type: LINK_TYPES.relates, outwardIssue: { id: other, key: other, fields: { summary: other } } });
+  }
   return [...links.values()];
 }
 
@@ -189,14 +219,16 @@ const HTML_COMMENT = /<!--[\s\S]*?(?:-->|$)/g;
 /**
  * The Markdown GitHub shows, as plain text plus link targets: CommonMark (via marked) decides what is
  * a code block or a comment, so fenced and indented code (in lists and quotes too) and HTML comments
- * drop out. Inline code stays: GitHub shows it.
+ * drop out. Inline code stays unless `inlineCode` is false: GitHub shows it, but doesn't link in it.
  */
-function shownMarkdown(body: string): string {
+function shownMarkdown(body: string, inlineCode = true): string {
   const parts: string[] = [];
   void markdown.walkTokens(markdown.lexer(body), (token) => {
     if (token.type === "link" || token.type === "image") parts.push(stringOf(token.href));
     else if (token.type === "html") parts.push(stringOf(token.text).replace(HTML_COMMENT, ""));
-    else if ((token.type === "text" || token.type === "codespan" || token.type === "escape") && !("tokens" in token && token.tokens)) {
+    else if (token.type === "codespan") {
+      if (inlineCode) parts.push(stringOf(token.text));
+    } else if ((token.type === "text" || token.type === "escape") && !("tokens" in token && token.tokens)) {
       parts.push(stringOf(token.text));
     }
   });

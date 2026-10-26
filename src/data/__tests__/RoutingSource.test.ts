@@ -202,6 +202,23 @@ describe("loading Jira and GitHub sites together", () => {
     expect(g.edges).toContainEqual(expect.objectContaining({ source: "acme:CORE-10", target: "gh:acme/site#42" }));
   });
 
+  it("finds a GitHub ticket the seed's body mentions, though only the mentioned ticket's timeline records it", async () => {
+    const ticket = (number: number, body: string): GhNode => ({
+      __typename: "Issue",
+      number,
+      title: `T${number}`,
+      state: "OPEN",
+      repository: { nameWithOwner: "acme/web" },
+      url: `https://github.com/acme/web/issues/${number}`,
+      body,
+    });
+    const api = new FixtureGitHubApi({ issues: [ticket(1, "Follows acme/web#2."), ticket(2, "")], viewer: mockGitHub.viewer });
+    const routed = new RoutingSource(new FixtureSource(mockSites, mockLinkTypes), new GitHubSource(api), kinds.kindOf);
+    const res = await new MultiSiteLoader(routed).load({ mode: "seed", siteId: "gh", key: "acme/web#1", depth: 1 }, pick("gh"), sites);
+    if (res.kind !== "ok") throw new Error("expected ok");
+    expect(res.data[0]?.issues.map((i) => i.key).sort()).toEqual(["acme/web#1", "acme/web#2"]);
+  });
+
   it("follows links from a seed whose key GitHub spells differently", async () => {
     const res = await new MultiSiteLoader(source).load({ mode: "seed", siteId: "gh", key: "ACME/Web#31", depth: 1 }, pick("gh"), sites);
     if (res.kind !== "ok") throw new Error("expected ok");

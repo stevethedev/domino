@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SiteConfig } from "../../config/types";
-import type { RawIssue, RawPriority } from "../../data/jiraTypes";
+import type { RawIssue, RawLinkedIssue, RawPriority } from "../../data/jiraTypes";
 import { defined } from "../../lib/guards";
 import { buildGraph } from "../buildGraph";
 import { matchRemoteUrl } from "../remoteUrl";
@@ -78,6 +78,27 @@ describe("direction normalization and dedup", () => {
 });
 
 describe("remote links", () => {
+  it("draws one edge for a GitHub link both ends report, when one end knows the other by an old key", () => {
+    // acme/old was renamed acme/new: acme/web#1 still links acme/old#2, which answers as acme/new#2.
+    const gh: SiteConfig = { ...site("gh"), kind: "github" };
+    const ref = (key: string): RawLinkedIssue => ({ id: key, key, fields: { summary: key } });
+    const one = issue("acme/web#1");
+    const two: RawIssue = { ...issue("acme/new#2"), aliases: ["acme/old#2"] };
+    one.fields.issuelinks = [
+      { id: "relates:acme/old#2|acme/web#1", type: RELATES, outwardIssue: ref("acme/old#2") },
+      { id: "blocks:acme/web#1>acme/old#2", type: BLOCKS, outwardIssue: ref("acme/old#2") },
+    ];
+    two.fields.issuelinks = [
+      { id: "relates:acme/new#2|acme/web#1", type: RELATES, outwardIssue: ref("acme/web#1") },
+      { id: "blocks:acme/web#1>acme/new#2", type: BLOCKS, inwardIssue: ref("acme/web#1") },
+    ];
+    const g = buildGraph({ sites: [gh], data: [data("gh", [one, two])] });
+    expect(g.edges.map((e) => [e.kind, e.source, e.target])).toEqual([
+      ["relates", "gh:acme/web#1", "gh:acme/new#2"],
+      ["blocks", "gh:acme/web#1", "gh:acme/new#2"],
+    ]);
+  });
+
   it("creates one cross-site edge from reciprocal remote links", () => {
     const pay3 = issue("PAY-3");
     const core10 = issue("CORE-10");

@@ -1,4 +1,4 @@
-import type { SiteConfig } from "../config/types";
+import { siteKindOf, type SiteConfig } from "../config/types";
 import type { RawIssue, RawLinkedIssue, RawPriority, RawSiteData, RawStatus, RawVersion } from "../data/jiraTypes";
 import { ticketUrl } from "../data/ticketKey";
 import { getOrThrow } from "../lib/guards";
@@ -168,7 +168,7 @@ function ghostUnknown(
 
 /**
  * Turns raw per-site Jira data into one graph keyed by uid.
- * - Native links: normalized to outward direction, deduped by siteId + linkId.
+ * - Native links: normalized to outward direction, deduped by siteId + linkId (GitHub: + resolved ends).
  * - Remote links: matched to configured Jira or GitHub sites (edge) or unconfigured Jira hosts (ghost),
  *   normalized, then deduped by (source, target, linkType) so reciprocal remote links collapse.
  * - Issues referenced but not loaded become ghosts; loaded issues always win over ghosts.
@@ -227,6 +227,7 @@ export function buildGraph({ sites, data }: BuildInput): Graph {
     if (!site) continue;
     const linkTypes = d.linkTypes.length ? d.linkTypes : DEFAULT_LINK_TYPES;
     const ranks = priorityRanks(d.priorities);
+    const isGitHub = siteKindOf(site) === "github";
 
     for (const issue of d.issues) {
       const self = uidOf(site.id, issue.key);
@@ -236,10 +237,13 @@ export function buildGraph({ sites, data }: BuildInput): Graph {
         if (!other) continue;
         const otherUid = resolve(uidOf(site.id, other.key));
         addGhost(ghostFromLinked(other, site, ranks));
-        const id = `${site.id}:link:${link.id}`;
-        if (edges.has(id)) continue;
         // outwardIssue on this issue means "this <outward> other".
         const [source, target] = link.outwardIssue ? [self, otherUid] : [otherUid, self];
+        // GitHub link ids are built from keys, which can be a renamed repo's old ones: its edges are
+        // identified by the ends they resolve to instead (either order for a symmetric link). Jira's are real ids.
+        const ends = link.type.inward === link.type.outward ? [source, target].sort() : [source, target];
+        const id = isGitHub ? `${site.id}:link:${link.type.name.toLowerCase()}:${ends.join(">")}` : `${site.id}:link:${link.id}`;
+        if (edges.has(id)) continue;
         edges.set(id, {
           id,
           source,

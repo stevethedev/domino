@@ -111,6 +111,31 @@ describe("toRawIssue", () => {
     expect(raw(shared).fields.assignee?.accountId).toBe("other");
   });
 
+  it("links the GitHub tickets its shown body mentions by URL or owner/repo#n, but not in code or comments", () => {
+    const body = [
+      "See https://github.com/acme/api/pull/7/files and Acme/Web#3.",
+      "Not #4, not https://other.example/acme/web/issues/5, not https://github.com/acme/web/issues/1 (itself).",
+      "Nor `acme/web#6` in code (GitHub doesn't link it), nor <!-- acme/web#8 -->.",
+      "```\nacme/web#9\n```",
+    ].join("\n\n");
+    const issue = raw(node("acme/web#1", { url: "https://github.com/acme/web/issues/1", body }));
+    expect((issue.fields.issuelinks ?? []).map((l) => [l.id, l.outwardIssue?.key, l.outwardIssue?.fields.status])).toEqual([
+      ["relates:acme/api#7|acme/web#1", "acme/api#7", undefined],
+      ["relates:acme/web#1|acme/web#3", "acme/web#3", undefined],
+    ]);
+  });
+
+  it("doesn't add a mention for a ticket already linked another way", () => {
+    const pr = raw(
+      node("acme/web#9", {
+        __typename: "PullRequest",
+        body: "Fixes acme/web#2",
+        closingIssuesReferences: { nodes: [linkedIssue("acme/web#2")] },
+      }),
+    );
+    expect((pr.fields.issuelinks ?? []).map((l) => l.id)).toEqual(["closes:acme/web#9>acme/web#2"]);
+  });
+
   it("writes each link with the same id from both ends, so they collapse into one edge", () => {
     const blocker = raw(node("a/b#1", { blocking: { nodes: [linkedIssue("a/b#2")] } }));
     const blocked = raw(node("a/b#2", { blockedBy: { nodes: [linkedIssue("a/b#1")] } }));
