@@ -64,6 +64,7 @@ fragment PullTicket on PullRequest {
     dueOn
     state
   }
+  # Closed issues are included: there's no includeClosed here (includeClosedPrs is on Issue.closedByPullRequestsReferences).
   closingIssuesReferences(first: 50) {
     nodes {
       ...LinkedIssue
