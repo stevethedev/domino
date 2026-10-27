@@ -23,6 +23,7 @@ describe("combineGitHubQuery", () => {
   it("balances a side's parentheses before grouping it", () => {
     expect(combineGitHubQuery("(org:acme", "is:open")).toBe("((org:acme)) (is:open)");
     expect(combineGitHubQuery("org:acme)", "is:open")).toBe("(org:acme) (is:open)");
+    expect(combineGitHubQuery('(org:acme "foo', "is:open")).toBe('((org:acme "foo")) (is:open)'); // the quote closes first
     expect(combineGitHubQuery("org:acme", 'label:"a (b" is:open')).toBe('(org:acme) (label:"a (b" is:open)'); // quoted: as written
   });
 

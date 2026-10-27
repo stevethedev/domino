@@ -47,7 +47,10 @@ function balanced(terms: readonly string[]): string[] {
     }),
   );
   const out = kept.filter(Boolean);
-  return depth > 0 ? [...out.slice(0, -1), `${out.at(-1) ?? ""}${")".repeat(depth)}`] : out;
+  if (depth === 0) return out;
+  const last = out.at(-1) ?? "";
+  const unclosedQuote = (last.match(/"/g)?.length ?? 0) % 2 === 1 ? '"' : "";
+  return [...out.slice(0, -1), `${last}${unclosedQuote}${")".repeat(depth)}`];
 }
 
 /** Whether a search's terms use Boolean operators or parentheses (outside quoted phrases). */
