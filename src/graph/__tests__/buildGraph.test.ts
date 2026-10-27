@@ -99,6 +99,20 @@ describe("remote links", () => {
     ]);
   });
 
+  it("draws no edge from a GitHub ticket to its own old key", () => {
+    // acme/old was renamed acme/new: the ticket's body still mentions itself as acme/old#1.
+    const gh: SiteConfig = { ...site("gh"), kind: "github" };
+    const self: RawIssue = { ...issue("acme/new#1"), aliases: ["acme/old#1"] };
+    self.fields.issuelinks = [
+      {
+        id: "relates:acme/new#1|acme/old#1",
+        type: RELATES,
+        outwardIssue: { id: "acme/old#1", key: "acme/old#1", fields: { summary: "" } },
+      },
+    ];
+    expect(buildGraph({ sites: [gh], data: [data("gh", [self])] }).edges).toEqual([]);
+  });
+
   it("creates one cross-site edge from reciprocal remote links", () => {
     const pay3 = issue("PAY-3");
     const core10 = issue("CORE-10");

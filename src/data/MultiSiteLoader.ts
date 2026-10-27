@@ -5,7 +5,7 @@ import { matchRemoteUrl } from "../graph/remoteUrl";
 import { uidOf } from "../graph/types";
 import { getOrThrow } from "../lib/guards";
 import { errorMessage } from "./errors";
-import { combineGitHubQuery, inRepoScope, repoScopeOf } from "./github/query";
+import { combineGitHubQuery } from "./github/query";
 import { combineJql } from "./jqlPresets";
 import type { JiraSource } from "./JiraSource";
 import type { RawIssue, RawLinkType, RawPriority, RawRemoteLink, RawSiteData } from "./jiraTypes";
@@ -182,10 +182,6 @@ class LoadRun {
       [...this.states.values()].map(async ({ site }) => {
         const isGitHub = siteKindOf(site) === "github";
         const q = isGitHub ? combineGitHubQuery(site.baseJql ?? "", github) : combineJql(site.baseJql ?? "", jql);
-        if (q === null) {
-          this.report(site.id, "loaded"); // the query names only repos outside the site's filter
-          return;
-        }
         if (!q) {
           const kind = isGitHub ? "GitHub search" : "JQL";
           this.fail(site.id, `Nothing to load: type a ${kind} query above, or set this site's "Always filter by" ${kind} in Settings`);
@@ -193,12 +189,8 @@ class LoadRun {
         }
         const ok = await this.guard(site.id, async () => {
           const found = await this.call(site.id, () => this.source.fetchByJql(site.id, q, this.maxNodes + 1));
-          // A safety net for what combineGitHubQuery couldn't intersect: only results inside both the site's
-          // and the query's repos are kept.
-          const scopes = isGitHub ? [repoScopeOf(site.baseJql), repoScopeOf(github)] : [];
-          const issues = found.filter((i) => scopes.every((scope) => inRepoScope(scope, i.key)));
-          this.checkCap(found.length); // over the cap is over the cap, however many the filter keeps
-          await this.addFull(site.id, issues);
+          this.checkCap(found.length);
+          await this.addFull(site.id, found);
         });
         // JQL loads don't expand into other sites, so this site is done.
         if (ok) this.report(site.id, "loaded");

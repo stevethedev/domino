@@ -16,4 +16,12 @@ describe("FixtureGitHubApi", () => {
     expect(want).not.toEqual([]);
     expect(await keys(quoted)).toEqual(want);
   });
+
+  it("evaluates a search as GitHub's advanced search does: AND by default, OR, NOT and groups", async () => {
+    const [web, api] = [await keys("repo:acme/web"), await keys("repo:acme/api")];
+    expect(await keys("repo:acme/web repo:acme/api")).toEqual([]);
+    expect((await keys("repo:acme/web OR repo:acme/api")).sort()).toEqual([...web, ...api].sort());
+    expect(await keys("(org:acme) (is:open)")).toEqual(await keys("org:acme is:open"));
+    expect(await keys("org:acme NOT repo:acme/web")).toEqual(await keys("org:acme -repo:acme/web"));
+  });
 });

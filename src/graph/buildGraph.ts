@@ -236,6 +236,7 @@ export function buildGraph({ sites, data }: BuildInput): Graph {
         const other = link.outwardIssue ?? link.inwardIssue;
         if (!other) continue;
         const otherUid = resolve(uidOf(site.id, other.key));
+        if (otherUid === self) continue; // a renamed ticket's link to its own old key
         addGhost(ghostFromLinked(other, site, ranks));
         // outwardIssue on this issue means "this <outward> other".
         const [source, target] = link.outwardIssue ? [self, otherUid] : [otherUid, self];

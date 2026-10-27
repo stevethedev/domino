@@ -1,13 +1,12 @@
-// In-memory GitHubApi over fixtures/mock/github.json, evaluating the same tiny search subset as the
+// In-memory GitHubApi over fixtures/mock/github.json, evaluating the same small advanced-search subset as the
 // Rust mock (src-tauri/src/github/mock.rs).
 import { settle } from "../FixtureSource";
 import type { GitHubApi } from "./GitHubApi";
 import type { GhNode, GhViewer } from "./githubTypes";
+import { parseSearch, type SearchNode } from "./query";
 import { keyOf } from "./toRaw";
 
 export type GitHubFixture = { issues: GhNode[]; viewer: GhViewer };
-
-const isRepoTerm = (term: string): boolean => /^(repo|org|user):/i.test(term);
 
 /** One search term against a node. Free text, and qualifiers the fixtures can't answer, match everything. */
 function matchesTerm(node: GhNode, rawTerm: string, viewer: string): boolean {
@@ -38,6 +37,19 @@ function matchesTerm(node: GhNode, rawTerm: string, viewer: string): boolean {
   return hit !== negate;
 }
 
+function matches(node: GhNode, search: SearchNode, viewer: string): boolean {
+  switch (search.kind) {
+    case "term":
+      return matchesTerm(node, search.text, viewer);
+    case "and":
+      return search.items.every((item) => matches(node, item, viewer));
+    case "or":
+      return search.items.some((item) => matches(node, item, viewer));
+    case "not":
+      return !matches(node, search.item, viewer);
+  }
+}
+
 export class FixtureGitHubApi implements GitHubApi {
   constructor(
     private readonly fixture: GitHubFixture,
@@ -51,13 +63,10 @@ export class FixtureGitHubApi implements GitHubApi {
 
   search(siteId: string, query: string, maxResults?: number): Promise<GhNode[]> {
     return settle(() => {
-      const terms = query.split(/\s+/).filter(Boolean);
       const viewer = this.fixture.viewer.login ?? "";
-      // Like GitHub, repeated repo:/org:/user: qualifiers are ORed; everything else is ANDed.
-      const [where, rest] = [terms.filter(isRepoTerm), terms.filter((t) => !isRepoTerm(t))];
-      const hits = this.nodes(siteId).filter(
-        (n) => (where.length === 0 || where.some((t) => matchesTerm(n, t, viewer))) && rest.every((t) => matchesTerm(n, t, viewer)),
-      );
+      // As GitHub's advanced search reads it: terms ANDed, with OR, NOT and groups.
+      const search = parseSearch(query);
+      const hits = this.nodes(siteId).filter((n) => matches(n, search, viewer));
       return maxResults === undefined ? hits : hits.slice(0, maxResults);
     });
   }

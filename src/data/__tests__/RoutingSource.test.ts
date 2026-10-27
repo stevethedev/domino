@@ -6,6 +6,7 @@ import { FixtureSource } from "../FixtureSource";
 import { FixtureGitHubApi } from "../github/FixtureGitHubApi";
 import type { GhNode } from "../github/githubTypes";
 import { GitHubSource } from "../github/GitHubSource";
+import { keyOf } from "../github/toRaw";
 import { mockConfig, mockGitHub, mockLinkTypes, mockSites } from "../mockData";
 import { MultiSiteLoader } from "../MultiSiteLoader";
 import { RoutingSource, SiteKinds } from "../RoutingSource";
@@ -235,6 +236,20 @@ describe("loading Jira and GitHub sites together", () => {
     if (res.kind !== "ok") throw new Error("expected ok");
     const repos = new Set(res.data[0]?.issues.map((i) => i.key.split("#")[0]));
     expect(repos).toEqual(new Set(["acme/web", "acme/api"]));
+  });
+
+  it("keeps a ticket an OR branch matches outside the repos the other branch names", async () => {
+    const api = new FixtureGitHubApi(mockGitHub);
+    const fromApi = mockGitHub.issues.filter((n) => (n.repository?.nameWithOwner ?? "").toLowerCase() === "acme/api");
+    api.search = (): Promise<GhNode[]> => Promise.resolve(fromApi); // what GitHub returns for the label branch
+    const routed = new RoutingSource(new FixtureSource(mockSites, mockLinkTypes), new GitHubSource(api), kinds.kindOf);
+    const res = await new MultiSiteLoader(routed).load(
+      { mode: "jql", jql: "", github: "(repo:acme/web OR label:security)" },
+      pick("gh"),
+      sites,
+    );
+    if (res.kind !== "ok") throw new Error("expected ok");
+    expect(res.data[0]?.issues.map((i) => i.key).sort()).toEqual(fromApi.map((n) => keyOf(n)).sort());
   });
 
   it("follows links from a seed whose key GitHub spells differently", async () => {

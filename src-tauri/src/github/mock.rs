@@ -1,4 +1,4 @@
-//! Serves fixtures/mock/github.json and evaluates a tiny GitHub search subset (kept in sync with
+//! Serves fixtures/mock/github.json and evaluates a small advanced-search subset (kept in sync with
 //! src/data/github/FixtureGitHubApi.ts).
 
 use super::{check_key, GitHubBackend, GitHubResult};
@@ -50,6 +50,95 @@ fn matches_term(node: &Value, term: &str, viewer: &str) -> bool {
     hit != negate
 }
 
+/// A search as GitHub's advanced search reads it (kept in step with `parseSearch` in query.ts).
+enum Search<'a> {
+    Term(&'a str),
+    And(Vec<Self>),
+    Or(Vec<Self>),
+    Not(Box<Self>),
+}
+
+impl<'a> Search<'a> {
+    /// OR binds loosest, then AND (also implicit), then NOT; an unbalanced parenthesis is forgiven.
+    fn parse(query: &'a str) -> Self {
+        let mut tokens = Vec::new();
+        for term in query.split_whitespace() {
+            let rest = term.trim_start_matches('(');
+            let middle = rest.trim_end_matches(')');
+            tokens.extend(std::iter::repeat("(").take(term.len() - rest.len()));
+            if !middle.is_empty() {
+                tokens.push(middle);
+            }
+            tokens.extend(std::iter::repeat(")").take(rest.len() - middle.len()));
+        }
+        let mut at = 0;
+        let mut parts = vec![Self::or(&tokens, &mut at)];
+        while let Some(&t) = tokens.get(at) {
+            if t == ")" {
+                at += 1;
+            } else {
+                parts.push(Self::or(&tokens, &mut at));
+            }
+        }
+        Self::group(parts, Self::And)
+    }
+
+    fn group(mut items: Vec<Self>, kind: fn(Vec<Self>) -> Self) -> Self {
+        if items.len() == 1 {
+            items.remove(0)
+        } else {
+            kind(items)
+        }
+    }
+
+    fn or(tokens: &[&'a str], at: &mut usize) -> Self {
+        let mut items = vec![Self::and(tokens, at)];
+        while tokens.get(*at) == Some(&"OR") {
+            *at += 1;
+            items.push(Self::and(tokens, at));
+        }
+        Self::group(items, Self::Or)
+    }
+
+    fn and(tokens: &[&'a str], at: &mut usize) -> Self {
+        let mut items = Vec::new();
+        while let Some(&t) = tokens.get(*at) {
+            match t {
+                ")" | "OR" => break,
+                "AND" => *at += 1,
+                _ => items.push(Self::unary(tokens, at)),
+            }
+        }
+        Self::group(items, Self::And)
+    }
+
+    fn unary(tokens: &[&'a str], at: &mut usize) -> Self {
+        let Some(&t) = tokens.get(*at) else { return Self::And(Vec::new()) };
+        *at += 1;
+        match t {
+            "NOT" if *at < tokens.len() => Self::Not(Box::new(Self::unary(tokens, at))),
+            "NOT" => Self::And(Vec::new()),
+            "(" => {
+                let inner = Self::or(tokens, at);
+                if tokens.get(*at) == Some(&")") {
+                    *at += 1;
+                }
+                inner
+            }
+            _ => Self::Term(t),
+        }
+    }
+
+    fn matches(&self, node: &Value, viewer: &str) -> bool {
+        match self {
+            Self::Term(t) => matches_term(node, t, viewer),
+            Self::And(items) => items.iter().all(|s| s.matches(node, viewer)),
+            Self::Or(items) => items.iter().any(|s| s.matches(node, viewer)),
+            Self::Not(item) => !item.matches(node, viewer),
+        }
+    }
+}
+
 impl GitHubMock {
     /// `fail_sites` simulate outages, as for the Jira mock. Fails only if the embedded fixture isn't valid JSON.
     pub(crate) fn new(fail_sites: HashSet<String>) -> serde_json::Result<Self> {
@@ -76,14 +165,9 @@ impl GitHubMock {
 impl GitHubBackend for GitHubMock {
     async fn search(&self, site: &SiteConfig, query: &str, max_results: Option<usize>) -> GitHubResult<Vec<Value>> {
         let viewer = self.viewer_login();
-        // Like GitHub, repeated repo:/org:/user: qualifiers are ORed; everything else is ANDed.
-        let is_repo_term =
-            |t: &&str| ["repo:", "org:", "user:"].iter().any(|p| t.get(..p.len()).is_some_and(|h| h.eq_ignore_ascii_case(p)));
-        let (repo_terms, rest): (Vec<&str>, Vec<&str>) = query.split_whitespace().partition(is_repo_term);
-        let hits = self.nodes(site)?.filter(|n| {
-            (repo_terms.is_empty() || repo_terms.iter().any(|t| matches_term(n, t, viewer)))
-                && rest.iter().all(|t| matches_term(n, t, viewer))
-        });
+        // As GitHub's advanced search reads it: terms ANDed, with OR, NOT and groups.
+        let search = Search::parse(query);
+        let hits = self.nodes(site)?.filter(|n| search.matches(n, viewer));
         Ok(hits.take(max_results.unwrap_or(usize::MAX)).cloned().collect())
     }
 
@@ -143,9 +227,14 @@ mod tests {
         assert_eq!(keys(&m.search(&gh(), "assignee:@me", None).await.unwrap()), ["acme/web#31", "acme/web#45"]);
         assert_eq!(m.search(&gh(), "org:acme -is:issue", Some(1)).await.unwrap().len(), 1);
         assert!(m.search(&gh(), "org:other", None).await.unwrap().is_empty());
-        // GitHub ORs repeated repository qualifiers.
-        assert_eq!(m.search(&gh(), "repo:acme/api repo:acme/nope is:open", None).await.unwrap().len(), 1);
-        assert_eq!(m.search(&gh(), "repo:acme/api org:acme", None).await.unwrap().len(), 7);
+        // As GitHub's advanced search: terms are ANDed, with OR, NOT and groups.
+        assert!(m.search(&gh(), "repo:acme/api repo:acme/nope is:open", None).await.unwrap().is_empty());
+        assert_eq!(m.search(&gh(), "repo:acme/api org:acme", None).await.unwrap().len(), 2);
+        assert_eq!(m.search(&gh(), "repo:acme/api OR repo:acme/nope", None).await.unwrap().len(), 2);
+        let plain = keys(&m.search(&gh(), "org:acme is:open", None).await.unwrap());
+        assert_eq!(keys(&m.search(&gh(), "(org:acme) (is:open)", None).await.unwrap()), plain);
+        let not = keys(&m.search(&gh(), "org:acme NOT repo:acme/api", None).await.unwrap());
+        assert_eq!(not, keys(&m.search(&gh(), "org:acme -repo:acme/api", None).await.unwrap()));
     }
 
     #[tokio::test]

@@ -108,7 +108,7 @@ export function ScopeInputs({
   const effective = sites
     .map((s) => {
       const q = siteKindOf(s) === "github" ? combineGitHubQuery(s.baseJql ?? "", github) : combineJql(s.baseJql ?? "", jql.trim());
-      return `${s.label}: ${q === null ? "(no repository in both this query and the site's filter)" : q || "(nothing to load)"}`;
+      return `${s.label}: ${q || "(nothing to load)"}`;
     })
     .join("\n");
   const activePreset = JQL_PRESETS.find((p) => p.jql === jql.trim())?.id ?? "";
