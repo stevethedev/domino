@@ -122,7 +122,7 @@ describe("loading Jira and GitHub sites together", () => {
     expect(g.nodes.find((n) => n.uid === "gh:acme/web#45")?.ghost).toBe(false);
   });
 
-  it("keeps a query from widening the site's repos (GitHub ORs repeated repo qualifiers)", async () => {
+  it("keeps a query from widening the site's repos (the two are searched as ANDed groups)", async () => {
     const narrowed = sites.map((s) => (s.id === "gh" ? { ...s, baseJql: "repo:acme/web" } : s));
     const res = await new MultiSiteLoader(source).load(
       { mode: "jql", jql: "", github: "repo:acme/api" },

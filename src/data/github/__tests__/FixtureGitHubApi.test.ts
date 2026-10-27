@@ -23,5 +23,6 @@ describe("FixtureGitHubApi", () => {
     expect((await keys("repo:acme/web OR repo:acme/api")).sort()).toEqual([...web, ...api].sort());
     expect(await keys("(org:acme) (is:open)")).toEqual(await keys("org:acme is:open"));
     expect(await keys("org:acme NOT repo:acme/web")).toEqual(await keys("org:acme -repo:acme/web"));
+    expect(await keys("(org:acme NOT) is:open")).toEqual(await keys("org:acme is:open")); // NOT with nothing to negate
   });
 });

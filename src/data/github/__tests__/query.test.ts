@@ -20,6 +20,12 @@ describe("combineGitHubQuery", () => {
     expect(combineGitHubQuery("org:acme", "repo:acme/web OR repo:acme/api")).toBe("(org:acme) (repo:acme/web OR repo:acme/api)");
   });
 
+  it("balances a side's parentheses before grouping it", () => {
+    expect(combineGitHubQuery("(org:acme", "is:open")).toBe("((org:acme)) (is:open)");
+    expect(combineGitHubQuery("org:acme)", "is:open")).toBe("(org:acme) (is:open)");
+    expect(combineGitHubQuery("org:acme", 'label:"a (b" is:open')).toBe('(org:acme) (label:"a (b" is:open)'); // quoted: as written
+  });
+
   it("reads a quoted phrase as words to search for, not as qualifiers", () => {
     expect(combineGitHubQuery("org:acme", '"mentions repo:other/tools here"')).toBe('(org:acme) ("mentions repo:other/tools here")');
     expect(repoScopeOf('"see repo:other/tools" is:open')).toBeNull();
@@ -63,6 +69,14 @@ describe("repoScopeOf / inRepoScope", () => {
     // Only acme/b can match here; a bound may be broader than the search, never narrower.
     const nested = repoScopeOf("org:acme NOT ((repo:acme/a) OR NOT repo:acme/b)");
     expect(["acme/b#2", "other/x#3"].map((k) => inRepoScope(nested, k))).toEqual([true, false]);
+  });
+
+  it("excludes under NOT only what the NOT-ed part names exactly", () => {
+    // NOT (org:a repo:b/x) shuts out only tickets in both, so neither a nor b/x can be excluded.
+    const both = repoScopeOf("NOT (org:a repo:b/x)");
+    expect(["a/y#1", "b/x#2"].map((k) => inRepoScope(both, k))).toEqual([true, true]);
+    expect(inRepoScope(repoScopeOf("NOT (org:a -repo:a/x)"), "a/x#1")).toBe(true);
+    expect(inRepoScope(repoScopeOf("NOT (org:a is:open)"), "a/y#1")).toBe(true);
   });
 
   it("sets no repo bound when an OR branch could match any repo", () => {

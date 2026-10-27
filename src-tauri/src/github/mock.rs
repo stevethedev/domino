@@ -50,6 +50,24 @@ fn matches_term(node: &Value, term: &str, viewer: &str) -> bool {
     hit != negate
 }
 
+/// A search's terms, split on whitespace outside quoted phrases (an unclosed one runs to the end).
+fn terms(query: &str) -> Vec<&str> {
+    let mut terms = Vec::new();
+    let (mut start, mut quoted) = (None, false);
+    for (i, c) in query.char_indices() {
+        if c == '"' {
+            quoted = !quoted;
+        }
+        if c.is_whitespace() && !quoted {
+            terms.extend(start.take().and_then(|s| query.get(s..i)));
+        } else if start.is_none() {
+            start = Some(i);
+        }
+    }
+    terms.extend(start.and_then(|s| query.get(s..)));
+    terms
+}
+
 /// A search as GitHub's advanced search reads it (kept in step with `parseSearch` in query.ts).
 enum Search<'a> {
     Term(&'a str),
@@ -62,7 +80,7 @@ impl<'a> Search<'a> {
     /// OR binds loosest, then AND (also implicit), then NOT; an unbalanced parenthesis is forgiven.
     fn parse(query: &'a str) -> Self {
         let mut tokens = Vec::new();
-        for term in query.split_whitespace() {
+        for term in terms(query) {
             let rest = term.trim_start_matches('(');
             let middle = rest.trim_end_matches(')');
             tokens.extend(std::iter::repeat("(").take(term.len() - rest.len()));
@@ -116,7 +134,7 @@ impl<'a> Search<'a> {
         let Some(&t) = tokens.get(*at) else { return Self::And(Vec::new()) };
         *at += 1;
         match t {
-            "NOT" if *at < tokens.len() => Self::Not(Box::new(Self::unary(tokens, at))),
+            "NOT" if tokens.get(*at).is_some_and(|&next| next != ")") => Self::Not(Box::new(Self::unary(tokens, at))),
             "NOT" => Self::And(Vec::new()),
             "(" => {
                 let inner = Self::or(tokens, at);
@@ -235,6 +253,9 @@ mod tests {
         assert_eq!(keys(&m.search(&gh(), "(org:acme) (is:open)", None).await.unwrap()), plain);
         let not = keys(&m.search(&gh(), "org:acme NOT repo:acme/api", None).await.unwrap());
         assert_eq!(not, keys(&m.search(&gh(), "org:acme -repo:acme/api", None).await.unwrap()));
+        // A quoted phrase is one term: its OR and parenthesis are words, not syntax.
+        assert_eq!(keys(&m.search(&gh(), "org:acme \"(x OR y\" is:open", None).await.unwrap()), plain);
+        assert_eq!(keys(&m.search(&gh(), "(org:acme NOT) is:open", None).await.unwrap()), plain);
     }
 
     #[tokio::test]
