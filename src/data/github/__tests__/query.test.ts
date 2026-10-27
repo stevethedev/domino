@@ -81,6 +81,12 @@ describe("repoScopeOf / inRepoScope", () => {
     expect(inRepoScope(repoScopeOf("NOT (org:a is:open)"), "a/y#1")).toBe(true);
   });
 
+  it("keeps a repo that both sides of an OR cover, directly or through its owner", () => {
+    // = (org:acme OR repo:other/tools) AND (repo:acme/web OR repo:other/tools): acme/web is in both.
+    const scope = repoScopeOf("NOT (NOT (org:acme OR repo:other/tools) OR NOT (repo:acme/web OR repo:other/tools))");
+    expect(["acme/web#1", "other/tools#2"].map((k) => inRepoScope(scope, k))).toEqual([true, true]);
+  });
+
   it("sets no repo bound when an OR branch could match any repo", () => {
     expect(repoScopeOf("(repo:acme/web OR label:security)")).toBeNull();
     expect(repoScopeOf("org:acme is:open")).not.toBeNull();

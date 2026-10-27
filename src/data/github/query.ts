@@ -138,10 +138,14 @@ type Bound = Readonly<{ only: Names | null; excluded: Names; exact: boolean }>;
 const NONE: Names = { owners: new Set(), repos: new Set() };
 const UNBOUNDED: Bound = { only: null, excluded: NONE, exact: false };
 const union = (a: Names, b: Names): Names => ({ owners: new Set([...a.owners, ...b.owners]), repos: new Set([...a.repos, ...b.repos]) });
-const both = (a: Names, b: Names): Names => ({
-  owners: new Set([...a.owners].filter((o) => b.owners.has(o))),
-  repos: new Set([...a.repos].filter((r) => b.repos.has(r))),
-});
+/** What both name: an owner both name, or a repo one names that the other names too, directly or by its owner. */
+const both = (a: Names, b: Names): Names => {
+  const covers = (n: Names, repo: string): boolean => n.repos.has(repo) || n.owners.has(repo.split("/")[0]);
+  return {
+    owners: new Set([...a.owners].filter((o) => b.owners.has(o))),
+    repos: new Set([...[...a.repos].filter((r) => covers(b, r)), ...[...b.repos].filter((r) => covers(a, r))]),
+  };
+};
 const isEmpty = (n: Names): boolean => n.owners.size === 0 && n.repos.size === 0;
 
 /**
