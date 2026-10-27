@@ -24,6 +24,7 @@ describe("combineGitHubQuery", () => {
     expect(combineGitHubQuery("(org:acme", "is:open")).toBe("((org:acme)) (is:open)");
     expect(combineGitHubQuery("org:acme)", "is:open")).toBe("(org:acme) (is:open)");
     expect(combineGitHubQuery('(org:acme "foo', "is:open")).toBe('((org:acme "foo")) (is:open)'); // the quote closes first
+    expect(combineGitHubQuery('label:"foo', "is:open")).toBe('(label:"foo") (is:open)'); // and without a group too
     expect(combineGitHubQuery("org:acme", 'label:"a (b" is:open')).toBe('(org:acme) (label:"a (b" is:open)'); // quoted: as written
   });
 

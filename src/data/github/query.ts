@@ -33,7 +33,10 @@ function withLegacyScopes(terms: readonly string[]): string {
   return [`(${scopes.join(" OR ")})`, ...terms.filter((t) => !scopes.includes(t))].join(" ");
 }
 
-/** The terms with stray `)` dropped and unclosed `(` closed (outside quoted phrases), so grouping can't break them. */
+/**
+ * The terms with stray `)` dropped, an unclosed quote closed, and unclosed `(` closed (outside quoted
+ * phrases), so grouping can't break them.
+ */
 function balanced(terms: readonly string[]): string[] {
   let depth = 0;
   const kept = terms.map((t) =>
@@ -47,9 +50,9 @@ function balanced(terms: readonly string[]): string[] {
     }),
   );
   const out = kept.filter(Boolean);
-  if (depth === 0) return out;
   const last = out.at(-1) ?? "";
   const unclosedQuote = (last.match(/"/g)?.length ?? 0) % 2 === 1 ? '"' : "";
+  if (depth === 0 && !unclosedQuote) return out;
   return [...out.slice(0, -1), `${last}${unclosedQuote}${")".repeat(depth)}`];
 }
 
