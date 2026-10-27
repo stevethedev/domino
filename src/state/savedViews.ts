@@ -37,7 +37,8 @@ const record = (v: unknown): Record<string, unknown> | undefined => (v && typeof
 function parseScope(raw: unknown): Scope | undefined {
   const r = record(raw);
   if (!r) return undefined;
-  if (r.mode === "jql" && str(r.jql)) return { mode: "jql", jql: r.jql };
+  if (r.mode === "jql" && str(r.jql))
+    return str(r.github) && r.github ? { mode: "jql", jql: r.jql, github: r.github } : { mode: "jql", jql: r.jql };
   if (r.mode === "epic" && str(r.siteId) && str(r.key)) return { mode: "epic", siteId: r.siteId, key: r.key };
   if (r.mode === "seed" && str(r.siteId) && str(r.key) && typeof r.depth === "number")
     return { mode: "seed", siteId: r.siteId, key: r.key, depth: r.depth };

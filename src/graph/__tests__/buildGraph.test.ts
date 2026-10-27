@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { RawIssue, RawPriority } from "../../data/jiraTypes";
+import type { SiteConfig } from "../../config/types";
+import type { RawIssue, RawLinkedIssue, RawPriority } from "../../data/jiraTypes";
 import { defined } from "../../lib/guards";
 import { buildGraph } from "../buildGraph";
 import { matchRemoteUrl } from "../remoteUrl";
@@ -77,6 +78,41 @@ describe("direction normalization and dedup", () => {
 });
 
 describe("remote links", () => {
+  it("draws one edge for a GitHub link both ends report, when one end knows the other by an old key", () => {
+    // acme/old was renamed acme/new: acme/web#1 still links acme/old#2, which answers as acme/new#2.
+    const gh: SiteConfig = { ...site("gh"), kind: "github" };
+    const ref = (key: string): RawLinkedIssue => ({ id: key, key, fields: { summary: key } });
+    const one = issue("acme/web#1");
+    const two: RawIssue = { ...issue("acme/new#2"), aliases: ["acme/old#2"] };
+    one.fields.issuelinks = [
+      { id: "relates:acme/old#2|acme/web#1", type: RELATES, outwardIssue: ref("acme/old#2") },
+      { id: "blocks:acme/web#1>acme/old#2", type: BLOCKS, outwardIssue: ref("acme/old#2") },
+    ];
+    two.fields.issuelinks = [
+      { id: "relates:acme/new#2|acme/web#1", type: RELATES, outwardIssue: ref("acme/web#1") },
+      { id: "blocks:acme/web#1>acme/new#2", type: BLOCKS, inwardIssue: ref("acme/web#1") },
+    ];
+    const g = buildGraph({ sites: [gh], data: [data("gh", [one, two])] });
+    expect(g.edges.map((e) => [e.kind, e.source, e.target])).toEqual([
+      ["relates", "gh:acme/web#1", "gh:acme/new#2"],
+      ["blocks", "gh:acme/web#1", "gh:acme/new#2"],
+    ]);
+  });
+
+  it("draws no edge from a GitHub ticket to its own old key", () => {
+    // acme/old was renamed acme/new: the ticket's body still mentions itself as acme/old#1.
+    const gh: SiteConfig = { ...site("gh"), kind: "github" };
+    const self: RawIssue = { ...issue("acme/new#1"), aliases: ["acme/old#1"] };
+    self.fields.issuelinks = [
+      {
+        id: "relates:acme/new#1|acme/old#1",
+        type: RELATES,
+        outwardIssue: { id: "acme/old#1", key: "acme/old#1", fields: { summary: "" } },
+      },
+    ];
+    expect(buildGraph({ sites: [gh], data: [data("gh", [self])] }).edges).toEqual([]);
+  });
+
   it("creates one cross-site edge from reciprocal remote links", () => {
     const pay3 = issue("PAY-3");
     const core10 = issue("CORE-10");
@@ -137,6 +173,36 @@ describe("remote links", () => {
       ),
     ).toMatchObject({ siteLabel: "other.atlassian.net", url: "https://other.atlassian.net/browse/EXT-9" });
     expect(g.edges).toHaveLength(1);
+  });
+
+  it("links Jira tickets to issues and pull requests on a configured GitHub site", () => {
+    const GH: SiteConfig = {
+      ...site("gh"),
+      kind: "github",
+      label: "GitHub",
+      baseUrl: "https://github.com",
+      auth: { type: "githubToken", secretRef: "T" },
+    };
+    const g = buildGraph({
+      sites: [A, GH],
+      data: [data("a", [issue("A-1")], { "A-1": [remote(1, "is blocked by", "https://github.com/acme/web/pull/42", "PR #42")] })],
+    });
+    const pr = defined(
+      g.nodes.find((n) => n.uid === "gh:acme/web#42"),
+      "node",
+    );
+    expect(pr).toMatchObject({ ghost: true, siteKind: "github", summary: "PR #42", url: "https://github.com/acme/web/issues/42" });
+    expect(g.edges).toMatchObject([{ source: "gh:acme/web#42", target: "a:A-1", kind: "blocks", crossSite: true }]);
+    expect(g.nodes.find((n) => n.uid === "a:A-1")?.siteKind).toBeUndefined();
+  });
+
+  it("matchRemoteUrl resolves GitHub issue and pull request pages only on GitHub sites", () => {
+    const GH = { id: "gh", kind: "github" as const, baseUrl: "https://github.com" };
+    expect(matchRemoteUrl("https://github.com/acme/web/issues/7", [A, GH])).toEqual({ kind: "site", siteId: "gh", key: "acme/web#7" });
+    expect(matchRemoteUrl("https://GitHub.com/acme/web/pull/42/", [GH])).toEqual({ kind: "site", siteId: "gh", key: "acme/web#42" });
+    expect(matchRemoteUrl("https://github.com/acme/web/blob/main/README.md", [GH])).toBeNull();
+    expect(matchRemoteUrl("https://github.com/browse/CORE-1", [GH])).toBeNull();
+    expect(matchRemoteUrl("https://ghe.example.com/acme/web/issues/7", [GH])).toBeNull();
   });
 
   it("matchRemoteUrl is case-insensitive on host and tolerant of a trailing slash", () => {
@@ -266,5 +332,15 @@ describe("partial Jira data", () => {
       "CORE-1",
     );
     expect([n.statusName, n.statusCategory]).toEqual(["Open", "unknown"]);
+  });
+});
+
+describe("GitHub tickets", () => {
+  it("carries the incomplete-links flag onto the node", () => {
+    const GH: SiteConfig = { ...site("gh"), kind: "github", baseUrl: "https://github.com", auth: { type: "githubToken", secretRef: "T" } };
+    const busy = { ...issue("acme/web#1"), linksIncomplete: true };
+    const g = buildGraph({ sites: [GH], data: [data("gh", [busy, issue("acme/web#2")])] });
+    expect(g.nodes.find((n) => n.key === "acme/web#1")?.linksIncomplete).toBe(true);
+    expect(g.nodes.find((n) => n.key === "acme/web#2")?.linksIncomplete).toBeUndefined();
   });
 });

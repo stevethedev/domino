@@ -6,6 +6,8 @@ import partner from "../../fixtures/mock/partner.json";
 import linkTypes from "../../fixtures/mock/linkTypes.json";
 import config from "../../fixtures/mock/config.json";
 import descriptions from "../../fixtures/mock/descriptions.json";
+import github from "../../fixtures/mock/github.json";
+import type { GitHubFixture } from "./github/FixtureGitHubApi";
 
 export type MockSite = {
   /** Fixture dates are relative to this day ("YYYY-MM-DD"). */
@@ -33,3 +35,6 @@ export const mockSites: Record<string, MockSite> = {
 export const mockLinkTypes: RawLinkType[] = linkTypes.issueLinkTypes;
 
 export const mockConfig: DominoConfig = config as DominoConfig;
+
+/** The GitHub site's issues and pull requests, in the GraphQL shape the Rust core returns. */
+export const mockGitHub: GitHubFixture = github as unknown as GitHubFixture;

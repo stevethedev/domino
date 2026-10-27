@@ -33,13 +33,7 @@ impl MockBackend {
     }
 
     pub(crate) fn from_env() -> serde_json::Result<Self> {
-        let fail = std::env::var("DOMINO_MOCK_FAIL_SITES")
-            .unwrap_or_default()
-            .split(',')
-            .map(|s| s.trim().to_owned())
-            .filter(|s| !s.is_empty())
-            .collect();
-        Self::new(fail)
+        Self::new(fail_sites_from_env())
     }
 
     fn site_data(&self, site: &SiteConfig) -> JiraResult<&Value> {
@@ -48,6 +42,11 @@ impl MockBackend {
         }
         self.sites.get(site.id.as_str()).ok_or_else(|| format!("Could not connect to {}: no mock data for this site", site.base_url))
     }
+}
+
+/// The sites `DOMINO_MOCK_FAIL_SITES=partner,acme` says to fail (Jira and GitHub mocks alike).
+pub(crate) fn fail_sites_from_env() -> HashSet<String> {
+    std::env::var("DOMINO_MOCK_FAIL_SITES").unwrap_or_default().split(',').map(|s| s.trim().to_owned()).filter(|s| !s.is_empty()).collect()
 }
 
 fn issues(data: &Value) -> impl Iterator<Item = &Value> {

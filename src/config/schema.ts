@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { DominoConfig, SiteConfig } from "./types";
+import { siteKindOf, type DominoConfig, type SiteConfig } from "./types";
 
 const slug = z
   .string()
@@ -19,18 +19,21 @@ const httpsUrl = z
     }
   }, "Must be an https URL with no path, e.g. https://example.atlassian.net");
 
+const secretRef = z
+  .string()
+  .min(1, "Required")
+  .regex(/^[A-Z][A-Z0-9_]*$/, "Uppercase letters, digits and underscores, e.g. DOMINO_ACME_TOKEN")
+  // Where the ticket cache keeps its key (src-tauri/src/cache.rs): a token there would clobber it.
+  .refine((ref) => ref !== "DOMINO_CACHE_KEY", "DOMINO_CACHE_KEY is reserved by Domino; pick another name");
+
 const authSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("apiToken"),
     email: z.string().min(1, "Required").pipe(z.email("Must be an email address")),
-    secretRef: z
-      .string()
-      .min(1, "Required")
-      .regex(/^[A-Z][A-Z0-9_]*$/, "Uppercase letters, digits and underscores, e.g. DOMINO_ACME_TOKEN")
-      // Where the ticket cache keeps its key (src-tauri/src/cache.rs): a token there would clobber it.
-      .refine((ref) => ref !== "DOMINO_CACHE_KEY", "DOMINO_CACHE_KEY is reserved by Domino; pick another name"),
+    secretRef,
   }),
   z.object({ type: z.literal("oauth3lo") }),
+  z.object({ type: z.literal("githubToken"), secretRef }),
 ]);
 
 /** Older configs called the site filter `defaultJql`. */
@@ -44,6 +47,7 @@ const migrateSite = (raw: unknown): unknown => {
 
 const siteShape = z.object({
   id: slug,
+  kind: z.enum(["jira", "github"]).optional(),
   label: z.string().trim().min(1, "Required").max(40, "At most 40 characters"),
   baseUrl: httpsUrl,
   cloudId: z.string().optional(),
@@ -53,7 +57,20 @@ const siteShape = z.object({
   baseJql: z.string().optional(),
 });
 
-export const siteSchema = z.preprocess(migrateSite, siteShape);
+export const siteSchema = z.preprocess(
+  migrateSite,
+  siteShape.superRefine((site, ctx) => {
+    // The Rust core rejects a mismatch too (config.rs `validated`); catching it here puts it on the field.
+    const github = siteKindOf(site) === "github";
+    if (github !== (site.auth.type === "githubToken")) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["auth", "type"],
+        message: github ? "A GitHub site needs a GitHub token" : "GitHub tokens are for GitHub sites",
+      });
+    }
+  }),
+);
 
 export const configSchema = z
   .object({

@@ -30,6 +30,7 @@ describe("MultiSiteLoader", () => {
         seen.push(`${s}: ${j}`);
         return inner.fetchByJql(s, j, m);
       },
+      fetchByKeys: (s, k, f) => inner.fetchByKeys(s, k, f),
       fetchEpic: (s, k, f) => inner.fetchEpic(s, k, f),
       fetchIssue: (s, k) => inner.fetchIssue(s, k),
       fetchDescription: (s, k) => inner.fetchDescription(s, k),
@@ -98,6 +99,7 @@ describe("MultiSiteLoader", () => {
     const inner = new FixtureSource(mockSites, mockLinkTypes);
     const source: JiraSource = {
       fetchByJql: (s, j, m) => inner.fetchByJql(s, j, m),
+      fetchByKeys: (s, k, f) => inner.fetchByKeys(s, k, f),
       fetchEpic: (s, k, f) => inner.fetchEpic(s, k, f),
       fetchIssue: (s, k) => inner.fetchIssue(s, k),
       fetchDescription: (s, k) => inner.fetchDescription(s, k),
@@ -172,6 +174,7 @@ describe("MultiSiteLoader", () => {
       };
     const src: JiraSource = {
       fetchByJql: (s, j, m) => slow(s, () => inner.fetchByJql(s, j, m))(),
+      fetchByKeys: (s, k, f) => slow(s, () => inner.fetchByKeys(s, k, f))(),
       fetchEpic: (s, k) => slow(s, () => inner.fetchEpic(s, k))(),
       fetchIssue: (s, k) => slow(s, () => inner.fetchIssue(s, k))(),
       fetchDescription: (s, k) => slow(s, () => inner.fetchDescription(s, k))(),
@@ -199,6 +202,7 @@ function watched(onCall: () => void, failSites: ReadonlySet<string> = new Set())
     };
   return {
     fetchByJql: via((s, j, m) => inner.fetchByJql(s, j, m)),
+    fetchByKeys: via((s, k, f) => inner.fetchByKeys(s, k, f)),
     fetchEpic: via((s, k, f) => inner.fetchEpic(s, k, f)),
     fetchIssue: via((s, k) => inner.fetchIssue(s, k)),
     fetchDescription: via((s, k) => inner.fetchDescription(s, k)),

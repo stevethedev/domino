@@ -10,6 +10,10 @@ export type GraphNode = {
   siteId: string; // configured site id, or the host for unconfigured Jira sites
   siteLabel: string;
   siteColor?: string;
+  /** Set on tickets from GitHub sites (issues and pull requests); absent for Jira. */
+  siteKind?: "github";
+  /** GitHub only: the ticket had more timeline events than one page, so some of its links may be missing. */
+  linksIncomplete?: true;
   key: string;
   summary: string;
   issueType: string;
@@ -21,6 +25,8 @@ export type GraphNode = {
   assigneeAvatarUrl?: string;
   /** Jira account ids, for matching "assigned to me" / "reported by me" against `GET /myself`. */
   assigneeAccountId?: string;
+  /** Further assignees' account ids (GitHub tickets can have several); `assigneeName` shows only the first. */
+  otherAssigneeAccountIds?: readonly string[];
   reporterAccountId?: string;
   storyPoints?: number;
   url: string;

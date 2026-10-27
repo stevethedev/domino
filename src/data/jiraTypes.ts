@@ -45,6 +45,12 @@ export type RawIssue = {
   id: string;
   key: string;
   self?: string;
+  /** Not Jira's: set on GitHub tickets whose timeline had more events than one page, so some links may be missing. */
+  linksIncomplete?: boolean;
+  /** Not Jira's: other keys this GitHub ticket was asked for under (its repo was renamed, or it moved). */
+  aliases?: string[];
+  /** Not Jira's: a GitHub ticket's assignees after the first (`fields.assignee`), by account id. */
+  otherAssignees?: string[];
   fields: {
     summary: string;
     /** Optional for the same reason as on RawLinkedIssue. */

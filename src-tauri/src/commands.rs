@@ -1,4 +1,4 @@
-//! Tauri commands: the webview's only door to config, secrets and Jira.
+//! Tauri commands: the webview's only door to config, secrets, Jira and GitHub.
 //! Every error is a plain message; none of them contain secret values.
 #![allow(
     clippy::unreachable,
@@ -8,7 +8,10 @@
 #![expect(clippy::needless_pass_by_value, reason = "Tauri deserializes command arguments, and injects State, by value")]
 
 use crate::cache::{CachedScope, PutEntry, TicketCache};
-use crate::config::{BackendKind, ConfigHandle, DominoConfig, SiteAuth, SiteConfig};
+use crate::config::{BackendKind, ConfigHandle, DominoConfig, SiteAuth, SiteConfig, SiteKind};
+use crate::github::http::GitHubHttp;
+use crate::github::mock::GitHubMock;
+use crate::github::GitHubBackend;
 use crate::jira::http::HttpBackend;
 use crate::jira::mock::MockBackend;
 use crate::jira::oauth::{self, OAuth};
@@ -27,6 +30,8 @@ pub(crate) struct AppState {
     pub oauth: Arc<OAuth>,
     pub mock: Arc<MockBackend>,
     pub http: Arc<HttpBackend>,
+    pub github_mock: Arc<GitHubMock>,
+    pub github_http: Arc<GitHubHttp>,
     pub cache: Arc<TicketCache>,
     /// Wakes a waiting Atlassian sign-in so it gives up (see `oauth_cancel`).
     pub oauth_cancel: Arc<tokio::sync::Notify>,
@@ -38,6 +43,32 @@ impl AppState {
             BackendKind::Mock => Arc::clone(&self.mock) as Arc<dyn JiraBackend>,
             BackendKind::Jira => Arc::clone(&self.http) as Arc<dyn JiraBackend>,
         }
+    }
+
+    /// GitHub data comes from the same place as Jira's: the fixtures, or the live service.
+    fn github(&self) -> Arc<dyn GitHubBackend> {
+        match self.config.get().backend {
+            BackendKind::Mock => Arc::clone(&self.github_mock) as Arc<dyn GitHubBackend>,
+            BackendKind::Jira => Arc::clone(&self.github_http) as Arc<dyn GitHubBackend>,
+        }
+    }
+
+    /// An enabled site of `kind`.
+    fn site_of_kind(&self, site_id: &str, kind: SiteKind) -> Result<SiteConfig, String> {
+        let site = self.site(site_id, true)?;
+        match (kind, site.kind) {
+            (SiteKind::Jira, SiteKind::GitHub) => Err(format!("{} is a GitHub site, not a Jira site", site.label)),
+            (SiteKind::GitHub, SiteKind::Jira) => Err(format!("{} is a Jira site, not a GitHub site", site.label)),
+            _ => Ok(site),
+        }
+    }
+
+    fn jira_site(&self, site_id: &str) -> Result<SiteConfig, String> {
+        self.site_of_kind(site_id, SiteKind::Jira)
+    }
+
+    fn github_site(&self, site_id: &str) -> Result<SiteConfig, String> {
+        self.site_of_kind(site_id, SiteKind::GitHub)
     }
 
     fn site(&self, site_id: &str, require_enabled: bool) -> Result<SiteConfig, String> {
@@ -145,7 +176,10 @@ fn forget_oauth_sites(state: &AppState) {
 #[tauri::command]
 pub(crate) async fn site_health(state: State<'_, AppState>, site_id: String) -> Result<(), String> {
     let site = state.site(&site_id, false)?;
-    state.backend().health(&site).await
+    match site.kind {
+        SiteKind::Jira => state.backend().health(&site).await,
+        SiteKind::GitHub => state.github().health(&site).await,
+    }
 }
 
 #[tauri::command]
@@ -155,62 +189,92 @@ pub(crate) async fn fetch_by_jql(
     jql: String,
     max_results: Option<usize>,
 ) -> Result<Vec<Value>, String> {
-    let site = state.site(&site_id, true)?;
+    let site = state.jira_site(&site_id)?;
     state.backend().search(&site, &jql, max_results).await
 }
 
 #[tauri::command]
 pub(crate) async fn fetch_epic(state: State<'_, AppState>, site_id: String, key: String, filter: Option<String>) -> Result<Value, String> {
-    let site = state.site(&site_id, true)?;
+    let site = state.jira_site(&site_id)?;
     state.backend().epic(&site, &key, filter.as_deref()).await
 }
 
 #[tauri::command]
 pub(crate) async fn fetch_issue(state: State<'_, AppState>, site_id: String, key: String) -> Result<Value, String> {
-    let site = state.site(&site_id, true)?;
+    let site = state.jira_site(&site_id)?;
     state.backend().issue(&site, &key).await
 }
 
 #[tauri::command]
 pub(crate) async fn fetch_description(state: State<'_, AppState>, site_id: String, key: String) -> Result<Value, String> {
-    let site = state.site(&site_id, true)?;
+    let site = state.jira_site(&site_id)?;
     state.backend().description(&site, &key).await
 }
 
 #[tauri::command]
 pub(crate) async fn fetch_remote_links(state: State<'_, AppState>, site_id: String, key: String) -> Result<Vec<Value>, String> {
-    let site = state.site(&site_id, true)?;
+    let site = state.jira_site(&site_id)?;
     state.backend().remote_links(&site, &key).await
 }
 
 #[tauri::command]
 pub(crate) async fn fetch_link_types(state: State<'_, AppState>, site_id: String) -> Result<Value, String> {
-    let site = state.site(&site_id, true)?;
+    let site = state.jira_site(&site_id)?;
     state.backend().link_types(&site).await
 }
 
 #[tauri::command]
 pub(crate) async fn fetch_priorities(state: State<'_, AppState>, site_id: String) -> Result<Vec<Value>, String> {
-    let site = state.site(&site_id, true)?;
+    let site = state.jira_site(&site_id)?;
     state.backend().priorities(&site).await
 }
 
 #[tauri::command]
 pub(crate) async fn fetch_status_history(state: State<'_, AppState>, site_id: String, issue_ids: Vec<String>) -> Result<Value, String> {
-    let site = state.site(&site_id, true)?;
+    let site = state.jira_site(&site_id)?;
     state.backend().status_history(&site, &issue_ids).await
 }
 
 #[tauri::command]
 pub(crate) async fn fetch_myself(state: State<'_, AppState>, site_id: String) -> Result<Value, String> {
-    let site = state.site(&site_id, true)?;
+    let site = state.jira_site(&site_id)?;
     state.backend().myself(&site).await
 }
 
 #[tauri::command]
 pub(crate) async fn fetch_statuses(state: State<'_, AppState>, site_id: String) -> Result<Value, String> {
-    let site = state.site(&site_id, true)?;
+    let site = state.jira_site(&site_id)?;
     state.backend().statuses(&site).await
+}
+
+/// Issues and pull requests matching a GitHub search (the site's filter is already in `query`).
+#[tauri::command]
+pub(crate) async fn gh_search(
+    state: State<'_, AppState>,
+    site_id: String,
+    query: String,
+    max_results: Option<usize>,
+) -> Result<Vec<Value>, String> {
+    let site = state.github_site(&site_id)?;
+    state.github().search(&site, &query, max_results).await
+}
+
+#[tauri::command]
+pub(crate) async fn gh_issues(state: State<'_, AppState>, site_id: String, keys: Vec<String>) -> Result<Vec<Value>, String> {
+    let site = state.github_site(&site_id)?;
+    state.github().issues(&site, &keys).await
+}
+
+#[tauri::command]
+pub(crate) async fn gh_sub_issues(state: State<'_, AppState>, site_id: String, key: String) -> Result<Vec<Value>, String> {
+    let site = state.github_site(&site_id)?;
+    state.github().sub_issues(&site, &key).await
+}
+
+#[tauri::command]
+pub(crate) async fn gh_viewer(state: State<'_, AppState>, site_id: String) -> Result<Value, String> {
+    let site = state.github_site(&site_id)?;
+    state.github().viewer(&site).await
 }
 
 /// Write-only: stores a secret in the OS keychain. An empty value clears it.
@@ -223,9 +287,7 @@ pub(crate) fn set_secret(state: State<'_, AppState>, secret_ref: String, value: 
     log::info!("secret updated");
     // A new token can belong to another account: forget what the sites using it cached.
     let cfg = state.config.get();
-    state
-        .cache
-        .forget_sites(|id| cfg.site(id).is_some_and(|s| matches!(&s.auth, SiteAuth::ApiToken { secret_ref: r, .. } if *r == secret_ref)));
+    state.cache.forget_sites(|id| cfg.site(id).is_some_and(|s| s.auth.secret_ref() == Some(secret_ref.as_str())));
     Ok(())
 }
 

@@ -1,16 +1,19 @@
 import pLimit, { type LimitFunction } from "p-limit";
-import type { SiteConfig } from "../config/types";
+import { siteKindOf, type SiteConfig } from "../config/types";
 import { DEFAULT_LINK_TYPES } from "../graph/linkTypes";
 import { matchRemoteUrl } from "../graph/remoteUrl";
 import { uidOf } from "../graph/types";
 import { getOrThrow } from "../lib/guards";
 import { errorMessage } from "./errors";
+import { combineGitHubQuery } from "./github/query";
 import { combineJql } from "./jqlPresets";
 import type { JiraSource } from "./JiraSource";
 import type { RawIssue, RawLinkType, RawPriority, RawRemoteLink, RawSiteData } from "./jiraTypes";
+import { exampleKey, isTicketKey } from "./ticketKey";
 
 export type Scope =
-  | { mode: "jql"; jql: string } // per-site: (site.baseJql) AND (jql)
+  // Per site: (site.baseJql) AND (jql) on Jira sites; site.baseJql plus `github` (a GitHub search) on GitHub sites.
+  | { mode: "jql"; jql: string; github?: string }
   | { mode: "epic"; siteId: string; key: string }
   | { mode: "seed"; siteId: string; key: string; depth: number };
 
@@ -40,8 +43,6 @@ class Aborted extends Error {
 
 export const isAbortError = (e: unknown): boolean => e instanceof Error && e.name === "AbortError";
 
-export const ISSUE_KEY_RE = /^[A-Z][A-Z0-9_]*-\d+$/;
-
 class OverCap extends Error {
   constructor(readonly count: number) {
     super(`More than ${count} tickets`);
@@ -51,6 +52,8 @@ class OverCap extends Error {
 type SiteState = {
   site: SiteConfig;
   issues: Map<string, RawIssue>;
+  /** Other keys loaded issues were asked for under (a renamed GitHub repo) -> the issue's key. */
+  aliases: Map<string, string>;
   remoteLinks: Record<string, RawRemoteLink[]>;
   linkTypes: RawLinkType[];
   priorities: RawPriority[];
@@ -110,19 +113,27 @@ class LoadRun {
     private readonly opts: LoadOptions,
   ) {
     for (const site of selected) {
-      this.states.set(site.id, { site, issues: new Map(), remoteLinks: {}, linkTypes: DEFAULT_LINK_TYPES, priorities: [] });
+      this.states.set(site.id, {
+        site,
+        issues: new Map(),
+        aliases: new Map(),
+        remoteLinks: {},
+        linkTypes: DEFAULT_LINK_TYPES,
+        priorities: [],
+      });
       this.limits.set(site.id, pLimit(perSite));
     }
   }
 
   async execute(scope: Scope): Promise<void> {
-    if (scope.mode === "jql") return this.jql(scope.jql);
-    if (!this.states.has(scope.siteId)) {
+    if (scope.mode === "jql") return this.jql(scope.jql, scope.github ?? "");
+    const site = this.states.get(scope.siteId)?.site;
+    if (!site) {
       this.fail(scope.siteId, "Site is not selected");
       return;
     }
-    if (!ISSUE_KEY_RE.test(scope.key)) {
-      this.fail(scope.siteId, `"${scope.key}" is not a valid ticket key`);
+    if (!isTicketKey(site, scope.key)) {
+      this.fail(scope.siteId, `"${scope.key}" is not a valid ticket key (expected one like ${exampleKey(site)})`);
       return;
     }
     if (scope.mode === "epic") return this.epic(scope.siteId, scope.key);
@@ -166,18 +177,20 @@ class LoadRun {
 
   // ---- modes ---------------------------------------------------------------
 
-  private async jql(jql: string): Promise<void> {
+  private async jql(jql: string, github: string): Promise<void> {
     await Promise.all(
       [...this.states.values()].map(async ({ site }) => {
-        const q = combineJql(site.baseJql ?? "", jql);
+        const isGitHub = siteKindOf(site) === "github";
+        const q = isGitHub ? combineGitHubQuery(site.baseJql ?? "", github) : combineJql(site.baseJql ?? "", jql);
         if (!q) {
-          this.fail(site.id, 'Nothing to load: type a query above, or set this site\'s "Always filter by" JQL in Settings');
+          const kind = isGitHub ? "GitHub search" : "JQL";
+          this.fail(site.id, `Nothing to load: type a ${kind} query above, or set this site's "Always filter by" ${kind} in Settings`);
           return;
         }
         const ok = await this.guard(site.id, async () => {
-          const issues = await this.call(site.id, () => this.source.fetchByJql(site.id, q, this.maxNodes + 1));
-          this.checkCap(issues.length);
-          await this.addFull(site.id, issues);
+          const found = await this.call(site.id, () => this.source.fetchByJql(site.id, q, this.maxNodes + 1));
+          this.checkCap(found.length);
+          await this.addFull(site.id, found);
         });
         // JQL loads don't expand into other sites, so this site is done.
         if (ok) this.report(site.id, "loaded");
@@ -198,12 +211,15 @@ class LoadRun {
   }
 
   private async seed(siteId: string, key: string, depth: number): Promise<void> {
+    // Expansion starts from the key the site returned, which can differ (GitHub's case, a renamed repo).
+    let rootKey = key;
     const ok = await this.guard(siteId, async () => {
       const issue = await this.call(siteId, () => this.source.fetchIssue(siteId, key));
+      rootKey = issue.key;
       await this.addFull(siteId, [issue]);
     });
     if (!ok) return;
-    let frontier: Ref[] = [{ siteId, key }];
+    let frontier: Ref[] = [{ siteId, key: rootKey }];
     for (let d = 1; d <= depth && frontier.length; d++) {
       this.throwIfAborted();
       frontier = await this.expand(frontier);
@@ -216,7 +232,7 @@ class LoadRun {
     for (const ref of refs) {
       for (const n of this.neighbours(ref)) {
         const st = this.states.get(n.siteId);
-        if (!st || st.issues.has(n.key) || this.errors.has(n.siteId)) continue;
+        if (!st || st.issues.has(n.key) || st.aliases.has(n.key) || this.errors.has(n.siteId)) continue;
         const keys = wanted.get(n.siteId) ?? new Set<string>();
         wanted.set(n.siteId, keys.add(n.key));
       }
@@ -253,13 +269,13 @@ class LoadRun {
   }
 
   private async fetchKeys(siteId: string, keys: string[]): Promise<RawIssue[]> {
-    const base = getOrThrow(this.states, siteId).site.baseJql ?? "";
-    const safe = keys.filter((k) => ISSUE_KEY_RE.test(k));
+    const { site } = getOrThrow(this.states, siteId);
+    const safe = keys.filter((k) => isTicketKey(site, k));
     const chunks: string[][] = [];
     for (let i = 0; i < safe.length; i += this.batch) chunks.push(safe.slice(i, i + this.batch));
     const results = await Promise.all(
       // Linked issues the site filter excludes aren't fetched; they stay ghosts.
-      chunks.map((c) => this.call(siteId, () => this.source.fetchByJql(siteId, combineJql(base, `key in (${c.join(",")})`), c.length))),
+      chunks.map((c) => this.call(siteId, () => this.source.fetchByKeys(siteId, c, site.baseJql))),
     );
     return results.flat();
   }
@@ -269,6 +285,12 @@ class LoadRun {
     await Promise.all([this.ensureLinkTypes(siteId), this.ensurePriorities(siteId)]);
     const fresh = issues.filter((i) => !st.issues.has(i.key));
     for (const i of fresh) st.issues.set(i.key, i);
+    for (const i of issues) {
+      const stored = getOrThrow(st.issues, i.key);
+      const aliases = [...new Set([...(stored.aliases ?? []), ...(i.aliases ?? [])])];
+      if (aliases.length > (stored.aliases?.length ?? 0)) st.issues.set(i.key, { ...stored, aliases }); // also asked for under another key
+      for (const alias of aliases) st.aliases.set(alias, i.key);
+    }
     this.checkCap();
     await Promise.all(
       fresh.map(async (i) => {
@@ -309,16 +331,18 @@ class LoadRun {
   /** Distinct in-scope issues plus every issue they reference (future ghosts). */
   private nodeCount(): number {
     const uids = new Set<string>();
+    // A key some loaded issue was also asked for under counts as that issue.
+    const uid = (siteId: string, key: string): string => uidOf(siteId, this.states.get(siteId)?.aliases.get(key) ?? key);
     for (const st of this.states.values()) {
       for (const i of st.issues.values()) {
         uids.add(uidOf(st.site.id, i.key));
         for (const l of i.fields.issuelinks ?? []) {
           const other = l.outwardIssue ?? l.inwardIssue;
-          if (other) uids.add(uidOf(st.site.id, other.key));
+          if (other) uids.add(uid(st.site.id, other.key));
         }
         for (const rl of st.remoteLinks[i.key] ?? []) {
           const m = matchRemoteUrl(rl.object.url, this.allSites);
-          if (m) uids.add(uidOf(m.kind === "site" ? m.siteId : m.host, m.key));
+          if (m) uids.add(m.kind === "site" ? uid(m.siteId, m.key) : uidOf(m.host, m.key));
         }
       }
     }

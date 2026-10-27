@@ -30,7 +30,7 @@ import {
   type EpicFolds,
   type SavedView,
 } from "./state/savedViews";
-import { saveQuery, selectedSitesOf } from "./state/useDomino";
+import { saveGitHubQuery, saveQuery, selectedSitesOf } from "./state/useDomino";
 import { scopeKeyOf } from "./state/scopeKey";
 import { useChanges } from "./state/useChanges";
 import { useStatusHistory } from "./state/useStatusHistory";
@@ -263,7 +263,10 @@ function Shell(): ReactElement {
     // selection (and scope) when it has none of them, and say what couldn't be applied.
     const sites = viewSites(v, config?.sites ?? []);
     if (sites.scopeUsable && sites.siteIds.length > 0) {
-      if (v.scope.mode === "jql") saveQuery(v.scope.jql);
+      if (v.scope.mode === "jql") {
+        saveQuery(v.scope.jql);
+        saveGitHubQuery(v.scope.github ?? ""); // a view without one has an empty GitHub search
+      }
       domino.applyScope(v.scope, sites.siteIds);
     }
     const notice = viewNotice(v.name, v.siteIds.length, sites);
@@ -658,7 +661,7 @@ function Shell(): ReactElement {
                 }}
                 everyoneSummary={
                   stale ? (
-                    `Loading ${scopeLabel(domino.scope)}…`
+                    `Loading ${scopeLabel(domino.scope, domino.selectedSites)}…`
                   ) : loaded ? (
                     <>
                       {full} tickets · {graph.nodes.length - full} outside scope ·{" "}
@@ -809,12 +812,12 @@ function Shell(): ReactElement {
           <LoadPill
             view={loadView}
             sites={domino.selectedSites}
-            scopeLabel={scopeLabel(domino.scope)}
+            scopeLabel={scopeLabel(domino.scope, domino.selectedSites)}
             failureText={
               loadView.failure === null
                 ? null
                 : loadView.mode === "other"
-                  ? otherScopeFailureText(scopeLabel(domino.scope), loadView.failure)
+                  ? otherScopeFailureText(scopeLabel(domino.scope, domino.selectedSites), loadView.failure)
                   : failureText(loadView.failure, shownAt, Date.now())
             }
             onRetry={domino.reload}

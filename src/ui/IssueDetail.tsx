@@ -354,6 +354,12 @@ export function IssueDetail({
         nodes={nodes}
         onSelect={onSelect}
       />
+      {n.linksIncomplete && (
+        <p className="hint" role="note">
+          This ticket has more links on GitHub than Domino loads at once (100 mentions, 50 blockers, blocked or closed issues each), so some
+          may be missing.
+        </p>
+      )}
       {history && history.length > 0 && (
         <section className="detail-section">
           <h3 className="subhead">Status history</h3>
@@ -374,7 +380,7 @@ export function IssueDetail({
             onOpen(n.url);
           }}
         >
-          Open in Jira <Icon name="external" />
+          Open in {n.siteKind === "github" ? "GitHub" : "Jira"} <Icon name="external" />
         </button>
       </div>
     </aside>

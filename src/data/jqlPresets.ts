@@ -25,6 +25,9 @@ function splitOrderBy(jql: string): [where: string, orderBy: string] {
   return m ? [t.slice(0, m.index).trim(), m[0].trim()] : [t, ""];
 }
 
+/** `key in (...)`, limited by the site's filter: tickets the filter excludes aren't returned. */
+export const keysJql = (keys: readonly string[], filter?: string): string => combineJql(filter ?? "", `key in (${keys.join(",")})`);
+
 /**
  * `(base) AND (query)`. Both sides are parenthesized because Jira's AND binds tighter than OR:
  * without them, `project = A AND x OR y` would match `y` across the whole site. ORDER BY is

@@ -1,4 +1,4 @@
-import type { SiteConfig } from "../config/types";
+import { siteKindOf, type SiteConfig, type SiteKind } from "../config/types";
 import type { Scope, SiteOutcome } from "../data/MultiSiteLoader";
 import type { Shown } from "./cacheState";
 
@@ -79,11 +79,19 @@ export function progressParts(
 
 const MAX_LABEL = 40;
 
-/** A short name for a scope: the query (shortened), the epic, or the seed issue and depth. */
-export function scopeLabel(scope: Scope): string {
+/**
+ * A short name for a scope: the query (shortened), the epic, or the seed issue and depth. Only the
+ * queries the selected sites run are named: the JQL for Jira sites, the search for GitHub ones.
+ */
+export function scopeLabel(scope: Scope, sites: readonly Pick<SiteConfig, "kind">[]): string {
   switch (scope.mode) {
     case "jql": {
-      const q = scope.jql.trim().replace(/\s+/g, " ");
+      const runs = (kind: SiteKind): boolean => sites.some((s) => siteKindOf(s) === kind);
+      const q = [runs("jira") ? scope.jql : "", runs("github") ? (scope.github ?? "") : ""]
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .join(" · ")
+        .replace(/\s+/g, " ");
       if (!q) return "the default query";
       return q.length > MAX_LABEL ? `“${q.slice(0, MAX_LABEL - 1)}…”` : `“${q}”`;
     }

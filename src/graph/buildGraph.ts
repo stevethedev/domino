@@ -1,5 +1,6 @@
-import type { SiteConfig } from "../config/types";
+import { siteKindOf, type SiteConfig } from "../config/types";
 import type { RawIssue, RawLinkedIssue, RawPriority, RawSiteData, RawStatus, RawVersion } from "../data/jiraTypes";
+import { ticketUrl } from "../data/ticketKey";
 import { getOrThrow } from "../lib/guards";
 import { findCycles } from "./cycles";
 import { DEFAULT_LINK_TYPES, kindOf, resolveRelationship } from "./linkTypes";
@@ -55,8 +56,6 @@ function priorityOf(p: RawPriority | null | undefined, ranks: PriorityRanks): Pr
   };
 }
 
-const browseUrl = (baseUrl: string, key: string): string => `${baseUrl.replace(/\/+$/, "")}/browse/${key}`;
-
 const isEpicType = (t: { name?: string; hierarchyLevel?: number } | undefined): boolean =>
   !!t && (t.hierarchyLevel !== undefined ? t.hierarchyLevel === 1 : t.name?.toLowerCase() === "epic");
 
@@ -67,7 +66,7 @@ const isEpicType = (t: { name?: string; hierarchyLevel?: number } | undefined): 
  */
 function directEpic(issue: RawIssue, site: SiteConfig): EpicRef | { viaParent: string } | undefined {
   const f = issue.fields;
-  const ref = (key: string, summary?: string): EpicRef => ({ uid: uidOf(site.id, key), key, summary, url: browseUrl(site.baseUrl, key) });
+  const ref = (key: string, summary?: string): EpicRef => ({ uid: uidOf(site.id, key), key, summary, url: ticketUrl(site, key) });
   if (isEpicType(f.issuetype)) return ref(issue.key, f.summary);
   if (f.parent) {
     if (isEpicType(f.parent.fields.issuetype)) return ref(f.parent.key, f.parent.fields.summary);
@@ -110,9 +109,10 @@ function nodeFromIssue(issue: RawIssue, site: SiteConfig, ranks: PriorityRanks):
     assigneeName: f.assignee?.displayName,
     assigneeAvatarUrl: avatars?.["48x48"] ?? avatars?.["24x24"],
     assigneeAccountId: f.assignee?.accountId,
+    otherAssigneeAccountIds: issue.otherAssignees,
     reporterAccountId: f.reporter?.accountId,
     storyPoints: typeof f.customfield_10016 === "number" ? f.customfield_10016 : undefined,
-    url: browseUrl(site.baseUrl, issue.key),
+    url: ticketUrl(site, issue.key),
     ghost: false,
     jiraId: issue.id,
     dates: {
@@ -121,6 +121,7 @@ function nodeFromIssue(issue: RawIssue, site: SiteConfig, ranks: PriorityRanks):
       created: f.created ? toDay(f.created) : undefined,
     },
     releases: releasesOf(f.fixVersions, site),
+    ...(issue.linksIncomplete === true ? { linksIncomplete: true } : {}),
   };
 }
 
@@ -136,7 +137,7 @@ function ghostFromLinked(ref: RawLinkedIssue, site: SiteConfig, ranks: PriorityR
     statusName: ref.fields.status?.name ?? "Unknown",
     statusCategory: statusCategoryOf(ref.fields.status),
     priority: priorityOf(ref.fields.priority, ranks),
-    url: browseUrl(site.baseUrl, ref.key),
+    url: ticketUrl(site, ref.key),
     ghost: true,
   };
 }
@@ -167,8 +168,8 @@ function ghostUnknown(
 
 /**
  * Turns raw per-site Jira data into one graph keyed by uid.
- * - Native links: normalized to outward direction, deduped by siteId + linkId.
- * - Remote links: matched to configured sites (edge) or unconfigured Jira hosts (ghost),
+ * - Native links: normalized to outward direction, deduped by siteId + linkId (GitHub: + resolved ends).
+ * - Remote links: matched to configured Jira or GitHub sites (edge) or unconfigured Jira hosts (ghost),
  *   normalized, then deduped by (source, target, linkType) so reciprocal remote links collapse.
  * - Issues referenced but not loaded become ghosts; loaded issues always win over ghosts.
  */
@@ -192,9 +193,15 @@ export function buildGraph({ sites, data }: BuildInput): Graph {
       nodes.set(node.uid, node);
     }
   }
-  // Sub-tasks inherit the epic of their (loaded) parent story; a missing story leaves them epic-less.
-  for (const [uid, parentUid] of pendingEpic) {
-    const epic = nodes.get(parentUid)?.epic;
+  // Sub-tasks inherit the epic of their (loaded) parent story, up however many levels (GitHub nests
+  // sub-issues); a missing story or a cycle leaves them epic-less.
+  const inherited = (uid: string, seen: ReadonlySet<string>): EpicRef | undefined => {
+    const parentUid = pendingEpic.get(uid);
+    if (parentUid === undefined) return nodes.get(uid)?.epic;
+    return seen.has(parentUid) ? undefined : inherited(parentUid, new Set([...seen, uid]));
+  };
+  for (const uid of pendingEpic.keys()) {
+    const epic = inherited(uid, new Set());
     if (epic) getOrThrow(nodes, uid).epic = epic;
   }
   // Fill in summaries for Epic Link references when the epic itself is loaded.
@@ -202,8 +209,16 @@ export function buildGraph({ sites, data }: BuildInput): Graph {
     if (n.epic && !n.epic.summary) n.epic = { ...n.epic, summary: nodes.get(n.epic.uid)?.summary };
   }
 
+  // Keys a loaded ticket was also asked for under (a renamed GitHub repo) are that ticket.
+  const canonical = new Map<string, string>();
+  for (const d of data) {
+    for (const issue of d.issues) {
+      for (const alias of issue.aliases ?? []) canonical.set(uidOf(d.siteId, alias), uidOf(d.siteId, issue.key));
+    }
+  }
+  const resolve = (uid: string): string => canonical.get(uid) ?? uid;
   const addGhost = (g: GraphNode): void => {
-    if (!nodes.has(g.uid) && !ghosts.has(g.uid)) ghosts.set(g.uid, g);
+    if (!nodes.has(g.uid) && !ghosts.has(g.uid) && !canonical.has(g.uid)) ghosts.set(g.uid, g);
   };
   const siteOf = (uid: string): string | undefined => (nodes.get(uid) ?? ghosts.get(uid))?.siteId;
 
@@ -212,6 +227,7 @@ export function buildGraph({ sites, data }: BuildInput): Graph {
     if (!site) continue;
     const linkTypes = d.linkTypes.length ? d.linkTypes : DEFAULT_LINK_TYPES;
     const ranks = priorityRanks(d.priorities);
+    const isGitHub = siteKindOf(site) === "github";
 
     for (const issue of d.issues) {
       const self = uidOf(site.id, issue.key);
@@ -219,12 +235,16 @@ export function buildGraph({ sites, data }: BuildInput): Graph {
       for (const link of issue.fields.issuelinks ?? []) {
         const other = link.outwardIssue ?? link.inwardIssue;
         if (!other) continue;
-        const otherUid = uidOf(site.id, other.key);
+        const otherUid = resolve(uidOf(site.id, other.key));
+        if (otherUid === self) continue; // a renamed ticket's link to its own old key
         addGhost(ghostFromLinked(other, site, ranks));
-        const id = `${site.id}:link:${link.id}`;
-        if (edges.has(id)) continue;
         // outwardIssue on this issue means "this <outward> other".
         const [source, target] = link.outwardIssue ? [self, otherUid] : [otherUid, self];
+        // GitHub link ids are built from keys, which can be a renamed repo's old ones: its edges are
+        // identified by the ends they resolve to instead (either order for a symmetric link). Jira's are real ids.
+        const ends = link.type.inward === link.type.outward ? [source, target].sort() : [source, target];
+        const id = isGitHub ? `${site.id}:link:${link.type.name.toLowerCase()}:${ends.join(">")}` : `${site.id}:link:${link.id}`;
+        if (edges.has(id)) continue;
         edges.set(id, {
           id,
           source,
@@ -241,9 +261,9 @@ export function buildGraph({ sites, data }: BuildInput): Graph {
         if (!match) continue;
         let otherUid: string;
         if (match.kind === "site") {
-          otherUid = uidOf(match.siteId, match.key);
+          otherUid = resolve(uidOf(match.siteId, match.key));
           const s = getOrThrow(siteById, match.siteId);
-          addGhost(ghostUnknown(otherUid, s.id, s.label, match.key, browseUrl(s.baseUrl, match.key), rl.object.title, s.color));
+          addGhost(ghostUnknown(otherUid, s.id, s.label, match.key, ticketUrl(s, match.key), rl.object.title, s.color));
         } else {
           otherUid = uidOf(match.host, match.key);
           addGhost(ghostUnknown(otherUid, match.host, match.host, match.key, match.url, rl.object.title));
@@ -270,6 +290,9 @@ export function buildGraph({ sites, data }: BuildInput): Graph {
   }
 
   const allNodes = [...nodes.values(), ...ghosts.values()];
+  for (const n of allNodes) {
+    if (siteById.get(n.siteId)?.kind === "github") n.siteKind = "github";
+  }
   const allEdges = [...edges.values()].map((e) => ({ ...e, crossSite: siteOf(e.source) !== siteOf(e.target) }));
   const { cycles, cycleEdgeIds, brokenEdgeIds } = findCycles(allNodes, allEdges);
   return { nodes: allNodes, edges: allEdges, cycles, cycleEdgeIds, brokenEdgeIds };

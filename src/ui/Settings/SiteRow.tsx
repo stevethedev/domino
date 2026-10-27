@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState, type ReactElement } from "react";
-import type { HealthStatus, SiteConfig } from "../../config/types";
+import type { HealthStatus, SiteAuth, SiteConfig } from "../../config/types";
 import { prefersReducedMotion } from "../../lib/motion";
+
+const AUTH_LABELS: Readonly<Record<SiteAuth["type"], string>> = {
+  apiToken: "API token",
+  oauth3lo: "OAuth 3LO",
+  githubToken: "GitHub token",
+};
 
 export function SiteRow({
   site,
@@ -39,7 +45,7 @@ export function SiteRow({
         <span className="muted mono small"> {site.id}</span>
       </th>
       <td className="mono small">{site.baseUrl}</td>
-      <td>{site.auth.type === "apiToken" ? "API token" : "OAuth 3LO"}</td>
+      <td>{AUTH_LABELS[site.auth.type]}</td>
       <td>
         <label className="check">
           <input

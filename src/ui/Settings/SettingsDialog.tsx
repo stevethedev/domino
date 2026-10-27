@@ -93,7 +93,7 @@ export function SettingsDialog({
     const sites = exists ? config.sites.map((s) => (s.id === site.id ? { ...site, cloudId: s.cloudId } : s)) : [...config.sites, site];
     const defaults = isDefault ? [...new Set([...config.defaultSiteIds, site.id])] : config.defaultSiteIds.filter((id) => id !== site.id);
     const storeToken = async (): Promise<void> => {
-      if (token && site.auth.type === "apiToken") await domino.store.setSecret(site.auth.secretRef, token);
+      if (token && site.auth.type !== "oauth3lo") await domino.store.setSecret(site.auth.secretRef, token);
     };
     // Failures show in the form, so not in the dialog's banner as well.
     setError(null);

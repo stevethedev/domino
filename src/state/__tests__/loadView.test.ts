@@ -77,11 +77,23 @@ describe("progressParts", () => {
 });
 
 describe("scopeLabel", () => {
+  const jira: Pick<SiteConfig, "kind"> = {};
+  const github: Pick<SiteConfig, "kind"> = { kind: "github" };
+  const both = [jira, github];
+
   it("names each kind of scope briefly", () => {
-    expect(scopeLabel({ mode: "jql", jql: "  project =  X " })).toBe("“project = X”");
-    expect(scopeLabel({ mode: "jql", jql: "x".repeat(60) })).toBe(`“${"x".repeat(39)}…”`);
-    expect(scopeLabel({ mode: "jql", jql: "" })).toBe("the default query");
-    expect(scopeLabel({ mode: "epic", siteId: "a", key: "A-1" })).toBe("epic A-1");
-    expect(scopeLabel({ mode: "seed", siteId: "a", key: "A-1", depth: 2 })).toBe("A-1 and its links (depth 2)");
+    expect(scopeLabel({ mode: "jql", jql: "  project =  X " }, both)).toBe("“project = X”");
+    expect(scopeLabel({ mode: "jql", jql: "x".repeat(60) }, both)).toBe(`“${"x".repeat(39)}…”`);
+    expect(scopeLabel({ mode: "jql", jql: "" }, both)).toBe("the default query");
+    expect(scopeLabel({ mode: "jql", jql: "project = X", github: " is:open " }, both)).toBe("“project = X · is:open”");
+    expect(scopeLabel({ mode: "jql", jql: "", github: "is:pr" }, both)).toBe("“is:pr”");
+    expect(scopeLabel({ mode: "epic", siteId: "a", key: "A-1" }, both)).toBe("epic A-1");
+    expect(scopeLabel({ mode: "seed", siteId: "a", key: "A-1", depth: 2 }, both)).toBe("A-1 and its links (depth 2)");
+  });
+
+  it("names only the queries the selected sites run", () => {
+    const scope = { mode: "jql", jql: "project = X", github: "is:open" } as const;
+    expect(scopeLabel(scope, [jira])).toBe("“project = X”");
+    expect(scopeLabel(scope, [github])).toBe("“is:open”");
   });
 });

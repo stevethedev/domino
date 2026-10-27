@@ -1,0 +1,15 @@
+query SubIssues($owner: String!, $repo: String!, $number: Int!, $after: String) {
+  repository(owner: $owner, name: $repo) {
+    issue(number: $number) {
+      subIssues(first: 50, after: $after) {
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+        nodes {
+          ...IssueTicket
+        }
+      }
+    }
+  }
+}

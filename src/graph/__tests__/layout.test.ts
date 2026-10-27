@@ -51,7 +51,8 @@ describe.each(MODES)("computeLayout (group by %s)", (mode, laneOf) => {
         expect(overlap, `${a.uid} overlaps ${b.uid}`).toBe(false);
       }
     }
-    if (mode === "site") expect(layout.groups.map((gr) => gr.label).sort()).toEqual(["Acme", "Legacy", "Partner", "other.atlassian.net"]);
+    if (mode === "site")
+      expect(layout.groups.map((gr) => gr.label).sort()).toEqual(["Acme", "GitHub", "Legacy", "Partner", "other.atlassian.net"]);
     if (mode === "epic") {
       const labels = layout.groups.map((gr) => gr.label);
       expect(labels).toContain("CORE-1 · Checkout v2");
