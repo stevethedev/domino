@@ -1,5 +1,17 @@
 # domino
 
+## 0.5.0
+
+### Minor Changes
+
+- [#22](https://github.com/stevethedev/domino/pull/22) [`86840ec`](https://github.com/stevethedev/domino/commit/86840ec8359f9ec893b7a4a4b6ef0a040e117e93) Thanks [@stevethedev](https://github.com/stevethedev)! - - GitHub issues and pull requests load alongside Jira tickets: add a GitHub site (github.com or GitHub Enterprise Server) with a personal access token.
+  - Sub-issues group like epics; blocked-by, closing pull requests and mentions become links; Jira remote links to GitHub and Jira URLs in GitHub descriptions connect the two.
+  - With a GitHub site selected, the top bar has a GitHub search box next to the JQL one.
+
+### Patch Changes
+
+- [#20](https://github.com/stevethedev/domino/pull/20) [`695545a`](https://github.com/stevethedev/domino/commit/695545a85fee2f172761c3e6955c56fcbf860402) Thanks [@stevethedev](https://github.com/stevethedev)! - - Saving a secret no longer writes its keychain name to the log.
+
 ## 0.4.0
 
 ### Minor Changes
