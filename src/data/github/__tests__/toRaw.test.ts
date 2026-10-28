@@ -176,6 +176,32 @@ describe("toRawIssue", () => {
     expect(mention("c/d#5", "a/b#1")).toBe("relates:a/b#1|c/d#5");
   });
 
+  it("links a stacked pull request as blocked by the open pull requests whose head is its base branch", () => {
+    const pr = (key: string, base: string, onBase: (GhLinked | null)[], extra: Partial<GhNode> = {}): GhNode => ({
+      ...linkedPull(key),
+      id: `PR_${key}`,
+      repository: { nameWithOwner: key.split("#")[0], defaultBranchRef: { name: "main" } },
+      baseRefName: base,
+      baseRef: { associatedPullRequests: { nodes: onBase } },
+      ...extra,
+    });
+    expect(raw(pr("a/b#2", "feature-a", [linkedPull("a/b#1"), null])).fields.issuelinks).toMatchObject([
+      { id: "blocks:a/b#1>a/b#2", type: { name: "Blocks" }, inwardIssue: { key: "a/b#1" } },
+    ]);
+    // Into the default branch: an open release pull request from main doesn't block everything.
+    expect(raw(pr("a/b#2", "main", [linkedPull("a/b#9")])).fields.issuelinks).toEqual([]);
+    // Base branch deleted, or no base reported.
+    expect(raw(pr("a/b#2", "feature-a", [], { baseRef: null })).fields.issuelinks).toEqual([]);
+    expect(raw(pr("a/b#2", "", [linkedPull("a/b#1")])).fields.issuelinks).toEqual([]);
+    // Issues never stack, and a pull request isn't stacked on itself.
+    expect(
+      raw(node("a/b#3", { baseRefName: "x", baseRef: { associatedPullRequests: { nodes: [linkedPull("a/b#1")] } } })).fields.issuelinks,
+    ).toEqual([]);
+    expect(raw(pr("a/b#2", "feature-a", [linkedPull("a/b#2")])).fields.issuelinks).toEqual([]);
+    const cutShort = { baseRef: { associatedPullRequests: { nodes: [], pageInfo: { hasNextPage: true } } } };
+    expect(raw(pr("a/b#2", "feature-a", [], cutShort)).linksIncomplete).toBe(true);
+  });
+
   it("treats a pull request connected to an issue as closing it, and skips self-references and duplicates", () => {
     const issue = raw(
       node("a/b#1", {
@@ -374,6 +400,7 @@ describe("the GitHub fixture", () => {
     expect(ids("acme/web#31")).toEqual(["blocks:acme/api#12>acme/web#31", "closes:acme/web#45>acme/web#31"]);
     expect(ids("acme/api#12")).toEqual(["blocks:acme/api#12>acme/web#31", "relates:acme/api#12|acme/api#15"]);
     expect(ids("acme/web#42")).toEqual(["closes:acme/web#42>acme/web#32"]);
+    expect(ids("acme/web#47")).toEqual(["blocks:acme/web#45>acme/web#47"]);
     expect(jiraLinksIn(fixture("acme/api#12")).map((l) => l.object.url)).toEqual(["https://acme.atlassian.net/browse/CORE-11"]);
   });
 });

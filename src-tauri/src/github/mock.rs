@@ -239,10 +239,10 @@ mod tests {
     async fn evaluates_the_search_subset() {
         let m = GitHubMock::new(HashSet::new()).unwrap();
         let all = m.search(&gh(), "org:acme", None).await.unwrap();
-        assert_eq!(all.len(), 7);
+        assert_eq!(all.len(), 8);
         assert_eq!(keys(&m.search(&gh(), "repo:acme/api", None).await.unwrap()), ["acme/api#12", "acme/api#15"]);
-        assert_eq!(keys(&m.search(&gh(), "org:acme is:pr is:open", None).await.unwrap()), ["acme/web#45"]);
-        assert_eq!(keys(&m.search(&gh(), "assignee:@me", None).await.unwrap()), ["acme/web#31", "acme/web#45"]);
+        assert_eq!(keys(&m.search(&gh(), "org:acme is:pr is:open", None).await.unwrap()), ["acme/web#45", "acme/web#47"]);
+        assert_eq!(keys(&m.search(&gh(), "assignee:@me", None).await.unwrap()), ["acme/web#31", "acme/web#45", "acme/web#47"]);
         assert_eq!(m.search(&gh(), "org:acme -is:issue", Some(1)).await.unwrap().len(), 1);
         assert!(m.search(&gh(), "org:other", None).await.unwrap().is_empty());
         // As GitHub's advanced search: terms are ANDed, with OR, NOT and groups.

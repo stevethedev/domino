@@ -129,6 +129,16 @@ function mentionsIn(t: GhNode, self: string): string[] {
 }
 
 /**
+ * The open pull requests a stacked pull request builds on: the ones whose head branch is its base
+ * branch. A pull request into the default branch is stacked on nothing, even when a release pull
+ * request from that branch is open.
+ */
+function stackedOn(t: GhNode): GhLinked[] {
+  if (!isPull(t) || !t.baseRefName || t.baseRefName === t.repository?.defaultBranchRef?.name) return [];
+  return nodesOf(t.baseRef?.associatedPullRequests).filter(isPull);
+}
+
+/**
  * The node's links, in Jira's shape: `outwardIssue` when this ticket is the source ("blocks",
  * "closes"), `inwardIssue` when it's the target. Link ids are built from both ends, so the copy of a
  * link GitHub reports on each of them collapses into one edge.
@@ -147,6 +157,7 @@ function linksOf(t: GhNode, self: string): RawIssueLink[] {
   };
   for (const b of nodesOf(t.blockedBy)) add(LINK_TYPES.blocks, b, false);
   for (const b of nodesOf(t.blocking)) add(LINK_TYPES.blocks, b, true);
+  for (const b of stackedOn(t)) add(LINK_TYPES.blocks, b, false);
   for (const issue of nodesOf(t.closingIssuesReferences)) add(LINK_TYPES.closes, issue, true);
   // A pull request that closes an issue when merged: by "fixes #12" (a cross-reference that will close it),
   // or linked from the sidebar. Sidebar links can be undone, so connections are replayed in timeline order
@@ -192,7 +203,9 @@ export function toRawIssue(t: GhNode): RawIssue | null {
     self: t.url,
     ...(asked && asked !== key ? { aliases: [asked] } : {}),
     ...(others.length > 0 ? { otherAssignees: others.flatMap((u) => u.accountId ?? []) } : {}),
-    ...([t.timelineItems, t.blockedBy, t.blocking, t.closingIssuesReferences].some((c) => c?.pageInfo?.hasNextPage === true)
+    ...([t.timelineItems, t.blockedBy, t.blocking, t.closingIssuesReferences, t.baseRef?.associatedPullRequests].some(
+      (c) => c?.pageInfo?.hasNextPage === true,
+    )
       ? { linksIncomplete: true }
       : {}),
     fields: {

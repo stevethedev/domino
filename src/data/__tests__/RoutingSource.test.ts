@@ -62,7 +62,7 @@ describe("loading Jira and GitHub sites together", () => {
     if (res.kind !== "ok") throw new Error("expected ok");
     expect(res.errors).toEqual([]);
     const gh = res.data.find((d) => d.siteId === "gh");
-    expect(gh?.issues.map((i) => i.key)).toEqual(["acme/web#42", "acme/web#45"]);
+    expect(gh?.issues.map((i) => i.key)).toEqual(["acme/web#42", "acme/web#45", "acme/web#47"]);
     expect(res.data.find((d) => d.siteId === "acme")?.issues.every((i) => i.key.startsWith("CORE-"))).toBe(true);
   });
 

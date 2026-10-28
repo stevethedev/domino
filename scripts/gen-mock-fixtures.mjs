@@ -415,6 +415,7 @@ const GH_ITEMS = [
   ["acme/api#15", "issue", "not_planned", "Keep accepting v1 card tokens", "priya", null, { type: "Bug", created: -20, closed: -5 }],
   ["acme/web#42", "pr", "merged", "Saved cards UI", "priya", "priya", { milestone: true, created: -4, closed: -1 }],
   ["acme/web#45", "pr", "draft", "Card form v2", "jonas", "jonas", { milestone: true, created: -2 }],
+  ["acme/web#47", "pr", "open", "Card form v2: inline validation", "jonas", "jonas", { milestone: true, created: -1 }],
 ];
 // [parent, child]
 const GH_SUB_ISSUES = [
@@ -428,6 +429,8 @@ const GH_CLOSES = [
   ["acme/web#42", "acme/web#32"],
   ["acme/web#45", "acme/web#31"],
 ];
+// [pull request, pull request stacked on its branch]
+const GH_STACKS = [["acme/web#45", "acme/web#47"]];
 // [mentioned, mentioned in]
 const GH_MENTIONS = [["acme/api#12", "acme/api#15"]];
 
@@ -478,10 +481,15 @@ function ghNode([key, kind, state, title, author, assignee, extra]) {
     ...GH_MENTIONS.filter(([, b]) => b === key).map(([a]) => crossRef(a, false)),
   ];
   if (kind === "pr") {
+    const stackedOn = GH_STACKS.find(([, stacked]) => stacked === key)?.[0];
     return {
       ...node,
+      repository: { ...node.repository, defaultBranchRef: { name: "main" } },
       isDraft: linked.isDraft,
       merged: linked.merged,
+      // Each pull request's head branch is pr-<number>.
+      baseRefName: stackedOn ? `pr-${ghParts(stackedOn).number}` : "main",
+      baseRef: { associatedPullRequests: { nodes: stackedOn ? [ghLinked(stackedOn)] : [], pageInfo: { hasNextPage: false } } },
       closingIssuesReferences: { nodes: GH_CLOSES.filter(([pr]) => pr === key).map(([, issue]) => ghLinked(issue)) },
       timelineItems: { nodes: mentions, pageInfo: { hasNextPage: false } },
     };

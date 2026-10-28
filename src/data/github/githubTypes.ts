@@ -2,7 +2,11 @@
 // may import these: toRaw.ts maps them onto the Jira-shaped model everything else reads. Fields are
 // optional because the JSON arrives unvalidated (the Rust side passes it through).
 
-export type GhRepository = { nameWithOwner?: string };
+export type GhRepository = {
+  nameWithOwner?: string;
+  /** On full pull requests only. */
+  defaultBranchRef?: { name?: string } | null;
+};
 
 export type GhUser = { login?: string; name?: string | null; avatarUrl?: string };
 
@@ -53,6 +57,9 @@ export type GhNode = GhLinked & {
   blocking?: GhConnection<GhLinked>;
   /** Pull requests only: the issues merging it will close. */
   closingIssuesReferences?: GhConnection<GhLinked>;
+  /** Pull requests only: the branch it merges into, and the open pull requests whose head is that branch. */
+  baseRefName?: string;
+  baseRef?: { associatedPullRequests?: GhConnection<GhLinked> } | null;
   timelineItems?: GhConnection<GhTimelineItem>;
   /** Not GitHub's: on `issues` answers, the key it was asked for (a renamed or moved ticket answers under another). */
   requestedKey?: string;
