@@ -1,5 +1,15 @@
 # domino
 
+## 0.6.0
+
+### Minor Changes
+
+- [#28](https://github.com/stevethedev/domino/pull/28) [`4ed83fa`](https://github.com/stevethedev/domino/commit/4ed83fa6043d161a1b584ee5d4a6a738617aa54e) Thanks [@stevethedev](https://github.com/stevethedev)! - - Stacked GitHub pull requests link as blocked by the open pull request whose branch they build on.
+
+### Patch Changes
+
+- [#27](https://github.com/stevethedev/domino/pull/27) [`d33b17f`](https://github.com/stevethedev/domino/commit/d33b17ffbbe5f28cc0333f4c80cd69f62e52d5e0) Thanks [@stevethedev](https://github.com/stevethedev)! - When a GitHub search limited to a repository or owner finds nothing, a banner now says the token may not be able to see it (a classic token needs the repo scope and SSO authorization for the org; a fine-grained one needs access to the repository), since GitHub leaves those results out without an error.
+
 ## 0.5.0
 
 ### Minor Changes
