@@ -40,6 +40,7 @@ import { descriptionSourceKey, useDescription } from "./state/useDescription";
 import { epicLaneId, foldedEpicUids, withEpicFolds } from "./graph/layout";
 import { Canvas, lanesFor, useFocusNode, type Filters, type ViewOptions } from "./ui/Canvas";
 import { ChangesPanel } from "./ui/ChangesPanel";
+import { EmptySearchBanner, emptyScopedSearches } from "./ui/EmptySearchBanner";
 import { ErrorBanner } from "./ui/ErrorBanner";
 import { FilterPanel } from "./ui/FilterPanel";
 import { FinishFirst } from "./ui/InsightsBar";
@@ -640,6 +641,20 @@ function Shell(): ReactElement {
           sites={config.sites}
           attempted={domino.selectedSites.length}
           onRetry={domino.reload}
+          onOpenSettings={() => {
+            setSettingsOpen(true);
+          }}
+        />
+      )}
+      {config && (
+        <EmptySearchBanner
+          // Only for what's on screen: the scope asked for, loaded. Null while loading keeps a dismissal.
+          searches={
+            load.status === "done" && loadView.mode === "current"
+              ? emptyScopedSearches(domino.scope, config.sites, load.result, domino.background.lagging)
+              : null
+          }
+          sites={config.sites}
           onOpenSettings={() => {
             setSettingsOpen(true);
           }}
