@@ -648,9 +648,11 @@ function Shell(): ReactElement {
       )}
       {config && (
         <EmptySearchBanner
-          // Only for what's on screen: the scope asked for, loaded.
+          // Only for what's on screen: the scope asked for, loaded. Null while loading keeps a dismissal.
           searches={
-            load.status === "done" && loadView.mode === "current" ? emptyScopedSearches(domino.scope, config.sites, load.result) : []
+            load.status === "done" && loadView.mode === "current"
+              ? emptyScopedSearches(domino.scope, config.sites, load.result, domino.background.lagging)
+              : null
           }
           sites={config.sites}
           onOpenSettings={() => {

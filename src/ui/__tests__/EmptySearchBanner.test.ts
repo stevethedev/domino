@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { SiteConfig } from "../../config/types";
 import type { LoadResult } from "../../data/MultiSiteLoader";
 import type { RawIssue } from "../../data/jiraTypes";
-import { emptyScopedSearches } from "../EmptySearchBanner";
+import { emptyScopedSearches, keptDismissal } from "../EmptySearchBanner";
 
 const github = (id: string, baseJql?: string): SiteConfig =>
   ({ id, kind: "github", label: id, baseUrl: "https://github.com", enabled: true, ...(baseJql ? { baseJql } : {}) }) as SiteConfig;
@@ -44,5 +44,25 @@ describe("emptyScopedSearches", () => {
     expect(emptyScopedSearches(scope, [jira("j")], loaded({ j: 0 }))).toEqual([]);
     expect(emptyScopedSearches({ mode: "epic", siteId: "gh", key: "change/outreach#1" }, [github("gh")], loaded({ gh: 0 }))).toEqual([]);
     expect(emptyScopedSearches(scope, [github("gh")], { kind: "overCap", count: 301, errors: [] })).toEqual([]);
+  });
+
+  it("leaves out a site whose refresh failed: its empty tickets are from before, and its error says why", () => {
+    const scope = { mode: "jql", jql: "", github: "repo:change/outreach" } as const;
+    const lagging = [{ siteId: "gh", takenAt: 0, message: "timeout" }];
+    expect(emptyScopedSearches(scope, [github("gh")], loaded({ gh: 0 }), lagging)).toEqual([]);
+  });
+});
+
+describe("keptDismissal", () => {
+  const searches = [{ siteId: "gh", names: ["change/outreach"] }];
+
+  it("keeps a dismissal while there's nothing settled to show (a load is running)", () => {
+    expect(keptDismissal("key", null)).toBe("key");
+    expect(keptDismissal("key", searches)).toBe("key");
+  });
+
+  it("forgets it once a settled load has no empty searches, so the same one coming back shows again", () => {
+    expect(keptDismissal("key", [])).toBeNull();
+    expect(keptDismissal(null, [])).toBeNull();
   });
 });
