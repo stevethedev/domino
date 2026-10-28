@@ -43,6 +43,21 @@ fragment PullTicket on PullRequest {
   bodyText
   repository {
     nameWithOwner
+    defaultBranchRef {
+      name
+    }
+  }
+  # Stacked pull requests: the open ones whose head is this one's base branch. Null when the branch is gone.
+  baseRefName
+  baseRef {
+    associatedPullRequests(first: 10, states: [OPEN]) {
+      nodes {
+        ...LinkedPull
+      }
+      pageInfo {
+        hasNextPage
+      }
+    }
   }
   author {
     login

@@ -41,7 +41,7 @@ GitHub issues and pull requests load alongside Jira tickets. **Add site**, choos
 
 - Tickets are keyed `owner/repo#12`. In Epic or Seed mode, type that or paste the issue's URL.
 - **Always filter by** takes a GitHub search (like `org:acme` or `repo:acme/web`). With a GitHub site selected, the top bar has a **GitHub search** box beside the JQL one, and each site runs the box for its kind.
-- Issues with sub-issues work like epics. Blocked-by / blocking become blocking links, a pull request that will close an issue "closes" it, and mentions "relate to" each other.
+- Issues with sub-issues work like epics. Blocked-by / blocking become blocking links, as does a stacked pull request (one whose base is another open pull request's branch, rather than the default branch), a pull request that will close an issue "closes" it, and mentions "relate to" each other.
 - Jira remote links to GitHub issues or pull requests, and Jira ticket URLs in a GitHub issue's description, connect the two.
 - Linked tickets in repositories outside the site's `org:` / `repo:` filter stay unloaded, like Jira tickets outside a site's JQL. GitHub has no priorities or status history, so those features skip GitHub tickets.
 

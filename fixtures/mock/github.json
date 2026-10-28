@@ -1,5 +1,5 @@
 {
-  "generatedOn": "2026-10-20",
+  "generatedOn": "2026-10-28",
   "issues": [
     {
       "__typename": "Issue",
@@ -8,7 +8,7 @@
       "title": "Checkout v2 web rollout",
       "url": "https://github.com/acme/web/issues/30",
       "state": "OPEN",
-      "createdAt": "2026-10-08T15:00:00.000Z",
+      "createdAt": "2026-10-16T15:00:00.000Z",
       "closedAt": null,
       "body": "",
       "bodyText": "",
@@ -32,7 +32,7 @@
       "milestone": {
         "id": "MI_v2",
         "title": "Checkout v2 (web)",
-        "dueOn": "2026-10-30T00:00:00.000Z",
+        "dueOn": "2026-11-07T00:00:00.000Z",
         "state": "OPEN"
       },
       "stateReason": null,
@@ -63,7 +63,7 @@
       "title": "Card form redesign",
       "url": "https://github.com/acme/web/issues/31",
       "state": "OPEN",
-      "createdAt": "2026-10-11T15:00:00.000Z",
+      "createdAt": "2026-10-19T15:00:00.000Z",
       "closedAt": null,
       "body": "",
       "bodyText": "",
@@ -87,7 +87,7 @@
       "milestone": {
         "id": "MI_v2",
         "title": "Checkout v2 (web)",
-        "dueOn": "2026-10-30T00:00:00.000Z",
+        "dueOn": "2026-11-07T00:00:00.000Z",
         "state": "OPEN"
       },
       "stateReason": null,
@@ -154,8 +154,8 @@
       "title": "Saved cards list",
       "url": "https://github.com/acme/web/issues/32",
       "state": "CLOSED",
-      "createdAt": "2026-10-11T15:00:00.000Z",
-      "closedAt": "2026-10-19T15:00:00.000Z",
+      "createdAt": "2026-10-19T15:00:00.000Z",
+      "closedAt": "2026-10-27T15:00:00.000Z",
       "body": "",
       "bodyText": "",
       "repository": {
@@ -178,7 +178,7 @@
       "milestone": {
         "id": "MI_v2",
         "title": "Checkout v2 (web)",
-        "dueOn": "2026-10-30T00:00:00.000Z",
+        "dueOn": "2026-11-07T00:00:00.000Z",
         "state": "OPEN"
       },
       "stateReason": "COMPLETED",
@@ -234,7 +234,7 @@
       "title": "Card tokenization endpoint",
       "url": "https://github.com/acme/api/issues/12",
       "state": "OPEN",
-      "createdAt": "2026-10-14T15:00:00.000Z",
+      "createdAt": "2026-10-22T15:00:00.000Z",
       "closedAt": null,
       "body": "Needed by the checkout work in [CORE-11](https://acme.atlassian.net/browse/CORE-11) before the web form can ship.",
       "bodyText": "Needed by the checkout work in CORE-11 before the web form can ship.",
@@ -310,8 +310,8 @@
       "title": "Keep accepting v1 card tokens",
       "url": "https://github.com/acme/api/issues/15",
       "state": "CLOSED",
-      "createdAt": "2026-09-30T15:00:00.000Z",
-      "closedAt": "2026-10-15T15:00:00.000Z",
+      "createdAt": "2026-10-08T15:00:00.000Z",
+      "closedAt": "2026-10-23T15:00:00.000Z",
       "body": "",
       "bodyText": "",
       "repository": {
@@ -369,12 +369,15 @@
       "title": "Saved cards UI",
       "url": "https://github.com/acme/web/pull/42",
       "pullState": "MERGED",
-      "createdAt": "2026-10-16T15:00:00.000Z",
-      "closedAt": "2026-10-19T15:00:00.000Z",
+      "createdAt": "2026-10-24T15:00:00.000Z",
+      "closedAt": "2026-10-27T15:00:00.000Z",
       "body": "",
       "bodyText": "",
       "repository": {
-        "nameWithOwner": "acme/web"
+        "nameWithOwner": "acme/web",
+        "defaultBranchRef": {
+          "name": "main"
+        }
       },
       "author": {
         "login": "priyar",
@@ -393,11 +396,20 @@
       "milestone": {
         "id": "MI_v2",
         "title": "Checkout v2 (web)",
-        "dueOn": "2026-10-30T00:00:00.000Z",
+        "dueOn": "2026-11-07T00:00:00.000Z",
         "state": "OPEN"
       },
       "isDraft": false,
       "merged": true,
+      "baseRefName": "main",
+      "baseRef": {
+        "associatedPullRequests": {
+          "nodes": [],
+          "pageInfo": {
+            "hasNextPage": false
+          }
+        }
+      },
       "closingIssuesReferences": {
         "nodes": [
           {
@@ -426,12 +438,15 @@
       "title": "Card form v2",
       "url": "https://github.com/acme/web/pull/45",
       "pullState": "OPEN",
-      "createdAt": "2026-10-18T15:00:00.000Z",
+      "createdAt": "2026-10-26T15:00:00.000Z",
       "closedAt": null,
       "body": "",
       "bodyText": "",
       "repository": {
-        "nameWithOwner": "acme/web"
+        "nameWithOwner": "acme/web",
+        "defaultBranchRef": {
+          "name": "main"
+        }
       },
       "author": {
         "login": "jonasberg",
@@ -450,11 +465,20 @@
       "milestone": {
         "id": "MI_v2",
         "title": "Checkout v2 (web)",
-        "dueOn": "2026-10-30T00:00:00.000Z",
+        "dueOn": "2026-11-07T00:00:00.000Z",
         "state": "OPEN"
       },
       "isDraft": true,
       "merged": false,
+      "baseRefName": "main",
+      "baseRef": {
+        "associatedPullRequests": {
+          "nodes": [],
+          "pageInfo": {
+            "hasNextPage": false
+          }
+        }
+      },
       "closingIssuesReferences": {
         "nodes": [
           {
@@ -468,6 +492,76 @@
             "stateReason": null
           }
         ]
+      },
+      "timelineItems": {
+        "nodes": [],
+        "pageInfo": {
+          "hasNextPage": false
+        }
+      }
+    },
+    {
+      "__typename": "PullRequest",
+      "id": "PR_acme_web_47",
+      "number": 47,
+      "title": "Card form v2: inline validation",
+      "url": "https://github.com/acme/web/pull/47",
+      "pullState": "OPEN",
+      "createdAt": "2026-10-27T15:00:00.000Z",
+      "closedAt": null,
+      "body": "",
+      "bodyText": "",
+      "repository": {
+        "nameWithOwner": "acme/web",
+        "defaultBranchRef": {
+          "name": "main"
+        }
+      },
+      "author": {
+        "login": "jonasberg",
+        "name": "Jonas Berg",
+        "avatarUrl": ""
+      },
+      "assignees": {
+        "nodes": [
+          {
+            "login": "jonasberg",
+            "name": "Jonas Berg",
+            "avatarUrl": ""
+          }
+        ]
+      },
+      "milestone": {
+        "id": "MI_v2",
+        "title": "Checkout v2 (web)",
+        "dueOn": "2026-11-07T00:00:00.000Z",
+        "state": "OPEN"
+      },
+      "isDraft": false,
+      "merged": false,
+      "baseRefName": "pr-45",
+      "baseRef": {
+        "associatedPullRequests": {
+          "nodes": [
+            {
+              "__typename": "PullRequest",
+              "number": 45,
+              "title": "Card form v2",
+              "repository": {
+                "nameWithOwner": "acme/web"
+              },
+              "pullState": "OPEN",
+              "isDraft": true,
+              "merged": false
+            }
+          ],
+          "pageInfo": {
+            "hasNextPage": false
+          }
+        }
+      },
+      "closingIssuesReferences": {
+        "nodes": []
       },
       "timelineItems": {
         "nodes": [],
