@@ -344,3 +344,44 @@ describe("GitHub tickets", () => {
     expect(g.nodes.find((n) => n.key === "acme/web#2")?.linksIncomplete).toBeUndefined();
   });
 });
+
+describe("several sites on one address", () => {
+  const gh = (id: string, baseJql: string): SiteConfig => ({
+    ...site(id),
+    kind: "github",
+    baseUrl: "https://github.com",
+    auth: { type: "githubToken", secretRef: "T" },
+    baseJql,
+  });
+  const WORK = gh("work", "org:acme");
+  const HEDGE = gh("hedge", "org:hedge-lang");
+
+  it("matchRemoteUrl picks the site whose filter covers the ticket", () => {
+    expect(matchRemoteUrl("https://github.com/hedge-lang/hedge/issues/7", [WORK, HEDGE])).toEqual({
+      kind: "site",
+      siteId: "hedge",
+      key: "hedge-lang/hedge#7",
+    });
+    expect(matchRemoteUrl("https://github.com/acme/web/pull/1", [WORK, HEDGE])).toMatchObject({ siteId: "work" });
+  });
+
+  it("joins a link outside one site's filter to the site that covers it, once", () => {
+    const web = issue("acme/web#1");
+    const hedge = issue("hedge-lang/hedge#7");
+    link("acme/web#1>hedge-lang/hedge#7", BLOCKS, web, hedge); // GitHub reports it on both tickets
+    const g = buildGraph({ sites: [WORK, HEDGE], data: [data("work", [web]), data("hedge", [hedge])] });
+    expect(g.nodes.map((n) => n.uid).sort()).toEqual(["hedge:hedge-lang/hedge#7", "work:acme/web#1"]);
+    expect(g.edges).toMatchObject([{ source: "work:acme/web#1", target: "hedge:hedge-lang/hedge#7", crossSite: true }]);
+  });
+
+  it("draws a Jira link seen from two project sites on one instance once", () => {
+    const CORE: SiteConfig = { ...A, id: "core", baseJql: "project = CORE" };
+    const WEB: SiteConfig = { ...A, id: "web", baseJql: "project = WEB" };
+    const c1 = issue("CORE-1");
+    const w2 = issue("WEB-2");
+    link("10", BLOCKS, c1, w2);
+    const g = buildGraph({ sites: [CORE, WEB], data: [data("core", [c1]), data("web", [w2])] });
+    expect(g.nodes.map((n) => n.uid).sort()).toEqual(["core:CORE-1", "web:WEB-2"]);
+    expect(g.edges).toMatchObject([{ source: "core:CORE-1", target: "web:WEB-2", crossSite: true }]);
+  });
+});

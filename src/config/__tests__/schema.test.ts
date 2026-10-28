@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { siteSchema } from "../schema";
+import { siteSchema, validateSite } from "../schema";
+import type { SiteConfig } from "../types";
 
 const site = (secretRef: string): unknown => ({
   id: "acme",
@@ -47,5 +48,27 @@ describe("siteSchema site kinds", () => {
 
   it("checks a GitHub token's reference like any other", () => {
     expect(siteSchema.safeParse(gh({ auth: { type: "githubToken", secretRef: "DOMINO_CACHE_KEY" } })).success).toBe(false);
+  });
+});
+
+describe("validateSite with other sites on the same address", () => {
+  const gh = (id: string, baseJql: string): SiteConfig => ({
+    id,
+    kind: "github",
+    label: id,
+    baseUrl: "https://github.com",
+    auth: { type: "githubToken", secretRef: `DOMINO_${id.toUpperCase()}_TOKEN` },
+    color: "#24292f",
+    enabled: true,
+    baseJql,
+  });
+
+  it("allows one address for several sites, one per segment", () => {
+    expect(validateSite(gh("hedge", "org:hedge-lang"), [gh("work", "org:acme")])).toEqual({});
+  });
+
+  it("keeps every site on an address the same kind", () => {
+    const jira: SiteConfig = { ...gh("jira", ""), kind: "jira", auth: { type: "oauth3lo" } };
+    expect(validateSite(jira, [gh("work", "org:acme")]).baseUrl).toBe("A GitHub site already uses this URL");
   });
 });

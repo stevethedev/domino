@@ -3,7 +3,7 @@
 //! here; `secretRef` only names a keychain entry.
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -126,7 +126,7 @@ impl DominoConfig {
     /// Validates and normalizes (trims labels, canonicalizes URLs, drops unknown default ids).
     pub(crate) fn validated(mut self) -> Result<Self, String> {
         let mut ids = HashSet::new();
-        let mut urls = HashSet::new();
+        let mut urls = HashMap::new();
         for s in &mut self.sites {
             if !is_slug(&s.id) {
                 return Err(format!("Site id \"{}\" must be a lowercase slug", s.id));
@@ -139,8 +139,9 @@ impl DominoConfig {
                 return Err(format!("Site \"{}\" needs a label of 1-40 characters", s.id));
             }
             s.base_url = normalize_base_url(&s.base_url)?;
-            if !urls.insert(s.base_url.clone()) {
-                return Err(format!("Base URL {} is used by more than one site", s.base_url));
+            // Several sites can share an address (one per project, org or repo), but not a kind.
+            if *urls.entry(s.base_url.clone()).or_insert(s.kind) != s.kind {
+                return Err(format!("Base URL {} is used by both Jira and GitHub sites", s.base_url));
             }
             if !is_hex_color(&s.color) {
                 return Err(format!("Site \"{}\" color must look like #7c3aed", s.id));
@@ -500,9 +501,12 @@ mod tests {
         c.sites[0].base_url = "https://acme.atlassian.net/jira".into();
         assert!(c.validated().unwrap_err().contains("path"));
 
+        // One address can hold several sites (one per project, org or repo), all of one kind.
         let mut c = seed();
         c.sites[1].base_url = "https://ACME.atlassian.net/".into();
-        assert!(c.validated().unwrap_err().contains("more than one site"));
+        c.clone().validated().expect("two Jira sites on one address");
+        c.sites[3].base_url = "https://acme.atlassian.net".into();
+        assert!(c.validated().unwrap_err().contains("both Jira and GitHub"));
 
         let mut c = seed();
         c.sites[0].auth = SiteAuth::ApiToken { email: "a@b.c".into(), secret_ref: "lower".into() };

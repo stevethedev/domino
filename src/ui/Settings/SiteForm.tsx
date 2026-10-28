@@ -12,6 +12,7 @@ import {
 } from "../../config/siteDraft";
 import { siteKindOf, type BackendKind, type SiteConfig } from "../../config/types";
 import { errorMessage } from "../../data/errors";
+import { overlappingSites } from "../../data/siteScope";
 import { openExternal } from "../../platform";
 import { Icon } from "../Icon";
 import { prefersReducedMotion } from "../../lib/motion";
@@ -103,6 +104,9 @@ export function SiteForm({
   const takenIds = useMemo(() => others.map((o) => o.id), [others]);
   const secretRef = draft.auth.type === "oauth3lo" ? "" : draft.auth.secretRef;
   const github = siteKindOf(draft) === "github";
+
+  // Other sites on this address whose filters could load the same tickets: those show twice, once per site.
+  const overlaps = useMemo(() => overlappingSites(normalize(draft), others), [draft, others]);
 
   const errors = useMemo(() => {
     const e = validateSite(normalize(draft), others);
@@ -339,9 +343,15 @@ export function SiteForm({
             placeholder={github ? "org:acme" : "project = ABC"}
             spellCheck={false}
           />,
-          github
-            ? "Added to every search on this site, on top of the GitHub search in the top bar. Usually org: or repo:; linked tickets outside those stay unloaded."
-            : "Applied to every search on this site, on top of the query in the top bar. Usually a project.",
+          overlaps.length ? (
+            <span className="hint-warn">
+              Can match the same tickets as {overlaps.map((o) => o.label).join(", ")}, on the same address: those show twice, once per site.
+            </span>
+          ) : github ? (
+            "Added to every search on this site, on top of the GitHub search in the top bar. Usually org: or repo:; linked tickets outside those load on another site at this address that covers them, or stay unloaded."
+          ) : (
+            "Applied to every search on this site, on top of the query in the top bar. Usually a project."
+          ),
         )}
         {!github && (
           <fieldset className="form-field form-span">

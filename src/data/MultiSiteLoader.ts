@@ -9,6 +9,7 @@ import { combineGitHubQuery } from "./github/query";
 import { combineJql } from "./jqlPresets";
 import type { JiraSource } from "./JiraSource";
 import type { RawIssue, RawLinkType, RawPriority, RawRemoteLink, RawSiteData } from "./jiraTypes";
+import { linkedSite } from "./siteScope";
 import { exampleKey, isTicketKey } from "./ticketKey";
 
 export type Scope =
@@ -259,7 +260,7 @@ class LoadRun {
     const out: Ref[] = [];
     for (const l of issue.fields.issuelinks ?? []) {
       const other = l.outwardIssue ?? l.inwardIssue;
-      if (other) out.push({ siteId, key: other.key });
+      if (other) out.push({ siteId: linkedSite(st.site, other.key, this.allSites).id, key: other.key });
     }
     for (const rl of st.remoteLinks[key] ?? []) {
       const m = matchRemoteUrl(rl.object.url, this.allSites);
@@ -338,7 +339,7 @@ class LoadRun {
         uids.add(uidOf(st.site.id, i.key));
         for (const l of i.fields.issuelinks ?? []) {
           const other = l.outwardIssue ?? l.inwardIssue;
-          if (other) uids.add(uid(st.site.id, other.key));
+          if (other) uids.add(uid(linkedSite(st.site, other.key, this.allSites).id, other.key));
         }
         for (const rl of st.remoteLinks[i.key] ?? []) {
           const m = matchRemoteUrl(rl.object.url, this.allSites);

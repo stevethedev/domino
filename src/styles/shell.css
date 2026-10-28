@@ -208,6 +208,9 @@
   color: var(--muted);
   font-size: var(--text-sm);
 }
+.hint-warn {
+  color: var(--warn-fg);
+}
 .scope {
   display: flex;
   align-items: center;

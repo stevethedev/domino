@@ -33,7 +33,7 @@ For the OAuth app, create an OAuth 2.0 integration at [developer.atlassian.com/c
 
 Domino only reads from Jira; it never changes anything there. The credentials you enter go straight to the OS keychain; they never end up in the config file, and the UI never reads them back. An environment variable named after the secret (like `DOMINO_ACME_TOKEN`) overrides the keychain, which is handy in development.
 
-Each site can **Always filter by** some JQL (like `project in (CORE, WEB)`), ANDed onto every search on it.
+Each site can **Always filter by** some JQL (like `project in (CORE, WEB)`), ANDed onto every search on it. Several sites can share one address, say one per project, each with its own filter, colour and token; see [Several sites on one address](#several-sites-on-one-address).
 
 ## Connecting to GitHub
 
@@ -43,7 +43,13 @@ GitHub issues and pull requests load alongside Jira tickets. **Add site**, choos
 - **Always filter by** takes a GitHub search (like `org:acme` or `repo:acme/web`). With a GitHub site selected, the top bar has a **GitHub search** box beside the JQL one, and each site runs the box for its kind.
 - Issues with sub-issues work like epics. Blocked-by / blocking become blocking links, as does a stacked pull request (one whose base is another open pull request's branch, rather than the default branch), a pull request that will close an issue "closes" it, and mentions "relate to" each other.
 - Jira remote links to GitHub issues or pull requests, and Jira ticket URLs in a GitHub issue's description, connect the two.
-- Linked tickets in repositories outside the site's `org:` / `repo:` filter stay unloaded, like Jira tickets outside a site's JQL. GitHub has no priorities or status history, so those features skip GitHub tickets.
+- Linked tickets in repositories outside the site's `org:` / `repo:` filter stay unloaded, like Jira tickets outside a site's JQL, unless another site on the same address covers them. GitHub has no priorities or status history, so those features skip GitHub tickets.
+
+### Several sites on one address
+
+To split one GitHub (or one Jira) into segments, add it more than once: one site per org, repo or project, each with its own **Always filter by**, colour and token (handy for an org's fine-grained token). The sites on an address must all be the same kind.
+
+A link to a ticket outside a site's filter goes to the site on that address whose filter names its repo, owner or project (or, failing that, lets it in), and draws as a cross-site link; a Jira or GitHub URL in a ticket does the same. Filters that could match the same tickets get a warning in Settings, since those tickets show once per site. Jira filters are read for `project = X` and `project in (X, Y)` only: a filter with an `OR`, a negated project or a project name counts as covering anything.
 
 Settings writes `domino.config.json` in the OS app-config folder (`~/Library/Application Support/org.change.domino/` on macOS). You can edit it by hand while the app's closed. If it can't be read, Domino starts without sites, leaves the file alone and says what's wrong; fix it and choose **Reload file**, set your sites up again in Settings, or **Start fresh** (the old file is kept beside it as `domino.config.broken.json`, or `-2`, `-3`… if earlier ones are there; Domino says which).
 
