@@ -4,9 +4,24 @@ import type { LoadResult } from "../../data/MultiSiteLoader";
 import type { RawIssue } from "../../data/jiraTypes";
 import { emptyScopedSearches, keptDismissal } from "../EmptySearchBanner";
 
-const github = (id: string, baseJql?: string): SiteConfig =>
-  ({ id, kind: "github", label: id, baseUrl: "https://github.com", enabled: true, ...(baseJql ? { baseJql } : {}) }) as SiteConfig;
-const jira = (id: string): SiteConfig => ({ id, label: id, baseUrl: "https://acme.atlassian.net", enabled: true }) as SiteConfig;
+const jira = (id: string): SiteConfig => ({
+  id,
+  label: id,
+  baseUrl: "https://acme.atlassian.net",
+  auth: { type: "apiToken", email: "bot@example.com", secretRef: "DOMINO_TOKEN" },
+  color: "#123456",
+  enabled: true,
+});
+const github = (id: string, baseJql?: string): SiteConfig => ({
+  id,
+  kind: "github",
+  label: id,
+  baseUrl: "https://github.com",
+  auth: { type: "githubToken", secretRef: "DOMINO_GITHUB_TOKEN" },
+  color: "#123456",
+  enabled: true,
+  ...(baseJql ? { baseJql } : {}),
+});
 
 const loaded = (counts: Record<string, number>, errors: LoadResult["errors"] = []): LoadResult => ({
   kind: "ok",

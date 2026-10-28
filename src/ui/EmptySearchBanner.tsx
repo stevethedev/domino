@@ -58,10 +58,10 @@ export function EmptySearchBanner({
   return (
     <div className="banner warn actionable" role="status">
       <div className="banner-text">
-        <strong>Nothing found in {searches.flatMap((s) => s.names).join(", ")}.</strong> GitHub leaves out what a token can&apos;t see,
-        without an error. If that&apos;s private, check the token for {searches.map((s) => label(s.siteId)).join(", ")}: a classic token
-        needs the repo scope and, for an org with SAML SSO, to be authorized for it (Configure SSO under your GitHub token settings); a
-        fine-grained one needs access to the repository.
+        <strong>Nothing found in {[...new Set(searches.flatMap((s) => s.names))].join(", ")}.</strong> GitHub leaves out what a token
+        can&apos;t see, without an error. If that&apos;s private, check the token for {searches.map((s) => label(s.siteId)).join(", ")}: a
+        classic token needs the repo scope and, for an org with SAML SSO, to be authorized for it (Configure SSO under your GitHub token
+        settings); a fine-grained one needs access to the repository.
       </div>
       <div className="banner-actions">
         <button type="button" onClick={onOpenSettings}>
