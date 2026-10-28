@@ -129,14 +129,16 @@ function mentionsIn(t: GhNode, self: string): string[] {
 }
 
 /**
- * The open pull requests a stacked pull request builds on: the ones whose head branch is its base
- * branch. A pull request into the default branch is stacked on nothing, even when a release pull
- * request from that branch is open.
+ * The open pull requests whose head branch is a stacked pull request's base branch: the ones it builds
+ * on. A pull request into the default branch is stacked on nothing, even when a release pull request
+ * from that branch is open, so it has no such connection.
  */
-function stackedOn(t: GhNode): GhLinked[] {
-  if (!isPull(t) || !t.baseRefName || t.baseRefName === t.repository?.defaultBranchRef?.name) return [];
-  return nodesOf(t.baseRef?.associatedPullRequests).filter(isPull);
+function stackConnection(t: GhNode): GhConnection<GhLinked> | undefined {
+  if (!isPull(t) || !t.baseRefName || t.baseRefName === t.repository?.defaultBranchRef?.name) return undefined;
+  return t.baseRef?.associatedPullRequests;
 }
+
+const stackedOn = (t: GhNode): GhLinked[] => nodesOf(stackConnection(t)).filter(isPull);
 
 /**
  * The node's links, in Jira's shape: `outwardIssue` when this ticket is the source ("blocks",
@@ -203,7 +205,7 @@ export function toRawIssue(t: GhNode): RawIssue | null {
     self: t.url,
     ...(asked && asked !== key ? { aliases: [asked] } : {}),
     ...(others.length > 0 ? { otherAssignees: others.flatMap((u) => u.accountId ?? []) } : {}),
-    ...([t.timelineItems, t.blockedBy, t.blocking, t.closingIssuesReferences, t.baseRef?.associatedPullRequests].some(
+    ...([t.timelineItems, t.blockedBy, t.blocking, t.closingIssuesReferences, stackConnection(t)].some(
       (c) => c?.pageInfo?.hasNextPage === true,
     )
       ? { linksIncomplete: true }

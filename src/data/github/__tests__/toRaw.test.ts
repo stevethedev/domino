@@ -200,6 +200,8 @@ describe("toRawIssue", () => {
     expect(raw(pr("a/b#2", "feature-a", [linkedPull("a/b#2")])).fields.issuelinks).toEqual([]);
     const cutShort = { baseRef: { associatedPullRequests: { nodes: [], pageInfo: { hasNextPage: true } } } };
     expect(raw(pr("a/b#2", "feature-a", [], cutShort)).linksIncomplete).toBe(true);
+    // A list stackedOn ignores can't leave links missing.
+    expect(raw(pr("a/b#2", "main", [], cutShort)).linksIncomplete).toBeUndefined();
   });
 
   it("treats a pull request connected to an issue as closing it, and skips self-references and duplicates", () => {
