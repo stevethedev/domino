@@ -20,19 +20,23 @@ const PLACEHOLDER = /^\uE000(\d+)\uE000$/;
  * The Jira projects a filter is limited to (`project = X`, `project in (X, Y)`), or null when it can't
  * tell: no project clause, an OR or NOT that could reach past it, a negated project, an unclosed quote,
  * or a value that may be a project's name (keys are written in capitals; anything else may be a name).
+ * With no OR, every project clause is ANDed: only the projects all of them allow come in.
  */
 function jiraProjectsOf(jql: string | undefined): ReadonlySet<string> | null {
   const quoted: string[] = [];
   const masked = (jql ?? "").replace(QUOTED, (q) => `\uE000${quoted.push(q.slice(1, -1)) - 1}\uE000`);
   const where = masked.replace(/\border\s+by\b[\s\S]*$/i, "");
   if (/["']|\bor\b|\bnot\s*(\(|project\b)|\bproject\s*(!=|not\s+in\b)/i.test(where)) return null;
-  const single = [...where.matchAll(/\bproject\s*=\s*([^\s()]+)/gi)].map((m) => m[1]);
-  const listed = [...where.matchAll(/\bproject\s+in\s*\(([^)]*)\)/gi)].flatMap((m) => m[1].split(","));
-  const keys = [...single, ...listed].map((v) => {
+  const operand = (v: string): string => {
     const at = PLACEHOLDER.exec(v.trim());
     return at ? quoted[Number(at[1])] : v.trim();
-  });
-  return keys.length && keys.every((k) => /^[A-Z][A-Z0-9_]*$/.test(k)) ? new Set(keys) : null;
+  };
+  const clauses = [
+    ...[...where.matchAll(/\bproject\s*=\s*([^\s()]+)/gi)].map((m) => [operand(m[1])]),
+    ...[...where.matchAll(/\bproject\s+in\s*\(([^)]*)\)/gi)].map((m) => m[1].split(",").map(operand)),
+  ];
+  if (!clauses.length || !clauses.flat().every((k) => /^[A-Z][A-Z0-9_]*$/.test(k))) return null;
+  return clauses.map((c) => new Set(c)).reduce((a, b) => new Set([...a].filter((k) => b.has(k))));
 }
 
 const namesRepo = (scope: RepoScope, owner: string, repo: string): boolean =>

@@ -51,6 +51,12 @@ describe("coverageOf", () => {
     expect(coverageOf(jira("a", "project = web"), "WEB-2")).toBe("any");
   });
 
+  it("keeps only the projects every ANDed project clause allows", () => {
+    expect(coverageOf(jira("a", "project in (CORE, WEB) AND project = CORE"), "WEB-2")).toBe("none");
+    expect(coverageOf(jira("a", "project in (CORE, WEB) AND project = CORE"), "CORE-1")).toBe("named");
+    expect(coverageOf(jira("a", "project = CORE AND project = WEB"), "CORE-1")).toBe("none");
+  });
+
   it("reads past quoted text, which is never filter syntax", () => {
     expect(coverageOf(jira("a", 'summary ~ "project = CORE"'), "WEB-2")).toBe("any");
     expect(coverageOf(jira("a", 'summary ~ "order by" OR project = WEB'), "CORE-1")).toBe("any");

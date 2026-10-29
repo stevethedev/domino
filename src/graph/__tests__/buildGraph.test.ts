@@ -398,6 +398,23 @@ describe("several sites on one address", () => {
     expect(g.edges.map((e) => `${e.source}>${e.target}`).sort()).toEqual(["one:CORE-1>one:CORE-2", "two:CORE-1>two:CORE-2"]);
   });
 
+  it("keeps a URL link on the site it came from when that site covers the ticket", () => {
+    const ALL: SiteConfig = { ...A, id: "all" };
+    const CORE: SiteConfig = { ...A, id: "core", baseJql: "project = CORE" };
+    const url = "https://a.atlassian.net/browse/CORE-1";
+    expect(matchRemoteUrl(url, [ALL, CORE], ALL)).toMatchObject({ siteId: "all" });
+    expect(matchRemoteUrl(url, [ALL, CORE])).toMatchObject({ siteId: "core" });
+    // From another address, the URL still goes to the site that covers it best.
+    expect(matchRemoteUrl(url, [ALL, CORE], site("b"))).toMatchObject({ siteId: "core" });
+
+    const g = buildGraph({
+      sites: [ALL, CORE],
+      data: [data("all", [issue("WEB-1"), issue("CORE-1")], { "WEB-1": [remote(1, "blocks", url)] })],
+    });
+    expect(g.nodes.map((n) => n.uid).sort()).toEqual(["all:CORE-1", "all:WEB-1"]);
+    expect(g.edges).toMatchObject([{ source: "all:WEB-1", target: "all:CORE-1" }]);
+  });
+
   it("keeps a lone site's Jira edge ids as they were", () => {
     const c1 = issue("CORE-1");
     const c2 = issue("CORE-2");

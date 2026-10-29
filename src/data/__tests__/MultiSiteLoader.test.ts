@@ -341,6 +341,19 @@ describe("MultiSiteLoader with several sites on one address", () => {
   // Each site's fixture holds the whole instance: the site filter is what keeps them apart.
   const instance = { issues: [issue("CORE-1", [{ blocks: "WEB-2" }]), issue("WEB-2")], remoteLinks: {} };
 
+  it("loads a URL-linked ticket on the site it came from when that site covers it", async () => {
+    const all = { ...core, id: "all", baseJql: "" };
+    const linked = {
+      issues: [issue("WEB-1"), issue("CORE-1")],
+      remoteLinks: { "WEB-1": [{ id: 1, relationship: "blocks", object: { url: "https://acme.atlassian.net/browse/CORE-1" } }] },
+    };
+    const loader = new MultiSiteLoader(new FixtureSource({ all: linked }, mockLinkTypes));
+    // `core` names CORE but isn't selected: `all` covers CORE-1, so it loads there.
+    const res = await loader.load({ mode: "seed", siteId: "all", key: "WEB-1", depth: 1 }, [all], [all, core]);
+    if (res.kind !== "ok") throw new Error("expected ok");
+    expect(res.data.map((d) => [d.siteId, d.issues.map((i) => i.key)])).toEqual([["all", ["WEB-1", "CORE-1"]]]);
+  });
+
   it("loads a linked ticket on the site whose filter covers it", async () => {
     const loader = new MultiSiteLoader(new FixtureSource({ core: instance, web: instance }, mockLinkTypes));
     const res = await loader.load({ mode: "seed", siteId: "core", key: "CORE-1", depth: 1 }, [core, web], [core, web]);

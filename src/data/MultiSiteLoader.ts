@@ -263,7 +263,7 @@ class LoadRun {
       if (other) out.push({ siteId: linkedSite(st.site, other.key, this.allSites).id, key: other.key });
     }
     for (const rl of st.remoteLinks[key] ?? []) {
-      const m = matchRemoteUrl(rl.object.url, this.allSites);
+      const m = matchRemoteUrl(rl.object.url, this.allSites, st.site);
       if (m?.kind === "site") out.push({ siteId: m.siteId, key: m.key });
     }
     return out;
@@ -342,7 +342,7 @@ class LoadRun {
           if (other) uids.add(uid(linkedSite(st.site, other.key, this.allSites).id, other.key));
         }
         for (const rl of st.remoteLinks[i.key] ?? []) {
-          const m = matchRemoteUrl(rl.object.url, this.allSites);
+          const m = matchRemoteUrl(rl.object.url, this.allSites, st.site);
           if (m) uids.add(m.kind === "site" ? uid(m.siteId, m.key) : uidOf(m.host, m.key));
         }
       }

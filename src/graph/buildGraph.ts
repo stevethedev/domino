@@ -266,7 +266,7 @@ export function buildGraph({ sites, data }: BuildInput): Graph {
       }
 
       for (const rl of d.remoteLinks[issue.key] ?? []) {
-        const match = matchRemoteUrl(rl.object.url, sites);
+        const match = matchRemoteUrl(rl.object.url, sites, site);
         if (!match) continue;
         let otherUid: string;
         if (match.kind === "site") {
