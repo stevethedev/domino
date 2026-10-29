@@ -37,6 +37,14 @@ fragment PullTicket on PullRequest {
   pullState: state
   isDraft
   merged
+  # The verdict under the base branch's review rules (null when none require reviews), and each
+  # reviewer with write access's latest approval or change request, for when it's null.
+  reviewDecision
+  latestOpinionatedReviews(first: 20, writersOnly: true) {
+    nodes {
+      state
+    }
+  }
   createdAt
   closedAt
   body

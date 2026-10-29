@@ -28,6 +28,8 @@ const STATUSES = {
   notPlanned: { id: "gh-not-planned", name: "Not planned", statusCategory: category.done },
   draft: { id: "gh-draft", name: "Draft", statusCategory: category.doing },
   inReview: { id: "gh-in-review", name: "In review", statusCategory: category.doing },
+  approved: { id: "gh-approved", name: "Approved", statusCategory: category.doing },
+  changesRequested: { id: "gh-changes-requested", name: "Needs changes", statusCategory: category.doing },
   merged: { id: "gh-merged", name: "Merged", statusCategory: category.done },
 } satisfies Record<string, RawStatus & RawStatusDef>;
 
@@ -51,11 +53,24 @@ export function keyOf(t: GhLinked | null | undefined): string | null {
   return repo && typeof t.number === "number" ? gitHubKey(repo, t.number) : null;
 }
 
-function statusOf(t: GhLinked): RawStatus {
+/**
+ * An open pull request's review state: GitHub's decision when the base branch's rules make one, else
+ * from the reviewers' latest verdicts (any change request outweighs approvals, as on GitHub).
+ */
+function reviewStatusOf(t: Pick<GhNode, "reviewDecision" | "latestOpinionatedReviews">): RawStatus {
+  const decision =
+    t.reviewDecision ??
+    (["CHANGES_REQUESTED", "APPROVED"] as const).find((v) => t.latestOpinionatedReviews?.nodes?.some((r) => r?.state === v));
+  if (decision === "APPROVED") return STATUSES.approved;
+  return decision === "CHANGES_REQUESTED" ? STATUSES.changesRequested : STATUSES.inReview;
+}
+
+/** A linked ticket carries no reviews, so a linked open pull request reads "In review" until it's loaded. */
+function statusOf(t: GhLinked & Pick<GhNode, "reviewDecision" | "latestOpinionatedReviews">): RawStatus {
   if (isPull(t)) {
     if (t.merged || t.pullState === "MERGED") return STATUSES.merged;
     if (t.pullState === "CLOSED") return STATUSES.closed;
-    return t.isDraft ? STATUSES.draft : STATUSES.inReview;
+    return t.isDraft ? STATUSES.draft : reviewStatusOf(t);
   }
   if (t.state !== "CLOSED") return STATUSES.open;
   return t.stateReason === "NOT_PLANNED" || t.stateReason === "DUPLICATE" ? STATUSES.notPlanned : STATUSES.closed;

@@ -57,6 +57,12 @@ export type GhNode = GhLinked & {
   blocking?: GhConnection<GhLinked>;
   /** Pull requests only: the issues merging it will close. */
   closingIssuesReferences?: GhConnection<GhLinked>;
+  /**
+   * Pull requests only: GitHub's verdict under the base branch's review rules (null when no rule
+   * requires reviews), and each reviewer's latest approval or change request, for when it's null.
+   */
+  reviewDecision?: "APPROVED" | "CHANGES_REQUESTED" | "REVIEW_REQUIRED" | null;
+  latestOpinionatedReviews?: GhConnection<{ state?: string }>;
   /** Pull requests only: the branch it merges into, and the open pull requests whose head is that branch. */
   baseRefName?: string;
   baseRef?: { associatedPullRequests?: GhConnection<GhLinked> } | null;
