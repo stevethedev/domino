@@ -99,15 +99,18 @@ export function validateSite(site: SiteConfig, others: readonly SiteConfig[]): F
     }
   }
   if (!errors.id && others.some((o) => o.id === site.id)) errors.id = "Id must be unique";
-  if (!errors.baseUrl && others.some((o) => normalizeBaseUrl(o.baseUrl) === normalizeBaseUrl(site.baseUrl))) {
-    errors.baseUrl = "Another site already uses this URL";
-  }
+  // Several sites can share an address (one per org, repo or project), but not a kind: github.com isn't a Jira.
+  const clash = others.find((o) => sameAddress(o, site) && siteKindOf(o) !== siteKindOf(site));
+  if (!errors.baseUrl && clash) errors.baseUrl = `A ${siteKindOf(clash) === "github" ? "GitHub" : "Jira"} site already uses this URL`;
   return errors;
 }
 
 export function normalizeBaseUrl(url: string): string {
   return url.trim().replace(/\/+$/, "").toLowerCase();
 }
+
+export const sameAddress = (a: Pick<SiteConfig, "baseUrl">, b: Pick<SiteConfig, "baseUrl">): boolean =>
+  normalizeBaseUrl(a.baseUrl) === normalizeBaseUrl(b.baseUrl);
 
 export function parseConfig(raw: unknown): DominoConfig {
   return configSchema.parse(raw);

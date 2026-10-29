@@ -1,5 +1,6 @@
 import { siteKindOf, type SiteConfig } from "../config/types";
 import type { RawIssue, RawLinkedIssue, RawPriority, RawSiteData, RawStatus, RawVersion } from "../data/jiraTypes";
+import { addressId, linkedSite } from "../data/siteScope";
 import { ticketUrl } from "../data/ticketKey";
 import { getOrThrow } from "../lib/guards";
 import { findCycles } from "./cycles";
@@ -228,6 +229,11 @@ export function buildGraph({ sites, data }: BuildInput): Graph {
     const linkTypes = d.linkTypes.length ? d.linkTypes : DEFAULT_LINK_TYPES;
     const ranks = priorityRanks(d.priorities);
     const isGitHub = siteKindOf(site) === "github";
+    // Sites sharing an address each see links on that one instance: edges are named by the address, so a
+    // link both ends report counts once. Overlapping sites load their own copies of tickets, so on a shared
+    // address a Jira edge is also named by its resolved ends: each copy keeps its link.
+    const instance = addressId(site, sites);
+    const shared = sites.some((s) => s.id !== site.id && addressId(s, sites) === instance);
 
     for (const issue of d.issues) {
       const self = uidOf(site.id, issue.key);
@@ -235,15 +241,19 @@ export function buildGraph({ sites, data }: BuildInput): Graph {
       for (const link of issue.fields.issuelinks ?? []) {
         const other = link.outwardIssue ?? link.inwardIssue;
         if (!other) continue;
-        const otherUid = resolve(uidOf(site.id, other.key));
+        // A key this site already has a ticket under (a renamed repo's old one) stays here, whatever its owner.
+        const otherSite = canonical.has(uidOf(site.id, other.key)) ? site : linkedSite(site, other.key, sites);
+        const otherUid = resolve(uidOf(otherSite.id, other.key));
         if (otherUid === self) continue; // a renamed ticket's link to its own old key
-        addGhost(ghostFromLinked(other, site, ranks));
+        addGhost(ghostFromLinked(other, otherSite, ranks));
         // outwardIssue on this issue means "this <outward> other".
         const [source, target] = link.outwardIssue ? [self, otherUid] : [otherUid, self];
         // GitHub link ids are built from keys, which can be a renamed repo's old ones: its edges are
         // identified by the ends they resolve to instead (either order for a symmetric link). Jira's are real ids.
         const ends = link.type.inward === link.type.outward ? [source, target].sort() : [source, target];
-        const id = isGitHub ? `${site.id}:link:${link.type.name.toLowerCase()}:${ends.join(">")}` : `${site.id}:link:${link.id}`;
+        const id = isGitHub
+          ? `${instance}:link:${link.type.name.toLowerCase()}:${ends.join(">")}`
+          : `${instance}:link:${link.id}${shared ? `:${ends.join(">")}` : ""}`;
         if (edges.has(id)) continue;
         edges.set(id, {
           id,
@@ -257,7 +267,7 @@ export function buildGraph({ sites, data }: BuildInput): Graph {
       }
 
       for (const rl of d.remoteLinks[issue.key] ?? []) {
-        const match = matchRemoteUrl(rl.object.url, sites);
+        const match = matchRemoteUrl(rl.object.url, sites, site);
         if (!match) continue;
         let otherUid: string;
         if (match.kind === "site") {

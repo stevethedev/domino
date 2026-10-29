@@ -344,3 +344,93 @@ describe("GitHub tickets", () => {
     expect(g.nodes.find((n) => n.key === "acme/web#2")?.linksIncomplete).toBeUndefined();
   });
 });
+
+describe("several sites on one address", () => {
+  const gh = (id: string, baseJql: string): SiteConfig => ({
+    ...site(id),
+    kind: "github",
+    baseUrl: "https://github.com",
+    auth: { type: "githubToken", secretRef: "T" },
+    baseJql,
+  });
+  const WORK = gh("work", "org:acme");
+  const HEDGE = gh("hedge", "org:hedge-lang");
+
+  it("matchRemoteUrl picks the site whose filter covers the ticket", () => {
+    expect(matchRemoteUrl("https://github.com/hedge-lang/hedge/issues/7", [WORK, HEDGE])).toEqual({
+      kind: "site",
+      siteId: "hedge",
+      key: "hedge-lang/hedge#7",
+    });
+    expect(matchRemoteUrl("https://github.com/acme/web/pull/1", [WORK, HEDGE])).toMatchObject({ siteId: "work" });
+  });
+
+  it("joins a link outside one site's filter to the site that covers it, once", () => {
+    const web = issue("acme/web#1");
+    const hedge = issue("hedge-lang/hedge#7");
+    link("acme/web#1>hedge-lang/hedge#7", BLOCKS, web, hedge); // GitHub reports it on both tickets
+    const g = buildGraph({ sites: [WORK, HEDGE], data: [data("work", [web]), data("hedge", [hedge])] });
+    expect(g.nodes.map((n) => n.uid).sort()).toEqual(["hedge:hedge-lang/hedge#7", "work:acme/web#1"]);
+    expect(g.edges).toMatchObject([{ source: "work:acme/web#1", target: "hedge:hedge-lang/hedge#7", crossSite: true }]);
+  });
+
+  it("draws a Jira link seen from two project sites on one instance once", () => {
+    const CORE: SiteConfig = { ...A, id: "core", baseJql: "project = CORE" };
+    const WEB: SiteConfig = { ...A, id: "web", baseJql: "project = WEB" };
+    const c1 = issue("CORE-1");
+    const w2 = issue("WEB-2");
+    link("10", BLOCKS, c1, w2);
+    const g = buildGraph({ sites: [CORE, WEB], data: [data("core", [c1]), data("web", [w2])] });
+    expect(g.nodes.map((n) => n.uid).sort()).toEqual(["core:CORE-1", "web:WEB-2"]);
+    expect(g.edges).toMatchObject([{ source: "core:CORE-1", target: "web:WEB-2", crossSite: true }]);
+  });
+
+  it("keeps each overlapping site's own copy of a link, so a blocked copy stays blocked", () => {
+    const ONE: SiteConfig = { ...A, id: "one", baseJql: "project = CORE" };
+    const TWO: SiteConfig = { ...A, id: "two", baseJql: "labels = x" }; // overlaps ONE
+    const copy = (): RawIssue[] => {
+      const c1 = issue("CORE-1");
+      const c2 = issue("CORE-2");
+      link("10", BLOCKS, c1, c2);
+      return [c1, c2];
+    };
+    const g = buildGraph({ sites: [ONE, TWO], data: [data("one", copy()), data("two", copy())] });
+    expect(g.edges.map((e) => `${e.source}>${e.target}`).sort()).toEqual(["one:CORE-1>one:CORE-2", "two:CORE-1>two:CORE-2"]);
+  });
+
+  it("keeps a URL link on the site it came from when that site covers the ticket", () => {
+    const ALL: SiteConfig = { ...A, id: "all" };
+    const CORE: SiteConfig = { ...A, id: "core", baseJql: "project = CORE" };
+    const url = "https://a.atlassian.net/browse/CORE-1";
+    expect(matchRemoteUrl(url, [ALL, CORE], ALL)).toMatchObject({ siteId: "all" });
+    expect(matchRemoteUrl(url, [ALL, CORE])).toMatchObject({ siteId: "core" });
+    // From another address, the URL still goes to the site that covers it best.
+    expect(matchRemoteUrl(url, [ALL, CORE], site("b"))).toMatchObject({ siteId: "core" });
+
+    const g = buildGraph({
+      sites: [ALL, CORE],
+      data: [data("all", [issue("WEB-1"), issue("CORE-1")], { "WEB-1": [remote(1, "blocks", url)] })],
+    });
+    expect(g.nodes.map((n) => n.uid).sort()).toEqual(["all:CORE-1", "all:WEB-1"]);
+    expect(g.edges).toMatchObject([{ source: "all:WEB-1", target: "all:CORE-1" }]);
+  });
+
+  it("resolves a renamed repo's old key on the site that loaded the ticket, not a sibling covering the old owner", () => {
+    const OLD = gh("old", "org:old-org");
+    const renamed = { ...issue("hedge-lang/x#1"), aliases: ["old-org/x#1"] };
+    const other = issue("hedge-lang/x#2");
+    const asOld = { ...renamed, key: "old-org/x#1" };
+    link("self", RELATES, renamed, asOld, { out: true, in: false }); // a link to its own old key
+    link("via-old", BLOCKS, other, asOld, { out: true, in: false });
+    const g = buildGraph({ sites: [HEDGE, OLD], data: [data("hedge", [renamed, other])] });
+    expect(g.nodes.map((n) => n.uid).sort()).toEqual(["hedge:hedge-lang/x#1", "hedge:hedge-lang/x#2"]);
+    expect(g.edges).toMatchObject([{ source: "hedge:hedge-lang/x#2", target: "hedge:hedge-lang/x#1", crossSite: false }]);
+  });
+
+  it("keeps a lone site's Jira edge ids as they were", () => {
+    const c1 = issue("CORE-1");
+    const c2 = issue("CORE-2");
+    link("10", BLOCKS, c1, c2);
+    expect(buildGraph({ sites: [A, B], data: [data("a", [c1, c2])] }).edges.map((e) => e.id)).toEqual(["a:link:10"]);
+  });
+});

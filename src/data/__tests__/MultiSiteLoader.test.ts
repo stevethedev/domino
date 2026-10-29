@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { buildGraph } from "../../graph/buildGraph";
-import { getOrThrow } from "../../lib/guards";
+import { defined, getOrThrow } from "../../lib/guards";
 import { FixtureSource } from "../FixtureSource";
 import type { JiraSource } from "../JiraSource";
+import type { RawIssue } from "../jiraTypes";
 import { mockConfig, mockLinkTypes, mockSites } from "../mockData";
 import { isAbortError, MultiSiteLoader, type SiteOutcome } from "../MultiSiteLoader";
 
@@ -308,5 +309,88 @@ describe("MultiSiteLoader cancellation", () => {
     });
     await expect(loading).rejects.toSatisfy(isAbortError);
     expect(requests).toBe(0);
+  });
+});
+
+describe("MultiSiteLoader with several sites on one address", () => {
+  // One Jira instance, split into a site per project.
+  const core = {
+    ...defined(
+      sites.find((s) => s.id === "acme"),
+      "acme site",
+    ),
+    id: "core",
+    baseJql: "project = CORE",
+  };
+  const web = { ...core, id: "web", baseJql: "project = WEB" };
+  const issue = (key: string, links: { blocks: string }[] = []): RawIssue => ({
+    id: key,
+    key,
+    fields: {
+      summary: key,
+      issuetype: { name: "Story" },
+      status: { name: "To Do", statusCategory: { key: "new" as const, name: "To Do" } },
+      assignee: null,
+      issuelinks: links.map((l, i) => ({
+        id: `${key}-${i}`,
+        type: mockLinkTypes[0],
+        outwardIssue: { id: l.blocks, key: l.blocks, fields: { summary: l.blocks } },
+      })),
+    },
+  });
+  // Each site's fixture holds the whole instance: the site filter is what keeps them apart.
+  const instance = { issues: [issue("CORE-1", [{ blocks: "WEB-2" }]), issue("WEB-2")], remoteLinks: {} };
+
+  it("loads a URL-linked ticket on the site it came from when that site covers it", async () => {
+    const all = { ...core, id: "all", baseJql: "" };
+    const linked = {
+      issues: [issue("WEB-1"), issue("CORE-1")],
+      remoteLinks: { "WEB-1": [{ id: 1, relationship: "blocks", object: { url: "https://acme.atlassian.net/browse/CORE-1" } }] },
+    };
+    const loader = new MultiSiteLoader(new FixtureSource({ all: linked }, mockLinkTypes));
+    // `core` names CORE but isn't selected: `all` covers CORE-1, so it loads there.
+    const res = await loader.load({ mode: "seed", siteId: "all", key: "WEB-1", depth: 1 }, [all], [all, core]);
+    if (res.kind !== "ok") throw new Error("expected ok");
+    expect(res.data.map((d) => [d.siteId, d.issues.map((i) => i.key)])).toEqual([["all", ["WEB-1", "CORE-1"]]]);
+  });
+
+  it("doesn't fetch a renamed repo's old key from a sibling when the site already has the ticket under it", async () => {
+    const gh = { ...core, kind: "github" as const, baseUrl: "https://github.com", auth: { type: "githubToken" as const, secretRef: "T" } };
+    const hedge = { ...gh, id: "hedge", baseJql: "org:hedge-lang" };
+    const old = { ...gh, id: "old", baseJql: "org:old-org" };
+    const renamed: RawIssue = { ...issue("hedge-lang/x#1"), aliases: ["old-org/x#1"] };
+    renamed.fields.issuelinks = [
+      { id: "self", type: mockLinkTypes[0], outwardIssue: { id: "old-org/x#1", key: "old-org/x#1", fields: { summary: "x" } } },
+    ];
+    const inner = new FixtureSource({ hedge: { issues: [renamed], remoteLinks: {} }, old: { issues: [], remoteLinks: {} } }, mockLinkTypes);
+    const asked: string[] = [];
+    const source: JiraSource = {
+      fetchByJql: (s, j, m) => inner.fetchByJql(s, j, m),
+      fetchByKeys: (s, k) => {
+        asked.push(`${s}: ${k.join(",")}`);
+        return Promise.resolve([]);
+      },
+      fetchEpic: (s, k, f) => inner.fetchEpic(s, k, f),
+      fetchIssue: (s, k) => inner.fetchIssue(s, k),
+      fetchDescription: (s, k) => inner.fetchDescription(s, k),
+      fetchRemoteLinks: (s, k) => inner.fetchRemoteLinks(s, k),
+      fetchLinkTypes: (s) => inner.fetchLinkTypes(s),
+      fetchPriorities: (s) => inner.fetchPriorities(s),
+      fetchStatusHistory: (s, ids) => inner.fetchStatusHistory(s, ids),
+      fetchStatuses: (s) => inner.fetchStatuses(s),
+      fetchMyself: (s) => inner.fetchMyself(s),
+    };
+    await new MultiSiteLoader(source).load({ mode: "seed", siteId: "hedge", key: "hedge-lang/x#1", depth: 1 }, [hedge, old], [hedge, old]);
+    expect(asked).toEqual([]);
+  });
+
+  it("loads a linked ticket on the site whose filter covers it", async () => {
+    const loader = new MultiSiteLoader(new FixtureSource({ core: instance, web: instance }, mockLinkTypes));
+    const res = await loader.load({ mode: "seed", siteId: "core", key: "CORE-1", depth: 1 }, [core, web], [core, web]);
+    if (res.kind !== "ok") throw new Error("expected ok");
+    expect(res.data.map((d) => [d.siteId, d.issues.map((i) => i.key)])).toEqual([
+      ["core", ["CORE-1"]],
+      ["web", ["WEB-2"]],
+    ]);
   });
 });
