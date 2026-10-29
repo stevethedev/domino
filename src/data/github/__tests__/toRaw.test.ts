@@ -90,6 +90,14 @@ describe("toRawIssue", () => {
     expect(status({ reviewDecision: null, ...reviews("APPROVED") })).toBe("Approved/indeterminate");
     expect(status({ reviewDecision: null, ...reviews("APPROVED", "CHANGES_REQUESTED") })).toBe("Needs changes/indeterminate");
     expect(status({ reviewDecision: null, ...reviews() })).toBe("In review/indeterminate");
+    // A cut-off list can hide a change request, so its approvals don't make the pull request Approved;
+    // a change request it does show still stands.
+    const cutOff = (...states: string[]): Partial<GhNode> => ({
+      latestOpinionatedReviews: { nodes: states.map((state) => ({ state })), pageInfo: { hasNextPage: true } },
+    });
+    expect(status({ reviewDecision: null, ...cutOff("APPROVED") })).toBe("In review/indeterminate");
+    expect(status({ reviewDecision: null, ...cutOff("APPROVED", "CHANGES_REQUESTED") })).toBe("Needs changes/indeterminate");
+    expect(status({ reviewDecision: "APPROVED", ...cutOff("APPROVED") })).toBe("Approved/indeterminate");
     // Drafts, merged and closed pull requests keep those statuses whatever the reviews say.
     expect(status({ isDraft: true, reviewDecision: "APPROVED" })).toBe("Draft/indeterminate");
     expect(status({ pullState: "MERGED", merged: true, reviewDecision: "APPROVED" })).toBe("Merged/done");

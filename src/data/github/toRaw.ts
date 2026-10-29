@@ -55,12 +55,15 @@ export function keyOf(t: GhLinked | null | undefined): string | null {
 
 /**
  * An open pull request's review state: GitHub's decision when the base branch's rules make one, else
- * from the reviewers' latest verdicts (any change request outweighs approvals, as on GitHub).
+ * from the reviewers' latest verdicts (any change request outweighs approvals, as on GitHub). A
+ * cut-off list of verdicts can hide a change request, so then its approvals don't count.
  */
 function reviewStatusOf(t: Pick<GhNode, "reviewDecision" | "latestOpinionatedReviews">): RawStatus {
+  const reviews = t.latestOpinionatedReviews;
+  const has = (state: string): boolean => reviews?.nodes?.some((r) => r?.state === state) === true;
   const decision =
     t.reviewDecision ??
-    (["CHANGES_REQUESTED", "APPROVED"] as const).find((v) => t.latestOpinionatedReviews?.nodes?.some((r) => r?.state === v));
+    (has("CHANGES_REQUESTED") ? "CHANGES_REQUESTED" : has("APPROVED") && reviews?.pageInfo?.hasNextPage !== true ? "APPROVED" : null);
   if (decision === "APPROVED") return STATUSES.approved;
   return decision === "CHANGES_REQUESTED" ? STATUSES.changesRequested : STATUSES.inReview;
 }

@@ -38,11 +38,15 @@ fragment PullTicket on PullRequest {
   isDraft
   merged
   # The verdict under the base branch's review rules (null when none require reviews), and each
-  # reviewer with write access's latest approval or change request, for when it's null.
+  # reviewer with write access's latest approval or change request, for when it's null (a cut-off
+  # list can't show approval: toRaw.ts reads it as in review).
   reviewDecision
-  latestOpinionatedReviews(first: 20, writersOnly: true) {
+  latestOpinionatedReviews(first: 50, writersOnly: true) {
     nodes {
       state
+    }
+    pageInfo {
+      hasNextPage
     }
   }
   createdAt
