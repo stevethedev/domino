@@ -66,7 +66,7 @@ export function siteForKey<S extends Scoped>(sites: readonly S[], key: string, f
 }
 
 /** The sites sharing `site`'s address and kind, `site` among them. */
-const siblingsOf = <S extends Scoped & Pick<SiteConfig, "baseUrl">>(site: S, sites: readonly S[]): S[] =>
+const siblingsOf = (site: SiteConfig, sites: readonly SiteConfig[]): readonly SiteConfig[] =>
   sites.filter((s) => sameAddress(s, site) && siteKindOf(s) === siteKindOf(site));
 
 /** The site a ticket linked from one on `from` belongs to: `from`, or the site on its address that covers it. */
@@ -107,5 +107,5 @@ export function filtersOverlap(a: SiteConfig, b: SiteConfig): boolean {
 }
 
 /** The other sites on `site`'s address whose filters could load tickets it loads too (they'd show twice). */
-export const overlappingSites = (site: SiteConfig, others: readonly SiteConfig[]): SiteConfig[] =>
+export const overlappingSites = (site: SiteConfig, others: readonly SiteConfig[]): readonly SiteConfig[] =>
   siblingsOf(site, others).filter((o) => filtersOverlap(site, o));

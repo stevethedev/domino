@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { buildGraph } from "../../graph/buildGraph";
-import { getOrThrow } from "../../lib/guards";
+import { defined, getOrThrow } from "../../lib/guards";
 import { FixtureSource } from "../FixtureSource";
 import type { JiraSource } from "../JiraSource";
 import type { RawIssue } from "../jiraTypes";
@@ -314,7 +314,14 @@ describe("MultiSiteLoader cancellation", () => {
 
 describe("MultiSiteLoader with several sites on one address", () => {
   // One Jira instance, split into a site per project.
-  const core = { ...getOrThrow(new Map(sites.map((s) => [s.id, s])), "acme"), id: "core", baseJql: "project = CORE" };
+  const core = {
+    ...defined(
+      sites.find((s) => s.id === "acme"),
+      "acme site",
+    ),
+    id: "core",
+    baseJql: "project = CORE",
+  };
   const web = { ...core, id: "web", baseJql: "project = WEB" };
   const issue = (key: string, links: { blocks: string }[] = []): RawIssue => ({
     id: key,

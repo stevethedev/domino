@@ -9,6 +9,7 @@ export type RemoteTarget = { kind: "site"; siteId: string; key: string } | { kin
  * Classifies a remote link URL. `{baseUrl}/browse/{KEY}` on a configured Jira site (enabled or not)
  * resolves to that site; the same pattern elsewhere is an unconfigured Jira. An issue or pull
  * request page on a configured GitHub site resolves to it as `owner/repo#12`. Anything else is null.
+ * When several sites share the address, the URL resolves to the one whose filter covers the ticket.
  */
 export function matchRemoteUrl(
   url: string,
