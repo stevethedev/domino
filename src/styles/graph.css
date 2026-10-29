@@ -155,7 +155,7 @@
   line-height: calc(var(--badge-h) - 2px);
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 100px; /* fits "Needs changes", the longest GitHub status */
+  max-width: 10em; /* fits "Needs changes", the longest GitHub status, in wide fonts too (DejaVu Sans on Linux) */
 }
 .pill-todo {
   background: var(--pill-todo-bg);
