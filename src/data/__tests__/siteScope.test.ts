@@ -57,6 +57,13 @@ describe("coverageOf", () => {
     expect(coverageOf(jira("a", "project = CORE AND project = WEB"), "CORE-1")).toBe("none");
   });
 
+  it("reads JQL's symbolic OR and NOT like their words, and && like AND", () => {
+    expect(coverageOf(jira("a", "project = CORE || project = WEB"), "WEB-2")).toBe("any");
+    expect(coverageOf(jira("a", "!(project = CORE)"), "WEB-2")).toBe("any");
+    expect(coverageOf(jira("a", "project = WEB && status != Done && summary !~ x"), "WEB-2")).toBe("named");
+    expect(coverageOf(jira("a", "project = WEB && status != Done"), "CORE-1")).toBe("none");
+  });
+
   it("reads past quoted text, which is never filter syntax", () => {
     expect(coverageOf(jira("a", 'summary ~ "project = CORE"'), "WEB-2")).toBe("any");
     expect(coverageOf(jira("a", 'summary ~ "order by" OR project = WEB'), "CORE-1")).toBe("any");
