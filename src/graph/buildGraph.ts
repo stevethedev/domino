@@ -229,8 +229,11 @@ export function buildGraph({ sites, data }: BuildInput): Graph {
     const linkTypes = d.linkTypes.length ? d.linkTypes : DEFAULT_LINK_TYPES;
     const ranks = priorityRanks(d.priorities);
     const isGitHub = siteKindOf(site) === "github";
-    // Sites sharing an address each see links on that one instance: edges are named by the address, so they count once.
+    // Sites sharing an address each see links on that one instance: edges are named by the address, so a
+    // link both ends report counts once. Overlapping sites load their own copies of tickets, so on a shared
+    // address a Jira edge is also named by its resolved ends: each copy keeps its link.
     const instance = addressId(site, sites);
+    const shared = sites.some((s) => s.id !== site.id && addressId(s, sites) === instance);
 
     for (const issue of d.issues) {
       const self = uidOf(site.id, issue.key);
@@ -247,7 +250,9 @@ export function buildGraph({ sites, data }: BuildInput): Graph {
         // GitHub link ids are built from keys, which can be a renamed repo's old ones: its edges are
         // identified by the ends they resolve to instead (either order for a symmetric link). Jira's are real ids.
         const ends = link.type.inward === link.type.outward ? [source, target].sort() : [source, target];
-        const id = isGitHub ? `${instance}:link:${link.type.name.toLowerCase()}:${ends.join(">")}` : `${instance}:link:${link.id}`;
+        const id = isGitHub
+          ? `${instance}:link:${link.type.name.toLowerCase()}:${ends.join(">")}`
+          : `${instance}:link:${link.id}${shared ? `:${ends.join(">")}` : ""}`;
         if (edges.has(id)) continue;
         edges.set(id, {
           id,

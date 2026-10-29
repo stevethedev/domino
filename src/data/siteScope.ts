@@ -12,21 +12,26 @@ const RANK: Readonly<Record<Coverage, number>> = { named: 2, any: 1, none: 0 };
 
 type Scoped = Pick<SiteConfig, "kind" | "baseJql">;
 
+const QUOTED = /"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/g;
+/** Stands in for the n-th quoted string while the rest is read as syntax (a private-use character, never typed). */
+const PLACEHOLDER = /^\uE000(\d+)\uE000$/;
+
 /**
  * The Jira projects a filter is limited to (`project = X`, `project in (X, Y)`), or null when it can't
- * tell: no project clause, an OR or NOT that could reach past it, a negated project, or a project given by name.
+ * tell: no project clause, an OR or NOT that could reach past it, a negated project, an unclosed quote,
+ * or a value that may be a project's name (keys are written in capitals; anything else may be a name).
  */
 function jiraProjectsOf(jql: string | undefined): ReadonlySet<string> | null {
-  const where = (jql ?? "").replace(/\border\s+by\b[\s\S]*$/i, "");
-  if (/\bor\b|\bnot\s*(\(|project\b)|\bproject\s*(!=|not\s+in\b)/i.test(where)) return null;
-  const single = [...where.matchAll(/\bproject\s*=\s*("[^"]*"|'[^']*'|[^\s()]+)/gi)].map((m) => m[1]);
+  const quoted: string[] = [];
+  const masked = (jql ?? "").replace(QUOTED, (q) => `\uE000${quoted.push(q.slice(1, -1)) - 1}\uE000`);
+  const where = masked.replace(/\border\s+by\b[\s\S]*$/i, "");
+  if (/["']|\bor\b|\bnot\s*(\(|project\b)|\bproject\s*(!=|not\s+in\b)/i.test(where)) return null;
+  const single = [...where.matchAll(/\bproject\s*=\s*([^\s()]+)/gi)].map((m) => m[1]);
   const listed = [...where.matchAll(/\bproject\s+in\s*\(([^)]*)\)/gi)].flatMap((m) => m[1].split(","));
-  const keys = [...single, ...listed].map((v) =>
-    v
-      .trim()
-      .replace(/^["']|["']$/g, "")
-      .toUpperCase(),
-  );
+  const keys = [...single, ...listed].map((v) => {
+    const at = PLACEHOLDER.exec(v.trim());
+    return at ? quoted[Number(at[1])] : v.trim();
+  });
   return keys.length && keys.every((k) => /^[A-Z][A-Z0-9_]*$/.test(k)) ? new Set(keys) : null;
 }
 

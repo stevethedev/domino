@@ -35,13 +35,27 @@ describe("coverageOf", () => {
 
   it("reads a Jira filter's projects, and takes in anything when it can't tell", () => {
     expect(coverageOf(jira("a", "project = CORE"), "CORE-1")).toBe("named");
-    expect(coverageOf(jira("a", 'project in (core, "WEB") AND status != Done ORDER BY rank'), "WEB-2")).toBe("named");
+    expect(coverageOf(jira("a", 'project in (CORE, "WEB") AND status != Done ORDER BY rank'), "WEB-2")).toBe("named");
     expect(coverageOf(jira("a", "project = CORE"), "WEB-2")).toBe("none");
     expect(coverageOf(jira("a", "assignee = currentUser()"), "WEB-2")).toBe("any");
     // ORs, NOTs and project names (not keys) say nothing reliable about which projects come in.
     expect(coverageOf(jira("a", "project = CORE OR labels = x"), "WEB-2")).toBe("any");
     expect(coverageOf(jira("a", "project not in (CORE)"), "WEB-2")).toBe("any");
     expect(coverageOf(jira("a", 'project = "Core Platform"'), "WEB-2")).toBe("any");
+  });
+
+  it("takes only a value written in capitals for a project key: anything else can be a project name", () => {
+    // A project named Frontend (key WEB): reading FRONTEND as its key would keep WEB tickets out.
+    expect(coverageOf(jira("a", "project = Frontend"), "WEB-2")).toBe("any");
+    expect(coverageOf(jira("a", 'project in (CORE, "Frontend")'), "WEB-2")).toBe("any");
+    expect(coverageOf(jira("a", "project = web"), "WEB-2")).toBe("any");
+  });
+
+  it("reads past quoted text, which is never filter syntax", () => {
+    expect(coverageOf(jira("a", 'summary ~ "project = CORE"'), "WEB-2")).toBe("any");
+    expect(coverageOf(jira("a", 'summary ~ "order by" OR project = WEB'), "CORE-1")).toBe("any");
+    expect(coverageOf(jira("a", 'summary ~ "a \\" or b" AND project = WEB'), "WEB-2")).toBe("named");
+    expect(coverageOf(jira("a", 'project = "WEB" AND labels = "x or y"'), "WEB-2")).toBe("named");
   });
 });
 

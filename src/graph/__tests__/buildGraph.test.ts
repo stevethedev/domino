@@ -384,4 +384,24 @@ describe("several sites on one address", () => {
     expect(g.nodes.map((n) => n.uid).sort()).toEqual(["core:CORE-1", "web:WEB-2"]);
     expect(g.edges).toMatchObject([{ source: "core:CORE-1", target: "web:WEB-2", crossSite: true }]);
   });
+
+  it("keeps each overlapping site's own copy of a link, so a blocked copy stays blocked", () => {
+    const ONE: SiteConfig = { ...A, id: "one", baseJql: "project = CORE" };
+    const TWO: SiteConfig = { ...A, id: "two", baseJql: "labels = x" }; // overlaps ONE
+    const copy = (): RawIssue[] => {
+      const c1 = issue("CORE-1");
+      const c2 = issue("CORE-2");
+      link("10", BLOCKS, c1, c2);
+      return [c1, c2];
+    };
+    const g = buildGraph({ sites: [ONE, TWO], data: [data("one", copy()), data("two", copy())] });
+    expect(g.edges.map((e) => `${e.source}>${e.target}`).sort()).toEqual(["one:CORE-1>one:CORE-2", "two:CORE-1>two:CORE-2"]);
+  });
+
+  it("keeps a lone site's Jira edge ids as they were", () => {
+    const c1 = issue("CORE-1");
+    const c2 = issue("CORE-2");
+    link("10", BLOCKS, c1, c2);
+    expect(buildGraph({ sites: [A, B], data: [data("a", [c1, c2])] }).edges.map((e) => e.id)).toEqual(["a:link:10"]);
+  });
 });
