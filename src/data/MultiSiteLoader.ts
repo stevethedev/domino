@@ -260,13 +260,18 @@ class LoadRun {
     const out: Ref[] = [];
     for (const l of issue.fields.issuelinks ?? []) {
       const other = l.outwardIssue ?? l.inwardIssue;
-      if (other) out.push({ siteId: linkedSite(st.site, other.key, this.allSites).id, key: other.key });
+      if (other) out.push({ siteId: this.linkedSiteId(st, other.key), key: other.key });
     }
     for (const rl of st.remoteLinks[key] ?? []) {
       const m = matchRemoteUrl(rl.object.url, this.allSites, st.site);
       if (m?.kind === "site") out.push({ siteId: m.siteId, key: m.key });
     }
     return out;
+  }
+
+  /** The site a ticket linked from `st` loads on: `st` itself for a key it already has a ticket under (a renamed repo's). */
+  private linkedSiteId(st: SiteState, key: string): string {
+    return st.aliases.has(key) ? st.site.id : linkedSite(st.site, key, this.allSites).id;
   }
 
   private async fetchKeys(siteId: string, keys: string[]): Promise<RawIssue[]> {
@@ -339,7 +344,7 @@ class LoadRun {
         uids.add(uidOf(st.site.id, i.key));
         for (const l of i.fields.issuelinks ?? []) {
           const other = l.outwardIssue ?? l.inwardIssue;
-          if (other) uids.add(uid(linkedSite(st.site, other.key, this.allSites).id, other.key));
+          if (other) uids.add(uid(this.linkedSiteId(st, other.key), other.key));
         }
         for (const rl of st.remoteLinks[i.key] ?? []) {
           const m = matchRemoteUrl(rl.object.url, this.allSites, st.site);

@@ -354,6 +354,36 @@ describe("MultiSiteLoader with several sites on one address", () => {
     expect(res.data.map((d) => [d.siteId, d.issues.map((i) => i.key)])).toEqual([["all", ["WEB-1", "CORE-1"]]]);
   });
 
+  it("doesn't fetch a renamed repo's old key from a sibling when the site already has the ticket under it", async () => {
+    const gh = { ...core, kind: "github" as const, baseUrl: "https://github.com", auth: { type: "githubToken" as const, secretRef: "T" } };
+    const hedge = { ...gh, id: "hedge", baseJql: "org:hedge-lang" };
+    const old = { ...gh, id: "old", baseJql: "org:old-org" };
+    const renamed: RawIssue = { ...issue("hedge-lang/x#1"), aliases: ["old-org/x#1"] };
+    renamed.fields.issuelinks = [
+      { id: "self", type: mockLinkTypes[0], outwardIssue: { id: "old-org/x#1", key: "old-org/x#1", fields: { summary: "x" } } },
+    ];
+    const inner = new FixtureSource({ hedge: { issues: [renamed], remoteLinks: {} }, old: { issues: [], remoteLinks: {} } }, mockLinkTypes);
+    const asked: string[] = [];
+    const source: JiraSource = {
+      fetchByJql: (s, j, m) => inner.fetchByJql(s, j, m),
+      fetchByKeys: (s, k) => {
+        asked.push(`${s}: ${k.join(",")}`);
+        return Promise.resolve([]);
+      },
+      fetchEpic: (s, k, f) => inner.fetchEpic(s, k, f),
+      fetchIssue: (s, k) => inner.fetchIssue(s, k),
+      fetchDescription: (s, k) => inner.fetchDescription(s, k),
+      fetchRemoteLinks: (s, k) => inner.fetchRemoteLinks(s, k),
+      fetchLinkTypes: (s) => inner.fetchLinkTypes(s),
+      fetchPriorities: (s) => inner.fetchPriorities(s),
+      fetchStatusHistory: (s, ids) => inner.fetchStatusHistory(s, ids),
+      fetchStatuses: (s) => inner.fetchStatuses(s),
+      fetchMyself: (s) => inner.fetchMyself(s),
+    };
+    await new MultiSiteLoader(source).load({ mode: "seed", siteId: "hedge", key: "hedge-lang/x#1", depth: 1 }, [hedge, old], [hedge, old]);
+    expect(asked).toEqual([]);
+  });
+
   it("loads a linked ticket on the site whose filter covers it", async () => {
     const loader = new MultiSiteLoader(new FixtureSource({ core: instance, web: instance }, mockLinkTypes));
     const res = await loader.load({ mode: "seed", siteId: "core", key: "CORE-1", depth: 1 }, [core, web], [core, web]);

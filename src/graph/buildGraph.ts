@@ -241,7 +241,8 @@ export function buildGraph({ sites, data }: BuildInput): Graph {
       for (const link of issue.fields.issuelinks ?? []) {
         const other = link.outwardIssue ?? link.inwardIssue;
         if (!other) continue;
-        const otherSite = linkedSite(site, other.key, sites);
+        // A key this site already has a ticket under (a renamed repo's old one) stays here, whatever its owner.
+        const otherSite = canonical.has(uidOf(site.id, other.key)) ? site : linkedSite(site, other.key, sites);
         const otherUid = resolve(uidOf(otherSite.id, other.key));
         if (otherUid === self) continue; // a renamed ticket's link to its own old key
         addGhost(ghostFromLinked(other, otherSite, ranks));
