@@ -380,15 +380,21 @@
   font-size: var(--text-xl);
   border-radius: var(--radius-md);
 }
+/* One line: the card's height has no room for a second, so the status gives way (full name on hover)
+   before a badge would be clipped; CompactBody shows one badge and a "+N" for the rest. */
 .card.compact .pill {
   line-height: calc(var(--badge-h-compact) - 2px);
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
   max-width: none;
 }
 .card.compact .card-row3 {
   margin-top: 0;
-  flex-wrap: wrap;
-  gap: var(--space-1) var(--space-1_5);
+  gap: var(--space-1_5);
+}
+/* Zoomed out, badges show icon and number only ("⚠ 2", "⏱ 19d"); their tooltips keep the words. */
+.card.compact .badge-word {
+  display: none;
 }
 .card.compact .blockers,
 .card.compact .tag-ready {
