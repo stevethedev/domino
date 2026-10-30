@@ -380,8 +380,8 @@ class LoadRun {
   /** Distinct in-scope issues plus every issue they reference (future ghosts). */
   private nodeCount(): number {
     const uids = new Set<string>();
-    // A key some loaded issue on that address was also asked for under (a renamed repo) counts as that issue.
-    // Like buildGraph: the routed site's own copy of that issue when it has one, and the site needn't be selected.
+    // A key some loaded issue on that address was also asked for under (a renamed repo) counts as that issue,
+    // the routed site's own copy when it has one (as buildGraph draws it); the routed site needn't be selected.
     const uid = (siteId: string, key: string): string => {
       const site = this.states.get(siteId)?.site ?? this.allSites.find((s) => s.id === siteId);
       const owner = site && this.selectedSiblings(site).find((s) => getOrThrow(this.states, s.id).aliases.has(key));
