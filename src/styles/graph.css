@@ -396,9 +396,9 @@
   flex: none;
 }
 
-/* Long keys, site labels and summaries: key and status always show in full; only the site
-   badge truncates (full name in its tooltip); unbroken words (paths, URLs) wrap inside the
-   2-line summary clamp. */
+/* Long keys, site labels and summaries: Jira keys and the status always show in full. The site
+   badge truncates first, then a GitHub key's repository (never its #number); full text in their
+   tooltips. Unbroken words (paths, URLs) wrap inside the 2-line summary clamp. */
 .card-row1 .pill {
   flex: none;
 }
@@ -406,8 +406,21 @@
   flex: none;
 }
 .card-row1 .site-badge {
-  flex: 0 1 auto;
+  flex: 0 100 auto;
   min-width: 36px;
+}
+.card-row1 .card-key-split {
+  display: inline-flex;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.card-key-repo {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.card-key-number {
+  flex: none;
 }
 .card-summary {
   overflow-wrap: anywhere;

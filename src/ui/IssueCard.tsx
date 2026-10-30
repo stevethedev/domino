@@ -5,6 +5,7 @@ import { agingLabel, type Aging } from "../graph/aging";
 import { CHANGE_LABEL, type ChangeKind } from "../graph/changes";
 import type { Highlight } from "../graph/insights";
 import type { EpicRollup, GraphNode, Priority, StatusCategory } from "../graph/types";
+import { parseGitHubKey } from "../data/ticketKey";
 import { Icon } from "./Icon";
 
 export type IssueNodeData = {
@@ -87,6 +88,30 @@ export function PriorityIcon({ priority }: { priority: Priority }): ReactElement
   return (
     <span className="priority-icon priority-letter" title={title} aria-hidden="true">
       {priority.name.charAt(0).toUpperCase()}
+    </span>
+  );
+}
+
+/** A GitHub key's repository and `#number`, which a card shows apart: the repository shortens, the number never does. */
+export function keyParts(key: string): Readonly<{ repo: string; number: string }> | null {
+  if (!parseGitHubKey(key)) return null;
+  const at = key.lastIndexOf("#");
+  return { repo: key.slice(0, at), number: key.slice(at) };
+}
+
+/** A card's ticket key. A long GitHub one shortens its repository with an ellipsis (full key on hover). */
+function CardKey({ ticketKey }: { ticketKey: string }): ReactElement {
+  const parts = keyParts(ticketKey);
+  if (!parts)
+    return (
+      <span className="card-key" title={ticketKey}>
+        {ticketKey}
+      </span>
+    );
+  return (
+    <span className="card-key card-key-split" title={ticketKey}>
+      <span className="card-key-repo">{parts.repo}</span>
+      <span className="card-key-number">{parts.number}</span>
     </span>
   );
 }
@@ -231,9 +256,7 @@ function CompactBody({
     <>
       <div className="card-row1">
         <TypeIcon type={node.issueType} />
-        <span className="card-key" title={node.key}>
-          {node.key}
-        </span>
+        <CardKey ticketKey={node.key} />
       </div>
       <div className="card-row3">
         <span className={`pill pill-${node.statusCategory}`}>{statusText}</span>
@@ -367,7 +390,7 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
         <>
           <div className="card-row1">
             <TypeIcon type={n.issueType} />
-            <span className="card-key">{n.key}</span>
+            <CardKey ticketKey={n.key} />
             {n.priority && <PriorityIcon priority={n.priority} />}
             <span className={`pill pill-${status}`}>{statusText}</span>
             {(showSite || n.ghost) && (
