@@ -1,5 +1,25 @@
 # domino
 
+## 0.7.0
+
+### Minor Changes
+
+- [#37](https://github.com/stevethedev/domino/pull/37) [`04bb4dc`](https://github.com/stevethedev/domino/commit/04bb4dc05973a3358157032efd2502092b37c374) Thanks [@stevethedev](https://github.com/stevethedev)! - "Since you last looked" now reports a status move within a category, like In Progress to In Review (or a pull request turning Approved), not only moves between To Do, In Progress and Done. A scope marked seen before this update compares categories only until it's marked seen again.
+
+- [#36](https://github.com/stevethedev/domino/pull/36) [`33fe237`](https://github.com/stevethedev/domino/commit/33fe23722feb3e2699e24905e8b5ea50e5451cf3) Thanks [@stevethedev](https://github.com/stevethedev)! - The Display panel's new **Status** menu hides tickets by individual status (like "In Review" or "Approved"), not only by category; statuses are listed by category, most common first, and a status name hides on every site that uses it. Saved views keep the setting.
+
+- [#32](https://github.com/stevethedev/domino/pull/32) [`e8161f1`](https://github.com/stevethedev/domino/commit/e8161f13b23eeb11f0a56916f5a044a095aea307) Thanks [@stevethedev](https://github.com/stevethedev)! - GitHub pull requests now show whether they're approved: an open pull request's status reads **Approved** or **Needs changes** instead of **In review**, from the base branch's review rules or, without them, the reviewers' latest verdicts.
+
+- [#30](https://github.com/stevethedev/domino/pull/30) [`d2f27b1`](https://github.com/stevethedev/domino/commit/d2f27b1bcf6b223eceb7326de67e222174ffb2e7) Thanks [@stevethedev](https://github.com/stevethedev)! - Several sites can now share one GitHub or Jira address, so it can be split into segments: one site per org, repo or project, each with its own filter, colour and token. A linked ticket outside one site's filter loads on the site at that address whose filter covers it, as a cross-site link, and Settings warns when two such sites' filters could match the same tickets.
+
+### Patch Changes
+
+- [#35](https://github.com/stevethedev/domino/pull/35) [`c20be3c`](https://github.com/stevethedev/domino/commit/c20be3c3bd729e5039c17189f85a40bb10b36155) Thanks [@stevethedev](https://github.com/stevethedev)! - Zoomed-out cards no longer clip their bottom row. The status shows with one badge and a "+N" for the rest, badges show their icon and number only ("⚠ 2", "19d", full text in their tooltips), and a very long status name shortens with an ellipsis instead of pushing a badge out of the card.
+
+- [#33](https://github.com/stevethedev/domino/pull/33) [`375f049`](https://github.com/stevethedev/domino/commit/375f0494473eff88215c06ce04a1baa741466ce9) Thanks [@stevethedev](https://github.com/stevethedev)! - Long GitHub keys no longer push a card's status and site badge past its edge: the repository part shortens with an ellipsis (the full key shows on hover), and the issue number always shows.
+
+- [#34](https://github.com/stevethedev/domino/pull/34) [`652fd5d`](https://github.com/stevethedev/domino/commit/652fd5d9174ce0dbca34b4b896dde63ffe92e16d) Thanks [@stevethedev](https://github.com/stevethedev)! - Changing the filter of a site that isn't selected now reloads the graph when it changes where links load: on an address several sites share, a linked ticket loads on the site whose filter covers it, so a ticket that newly falls to a selected site no longer stays a placeholder until the next refresh.
+
 ## 0.6.0
 
 ### Minor Changes
