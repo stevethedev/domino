@@ -292,22 +292,28 @@ class LoadRun {
   private homeOf(siteId: string, issue: RawIssue): string | undefined {
     const { site } = getOrThrow(this.states, siteId);
     if (siteKindOf(site) !== "github" || coverageOf(site, issue.key) !== "none") return siteId;
-    const selected = [...this.states.values()].map((st) => st.site);
-    const covering = siblingsOf(site, selected).filter((s) => coverageOf(s, issue.key) !== "none");
+    const covering = this.selectedSiblings(site).filter((s) => coverageOf(s, issue.key) !== "none");
     return siteForKey(covering, issue.key)?.id;
   }
 
   /**
-   * Whether `st` already has a ticket under this key, or a site on its address has it as a renamed repo's
-   * old key. Overlapping sites each load their own copy of a ticket, so a sibling's copy doesn't count.
+   * Whether `st` already has a ticket under this key (its own, or a renamed repo's old one), or a site on its
+   * address has it as a renamed repo's old key and `st`'s filter keeps out the new name. Overlapping sites
+   * each load their own copy of a ticket, so a sibling's copy `st` could load doesn't count.
    */
   private knownOnAddress(st: SiteState, key: string): boolean {
-    return (
-      st.issues.has(key) ||
-      siblingsOf(
-        st.site,
-        [...this.states.values()].map((s) => s.site),
-      ).some((s) => getOrThrow(this.states, s.id).aliases.has(key))
+    if (st.issues.has(key) || st.aliases.has(key)) return true;
+    return this.selectedSiblings(st.site).some((s) => {
+      const canonical = getOrThrow(this.states, s.id).aliases.get(key);
+      return canonical !== undefined && coverageOf(st.site, canonical) === "none";
+    });
+  }
+
+  /** The selected sites sharing `site`'s address (`site` among them when it's selected). */
+  private selectedSiblings(site: SiteConfig): readonly SiteConfig[] {
+    return siblingsOf(
+      site,
+      [...this.states.values()].map((s) => s.site),
     );
   }
 
@@ -375,14 +381,13 @@ class LoadRun {
   private nodeCount(): number {
     const uids = new Set<string>();
     // A key some loaded issue on that address was also asked for under (a renamed repo) counts as that issue.
+    // Like buildGraph: the routed site's own copy of that issue when it has one, and the site needn't be selected.
     const uid = (siteId: string, key: string): string => {
-      const st = this.states.get(siteId);
-      if (!st) return uidOf(siteId, key);
-      const owner = siblingsOf(
-        st.site,
-        [...this.states.values()].map((s) => s.site),
-      ).find((s) => this.states.get(s.id)?.aliases.has(key));
-      return owner ? uidOf(owner.id, getOrThrow(getOrThrow(this.states, owner.id).aliases, key)) : uidOf(siteId, key);
+      const site = this.states.get(siteId)?.site ?? this.allSites.find((s) => s.id === siteId);
+      const owner = site && this.selectedSiblings(site).find((s) => getOrThrow(this.states, s.id).aliases.has(key));
+      if (!owner) return uidOf(siteId, key);
+      const canonical = getOrThrow(getOrThrow(this.states, owner.id).aliases, key);
+      return uidOf(this.states.get(siteId)?.issues.has(canonical) ? siteId : owner.id, canonical);
     };
     for (const st of this.states.values()) {
       for (const i of st.issues.values()) {

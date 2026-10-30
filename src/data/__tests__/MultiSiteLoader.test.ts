@@ -471,6 +471,64 @@ describe("MultiSiteLoader with several sites on one address", () => {
     ]);
   });
 
+  // A source for renamed-repo walks: `renamed` answers any GitHub lookup, `core` holds CORE-1.
+  const renamedSource = (renamed: RawIssue, remote: Record<string, string>, asked: string[] = []): JiraSource => {
+    const inner = new FixtureSource({ core: { issues: [issue("CORE-1")], remoteLinks: {} } }, mockLinkTypes);
+    return {
+      fetchByJql: (s, j, m) => inner.fetchByJql(s, j, m),
+      fetchByKeys: (s, k) => {
+        asked.push(`${s}: ${k.join(",")}`);
+        return s === "core" ? inner.fetchByKeys(s, k) : Promise.resolve([renamed]);
+      },
+      fetchEpic: (s, k, f) => inner.fetchEpic(s, k, f),
+      fetchIssue: (s, k) => (s === "core" ? inner.fetchIssue(s, k) : Promise.resolve(renamed)),
+      fetchDescription: (s, k) => inner.fetchDescription(s, k),
+      fetchRemoteLinks: (_s, k) =>
+        Promise.resolve(remote[k] ? [{ id: 1, relationship: "relates to", object: { url: defined(remote[k], "url") } }] : []),
+      fetchLinkTypes: (s) => inner.fetchLinkTypes(s),
+      fetchPriorities: (s) => inner.fetchPriorities(s),
+      fetchStatusHistory: (s, ids) => inner.fetchStatusHistory(s, ids),
+      fetchStatuses: (s) => inner.fetchStatuses(s),
+      fetchMyself: (s) => inner.fetchMyself(s),
+    };
+  };
+
+  it("loads its own copy of a renamed ticket a sibling has under the old name when its filter covers the new one", async () => {
+    const gh = { ...core, kind: "github" as const, baseUrl: "https://github.com", auth: { type: "githubToken" as const, secretRef: "T" } };
+    const all = { ...gh, id: "all", baseJql: "" };
+    const acme = { ...gh, id: "acme", baseJql: "org:acme" };
+    const renamed: RawIssue = { ...issue("acme/new#1"), aliases: ["acme/old#1"] };
+    const asked: string[] = [];
+    const source = renamedSource(
+      renamed,
+      { "acme/new#1": "https://acme.atlassian.net/browse/CORE-1", "CORE-1": "https://github.com/acme/old/issues/1" },
+      asked,
+    );
+    // all:acme/new#1 (asked for as acme/old#1) -> core:CORE-1 -> the old URL, which goes to `acme` (it names the owner).
+    const sites = [all, acme, core];
+    const res = await new MultiSiteLoader(source).load({ mode: "seed", siteId: "all", key: "acme/old#1", depth: 2 }, sites, sites);
+    if (res.kind !== "ok") throw new Error("expected ok");
+    expect(asked).toContain("acme: acme/old#1");
+  });
+
+  it("counts a link to a renamed ticket through an unselected site as the ticket a selected sibling loaded", async () => {
+    const gh = { ...core, kind: "github" as const, baseUrl: "https://github.com", auth: { type: "githubToken" as const, secretRef: "T" } };
+    const hedge = { ...gh, id: "hedge", baseJql: "org:hedge-lang" };
+    const old = { ...gh, id: "old", baseJql: "org:old-org" };
+    const renamed: RawIssue = { ...issue("hedge-lang/x#1"), aliases: ["old-org/x#1"] };
+    const source = renamedSource(renamed, {
+      "hedge-lang/x#1": "https://acme.atlassian.net/browse/CORE-1",
+      "CORE-1": "https://github.com/old-org/x/issues/1",
+    });
+    // Two cards: hedge-lang/x#1 and CORE-1, whose link back by the old URL goes through unselected `old`.
+    const res = await new MultiSiteLoader(source, { maxNodes: 2 }).load(
+      { mode: "seed", siteId: "hedge", key: "old-org/x#1", depth: 1 },
+      [hedge, core],
+      [hedge, core, old],
+    );
+    expect(res.kind).toBe("ok");
+  });
+
   it("drops a renamed ticket no selected site covers, leaving its link a placeholder", async () => {
     const gh = { ...core, kind: "github" as const, baseUrl: "https://github.com", auth: { type: "githubToken" as const, secretRef: "T" } };
     const old = { ...gh, id: "old", baseJql: "org:old-org" };

@@ -220,13 +220,17 @@ export function buildGraph({ sites, data }: BuildInput): Graph {
   const resolve = (uid: string): string => canonical.get(uid) ?? uid;
   /**
    * A key on a site, resolved like `resolve`, and also when another site on that address loaded the
-   * ticket it names (a renamed repo's old key, asked for by the site covering the old name).
+   * ticket it names (a renamed repo's old key, asked for by the site covering the old name): to the
+   * site's own copy of that ticket when it loaded one, else the other site's.
    */
   const resolveOnAddress = (siteId: string, key: string): string => {
     const own = uidOf(siteId, key);
     if (canonical.has(own)) return resolve(own);
     const owner = siblingsOf(getOrThrow(siteById, siteId), sites).find((s) => canonical.has(uidOf(s.id, key)));
-    return owner ? resolve(uidOf(owner.id, key)) : own;
+    if (!owner) return own;
+    const theirs = resolve(uidOf(owner.id, key));
+    const ours = uidOf(siteId, getOrThrow(nodes, theirs).key);
+    return nodes.has(ours) ? ours : theirs;
   };
   const addGhost = (g: GraphNode): void => {
     if (!nodes.has(g.uid) && !ghosts.has(g.uid) && !canonical.has(g.uid)) ghosts.set(g.uid, g);
