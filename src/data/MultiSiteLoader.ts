@@ -252,12 +252,11 @@ class LoadRun {
         // Loading a ticket's links uses its home site's account: a failure there is that site's.
         await Promise.all(
           [...byHome].map(async ([home, issues]) => {
-            let loaded: readonly RawIssue[] = [];
-            const ok = await this.guard(home, async () => {
-              loaded = home === siteId ? issues : await this.refetched(home, issues);
+            await this.guard(home, async () => {
+              const loaded = home === siteId ? issues : await this.refetched(home, issues);
               await this.addFull(home, loaded);
+              added.push(...loaded.map((i) => ({ siteId: home, key: i.key })));
             });
-            if (ok) added.push(...loaded.map((i) => ({ siteId: home, key: i.key })));
           }),
         );
       }),
