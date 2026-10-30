@@ -3,7 +3,7 @@ import { buildGraph } from "../../graph/buildGraph";
 import { defined, getOrThrow } from "../../lib/guards";
 import { FixtureSource } from "../FixtureSource";
 import type { JiraSource } from "../JiraSource";
-import type { RawIssue } from "../jiraTypes";
+import type { RawIssue, RawRemoteLink } from "../jiraTypes";
 import { mockConfig, mockLinkTypes, mockSites } from "../mockData";
 import { isAbortError, MultiSiteLoader, type SiteOutcome } from "../MultiSiteLoader";
 
@@ -540,7 +540,9 @@ describe("MultiSiteLoader with several sites on one address", () => {
       remoteLinks: { "CORE-1": [{ id: 1, relationship: "relates to", object: { url: "https://github.com/old-org/x/issues/1" } }] },
     };
     const inner = new FixtureSource({ core: linkedByUrl }, mockLinkTypes);
-    const link = (key: string) => [{ id: 1, relationship: "relates to", object: { url: `https://acme.atlassian.net/browse/${key}` } }];
+    const link = (key: string): RawRemoteLink[] => [
+      { id: 1, relationship: "relates to", object: { url: `https://acme.atlassian.net/browse/${key}` } },
+    ];
     // Like GitHubSource: links come from the copy a site last fetched, and hedge's is from an earlier load.
     let hedgeLinksTo = "CORE-1";
     const source: JiraSource = {
