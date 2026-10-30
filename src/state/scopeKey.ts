@@ -28,8 +28,9 @@ export const scopeKeyOf = (sites: readonly SiteConfig[], scope: Scope): string =
 
 /**
  * Everything a load's result depends on: the scope, where the data comes from, and each selected
- * site's address, account and filter. Every configured site's address counts too, because links
- * to them are matched by URL. Labels, colours and default selections don't count: changing them
+ * site's address, account and filter. Every configured site's address and filter count too: links
+ * are matched to sites by URL, and on an address several sites share, by whose filter covers the
+ * ticket (src/data/siteScope.ts). Labels, colours and default selections don't count: changing them
  * redraws the graph without loading it again.
  */
 export function loadKeyOf(config: DominoConfig, selected: readonly SiteConfig[], scope: Scope): string {
@@ -37,6 +38,6 @@ export function loadKeyOf(config: DominoConfig, selected: readonly SiteConfig[],
     scope: scopeKeyOf(selected, scope),
     backend: config.backend,
     selected: selected.map((s) => [s.id, s.baseUrl, s.auth, s.baseJql ?? "", s.cloudId ?? ""]),
-    all: config.sites.map((s) => [s.id, s.baseUrl]),
+    all: config.sites.map((s) => [s.id, s.baseUrl, s.baseJql ?? ""]),
   });
 }

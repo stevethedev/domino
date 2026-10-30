@@ -59,4 +59,9 @@ describe("loadKeyOf", () => {
     ];
     for (const k of changed) expect(k).not.toBe(key);
   });
+
+  it("changes with an unselected site's filter, which decides where links to its tickets load", () => {
+    const refiltered: DominoConfig = { ...config, sites: [site("a"), site("b", { baseJql: "project = B" })] };
+    expect(loadKeyOf(refiltered, [site("a")], scope)).not.toBe(key);
+  });
 });
