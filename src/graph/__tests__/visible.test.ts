@@ -46,6 +46,13 @@ describe("visibleSubgraph with issue filters", () => {
     expect(keys({ hiddenTypes: ["Story"] })).toEqual([]);
   });
 
+  it("hides by status, within a category and across sites by name, placeholders included", () => {
+    expect(keys({ hiddenStatuses: ["In Progress"] })).toEqual(["A-1", "A-3", "X-9"]);
+    // X-9 isn't loaded, but its link says it's To Do, so it goes with A-3.
+    expect(keys({ hiddenStatuses: ["To Do"] })).toEqual(["A-1", "A-2"]);
+    expect(passesIssueFilters(graph.nodes[0], { ...NO_ISSUE_FILTERS, hiddenStatuses: ["In Review"] })).toBe(true);
+  });
+
   it("hides by priority, with no priority as its own entry", () => {
     expect(keys({ hiddenPriorities: ["Low"] })).toEqual(["A-1", "A-3", "X-9"]);
     expect(keys({ hiddenPriorities: [NO_PRIORITY] })).toEqual(["A-1", "A-2"]);

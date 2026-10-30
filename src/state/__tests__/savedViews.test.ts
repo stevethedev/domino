@@ -23,7 +23,13 @@ const view = (name: string): SavedView => ({
     relates: false,
     duplicates: false,
     crossSite: true,
-    issues: { hiddenCategories: ["done"], hiddenTypes: [], hiddenAssignees: [""], hiddenPriorities: ["Low"] },
+    issues: {
+      hiddenCategories: ["done"],
+      hiddenStatuses: ["In Review"],
+      hiddenTypes: [],
+      hiddenAssignees: [""],
+      hiddenPriorities: ["Low"],
+    },
     hideImplied: false,
   },
   view: { groupBy: "assignee", highlight: "blocked", highlightScope: "assigned", sort: { key: "priority", reversed: true } },
@@ -89,10 +95,17 @@ describe("saved views", () => {
     const old = { ...view("Old"), filters: { blocks: true, relates: false, duplicates: false, crossSite: true } };
     expect(defined(parseSavedViews([old]), "parsed views")[0].filters.issues).toEqual({
       hiddenCategories: [],
+      hiddenStatuses: [],
       hiddenTypes: [],
       hiddenAssignees: [],
       hiddenPriorities: [],
     });
+  });
+
+  it("shows every status for views saved before status filters existed", () => {
+    const { hiddenStatuses: _, ...issues } = view("Old").filters.issues;
+    const old = { ...view("Old"), filters: { ...view("Old").filters, issues } };
+    expect(defined(parseSavedViews([old]), "parsed views")[0].filters.issues).toEqual({ ...issues, hiddenStatuses: [] });
   });
 
   it("shows every priority for views saved before priority filters existed", () => {

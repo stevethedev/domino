@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { GraphNode, Priority } from "../../graph/types";
-import { byPriority } from "../FilterPanel";
+import type { GraphNode, Priority, StatusCategory } from "../../graph/types";
+import { byPriority, byStatus } from "../FilterPanel";
 
 const node = (key: string, priority?: Priority): GraphNode => ({
   uid: `a:${key}`,
@@ -42,5 +42,31 @@ describe("byPriority", () => {
       node("A-2", { name: "High", rank: 2 }),
     ];
     expect(byPriority(issues).map(([name]) => name)).toEqual(["Major", "High"]);
+  });
+});
+
+describe("byStatus", () => {
+  const status = (key: string, statusName: string, statusCategory: StatusCategory): GraphNode => ({
+    ...node(key),
+    statusName,
+    statusCategory,
+  });
+
+  it("lists statuses by category (to do, in progress, done), most common first within each", () => {
+    const issues = [
+      status("A-1", "Done", "done"),
+      status("A-2", "In Review", "inprogress"),
+      status("A-3", "Approved", "inprogress"),
+      status("A-4", "Approved", "inprogress"),
+      status("A-5", "Backlog", "todo"),
+      status("A-6", "Mystery", "unknown"),
+    ];
+    expect(byStatus(issues)).toEqual([
+      ["Backlog", 1],
+      ["Approved", 2],
+      ["In Review", 1],
+      ["Done", 1],
+      ["Mystery", 1],
+    ]);
   });
 });

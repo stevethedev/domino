@@ -8,6 +8,8 @@ export type LinkFilters = Readonly<Record<LinkKind, boolean> & { crossSite: bool
  */
 export type IssueFilters = Readonly<{
   hiddenCategories: readonly StatusCategory[];
+  /** Status names, across sites ("In Review" hides it on every site that has one). */
+  hiddenStatuses: readonly string[];
   hiddenTypes: readonly string[];
   /** Assignee display names; `UNASSIGNED` for issues with no assignee. */
   hiddenAssignees: readonly string[];
@@ -17,7 +19,13 @@ export type IssueFilters = Readonly<{
 
 export const UNASSIGNED = "";
 export const NO_PRIORITY = "";
-export const NO_ISSUE_FILTERS: IssueFilters = { hiddenCategories: [], hiddenTypes: [], hiddenAssignees: [], hiddenPriorities: [] };
+export const NO_ISSUE_FILTERS: IssueFilters = {
+  hiddenCategories: [],
+  hiddenStatuses: [],
+  hiddenTypes: [],
+  hiddenAssignees: [],
+  hiddenPriorities: [],
+};
 
 /**
  * `hideImplied`: drop blocking links a longer drawn chain already implies (A→C when A→B→C is drawn).
@@ -25,7 +33,7 @@ export const NO_ISSUE_FILTERS: IssueFilters = { hiddenCategories: [], hiddenType
 export type ViewFilters = LinkFilters & Readonly<{ issues: IssueFilters; hideImplied: boolean }>;
 
 export const hasIssueFilters = (f: IssueFilters): boolean =>
-  f.hiddenCategories.length > 0 || f.hiddenTypes.length > 0 || f.hiddenAssignees.length > 0 || f.hiddenPriorities.length > 0;
+  [f.hiddenCategories, f.hiddenStatuses, f.hiddenTypes, f.hiddenAssignees, f.hiddenPriorities].some((hidden) => hidden.length > 0);
 
 /**
  * Whether an issue passes the issue filters. Epic-map summary cards always do (they stand for many
@@ -34,7 +42,8 @@ export const hasIssueFilters = (f: IssueFilters): boolean =>
  */
 export function passesIssueFilters(n: GraphNode, f: IssueFilters): boolean {
   if (n.rollup) return true;
-  if (f.hiddenCategories.includes(n.statusCategory) || f.hiddenTypes.includes(n.issueType)) return false;
+  if (f.hiddenCategories.includes(n.statusCategory) || f.hiddenStatuses.includes(n.statusName) || f.hiddenTypes.includes(n.issueType))
+    return false;
   if (n.ghost) return true;
   return !f.hiddenAssignees.includes(n.assigneeName ?? UNASSIGNED) && !f.hiddenPriorities.includes(n.priority?.name ?? NO_PRIORITY);
 }
