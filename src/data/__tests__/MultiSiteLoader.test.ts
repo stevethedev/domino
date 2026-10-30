@@ -423,6 +423,54 @@ describe("MultiSiteLoader with several sites on one address", () => {
     ]);
   });
 
+  it("reports a failure loading a renamed ticket against the site it moved to, not the one that asked", async () => {
+    const gh = { ...core, kind: "github" as const, baseUrl: "https://github.com", auth: { type: "githubToken" as const, secretRef: "T" } };
+    const hedge = { ...gh, id: "hedge", baseJql: "org:hedge-lang" };
+    const old = { ...gh, id: "old", baseJql: "org:old-org" };
+    const linkedByUrl = {
+      issues: [issue("CORE-1")],
+      remoteLinks: { "CORE-1": [{ id: 1, relationship: "relates to", object: { url: "https://github.com/old-org/x/issues/1" } }] },
+    };
+    const inner = new FixtureSource({ core: linkedByUrl }, mockLinkTypes);
+    const source: JiraSource = {
+      fetchByJql: (s, j, m) => inner.fetchByJql(s, j, m),
+      fetchByKeys: (s) => Promise.resolve(s === "old" ? [{ ...issue("hedge-lang/x#1"), aliases: ["old-org/x#1"] }] : []),
+      fetchEpic: (s, k, f) => inner.fetchEpic(s, k, f),
+      fetchIssue: (s, k) => inner.fetchIssue(s, k),
+      fetchDescription: (s, k) => inner.fetchDescription(s, k),
+      fetchRemoteLinks: (s, k) => (s === "core" ? inner.fetchRemoteLinks(s, k) : Promise.reject(new Error(`${s} is down`))),
+      fetchLinkTypes: (s) => inner.fetchLinkTypes(s),
+      fetchPriorities: (s) => inner.fetchPriorities(s),
+      fetchStatusHistory: (s, ids) => inner.fetchStatusHistory(s, ids),
+      fetchStatuses: (s) => inner.fetchStatuses(s),
+      fetchMyself: (s) => inner.fetchMyself(s),
+    };
+    const sites = [core, old, hedge];
+    const done: [string, SiteOutcome][] = [];
+    const res = await new MultiSiteLoader(source).load({ mode: "seed", siteId: "core", key: "CORE-1", depth: 1 }, sites, sites, {
+      onSiteDone: (id, outcome) => done.push([id, outcome]),
+    });
+    expect(res.errors).toEqual([{ siteId: "hedge", message: "hedge is down" }]);
+    expect(done.sort()).toEqual([
+      ["core", "loaded"],
+      ["hedge", "failed"],
+      ["old", "loaded"],
+    ]);
+  });
+
+  it("loads its own copy of a ticket an overlapping sibling already has", async () => {
+    const all = { ...core, id: "all", baseJql: "" };
+    const loop = { issues: [issue("CORE-1", [{ blocks: "WEB-2" }]), issue("WEB-2", [{ blocks: "CORE-1" }])], remoteLinks: {} };
+    const loader = new MultiSiteLoader(new FixtureSource({ core: loop, all: loop }, mockLinkTypes));
+    // core:CORE-1 -> all:WEB-2 (core doesn't cover WEB) -> all:CORE-1 (all covers everything).
+    const res = await loader.load({ mode: "seed", siteId: "core", key: "CORE-1", depth: 2 }, [core, all], [core, all]);
+    if (res.kind !== "ok") throw new Error("expected ok");
+    expect(res.data.map((d) => [d.siteId, d.issues.map((i) => i.key).sort()])).toEqual([
+      ["core", ["CORE-1"]],
+      ["all", ["CORE-1", "WEB-2"]],
+    ]);
+  });
+
   it("drops a renamed ticket no selected site covers, leaving its link a placeholder", async () => {
     const gh = { ...core, kind: "github" as const, baseUrl: "https://github.com", auth: { type: "githubToken" as const, secretRef: "T" } };
     const old = { ...gh, id: "old", baseJql: "org:old-org" };

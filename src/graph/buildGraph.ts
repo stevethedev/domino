@@ -255,7 +255,8 @@ export function buildGraph({ sites, data }: BuildInput): Graph {
         const otherSite = canonical.has(uidOf(site.id, other.key)) ? site : linkedSite(site, other.key, sites);
         const otherUid = resolveOnAddress(otherSite.id, other.key);
         if (otherUid === self) continue; // a renamed ticket's link to its own old key
-        addGhost(ghostFromLinked(other, otherSite, ranks));
+        // A key that resolved to a ticket loaded under another one needs no placeholder.
+        if (otherUid === uidOf(otherSite.id, other.key)) addGhost(ghostFromLinked(other, otherSite, ranks));
         // outwardIssue on this issue means "this <outward> other".
         const [source, target] = link.outwardIssue ? [self, otherUid] : [otherUid, self];
         // GitHub link ids are built from keys, which can be a renamed repo's old ones: its edges are

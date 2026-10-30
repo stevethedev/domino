@@ -240,19 +240,22 @@ class LoadRun {
     }
     const added: Ref[] = [];
     await Promise.all(
-      [...wanted].map(([siteId, keys]) =>
-        this.guard(siteId, async () => {
-          const byHome = new Map<string, RawIssue[]>();
+      [...wanted].map(async ([siteId, keys]) => {
+        const byHome = new Map<string, RawIssue[]>();
+        const fetched = await this.guard(siteId, async () => {
           for (const i of await this.fetchKeys(siteId, [...keys])) {
             const home = this.homeOf(siteId, i);
             if (home) byHome.set(home, [...(byHome.get(home) ?? []), i]);
           }
-          for (const [home, issues] of byHome) {
-            await this.addFull(home, issues);
-            added.push(...issues.map((i) => ({ siteId: home, key: i.key })));
-          }
-        }),
-      ),
+        });
+        if (!fetched) return;
+        // Loading a ticket's links uses its home site's account: a failure there is that site's.
+        await Promise.all(
+          [...byHome].map(async ([home, issues]) => {
+            if (await this.guard(home, () => this.addFull(home, issues))) added.push(...issues.map((i) => ({ siteId: home, key: i.key })));
+          }),
+        );
+      }),
     );
     return added;
   }
@@ -293,15 +296,18 @@ class LoadRun {
     return siteForKey(covering, issue.key)?.id;
   }
 
-  /** Whether a site on `st`'s address already has a ticket under this key (its own, or a renamed repo's old one). */
+  /**
+   * Whether `st` already has a ticket under this key, or a site on its address has it as a renamed repo's
+   * old key. Overlapping sites each load their own copy of a ticket, so a sibling's copy doesn't count.
+   */
   private knownOnAddress(st: SiteState, key: string): boolean {
-    return siblingsOf(
-      st.site,
-      [...this.states.values()].map((s) => s.site),
-    ).some((s) => {
-      const sibling = getOrThrow(this.states, s.id);
-      return sibling.issues.has(key) || sibling.aliases.has(key);
-    });
+    return (
+      st.issues.has(key) ||
+      siblingsOf(
+        st.site,
+        [...this.states.values()].map((s) => s.site),
+      ).some((s) => getOrThrow(this.states, s.id).aliases.has(key))
+    );
   }
 
   private async fetchKeys(siteId: string, keys: string[]): Promise<RawIssue[]> {
