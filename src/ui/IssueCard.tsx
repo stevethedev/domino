@@ -1,7 +1,7 @@
 import { Handle, Position, useStore, type Node, type NodeProps } from "@xyflow/react";
 import { MOVE_KEYS, type Move, type PreviewKey } from "../graph/traverse";
 import { memo, useState, type ReactElement } from "react";
-import { agingLabel, type Aging } from "../graph/aging";
+import type { Aging } from "../graph/aging";
 import { CHANGE_LABEL, type ChangeKind } from "../graph/changes";
 import type { Highlight } from "../graph/insights";
 import type { EpicRollup, GraphNode, Priority, StatusCategory } from "../graph/types";
@@ -166,17 +166,36 @@ function RollupBody({
 export type Badge = { key: string; label: string; el: React.ReactNode };
 
 /**
- * Fits badges into `slots` (two by default, a card's bottom row). With more, it shows the first
- * `slots - 1` and a "+N" chip in the last slot whose tooltip lists the rest; the card or row's own
- * accessible name already covers every badge.
+ * Which badges fit `slots`, at most `full` of them whole: when they don't all fit, the last slot is a
+ * "+N" chip for the rest.
  */
-export function CappedBadges({ badges, slots = 2 }: { badges: readonly (Badge | false | undefined)[]; slots?: number }): ReactElement {
-  const all = badges.filter((b): b is Badge => !!b);
-  const visible = all.length > slots ? slots - 1 : all.length;
-  const extra = all.slice(visible);
+export function capBadges<T>(all: readonly T[], slots: number, full = slots): Readonly<{ visible: readonly T[]; rest: readonly T[] }> {
+  const whole = all.length > Math.min(slots, full) ? Math.min(slots - 1, full) : all.length;
+  return { visible: all.slice(0, whole), rest: all.slice(whole) };
+}
+
+/**
+ * Fits badges into `slots` (two by default, a card's bottom row), at most `full` of them whole. With
+ * more, the last slot is a "+N" chip whose tooltip lists the rest; the card or row's own accessible
+ * name already covers every badge.
+ */
+export function CappedBadges({
+  badges,
+  slots = 2,
+  full,
+}: {
+  badges: readonly (Badge | false | undefined)[];
+  slots?: number;
+  full?: number;
+}): ReactElement {
+  const { visible, rest: extra } = capBadges(
+    badges.filter((b): b is Badge => !!b),
+    slots,
+    full,
+  );
   return (
     <>
-      {all.slice(0, visible).map((b) => (
+      {visible.map((b) => (
         <span key={b.key} className="badge-slot">
           {b.el}
         </span>
@@ -197,7 +216,9 @@ export function ChangeTag({ change }: { change: ChangeKind }): ReactElement {
 export function AgingBadge({ aging }: { aging: Aging }): ReactElement {
   return (
     <span className={`age age-${aging.kind}`} title={agingDescription(aging)}>
-      <Icon name="clock" /> {agingLabel(aging)}
+      {/* The words drop on zoomed-out cards (.badge-word), leaving icon and number; the title keeps them. */}
+      <Icon name="clock" /> <span className="badge-word">{aging.kind} </span>
+      {`${aging.days}d`}
     </span>
   );
 }
@@ -209,10 +230,11 @@ export const agingDescription = (a: Aging): string =>
 
 const blockerText = (count: number): string => `${count} blocker${count === 1 ? "" : "s"}`;
 
-function BlockersBadge({ count }: { count: number }): ReactElement {
+export function BlockersBadge({ count }: { count: number }): ReactElement {
   return (
     <span className="blockers" title={`${count} open blocker${count === 1 ? "" : "s"}`}>
-      <Icon name="alert" /> {blockerText(count)}
+      <Icon name="alert" /> {count}
+      <span className="badge-word"> blocker{count === 1 ? "" : "s"}</span>
     </span>
   );
 }
@@ -236,9 +258,11 @@ function CompactBody({
         </span>
       </div>
       <div className="card-row3">
-        <span className={`pill pill-${node.statusCategory}`}>{statusText}</span>
-        {/* Big text leaves room for one badge and a "+N" for the rest, rather than clipping them. */}
-        <CappedBadges badges={badges} slots={2} />
+        <span className={`pill pill-${node.statusCategory}`} title={statusText}>
+          {statusText}
+        </span>
+        {/* Big text leaves room for the status, one badge and a "+N" for the rest, rather than clipping them. */}
+        <CappedBadges badges={badges} slots={2} full={1} />
       </div>
     </>
   );
