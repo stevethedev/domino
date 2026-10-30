@@ -108,6 +108,25 @@ function rollupLabel(n: GraphNode, r: EpicRollup): string {
   return `${parts.join(", ")}. Expands the epic.`;
 }
 
+/** Zoomed out, the words (.badge-word) drop, leaving "⟲"; the title keeps them. */
+export function CycleTag({ title }: { title: string }): ReactElement {
+  return (
+    <span className="tag-cycle" title={title}>
+      ⟲<span className="badge-word"> Cycle</span>
+    </span>
+  );
+}
+
+/** An epic summary card's count of blocked tickets; zoomed out, "⚠ 3". */
+export function BlockedCount({ count }: { count: number }): ReactElement {
+  return (
+    <span className="blockers" title={`${count} ticket${count === 1 ? "" : "s"} blocked`}>
+      <Icon name="alert" /> {count}
+      <span className="badge-word"> blocked</span>
+    </span>
+  );
+}
+
 /** Epic-map summary card: progress across the epic's loaded issues. */
 function RollupBody({
   node,
@@ -140,16 +159,8 @@ function RollupBody({
         <span className="rollup-bar" aria-hidden="true">
           <span style={{ width: `${total ? (100 * r.done) / total : 0}%` }} />
         </span>
-        {inCycle && (
-          <span className="tag-cycle" title="Some of its tickets are in a blocking cycle (see Warnings)">
-            ⟲ Cycle
-          </span>
-        )}
-        {r.blocked > 0 && (
-          <span className="blockers">
-            <Icon name="alert" /> {r.blocked} blocked
-          </span>
-        )}
+        {inCycle && <CycleTag title="Some of its tickets are in a blocking cycle (see Warnings)" />}
+        {r.blocked > 0 && <BlockedCount count={r.blocked} />}
         {r.aging > 0 && (
           <span className="age age-waiting">
             <Icon name="clock" /> {r.aging}
@@ -334,11 +345,7 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
     inCycle && {
       key: "cycle",
       label: "In a blocking cycle",
-      el: (
-        <span className="tag-cycle" title="In a blocking cycle (see Warnings)">
-          ⟲ Cycle
-        </span>
-      ),
+      el: <CycleTag title="In a blocking cycle (see Warnings)" />,
     },
     openBlockers > 0 && { key: "blockers", label: blockerText(openBlockers), el: <BlockersBadge count={openBlockers} /> },
     highlight === "ready" && { key: "ready", label: "Ready", el: <span className="tag-ready">Ready</span> },

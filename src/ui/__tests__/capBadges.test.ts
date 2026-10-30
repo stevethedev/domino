@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { AgingBadge, BlockersBadge, capBadges } from "../IssueCard";
+import { AgingBadge, BlockedCount, BlockersBadge, capBadges, CycleTag } from "../IssueCard";
 
 const shown = (n: number, slots: number, full?: number): string => {
   const { visible, rest } = capBadges(["a", "b", "c", "d"].slice(0, n), slots, full);
@@ -25,5 +25,16 @@ describe("badge words zoomed-out cards drop", () => {
     expect(blockers).toContain('title="2 open blockers"');
     const aging = renderToStaticMarkup(createElement(AgingBadge, { aging: { kind: "stuck", days: 19, estimateDays: 8 } }));
     expect(aging).toContain('<span class="badge-word">stuck </span>19d');
+  });
+});
+
+describe("epic summary card badges", () => {
+  it("drop their words zoomed out too, keeping them in the tooltip", () => {
+    const cycle = renderToStaticMarkup(createElement(CycleTag, { title: "In a blocking cycle" }));
+    expect(cycle).toContain('⟲<span class="badge-word"> Cycle</span>');
+    expect(cycle).toContain('title="In a blocking cycle"');
+    const blocked = renderToStaticMarkup(createElement(BlockedCount, { count: 3 }));
+    expect(blocked).toContain('3<span class="badge-word"> blocked</span>');
+    expect(blocked).toContain('title="3 tickets blocked"');
   });
 });
