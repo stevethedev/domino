@@ -91,7 +91,7 @@ While a load runs, the last tickets for that scope stay on screen (from this ses
 
 ![Grouped by epic, with one epic folded into a summary card](docs/images/folded-epics.png)
 
-**Filtering.** **Display** hides tickets by status, type, assignee or priority without reloading, picks which links to draw, and can **Hide implied links** (A&rarr;C when A&rarr;B&rarr;C is drawn).
+**Filtering.** **Display** hides tickets by status category (To Do, In Progress, Done) or by individual status (like "In Review", across sites by name), type, assignee or priority without reloading, picks which links to draw, and can **Hide implied links** (A&rarr;C when A&rarr;B&rarr;C is drawn).
 
 **Sorting.** **Display &rarr; Sort by** orders tickets by priority, status, key, assignee, story points, due date, forecast finish, how much they unblock, how many blockers they have, or release. In the graph, each column follows the sort (columns themselves still follow the blocking links); in the timeline, rows do. Lanes follow their first ticket. A chip says what the view is sorted by, and its &#x2715; goes back to the natural order (dependencies in the graph, start date in the timeline).
 

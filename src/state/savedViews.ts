@@ -55,6 +55,7 @@ function parseIssueFilters(raw: unknown): IssueFilters {
   if (!r) return NO_ISSUE_FILTERS;
   return {
     hiddenCategories: strings(r.hiddenCategories).filter(isCategory),
+    hiddenStatuses: strings(r.hiddenStatuses),
     hiddenTypes: strings(r.hiddenTypes),
     hiddenAssignees: strings(r.hiddenAssignees),
     hiddenPriorities: strings(r.hiddenPriorities),

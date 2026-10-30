@@ -48,6 +48,17 @@ export function byPriority(issues: readonly GraphNode[]): [string, number][] {
   );
 }
 
+/**
+ * Status options in category order (to do, in progress, done, unknown), most common first within each.
+ * A name two sites put in different categories goes under the earlier one.
+ */
+export function byStatus(issues: readonly GraphNode[]): [string, number][] {
+  const rank = new Map<string, number>();
+  for (const n of issues) rank.set(n.statusName, Math.min(CATEGORIES.indexOf(n.statusCategory), rank.get(n.statusName) ?? Infinity));
+  // `tally` already put them in count order; a stable sort keeps it within each category.
+  return tally(issues, (n) => n.statusName).sort(([a], [b]) => (rank.get(a) ?? 0) - (rank.get(b) ?? 0));
+}
+
 const toggled = <T,>(list: readonly T[], value: T): T[] => (list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
 
 /** A compact multi-select: a menu of checkboxes (checked = shown) for one issue field. */
@@ -206,6 +217,14 @@ export function FilterPanel({
           </button>
         ))}
       </div>
+      <FilterMenu
+        label="Status"
+        options={byStatus(issues)}
+        hidden={f.hiddenStatuses}
+        onHidden={(hiddenStatuses) => {
+          setIssues({ hiddenStatuses });
+        }}
+      />
       <FilterMenu
         label="Type"
         options={tally(issues, (n) => n.issueType)}
