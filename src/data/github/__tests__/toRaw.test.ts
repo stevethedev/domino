@@ -75,6 +75,35 @@ describe("toRawIssue", () => {
     expect(raw(pr({})).fields.issuetype).toEqual({ name: "Pull request" });
   });
 
+  it("shows an open pull request's review state as its status", () => {
+    const status = (extra: Partial<GhNode>): string => {
+      const s = raw({ ...linkedPull("a/b#2"), id: "PR_2", ...extra }).fields.status;
+      return `${s?.name ?? "?"}/${s?.statusCategory?.key ?? "?"}`;
+    };
+    const reviews = (...states: string[]): Partial<GhNode> => ({
+      latestOpinionatedReviews: { nodes: states.map((state) => ({ state })) },
+    });
+    expect(status({ reviewDecision: "APPROVED" })).toBe("Approved/indeterminate");
+    expect(status({ reviewDecision: "CHANGES_REQUESTED" })).toBe("Needs changes/indeterminate");
+    expect(status({ reviewDecision: "REVIEW_REQUIRED", ...reviews("APPROVED") })).toBe("In review/indeterminate");
+    // No branch rule requiring reviews: GitHub leaves the decision null, so the reviews decide.
+    expect(status({ reviewDecision: null, ...reviews("APPROVED") })).toBe("Approved/indeterminate");
+    expect(status({ reviewDecision: null, ...reviews("APPROVED", "CHANGES_REQUESTED") })).toBe("Needs changes/indeterminate");
+    expect(status({ reviewDecision: null, ...reviews() })).toBe("In review/indeterminate");
+    // A cut-off list can hide a change request, so its approvals don't make the pull request Approved;
+    // a change request it does show still stands.
+    const cutOff = (...states: string[]): Partial<GhNode> => ({
+      latestOpinionatedReviews: { nodes: states.map((state) => ({ state })), pageInfo: { hasNextPage: true } },
+    });
+    expect(status({ reviewDecision: null, ...cutOff("APPROVED") })).toBe("In review/indeterminate");
+    expect(status({ reviewDecision: null, ...cutOff("APPROVED", "CHANGES_REQUESTED") })).toBe("Needs changes/indeterminate");
+    expect(status({ reviewDecision: "APPROVED", ...cutOff("APPROVED") })).toBe("Approved/indeterminate");
+    // Drafts, merged and closed pull requests keep those statuses whatever the reviews say.
+    expect(status({ isDraft: true, reviewDecision: "APPROVED" })).toBe("Draft/indeterminate");
+    expect(status({ pullState: "MERGED", merged: true, reviewDecision: "APPROVED" })).toBe("Merged/done");
+    expect(status({ pullState: "CLOSED", reviewDecision: "CHANGES_REQUESTED" })).toBe("Closed/done");
+  });
+
   it("treats an issue with sub-issues as an epic, and a sub-issue's parent as its epic", () => {
     expect(raw(node("a/b#1", { subIssuesSummary: { total: 2 } })).fields.issuetype).toEqual({ name: "Issue", hierarchyLevel: 1 });
     expect(raw(node("a/b#1", { subIssuesSummary: { total: 0 } })).fields.issuetype).toEqual({ name: "Issue", hierarchyLevel: 0 });
@@ -404,5 +433,10 @@ describe("the GitHub fixture", () => {
     expect(ids("acme/web#42")).toEqual(["closes:acme/web#42>acme/web#32"]);
     expect(ids("acme/web#47")).toEqual(["blocks:acme/web#45>acme/web#47"]);
     expect(jiraLinksIn(fixture("acme/api#12")).map((l) => l.object.url)).toEqual(["https://acme.atlassian.net/browse/CORE-11"]);
+  });
+
+  it("has an approved pull request and one still in draft", () => {
+    expect(raw(fixture("acme/web#47")).fields.status?.name).toBe("Approved");
+    expect(raw(fixture("acme/web#45")).fields.status?.name).toBe("Draft");
   });
 });

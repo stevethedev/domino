@@ -415,7 +415,8 @@ const GH_ITEMS = [
   ["acme/api#15", "issue", "not_planned", "Keep accepting v1 card tokens", "priya", null, { type: "Bug", created: -20, closed: -5 }],
   ["acme/web#42", "pr", "merged", "Saved cards UI", "priya", "priya", { milestone: true, created: -4, closed: -1 }],
   ["acme/web#45", "pr", "draft", "Card form v2", "jonas", "jonas", { milestone: true, created: -2 }],
-  ["acme/web#47", "pr", "open", "Card form v2: inline validation", "jonas", "jonas", { milestone: true, created: -1 }],
+  // Approved with no branch rule requiring reviews: GitHub's decision is null, and the review says it.
+  ["acme/web#47", "pr", "open", "Card form v2: inline validation", "jonas", "jonas", { milestone: true, created: -1, approved: true }],
 ];
 // [parent, child]
 const GH_SUB_ISSUES = [
@@ -487,6 +488,8 @@ function ghNode([key, kind, state, title, author, assignee, extra]) {
       repository: { ...node.repository, defaultBranchRef: { name: "main" } },
       isDraft: linked.isDraft,
       merged: linked.merged,
+      reviewDecision: null,
+      latestOpinionatedReviews: { nodes: extra.approved ? [{ state: "APPROVED" }] : [] },
       // Each pull request's head branch is pr-<number>.
       baseRefName: stackedOn ? `pr-${ghParts(stackedOn).number}` : "main",
       baseRef: { associatedPullRequests: { nodes: stackedOn ? [ghLinked(stackedOn)] : [], pageInfo: { hasNextPage: false } } },
