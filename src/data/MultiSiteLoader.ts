@@ -9,7 +9,7 @@ import { combineGitHubQuery } from "./github/query";
 import { combineJql } from "./jqlPresets";
 import type { JiraSource } from "./JiraSource";
 import type { RawIssue, RawLinkType, RawPriority, RawRemoteLink, RawSiteData } from "./jiraTypes";
-import { linkedSite } from "./siteScope";
+import { coverageOf, linkedSite, siblingsOf, siteForKey } from "./siteScope";
 import { exampleKey, isTicketKey } from "./ticketKey";
 
 export type Scope =
@@ -233,20 +233,33 @@ class LoadRun {
     for (const ref of refs) {
       for (const n of this.neighbours(ref)) {
         const st = this.states.get(n.siteId);
-        if (!st || st.issues.has(n.key) || st.aliases.has(n.key) || this.errors.has(n.siteId)) continue;
+        if (!st || this.knownOnAddress(st, n.key) || this.errors.has(n.siteId)) continue;
         const keys = wanted.get(n.siteId) ?? new Set<string>();
         wanted.set(n.siteId, keys.add(n.key));
       }
     }
     const added: Ref[] = [];
     await Promise.all(
-      [...wanted].map(([siteId, keys]) =>
-        this.guard(siteId, async () => {
-          const issues = await this.fetchKeys(siteId, [...keys]);
-          await this.addFull(siteId, issues);
-          added.push(...issues.map((i) => ({ siteId, key: i.key })));
-        }),
-      ),
+      [...wanted].map(async ([siteId, keys]) => {
+        const byHome = new Map<string, RawIssue[]>();
+        const fetched = await this.guard(siteId, async () => {
+          for (const i of await this.fetchKeys(siteId, [...keys])) {
+            const home = this.homeOf(siteId, i);
+            if (home) byHome.set(home, [...(byHome.get(home) ?? []), i]);
+          }
+        });
+        if (!fetched) return;
+        // Loading a ticket's links uses its home site's account: a failure there is that site's.
+        await Promise.all(
+          [...byHome].map(async ([home, issues]) => {
+            await this.guard(home, async () => {
+              const loaded = home === siteId ? issues : await this.refetched(home, issues);
+              await this.addFull(home, loaded);
+              added.push(...loaded.map((i) => ({ siteId: home, key: i.key })));
+            });
+          }),
+        );
+      }),
     );
     return added;
   }
@@ -272,6 +285,52 @@ class LoadRun {
   /** The site a ticket linked from `st` loads on: `st` itself for a key it already has a ticket under (a renamed repo's). */
   private linkedSiteId(st: SiteState, key: string): string {
     return st.aliases.has(key) ? st.site.id : linkedSite(st.site, key, this.allSites).id;
+  }
+
+  /**
+   * The selected site a fetched ticket belongs on. GitHub answers a renamed repo's old key under the
+   * new name, which can fall outside the site that asked: it goes to the selected site on that
+   * address covering the new name, or nowhere (its link stays a placeholder).
+   */
+  private homeOf(siteId: string, issue: RawIssue): string | undefined {
+    const { site } = getOrThrow(this.states, siteId);
+    if (siteKindOf(site) !== "github" || coverageOf(site, issue.key) !== "none") return siteId;
+    const covering = this.selectedSiblings(site).filter((s) => coverageOf(s, issue.key) !== "none");
+    return siteForKey(covering, issue.key)?.id;
+  }
+
+  /**
+   * Tickets that moved to `home` (a renamed repo's), asked for again through it: the site keeps what it
+   * last fetched, maybe from an earlier load, and their links are read from that. They keep the keys
+   * they were asked for under.
+   */
+  private async refetched(home: string, moved: readonly RawIssue[]): Promise<RawIssue[]> {
+    const aliases = new Map(moved.map((i) => [i.key, i.aliases ?? []]));
+    return (await this.fetchKeys(home, [...aliases.keys()])).map((i) => ({
+      ...i,
+      aliases: [...new Set([...(i.aliases ?? []), ...(aliases.get(i.key) ?? [])])],
+    }));
+  }
+
+  /**
+   * Whether `st` already has a ticket under this key (its own, or a renamed repo's old one), or a site on its
+   * address has it as a renamed repo's old key and `st`'s filter keeps out the new name. Overlapping sites
+   * each load their own copy of a ticket, so a sibling's copy `st` could load doesn't count.
+   */
+  private knownOnAddress(st: SiteState, key: string): boolean {
+    if (st.issues.has(key) || st.aliases.has(key)) return true;
+    return this.selectedSiblings(st.site).some((s) => {
+      const canonical = getOrThrow(this.states, s.id).aliases.get(key);
+      return canonical !== undefined && coverageOf(st.site, canonical) === "none";
+    });
+  }
+
+  /** The selected sites sharing `site`'s address (`site` among them when it's selected). */
+  private selectedSiblings(site: SiteConfig): readonly SiteConfig[] {
+    return siblingsOf(
+      site,
+      [...this.states.values()].map((s) => s.site),
+    );
   }
 
   private async fetchKeys(siteId: string, keys: string[]): Promise<RawIssue[]> {
@@ -337,8 +396,15 @@ class LoadRun {
   /** Distinct in-scope issues plus every issue they reference (future ghosts). */
   private nodeCount(): number {
     const uids = new Set<string>();
-    // A key some loaded issue was also asked for under counts as that issue.
-    const uid = (siteId: string, key: string): string => uidOf(siteId, this.states.get(siteId)?.aliases.get(key) ?? key);
+    // A key some loaded issue on that address was also asked for under (a renamed repo) counts as that issue,
+    // the routed site's own copy when it has one (as buildGraph draws it); the routed site needn't be selected.
+    const uid = (siteId: string, key: string): string => {
+      const site = this.states.get(siteId)?.site ?? this.allSites.find((s) => s.id === siteId);
+      const owner = site && this.selectedSiblings(site).find((s) => getOrThrow(this.states, s.id).aliases.has(key));
+      if (!owner) return uidOf(siteId, key);
+      const canonical = getOrThrow(getOrThrow(this.states, owner.id).aliases, key);
+      return uidOf(this.states.get(siteId)?.issues.has(canonical) ? siteId : owner.id, canonical);
+    };
     for (const st of this.states.values()) {
       for (const i of st.issues.values()) {
         uids.add(uidOf(st.site.id, i.key));

@@ -427,6 +427,46 @@ describe("several sites on one address", () => {
     expect(g.edges).toMatchObject([{ source: "hedge:hedge-lang/x#2", target: "hedge:hedge-lang/x#1", crossSite: false }]);
   });
 
+  it("joins a link by a renamed repo's old URL to the ticket a sibling site loaded under the new name", () => {
+    const OLD = gh("old", "org:old-org");
+    const renamed = { ...issue("hedge-lang/x#1"), aliases: ["old-org/x#1"] };
+    const g = buildGraph({
+      sites: [A, OLD, HEDGE],
+      data: [
+        data("a", [issue("A-1")], { "A-1": [remote(1, "relates to", "https://github.com/old-org/x/issues/1")] }),
+        data("hedge", [renamed]),
+      ],
+    });
+    expect(g.nodes.map((n) => n.uid).sort()).toEqual(["a:A-1", "hedge:hedge-lang/x#1"]);
+    expect(g.edges).toMatchObject([{ source: "a:A-1", target: "hedge:hedge-lang/x#1" }]);
+  });
+
+  it("adds no placeholder for a native link to a renamed repo's old key that a sibling site loaded", () => {
+    const OLD = gh("old", "org:old-org");
+    const WEB = gh("web", "org:web-org");
+    const renamed = { ...issue("hedge-lang/x#1"), aliases: ["old-org/x#1"] };
+    const from = issue("web-org/y#1");
+    link("by-old", BLOCKS, from, { ...renamed, key: "old-org/x#1" }, { out: true, in: false });
+    const g = buildGraph({ sites: [WEB, OLD, HEDGE], data: [data("web", [from]), data("hedge", [renamed])] });
+    expect(g.nodes.map((n) => n.uid).sort()).toEqual(["hedge:hedge-lang/x#1", "web:web-org/y#1"]);
+    expect(g.edges).toMatchObject([{ source: "web:web-org/y#1", target: "hedge:hedge-lang/x#1" }]);
+  });
+
+  it("joins an old-URL link to the routed site's own copy of the renamed ticket, not a sibling's", () => {
+    const WORK = gh("work", "org:acme");
+    const ALL = gh("all", "");
+    const g = buildGraph({
+      sites: [A, WORK, ALL],
+      data: [
+        data("a", [issue("A-1")], { "A-1": [remote(1, "relates to", "https://github.com/acme/old/issues/1")] }),
+        data("work", [issue("acme/new#1")]),
+        data("all", [{ ...issue("acme/new#1"), aliases: ["acme/old#1"] }]),
+      ],
+    });
+    expect(g.nodes.map((n) => n.uid).sort()).toEqual(["a:A-1", "all:acme/new#1", "work:acme/new#1"]);
+    expect(g.edges).toMatchObject([{ source: "a:A-1", target: "work:acme/new#1" }]);
+  });
+
   it("keeps a lone site's Jira edge ids as they were", () => {
     const c1 = issue("CORE-1");
     const c2 = issue("CORE-2");

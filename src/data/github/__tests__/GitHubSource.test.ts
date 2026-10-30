@@ -188,11 +188,12 @@ describe("GitHubSource", () => {
     expect(api.calls).toBe(1);
   });
 
-  it("keeps a renamed repo's tickets out when the new name is outside the site filter", async () => {
+  it("returns a renamed repo's ticket even when its new name is outside the filter, for the loader to place", async () => {
     const api = fakeApi(new Map());
     api.issues = (): Promise<GhNode[]> =>
       Promise.resolve([{ ...ticket("Moved"), repository: { nameWithOwner: "acme/new" }, requestedKey: "acme/old#1" }]);
-    expect(await new GitHubSource(api).fetchByKeys("gh", ["acme/old#1"], "repo:acme/old")).toEqual([]);
+    const found = await new GitHubSource(api).fetchByKeys("gh", ["acme/old#1"], "repo:acme/old");
+    expect(found.map((i) => [i.key, i.aliases])).toEqual([["acme/new#1", ["acme/old#1"]]]);
   });
 
   it("fetches a description afresh, even for a ticket loaded earlier (it may be a ghost now)", async () => {
