@@ -252,8 +252,12 @@ class LoadRun {
         // Loading a ticket's links uses its home site's account: a failure there is that site's.
         await Promise.all(
           [...byHome].map(async ([home, issues]) => {
-            const loaded = await this.guard(home, () => this.addFull(home, issues));
-            if (loaded) added.push(...issues.map((i) => ({ siteId: home, key: i.key })));
+            let loaded: readonly RawIssue[] = [];
+            const ok = await this.guard(home, async () => {
+              loaded = home === siteId ? issues : await this.refetched(home, issues);
+              await this.addFull(home, loaded);
+            });
+            if (ok) added.push(...loaded.map((i) => ({ siteId: home, key: i.key })));
           }),
         );
       }),
@@ -294,6 +298,19 @@ class LoadRun {
     if (siteKindOf(site) !== "github" || coverageOf(site, issue.key) !== "none") return siteId;
     const covering = this.selectedSiblings(site).filter((s) => coverageOf(s, issue.key) !== "none");
     return siteForKey(covering, issue.key)?.id;
+  }
+
+  /**
+   * Tickets that moved to `home` (a renamed repo's), asked for again through it: the site keeps what it
+   * last fetched, maybe from an earlier load, and their links are read from that. They keep the keys
+   * they were asked for under.
+   */
+  private async refetched(home: string, moved: readonly RawIssue[]): Promise<RawIssue[]> {
+    const aliases = new Map(moved.map((i) => [i.key, i.aliases ?? []]));
+    return (await this.fetchKeys(home, [...aliases.keys()])).map((i) => ({
+      ...i,
+      aliases: [...new Set([...(i.aliases ?? []), ...(aliases.get(i.key) ?? [])])],
+    }));
   }
 
   /**
