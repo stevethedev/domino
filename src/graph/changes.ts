@@ -7,7 +7,11 @@ export type Snapshot = {
   takenAt: string; // ISO datetime
   /** Whether aging was known when the snapshot was taken (status history loaded). */
   hasAging: boolean;
-  issues: Record<string, { c: StatusCategory; b: boolean; a?: "stuck" | "waiting" }>;
+  /**
+   * Per issue: status category, blocked, aging, and status name (`s`, so a move within a category,
+   * like In Progress to In Review, shows; snapshots saved before it was kept have none).
+   */
+  issues: Record<string, { c: StatusCategory; s?: string; b: boolean; a?: "stuck" | "waiting" }>;
   /** Blocking links as "source>target" uid pairs. */
   blocks: string[];
 };
@@ -41,7 +45,7 @@ export function takeSnapshot(graph: Graph, insights: Insights, hasAging: boolean
   for (const n of graph.nodes) {
     if (n.ghost) continue;
     const a = insights.aging.get(n.uid)?.kind;
-    issues[n.uid] = { c: n.statusCategory, b: insights.blocked.has(n.uid), ...(a ? { a } : {}) };
+    issues[n.uid] = { c: n.statusCategory, s: n.statusName, b: insights.blocked.has(n.uid), ...(a ? { a } : {}) };
   }
   const blocks = graph.edges.filter((e) => e.kind === "blocks").map((e) => pairOf(e.source, e.target));
   return { takenAt: now.toISOString(), hasAging, issues, blocks: [...new Set(blocks)].sort() };
@@ -58,7 +62,7 @@ export function diffSnapshot(prev: Snapshot, graph: Graph, insights: Insights, h
     if (!before) kinds.push("new");
     else {
       if (cur.c === "done" && before.c !== "done") kinds.push("done");
-      else if (cur.c !== before.c) kinds.push("moved");
+      else if (cur.c !== before.c || (before.s !== undefined && cur.s !== before.s)) kinds.push("moved");
       if (cur.b && !before.b) kinds.push("blocked");
       if (!cur.b && before.b && cur.c !== "done") kinds.push("unblocked");
       if (prev.hasAging && hasAging && cur.a && !before.a) kinds.push("aging");
@@ -92,7 +96,12 @@ export function parseSnapshot(raw: unknown): Snapshot | undefined {
     if (!v || typeof v !== "object") continue;
     const e: Record<string, unknown> = { ...v };
     if (!isCategory(e.c) || typeof e.b !== "boolean") continue;
-    issues[uid] = { c: e.c, b: e.b, ...(e.a === "stuck" || e.a === "waiting" ? { a: e.a } : {}) };
+    issues[uid] = {
+      c: e.c,
+      ...(typeof e.s === "string" ? { s: e.s } : {}),
+      b: e.b,
+      ...(e.a === "stuck" || e.a === "waiting" ? { a: e.a } : {}),
+    };
   }
   return { takenAt: r.takenAt, hasAging: r.hasAging, issues, blocks: r.blocks.filter((b): b is string => typeof b === "string") };
 }

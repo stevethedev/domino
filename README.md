@@ -74,7 +74,7 @@ While a load runs, the last tickets for that scope stay on screen (from this ses
 
 - **At a glance:** blocked, ready, critical-path and aging counts, for everyone or just you. Click one to highlight those tickets.
 - **Finish first:** the open tickets that unblock the most work.
-- **Since you last looked:** what's changed since you marked the scope seen.
+- **Since you last looked:** what's changed since you marked the scope seen: new, done, newly blocked or unblocked, newly aging, and status moves, including within a category (In Progress to In Review, or a GitHub pull request's review turning it Approved).
 - **Releases:** upcoming fix versions, and which tickets are forecast to miss them.
 
 ![Dark mode, with the critical path highlighted](docs/images/dark-critical-path.png)

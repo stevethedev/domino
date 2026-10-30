@@ -57,6 +57,21 @@ describe("snapshot diff", () => {
     expect(c.leftScope).toBe(1);
   });
 
+  it("reports a status change within a category, like In Progress to In Review", () => {
+    const named = (key: string, name: string): RawIssue => {
+      const i = make(key, "indeterminate");
+      return { ...i, fields: { ...i.fields, status: { name, statusCategory: { key: "indeterminate", name: "In Progress" } } } };
+    };
+    const before = graphOf(() => [named("X-1", "In Progress"), named("Y-1", "In Progress")]);
+    const after = graphOf(() => [named("X-1", "In Review"), named("Y-1", "In Progress")]);
+    const snap = takeSnapshot(before.g, before.insights, false);
+    expect([...diffSnapshot(snap, after.g, after.insights, false).byIssue]).toEqual([["a:X-1", ["moved"]]]);
+
+    // A snapshot saved before status names were kept compares categories only.
+    const unnamed = { ...snap, issues: Object.fromEntries(Object.entries(snap.issues).map(([uid, { s: _s, ...rest }]) => [uid, rest])) };
+    expect(diffSnapshot(unnamed, after.g, after.insights, false).byIssue.size).toBe(0);
+  });
+
   it("an unchanged scope has no changes", () => {
     const g = graphOf(() => [make("A-1"), make("B-1", "done")]);
     const c = diffSnapshot(takeSnapshot(g.g, g.insights, true), g.g, g.insights, true);
