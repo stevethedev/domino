@@ -427,6 +427,20 @@ describe("several sites on one address", () => {
     expect(g.edges).toMatchObject([{ source: "hedge:hedge-lang/x#2", target: "hedge:hedge-lang/x#1", crossSite: false }]);
   });
 
+  it("joins a link by a renamed repo's old URL to the ticket a sibling site loaded under the new name", () => {
+    const OLD = gh("old", "org:old-org");
+    const renamed = { ...issue("hedge-lang/x#1"), aliases: ["old-org/x#1"] };
+    const g = buildGraph({
+      sites: [A, OLD, HEDGE],
+      data: [
+        data("a", [issue("A-1")], { "A-1": [remote(1, "relates to", "https://github.com/old-org/x/issues/1")] }),
+        data("hedge", [renamed]),
+      ],
+    });
+    expect(g.nodes.map((n) => n.uid).sort()).toEqual(["a:A-1", "hedge:hedge-lang/x#1"]);
+    expect(g.edges).toMatchObject([{ source: "a:A-1", target: "hedge:hedge-lang/x#1" }]);
+  });
+
   it("keeps a lone site's Jira edge ids as they were", () => {
     const c1 = issue("CORE-1");
     const c2 = issue("CORE-2");

@@ -9,7 +9,7 @@ import { combineGitHubQuery } from "./github/query";
 import { combineJql } from "./jqlPresets";
 import type { JiraSource } from "./JiraSource";
 import type { RawIssue, RawLinkType, RawPriority, RawRemoteLink, RawSiteData } from "./jiraTypes";
-import { linkedSite } from "./siteScope";
+import { coverageOf, linkedSite, siblingsOf, siteForKey } from "./siteScope";
 import { exampleKey, isTicketKey } from "./ticketKey";
 
 export type Scope =
@@ -233,7 +233,7 @@ class LoadRun {
     for (const ref of refs) {
       for (const n of this.neighbours(ref)) {
         const st = this.states.get(n.siteId);
-        if (!st || st.issues.has(n.key) || st.aliases.has(n.key) || this.errors.has(n.siteId)) continue;
+        if (!st || this.knownOnAddress(st, n.key) || this.errors.has(n.siteId)) continue;
         const keys = wanted.get(n.siteId) ?? new Set<string>();
         wanted.set(n.siteId, keys.add(n.key));
       }
@@ -242,9 +242,15 @@ class LoadRun {
     await Promise.all(
       [...wanted].map(([siteId, keys]) =>
         this.guard(siteId, async () => {
-          const issues = await this.fetchKeys(siteId, [...keys]);
-          await this.addFull(siteId, issues);
-          added.push(...issues.map((i) => ({ siteId, key: i.key })));
+          const byHome = new Map<string, RawIssue[]>();
+          for (const i of await this.fetchKeys(siteId, [...keys])) {
+            const home = this.homeOf(siteId, i);
+            if (home) byHome.set(home, [...(byHome.get(home) ?? []), i]);
+          }
+          for (const [home, issues] of byHome) {
+            await this.addFull(home, issues);
+            added.push(...issues.map((i) => ({ siteId: home, key: i.key })));
+          }
         }),
       ),
     );
@@ -272,6 +278,30 @@ class LoadRun {
   /** The site a ticket linked from `st` loads on: `st` itself for a key it already has a ticket under (a renamed repo's). */
   private linkedSiteId(st: SiteState, key: string): string {
     return st.aliases.has(key) ? st.site.id : linkedSite(st.site, key, this.allSites).id;
+  }
+
+  /**
+   * The selected site a fetched ticket belongs on. GitHub answers a renamed repo's old key under the
+   * new name, which can fall outside the site that asked: it goes to the selected site on that
+   * address covering the new name, or nowhere (its link stays a placeholder).
+   */
+  private homeOf(siteId: string, issue: RawIssue): string | undefined {
+    const { site } = getOrThrow(this.states, siteId);
+    if (siteKindOf(site) !== "github" || coverageOf(site, issue.key) !== "none") return siteId;
+    const selected = [...this.states.values()].map((st) => st.site);
+    const covering = siblingsOf(site, selected).filter((s) => coverageOf(s, issue.key) !== "none");
+    return siteForKey(covering, issue.key)?.id;
+  }
+
+  /** Whether a site on `st`'s address already has a ticket under this key (its own, or a renamed repo's old one). */
+  private knownOnAddress(st: SiteState, key: string): boolean {
+    return siblingsOf(
+      st.site,
+      [...this.states.values()].map((s) => s.site),
+    ).some((s) => {
+      const sibling = getOrThrow(this.states, s.id);
+      return sibling.issues.has(key) || sibling.aliases.has(key);
+    });
   }
 
   private async fetchKeys(siteId: string, keys: string[]): Promise<RawIssue[]> {
@@ -337,8 +367,16 @@ class LoadRun {
   /** Distinct in-scope issues plus every issue they reference (future ghosts). */
   private nodeCount(): number {
     const uids = new Set<string>();
-    // A key some loaded issue was also asked for under counts as that issue.
-    const uid = (siteId: string, key: string): string => uidOf(siteId, this.states.get(siteId)?.aliases.get(key) ?? key);
+    // A key some loaded issue on that address was also asked for under (a renamed repo) counts as that issue.
+    const uid = (siteId: string, key: string): string => {
+      const st = this.states.get(siteId);
+      if (!st) return uidOf(siteId, key);
+      const owner = siblingsOf(
+        st.site,
+        [...this.states.values()].map((s) => s.site),
+      ).find((s) => this.states.get(s.id)?.aliases.has(key));
+      return owner ? uidOf(owner.id, getOrThrow(getOrThrow(this.states, owner.id).aliases, key)) : uidOf(siteId, key);
+    };
     for (const st of this.states.values()) {
       for (const i of st.issues.values()) {
         uids.add(uidOf(st.site.id, i.key));
