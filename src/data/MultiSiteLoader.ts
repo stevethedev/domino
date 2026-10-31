@@ -305,7 +305,9 @@ class LoadRun {
    * they were asked for under.
    */
   private async refetched(home: string, moved: readonly RawIssue[]): Promise<RawIssue[]> {
-    const aliases = new Map(moved.map((i) => [i.key, i.aliases ?? []]));
+    // A batch can ask for one ticket under several old names: each comes back as its own answer.
+    const aliases = new Map<string, readonly string[]>();
+    for (const i of moved) aliases.set(i.key, [...(aliases.get(i.key) ?? []), ...(i.aliases ?? [])]);
     return (await this.fetchKeys(home, [...aliases.keys()])).map((i) => ({
       ...i,
       aliases: [...new Set([...(i.aliases ?? []), ...(aliases.get(i.key) ?? [])])],

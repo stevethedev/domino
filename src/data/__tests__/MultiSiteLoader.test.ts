@@ -572,6 +572,44 @@ describe("MultiSiteLoader with several sites on one address", () => {
     expect(home.remoteLinks["hedge-lang/x#1"]?.map((l) => l.object.url)).toEqual(["https://acme.atlassian.net/browse/CORE-2"]);
   });
 
+  it("keeps every old name a batch asked for a renamed ticket under when it moves", async () => {
+    const gh = { ...core, kind: "github" as const, baseUrl: "https://github.com", auth: { type: "githubToken" as const, secretRef: "T" } };
+    const hedge = { ...gh, id: "hedge", baseJql: "org:hedge-lang" };
+    const old = { ...gh, id: "old", baseJql: "org:old-org" };
+    const url = (repo: string): RawRemoteLink => ({
+      id: 1,
+      relationship: "relates to",
+      object: { url: `https://github.com/old-org/${repo}/issues/1` },
+    });
+    const inner = new FixtureSource(
+      { core: { issues: [issue("CORE-1")], remoteLinks: { "CORE-1": [url("a"), url("b")] } } },
+      mockLinkTypes,
+    );
+    const asNew = (aliases?: string[]): RawIssue => ({ ...issue("hedge-lang/x#1"), ...(aliases ? { aliases } : {}) });
+    const source: JiraSource = {
+      fetchByJql: (s, j, m) => inner.fetchByJql(s, j, m),
+      // Both old names (the repo was renamed twice) answer, in one batch, as the same ticket.
+      fetchByKeys: (s) => Promise.resolve(s === "old" ? [asNew(["old-org/a#1"]), asNew(["old-org/b#1"])] : s === "hedge" ? [asNew()] : []),
+      fetchEpic: (s, k, f) => inner.fetchEpic(s, k, f),
+      fetchIssue: (s, k) => inner.fetchIssue(s, k),
+      fetchDescription: (s, k) => inner.fetchDescription(s, k),
+      fetchRemoteLinks: (s, k) => (s === "core" ? inner.fetchRemoteLinks(s, k) : Promise.resolve([])),
+      fetchLinkTypes: (s) => inner.fetchLinkTypes(s),
+      fetchPriorities: (s) => inner.fetchPriorities(s),
+      fetchStatusHistory: (s, ids) => inner.fetchStatusHistory(s, ids),
+      fetchStatuses: (s) => inner.fetchStatuses(s),
+      fetchMyself: (s) => inner.fetchMyself(s),
+    };
+    const sites = [core, old, hedge];
+    const res = await new MultiSiteLoader(source).load({ mode: "seed", siteId: "core", key: "CORE-1", depth: 1 }, sites, sites);
+    if (res.kind !== "ok") throw new Error("expected ok");
+    const home = defined(
+      res.data.find((d) => d.siteId === "hedge"),
+      "hedge data",
+    );
+    expect(home.issues.map((i) => [i.key, [...(i.aliases ?? [])].sort()])).toEqual([["hedge-lang/x#1", ["old-org/a#1", "old-org/b#1"]]]);
+  });
+
   it("drops a renamed ticket no selected site covers, leaving its link a placeholder", async () => {
     const gh = { ...core, kind: "github" as const, baseUrl: "https://github.com", auth: { type: "githubToken" as const, secretRef: "T" } };
     const old = { ...gh, id: "old", baseJql: "org:old-org" };
