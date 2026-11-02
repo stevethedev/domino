@@ -98,11 +98,9 @@ export function ScopeInputs({
     editor.ref.current?.querySelector("summary")?.focus();
   }, [editor.ref]);
 
-  /** Loads from the editor: closes it, its trigger taking focus (and keeping it across a remount). */
+  /** Loads from the editor: closes it, and its trigger keeps focus across the remount. */
   const loadQuery = (q: Scope): void => {
     refocusTrigger = editor.ref.current?.contains(document.activeElement) ?? false;
-    // Closing hides the focused box: focus the trigger first, which stays when the scope is the same.
-    if (refocusTrigger) editor.ref.current?.querySelector("summary")?.focus();
     editor.close();
     onApply(q);
     // The same scope again doesn't remount: don't let the flag reach some later, unrelated mount.
