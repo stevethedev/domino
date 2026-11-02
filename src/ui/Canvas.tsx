@@ -158,12 +158,19 @@ export function Canvas({
   const onFocusCard = useCallback(
     (uid: string): void => {
       setFocusedIn({ scopeKey, uid });
-      // Focused from code (navigation): `useFocusNode` already pans there, away from the part noticed.
-      // Tabbed to: keep the zoom and pan only when the card is off screen; a pan leaves the first view.
-      if (focusingFromCode || focusNode(uid, false, true) === "panned") leaveFirstView();
+      // Tabbed to: keep the zoom and pan only when the card is off screen. (Focus moved by
+      // `useFocusNode` comes with its own pan.)
+      if (!focusingFromCode) focusNode(uid, false, true);
     },
-    [focusNode, scopeKey, leaveFirstView],
+    [focusNode, scopeKey],
   );
+  // Any pan to a card (navigation, Tab to an off-screen card) moves the view away from the part noticed.
+  useEffect(() => {
+    onCardPan = leaveFirstView;
+    return (): void => {
+      onCardPan = null;
+    };
+  }, [leaveFirstView]);
   // Cards stay where the last finished layout put them until the next one is ready, so new data
   // never blanks the canvas while the layout worker runs.
   const [drawn, setDrawn] = useState<Drawn | null>(null);
@@ -565,10 +572,10 @@ export function Canvas({
 /** Set while `useFocusNode` focuses a card itself (focus events fire synchronously inside `focus()`). */
 let focusingFromCode = false;
 
-/** Whether `useFocusNode` moved the view to the card, found it already on screen, or found no card rendered yet. */
-export type FocusResult = "panned" | "visible" | false;
+/** Called whenever `useFocusNode` pans to a card, whoever asked (the mounted Canvas listens). */
+let onCardPan: (() => void) | null = null;
 
-export function useFocusNode(): (uid: string, moveFocus?: boolean, keepZoom?: boolean) => FocusResult {
+export function useFocusNode(): (uid: string, moveFocus?: boolean, keepZoom?: boolean) => boolean {
   const rf = useReactFlow();
   /**
    * Centres the node at a readable zoom (and focuses it unless `moveFocus` is false). With
@@ -576,7 +583,7 @@ export function useFocusNode(): (uid: string, moveFocus?: boolean, keepZoom?: bo
    * Returns false when the node isn't rendered yet.
    */
   return useCallback(
-    (uid: string, moveFocus = true, keepZoom = false): FocusResult => {
+    (uid: string, moveFocus = true, keepZoom = false): boolean => {
       const n = rf.getInternalNode(uid);
       if (!n) return false;
       const { x, y } = n.internals.positionAbsolute;
@@ -598,15 +605,17 @@ export function useFocusNode(): (uid: string, moveFocus?: boolean, keepZoom?: bo
       // Centred in what the drawer leaves visible, not under it.
       const zoom = keepZoom ? rf.getZoom() : 1.1;
       const shift = pane && right !== undefined ? visibleCentreShift(pane.right, right, zoom, pane.left, width * zoom) : 0;
-      const pans = !keepZoom || !onScreen;
-      if (pans) void rf.setCenter(x + width / 2 + shift, y + height / 2, { zoom, duration: keepZoom ? 200 : 300 });
+      if (!keepZoom || !onScreen) {
+        void rf.setCenter(x + width / 2 + shift, y + height / 2, { zoom, duration: keepZoom ? 200 : 300 });
+        onCardPan?.();
+      }
       if (moveFocus) {
         // The view is already moving to it: its onFocus mustn't start a second pan.
         focusingFromCode = true;
         document.querySelector<HTMLElement>(`[data-uid="${CSS.escape(uid)}"]`)?.focus({ preventScroll: true });
         focusingFromCode = false;
       }
-      return pans ? "panned" : "visible";
+      return true;
     },
     [rf],
   );

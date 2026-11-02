@@ -17,9 +17,10 @@ const withGitHub = (scope: { mode: "jql"; jql: string }, github: string): Scope 
 
 /** What a key press in the query editor does: Enter loads (Shift+Enter is a new line), Esc cancels. */
 export function editorKeyAction(e: Readonly<{ key: string; shiftKey: boolean; isComposing: boolean }>): "load" | "cancel" | null {
+  // While an input method composes text, its keys are its own: Enter picks a candidate, Esc closes the list.
+  if (e.isComposing) return null;
   if (e.key === "Escape") return "cancel";
-  // While an input method composes text, Enter picks a candidate.
-  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) return "load";
+  if (e.key === "Enter" && !e.shiftKey) return "load";
   return null;
 }
 

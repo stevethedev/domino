@@ -92,7 +92,8 @@ describe("editorKeyAction", () => {
     expect(key("a")).toBeNull();
   });
 
-  it("leaves Enter alone while an input method is composing text", () => {
+  it("leaves Enter and Esc to the input method while it composes text (Esc closes its candidates)", () => {
     expect(key("Enter", { isComposing: true })).toBeNull();
+    expect(key("Escape", { isComposing: true })).toBeNull();
   });
 });
