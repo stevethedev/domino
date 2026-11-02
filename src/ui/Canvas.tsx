@@ -1,4 +1,4 @@
-import { Background, Controls, getNodesBounds, MiniMap, Panel, ReactFlow, useReactFlow, type Rect } from "@xyflow/react";
+import { Background, Controls, getNodesBounds, MiniMap, Panel, ReactFlow, useReactFlow, useStoreApi, type Rect } from "@xyflow/react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { blockingChain } from "../graph/analysis";
 import { collapseEpics, shownEdgeId } from "../graph/collapse";
@@ -29,6 +29,8 @@ import { prefersReducedMotion } from "../lib/motion";
 import { isInCycle } from "../graph/cycles";
 import { visibleCentreShift } from "./drawerOffset";
 import { fitKeyOf } from "./fitKey";
+import { focusFirst } from "./focusFirst";
+import { FIT_PADDING, firstView, MIN_READABLE_ZOOM } from "./firstView";
 
 /** How long cards may slide after a sort change; longer than `--duration-base` so the slide finishes. */
 const RESORT_MS = 400;
@@ -138,6 +140,9 @@ export function Canvas({
   onClearSort: () => void;
 }): ReactElement {
   const rf = useReactFlow();
+  const store = useStoreApi();
+  /** Says the first view is only part of the graph (see firstView), until the user moves or asks for all. */
+  const [partNotice, setPartNotice] = useState<string | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
   // Per scope, so a uid that comes back in another scope doesn't inherit the stop.
   const [focusedIn, setFocusedIn] = useState<{ scopeKey: string | null; uid: string } | null>(null);
@@ -183,6 +188,9 @@ export function Canvas({
   }, [resorts]);
   const fitKey = useRef("");
   fitKey.current = fitKeyOf(scopeKey, view.groupBy);
+  // Read when a layout is fitted, not a reason to lay out again.
+  const fitInsights = useRef(insights);
+  fitInsights.current = insights;
 
   // Folded epics swap in a collapsed graph; everything below draws whichever graph is shown.
   const collapsed = useMemo(
@@ -211,12 +219,30 @@ export function Canvas({
           setResorts((n) => n + 1);
         }
         // Fit once per scope and grouping (see fitKeyOf), when there's something to fit, and again
-        // when cards come back after filters hid them all. Never zoom past 100%: small graphs stay card-sized.
+        // when cards come back after filters hid them all. Never zoom past 100%: small graphs stay
+        // card-sized. Too big to read whole, it fits a part worth reading first (see firstView).
         const nothingDrawn = l.positions.size === 0;
         if (l.positions.size > 0 && (fitKey.current !== fittedKey.current || wasEmpty.current)) {
           fittedKey.current = fitKey.current;
           requestAnimationFrame(() => {
-            void rf.fitView({ padding: 0.2, maxZoom: 1, duration: prefersReducedMotion() ? 0 : 250 });
+            const duration = prefersReducedMotion() ? 0 : 250;
+            const { width, height } = store.getState();
+            const view = firstView({
+              bounds: rf.getNodesBounds(rf.getNodes()),
+              pane: { width, height },
+              drawn: new Set(l.positions.keys()),
+              edges: vEdges,
+              mine: fitInsights.current.mine.assigned,
+              unblockers: fitInsights.current.unblockers,
+              keyOf: (uid) => vNodes.find((n) => n.uid === uid)?.key ?? uid,
+            });
+            setPartNotice(view.kind === "all" ? null : view.notice);
+            if (view.kind === "all") void rf.fitView({ padding: FIT_PADDING, maxZoom: 1, duration });
+            else if (view.kind === "corner") void rf.setViewport(view.viewport, { duration });
+            else {
+              const nodes = view.uids.map((id) => ({ id }));
+              void rf.fitView({ nodes, padding: FIT_PADDING, minZoom: MIN_READABLE_ZOOM, maxZoom: 1, duration });
+            }
           });
         }
         wasEmpty.current = nothingDrawn;
@@ -229,7 +255,7 @@ export function Canvas({
     return (): void => {
       cancelled = true;
     };
-  }, [vNodes, vEdges, graph.brokenEdgeIds, laneOf, layoutOrder, rf]);
+  }, [vNodes, vEdges, graph.brokenEdgeIds, laneOf, layoutOrder, rf, store]);
 
   // Highlights are computed on loaded issues; folded epics light up the summary each issue is shown as.
   const emphasized = useMemo(() => {
@@ -449,6 +475,10 @@ export function Canvas({
         zoomOnScroll={!stale}
         zoomOnPinch={!stale}
         zoomOnDoubleClick={!stale}
+        // Panned or zoomed by the user (programmatic moves have no event): the notice no longer describes the view.
+        onMoveStart={(event) => {
+          if (event) setPartNotice(null);
+        }}
       >
         <Background gap={24} size={1} />
         {!stale && (
@@ -458,6 +488,29 @@ export function Canvas({
             </Panel>
             <Panel position="top-left">
               <SortChip sort={view.sort} onClear={onClearSort} />
+            </Panel>
+            <Panel position="top-center">
+              {/* Always mounted, so screen readers announce the notice when it appears. */}
+              <p className="part-notice" role="status">
+                {partNotice}
+                {partNotice && (
+                  <>
+                    {" · "}
+                    <button
+                      type="button"
+                      className="link-btn"
+                      onClick={() => {
+                        setPartNotice(null);
+                        void rf.fitView({ padding: FIT_PADDING, maxZoom: 1, duration: prefersReducedMotion() ? 0 : 250 });
+                        // The button is gone: carry on from the graph.
+                        focusFirst('.canvas [data-uid][tabindex="0"]');
+                      }}
+                    >
+                      Show all
+                    </button>
+                  </>
+                )}
+              </p>
             </Panel>
             <Controls showInteractive={false} position="bottom-left" />
             <MiniMap<FlowNode>

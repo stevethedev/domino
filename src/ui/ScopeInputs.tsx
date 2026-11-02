@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactElement } from "react";
+import { useEffect, useId, useState, type ReactElement } from "react";
 import { siteKindOf, type SiteConfig } from "../config/types";
 import { combineGitHubQuery } from "../data/github/query";
 import { combineJql, JQL_PRESETS, presetById } from "../data/jqlPresets";
@@ -7,6 +7,7 @@ import { exampleKey, isTicketKey, normalizeKeyInput } from "../data/ticketKey";
 import { saveGitHubQuery, saveQuery } from "../state/useDomino";
 import { isOneOf } from "../lib/guards";
 import { NumberField } from "./NumberField";
+import { useDetailsMenu } from "./useDetailsMenu";
 
 type Mode = Scope["mode"];
 
@@ -14,42 +15,55 @@ type Mode = Scope["mode"];
 const withGitHub = (scope: { mode: "jql"; jql: string }, github: string): Scope =>
   github.trim() ? { ...scope, github: github.trim() } : scope;
 
-/** A query box; hovering shows what every selected site will run. */
-function QueryField({
-  id,
+/** What a key press in the query editor does: Enter loads (Shift+Enter is a new line), Esc cancels. */
+export function editorKeyAction(e: Readonly<{ key: string; shiftKey: boolean; isComposing: boolean }>): "load" | "cancel" | null {
+  if (e.key === "Escape") return "cancel";
+  // While an input method composes text, Enter picks a candidate.
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) return "load";
+  return null;
+}
+
+/** One search box in the query editor, described by what every selected site will run. */
+function QueryBox({
   label,
   value,
   onChange,
   placeholder,
-  effective,
+  runsId,
+  autoFocus,
 }: {
-  id: string;
   label: string;
   value: string;
   onChange: (v: string) => void;
   placeholder: string;
-  effective: string;
+  runsId: string;
+  autoFocus: boolean;
 }): ReactElement {
   return (
-    <label className="field grow">
+    <label className="query-box">
       <span className="field-label">{label}</span>
-      <input
-        type="text"
+      <textarea
         value={value}
         onChange={(e) => {
           onChange(e.target.value);
         }}
         placeholder={placeholder}
-        title={`Runs:\n${effective}`}
-        aria-describedby={id}
+        aria-describedby={runsId}
         spellCheck={false}
+        rows={3}
+        // Focused when the editor opens (see onToggle), not on every render.
+        data-autofocus={autoFocus || undefined}
       />
-      <span id={id} className="sr-only">
-        Combined with each site's filter. Runs: {effective}
-      </span>
     </label>
   );
 }
+
+/**
+ * Set when the editor loads a scope: App remounts these inputs for the new scope (see its `key`),
+ * and the new trigger takes focus so it isn't lost to the page.
+ */
+let refocusTrigger = false;
+
 const MODES: readonly Mode[] = ["jql", "epic", "seed"];
 const isMode = isOneOf(MODES);
 
@@ -69,10 +83,30 @@ export function ScopeInputs({
   const [key, setKey] = useState(scope.mode !== "jql" ? scope.key : "");
   const [depth, setDepth] = useState(scope.mode === "seed" ? scope.depth : 2);
   const [error, setError] = useState<string | null>(null);
+  const editor = useDetailsMenu();
+  const runsId = useId();
+  const presetsId = useId();
 
   useEffect(() => {
     if (!sites.some((s) => s.id === siteId)) setSiteId(sites[0]?.id ?? "");
   }, [sites, siteId]);
+
+  useEffect(() => {
+    if (!refocusTrigger) return;
+    refocusTrigger = false;
+    editor.ref.current?.querySelector("summary")?.focus();
+  }, [editor.ref]);
+
+  /** Loads from the editor: closes it, and its trigger keeps focus across the remount. */
+  const loadQuery = (q: Scope): void => {
+    refocusTrigger = editor.ref.current?.contains(document.activeElement) ?? false;
+    editor.close();
+    onApply(q);
+    // The same scope again doesn't remount: don't let the flag reach some later, unrelated mount.
+    requestAnimationFrame(() => {
+      refocusTrigger = false;
+    });
+  };
 
   const submit = (e: React.FormEvent): void => {
     e.preventDefault();
@@ -80,7 +114,7 @@ export function ScopeInputs({
       setError(null);
       saveQuery(jql.trim());
       saveGitHubQuery(github.trim());
-      onApply(withGitHub({ mode, jql: jql.trim() }, github));
+      loadQuery(withGitHub({ mode, jql: jql.trim() }, github));
       return;
     }
     if (!keySite) {
@@ -105,13 +139,18 @@ export function ScopeInputs({
   const hasGitHub = sites.some((s) => siteKindOf(s) === "github");
 
   /** What each selected site will actually run: its "Always filter by" AND the query box for its kind. */
-  const effective = sites
-    .map((s) => {
-      const q = siteKindOf(s) === "github" ? combineGitHubQuery(s.baseJql ?? "", github) : combineJql(s.baseJql ?? "", jql.trim());
-      return `${s.label}: ${q || "(nothing to load)"}`;
-    })
-    .join("\n");
-  const activePreset = JQL_PRESETS.find((p) => p.jql === jql.trim())?.id ?? "";
+  const effective = sites.map((s) => {
+    const q = siteKindOf(s) === "github" ? combineGitHubQuery(s.baseJql ?? "", github) : combineJql(s.baseJql ?? "", jql.trim());
+    return `${s.label}: ${q || "(nothing to load)"}`;
+  });
+  const summaryText = [hasJira || !hasGitHub ? jql.trim() : "", hasGitHub ? github.trim() : ""].filter(Boolean).join(" · ");
+
+  /** Puts back the query that's loaded and closes the editor, focus back on its button. */
+  const cancel = (): void => {
+    setJql(scope.mode === "jql" ? scope.jql : "");
+    setGitHub(scope.mode === "jql" ? (scope.github ?? "") : "");
+    editor.close();
+  };
 
   const choosePreset = (id: string): void => {
     if (!id) return;
@@ -119,7 +158,7 @@ export function ScopeInputs({
     setJql(q);
     saveQuery(q);
     saveGitHubQuery(github.trim()); // it runs too, so a restart brings back what was run
-    onApply(withGitHub({ mode: "jql", jql: q }, github));
+    loadQuery(withGitHub({ mode: "jql", jql: q }, github));
   };
 
   return (
@@ -139,49 +178,87 @@ export function ScopeInputs({
       </label>
 
       {mode === "jql" ? (
-        <>
-          {(hasJira || !hasGitHub) && (
-            <QueryField
-              id="query-desc"
-              label={hasGitHub ? "JQL" : "Query"}
-              value={jql}
-              onChange={setJql}
-              placeholder="JQL, e.g. statusCategory != Done"
-              effective={effective}
-            />
-          )}
-          {hasGitHub && (
-            <QueryField
-              id="github-query-desc"
-              label="GitHub search"
-              value={github}
-              onChange={setGitHub}
-              placeholder="e.g. is:open assignee:@me"
-              effective={effective}
-            />
-          )}
-          {hasJira && (
-            <label className="field">
-              <span className="sr-only">Query presets</span>
-              <select
-                value={activePreset}
-                onChange={(e) => {
-                  choosePreset(e.target.value);
-                }}
-                aria-label="Query presets"
-              >
-                <option value="" disabled>
-                  Presets…
-                </option>
-                {JQL_PRESETS.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-        </>
+        <details
+          className="query"
+          ref={editor.ref}
+          onToggle={(e) => {
+            if (e.currentTarget.open) e.currentTarget.querySelector<HTMLElement>("[data-autofocus]")?.focus();
+          }}
+          onKeyDown={(e) => {
+            const action = editorKeyAction({ key: e.key, shiftKey: e.shiftKey, isComposing: e.nativeEvent.isComposing });
+            if (action === "cancel" && editor.ref.current?.open) {
+              e.preventDefault();
+              cancel();
+            } else if (action === "load" && e.target instanceof HTMLTextAreaElement) {
+              e.preventDefault();
+              e.currentTarget.closest("form")?.requestSubmit();
+            }
+          }}
+        >
+          <summary className="query-trigger">
+            <span className="field-label">{hasGitHub && !hasJira ? "GitHub search" : "Query"}</span>
+            <span className={summaryText ? "query-text" : "query-text muted"}>{summaryText || "Everything the site filters allow"}</span>
+          </summary>
+          <div className="query-editor">
+            {(hasJira || !hasGitHub) && (
+              <QueryBox
+                label={hasGitHub ? "JQL" : "Query"}
+                value={jql}
+                onChange={setJql}
+                placeholder="JQL, e.g. statusCategory != Done"
+                runsId={runsId}
+                autoFocus
+              />
+            )}
+            {hasGitHub && (
+              <QueryBox
+                label="GitHub search"
+                value={github}
+                onChange={setGitHub}
+                placeholder="e.g. is:open assignee:@me"
+                runsId={runsId}
+                autoFocus={!hasJira}
+              />
+            )}
+            <div id={runsId} className="query-runs">
+              <span className="field-label">Combined with each site's filter, this runs:</span>
+              {effective.map((line) => (
+                <code key={line}>{line}</code>
+              ))}
+            </div>
+            {hasJira && (
+              <>
+                <span className="field-label" id={presetsId}>
+                  Presets
+                </span>
+                <ul className="query-presets" aria-labelledby={presetsId}>
+                  {JQL_PRESETS.map((p) => (
+                    <li key={p.id}>
+                      <button
+                        type="button"
+                        className="link-btn"
+                        aria-current={p.jql === jql.trim() || undefined}
+                        onClick={() => {
+                          choosePreset(p.id);
+                        }}
+                      >
+                        {p.label}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+            <div className="query-actions">
+              <button type="button" onClick={cancel}>
+                Cancel
+              </button>
+              <button type="submit" className="primary">
+                Load
+              </button>
+            </div>
+          </div>
+        </details>
       ) : (
         <>
           {sites.length > 1 && (

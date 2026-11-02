@@ -16,6 +16,7 @@ export function SidebarSection({
   badgeLabel,
   tone,
   defaultOpen = true,
+  empty = false,
   children,
 }: {
   id: string;
@@ -27,10 +28,29 @@ export function SidebarSection({
   /** Colors the title and badge for sections that need attention. */
   tone?: "warn";
   defaultOpen?: boolean;
+  /**
+   * Nothing to show: the section is one muted line ("Warnings · none") with no toggle or body.
+   * The remembered open/closed state is left alone, so the section comes back as it was.
+   */
+  empty?: boolean;
   children: ReactNode;
 }): ReactElement {
   const [open, setOpen] = usePersistentState(`domino.sidebar.${id}`, asBool, defaultOpen);
   const bodyId = useId();
+  if (empty) {
+    return (
+      <section className="sb-section empty" data-section={id}>
+        <h2 className="sb-heading">
+          <span className="sb-toggle">
+            <span className="sb-title">
+              {title}
+              <span className="sb-none"> · none</span>
+            </span>
+          </span>
+        </h2>
+      </section>
+    );
+  }
   return (
     <section className={`sb-section${tone ? ` tone-${tone}` : ""}`} data-section={id}>
       <h2 className="sb-heading">

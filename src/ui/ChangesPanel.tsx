@@ -1,5 +1,5 @@
 import type { ReactElement } from "react";
-import { CHANGE_LABEL, type ChangeKind, type Changes } from "../graph/changes";
+import { CHANGE_LABEL, hasChanges, type ChangeKind, type Changes } from "../graph/changes";
 import type { Highlight } from "../graph/insights";
 import type { GraphNode } from "../graph/types";
 
@@ -41,7 +41,7 @@ export function ChangesPanel({
       <p className="sb-meta" title={new Date(changes.since).toLocaleString()}>
         Marked seen {since(changes.since)}
       </p>
-      {total === 0 && changes.newLinks === 0 && changes.leftScope === 0 ? (
+      {!hasChanges(changes) ? (
         <p className="hint">Nothing has changed in this scope.</p>
       ) : (
         <>

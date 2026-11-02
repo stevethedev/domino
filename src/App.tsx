@@ -2,6 +2,7 @@ import { ReactFlowProvider } from "@xyflow/react";
 import { prefersReducedMotion } from "./lib/motion";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { collapseEpics, summaryUid } from "./graph/collapse";
+import { hasChanges } from "./graph/changes";
 import { computeInsights, isHighlightScope, type Highlight, type HighlightScope, type Insights } from "./graph/insights";
 import { myIssues } from "./graph/mine";
 import type { GraphNode } from "./graph/types";
@@ -699,13 +700,18 @@ function Shell(): ReactElement {
                 }}
               />
             </SidebarSection>
-            {graph.cycles.length > 0 && (
-              <SidebarSection id="warnings" title="Warnings" badge={graph.cycles.length} tone="warn">
+            {(loaded || graph.cycles.length > 0) && (
+              <SidebarSection id="warnings" title="Warnings" badge={graph.cycles.length} tone="warn" empty={graph.cycles.length === 0}>
                 <WarningsPanel graph={graph} onFocusNode={focusIssue} />
               </SidebarSection>
             )}
             {changes && (
-              <SidebarSection id="changes" title="Since you last looked" badge={changes.byIssue.size}>
+              <SidebarSection
+                id="changes"
+                title="Since you last looked"
+                badge={changes.byIssue.size}
+                empty={loaded && !hasChanges(changes)}
+              >
                 <ChangesPanel
                   changes={changes}
                   nodes={nodesByUid}
@@ -719,7 +725,12 @@ function Shell(): ReactElement {
                 />
               </SidebarSection>
             )}
-            <SidebarSection id="finish-first" title="Finish first" badge={insights.unblockers.length || undefined}>
+            <SidebarSection
+              id="finish-first"
+              title="Finish first"
+              badge={insights.unblockers.length || undefined}
+              empty={loaded && insights.unblockers.length === 0}
+            >
               <FinishFirst insights={insights} nodes={nodesByUid} onPick={focusIssue} />
             </SidebarSection>
             {releases.length > 0 && (
@@ -729,6 +740,7 @@ function Shell(): ReactElement {
                 badge={atRiskCount || undefined}
                 badgeLabel="tickets forecast to miss their release"
                 tone={atRiskCount ? "warn" : undefined}
+                empty={releases.every((s) => s.release.released)}
               >
                 <ReleasesPanel
                   releases={releases}
