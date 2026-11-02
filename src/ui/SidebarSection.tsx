@@ -48,13 +48,12 @@ export function SidebarSection({
   const emptyHeading = useRef<HTMLSpanElement>(null);
   const wasEmpty = useRef(empty);
   // Read while rendering, before this render's commit removes the body: did the section hold focus?
-  const hadFocus = useRef(false);
-  hadFocus.current = sectionEl.current?.contains(document.activeElement) ?? false;
+  const hadFocus = sectionEl.current?.contains(document.activeElement) ?? false;
   // Emptied under focus (e.g. "Mark as seen" removes its own button): the heading catches it.
   useLayoutEffect(() => {
     const becameEmpty = empty && !wasEmpty.current;
     wasEmpty.current = empty;
-    if (catchesLostFocus({ becameEmpty, hadFocus: hadFocus.current, focusOnPage: document.activeElement === document.body })) {
+    if (catchesLostFocus({ becameEmpty, hadFocus, focusOnPage: document.activeElement === document.body })) {
       emptyHeading.current?.focus();
     }
   }, [empty]);
