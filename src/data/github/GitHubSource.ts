@@ -82,14 +82,16 @@ export class GitHubSource implements JiraSource {
     return this.remember(siteId, await this.api.search(siteId, query, maxResults), request);
   }
 
+  /**
+   * Asks only for keys inside the filter. A ticket GitHub answers under another key (a renamed repo)
+   * comes back even when the new key is outside it, with the asked key as its alias: the loader puts
+   * it on the site that covers the new name, or drops it.
+   */
   async fetchByKeys(siteId: string, keys: readonly string[], filter?: string): Promise<RawIssue[]> {
-    const scope = repoScopeOf(filter);
-    const wanted = keys.filter((k) => inRepoScope(scope, k));
+    const wanted = keys.filter((k) => inRepoScope(repoScopeOf(filter), k));
     if (!wanted.length) return [];
     const request = this.nextRequest();
-    // By the key GitHub answers with too: a renamed repo can land outside the filter.
-    const found = (await this.api.issues(siteId, wanted)).filter((n) => inRepoScope(scope, keyOf(n) ?? ""));
-    return this.remember(siteId, found, request);
+    return this.remember(siteId, await this.api.issues(siteId, wanted), request);
   }
 
   /** The ticket as an issue (remembered by `node`). */

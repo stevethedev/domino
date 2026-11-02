@@ -1,6 +1,6 @@
 import { siteKindOf, type SiteConfig } from "../config/types";
 import type { RawIssue, RawLinkedIssue, RawPriority, RawSiteData, RawStatus, RawVersion } from "../data/jiraTypes";
-import { addressId, linkedSite } from "../data/siteScope";
+import { addressId, linkedSite, siblingsOf } from "../data/siteScope";
 import { ticketUrl } from "../data/ticketKey";
 import { getOrThrow } from "../lib/guards";
 import { findCycles } from "./cycles";
@@ -218,6 +218,20 @@ export function buildGraph({ sites, data }: BuildInput): Graph {
     }
   }
   const resolve = (uid: string): string => canonical.get(uid) ?? uid;
+  /**
+   * A key on a site, resolved like `resolve`, and also when another site on that address loaded the
+   * ticket it names (a renamed repo's old key, asked for by the site covering the old name): to the
+   * site's own copy of that ticket when it loaded one, else the other site's.
+   */
+  const resolveOnAddress = (siteId: string, key: string): string => {
+    const own = uidOf(siteId, key);
+    if (canonical.has(own)) return resolve(own);
+    const owner = siblingsOf(getOrThrow(siteById, siteId), sites).find((s) => canonical.has(uidOf(s.id, key)));
+    if (!owner) return own;
+    const theirs = resolve(uidOf(owner.id, key));
+    const ours = uidOf(siteId, getOrThrow(nodes, theirs).key);
+    return nodes.has(ours) ? ours : theirs;
+  };
   const addGhost = (g: GraphNode): void => {
     if (!nodes.has(g.uid) && !ghosts.has(g.uid) && !canonical.has(g.uid)) ghosts.set(g.uid, g);
   };
@@ -243,9 +257,10 @@ export function buildGraph({ sites, data }: BuildInput): Graph {
         if (!other) continue;
         // A key this site already has a ticket under (a renamed repo's old one) stays here, whatever its owner.
         const otherSite = canonical.has(uidOf(site.id, other.key)) ? site : linkedSite(site, other.key, sites);
-        const otherUid = resolve(uidOf(otherSite.id, other.key));
+        const otherUid = resolveOnAddress(otherSite.id, other.key);
         if (otherUid === self) continue; // a renamed ticket's link to its own old key
-        addGhost(ghostFromLinked(other, otherSite, ranks));
+        // A key that resolved to a ticket loaded under another one needs no placeholder.
+        if (otherUid === uidOf(otherSite.id, other.key)) addGhost(ghostFromLinked(other, otherSite, ranks));
         // outwardIssue on this issue means "this <outward> other".
         const [source, target] = link.outwardIssue ? [self, otherUid] : [otherUid, self];
         // GitHub link ids are built from keys, which can be a renamed repo's old ones: its edges are
@@ -271,7 +286,7 @@ export function buildGraph({ sites, data }: BuildInput): Graph {
         if (!match) continue;
         let otherUid: string;
         if (match.kind === "site") {
-          otherUid = resolve(uidOf(match.siteId, match.key));
+          otherUid = resolveOnAddress(match.siteId, match.key);
           const s = getOrThrow(siteById, match.siteId);
           addGhost(ghostUnknown(otherUid, s.id, s.label, match.key, ticketUrl(s, match.key), rl.object.title, s.color));
         } else {

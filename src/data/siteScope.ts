@@ -71,7 +71,7 @@ export function siteForKey<S extends Scoped>(sites: readonly S[], key: string, f
 }
 
 /** The sites sharing `site`'s address and kind, `site` among them. */
-const siblingsOf = (site: SiteConfig, sites: readonly SiteConfig[]): readonly SiteConfig[] =>
+export const siblingsOf = (site: SiteConfig, sites: readonly SiteConfig[]): readonly SiteConfig[] =>
   sites.filter((s) => sameAddress(s, site) && siteKindOf(s) === siteKindOf(site));
 
 /** The site a ticket linked from one on `from` belongs to: `from`, or the site on its address that covers it. */
