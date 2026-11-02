@@ -158,11 +158,10 @@ export function Canvas({
   const onFocusCard = useCallback(
     (uid: string): void => {
       setFocusedIn({ scopeKey, uid });
-      // Focused from code (sidebar or warnings navigation): the view moves to the card, away from the part noticed.
+      // Focused from code (navigation): `useFocusNode` already pans there, away from the part noticed.
+      // Tabbed to: keep the zoom and pan only when the card is off screen.
       if (focusingFromCode) leaveFirstView();
-      // Tabbed to: keep the zoom and pan only when the card is off screen. (Focus moved by
-      // `useFocusNode` comes with its own pan.)
-      if (!focusingFromCode) focusNode(uid, false, true);
+      else focusNode(uid, false, true);
     },
     [focusNode, scopeKey, leaveFirstView],
   );
@@ -231,6 +230,8 @@ export function Canvas({
         // when cards come back after filters hid them all. Never zoom past 100%: small graphs stay
         // card-sized. Too big to read whole, it fits a part worth reading first (see firstView).
         const nothingDrawn = l.positions.size === 0;
+        // A pending identity re-fit belongs to the layout it was picked for, not this one.
+        identityRefit.current = null;
         if (l.positions.size > 0 && (fitKey.current !== fittedKey.current || wasEmpty.current)) {
           fittedKey.current = fitKey.current;
           const fit = (): void => {
