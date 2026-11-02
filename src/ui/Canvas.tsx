@@ -159,9 +159,8 @@ export function Canvas({
     (uid: string): void => {
       setFocusedIn({ scopeKey, uid });
       // Focused from code (navigation): `useFocusNode` already pans there, away from the part noticed.
-      // Tabbed to: keep the zoom and pan only when the card is off screen.
-      if (focusingFromCode) leaveFirstView();
-      else focusNode(uid, false, true);
+      // Tabbed to: keep the zoom and pan only when the card is off screen; a pan leaves the first view.
+      if (focusingFromCode || focusNode(uid, false, true) === "panned") leaveFirstView();
     },
     [focusNode, scopeKey, leaveFirstView],
   );
@@ -230,35 +229,37 @@ export function Canvas({
         // when cards come back after filters hid them all. Never zoom past 100%: small graphs stay
         // card-sized. Too big to read whole, it fits a part worth reading first (see firstView).
         const nothingDrawn = l.positions.size === 0;
-        // A pending identity re-fit belongs to the layout it was picked for, not this one.
-        identityRefit.current = null;
-        if (l.positions.size > 0 && (fitKey.current !== fittedKey.current || wasEmpty.current)) {
+        /** Fits the first view of this layout; kept as the identity re-fit while identities are still unknown. */
+        const fitThisLayout = (): void => {
+          const duration = prefersReducedMotion() ? 0 : 250;
+          const { width, height } = store.getState();
+          const mine = fitInsights.current.mine.assigned;
+          const view = firstView({
+            bounds: rf.getNodesBounds(rf.getNodes()),
+            boundsOf: (uids) => rf.getNodesBounds([...uids]),
+            pane: { width, height },
+            drawn: new Set(l.positions.keys()),
+            edges: vEdges,
+            mine,
+            unblockers: fitInsights.current.unblockers,
+            downstream: fitInsights.current.downstream,
+            keyOf: (uid) => vNodes.find((n) => n.uid === uid)?.key ?? uid,
+          });
+          identityRefit.current = awaitsIdentities(view, mine) ? fitThisLayout : null;
+          setPartNotice(view.kind === "all" ? null : view.notice);
+          if (view.kind === "all") void rf.fitView({ padding: FIT_PADDING, maxZoom: 1, duration });
+          else if (view.kind === "corner") void rf.setViewport(view.viewport, { duration });
+          else {
+            const nodes = view.uids.map((id) => ({ id }));
+            void rf.fitView({ nodes, padding: FIT_PADDING, minZoom: MIN_READABLE_ZOOM, maxZoom: 1, duration });
+          }
+        };
+        if (!nothingDrawn && (fitKey.current !== fittedKey.current || wasEmpty.current)) {
           fittedKey.current = fitKey.current;
-          const fit = (): void => {
-            const duration = prefersReducedMotion() ? 0 : 250;
-            const { width, height } = store.getState();
-            const mine = fitInsights.current.mine.assigned;
-            const view = firstView({
-              bounds: rf.getNodesBounds(rf.getNodes()),
-              boundsOf: (uids) => rf.getNodesBounds([...uids]),
-              pane: { width, height },
-              drawn: new Set(l.positions.keys()),
-              edges: vEdges,
-              mine,
-              unblockers: fitInsights.current.unblockers,
-              downstream: fitInsights.current.downstream,
-              keyOf: (uid) => vNodes.find((n) => n.uid === uid)?.key ?? uid,
-            });
-            identityRefit.current = awaitsIdentities(view, mine) ? fit : null;
-            setPartNotice(view.kind === "all" ? null : view.notice);
-            if (view.kind === "all") void rf.fitView({ padding: FIT_PADDING, maxZoom: 1, duration });
-            else if (view.kind === "corner") void rf.setViewport(view.viewport, { duration });
-            else {
-              const nodes = view.uids.map((id) => ({ id }));
-              void rf.fitView({ nodes, padding: FIT_PADDING, minZoom: MIN_READABLE_ZOOM, maxZoom: 1, duration });
-            }
-          };
-          requestAnimationFrame(fit);
+          requestAnimationFrame(fitThisLayout);
+        } else if (identityRefit.current) {
+          // Still waiting on identities: the re-fit follows the latest layout. (An empty one is fitted afresh when cards return.)
+          identityRefit.current = nothingDrawn ? null : fitThisLayout;
         }
         wasEmpty.current = nothingDrawn;
       },
@@ -564,7 +565,10 @@ export function Canvas({
 /** Set while `useFocusNode` focuses a card itself (focus events fire synchronously inside `focus()`). */
 let focusingFromCode = false;
 
-export function useFocusNode(): (uid: string, moveFocus?: boolean, keepZoom?: boolean) => boolean {
+/** Whether `useFocusNode` moved the view to the card, found it already on screen, or found no card rendered yet. */
+export type FocusResult = "panned" | "visible" | false;
+
+export function useFocusNode(): (uid: string, moveFocus?: boolean, keepZoom?: boolean) => FocusResult {
   const rf = useReactFlow();
   /**
    * Centres the node at a readable zoom (and focuses it unless `moveFocus` is false). With
@@ -572,7 +576,7 @@ export function useFocusNode(): (uid: string, moveFocus?: boolean, keepZoom?: bo
    * Returns false when the node isn't rendered yet.
    */
   return useCallback(
-    (uid: string, moveFocus = true, keepZoom = false): boolean => {
+    (uid: string, moveFocus = true, keepZoom = false): FocusResult => {
       const n = rf.getInternalNode(uid);
       if (!n) return false;
       const { x, y } = n.internals.positionAbsolute;
@@ -594,15 +598,15 @@ export function useFocusNode(): (uid: string, moveFocus?: boolean, keepZoom?: bo
       // Centred in what the drawer leaves visible, not under it.
       const zoom = keepZoom ? rf.getZoom() : 1.1;
       const shift = pane && right !== undefined ? visibleCentreShift(pane.right, right, zoom, pane.left, width * zoom) : 0;
-      if (!keepZoom) void rf.setCenter(x + width / 2 + shift, y + height / 2, { zoom, duration: 300 });
-      else if (!onScreen) void rf.setCenter(x + width / 2 + shift, y + height / 2, { zoom, duration: 200 });
+      const pans = !keepZoom || !onScreen;
+      if (pans) void rf.setCenter(x + width / 2 + shift, y + height / 2, { zoom, duration: keepZoom ? 200 : 300 });
       if (moveFocus) {
         // The view is already moving to it: its onFocus mustn't start a second pan.
         focusingFromCode = true;
         document.querySelector<HTMLElement>(`[data-uid="${CSS.escape(uid)}"]`)?.focus({ preventScroll: true });
         focusingFromCode = false;
       }
-      return true;
+      return pans ? "panned" : "visible";
     },
     [rf],
   );
