@@ -21,6 +21,10 @@ describe("SidebarSection", () => {
     expect(out).toMatch(/<section class="sb-section empty"/);
   });
 
+  it("with nothing to show, its heading can still take focus (for focus lost when its body goes away)", () => {
+    expect(section({ empty: true })).toMatch(/<span class="sb-toggle" tabindex="-1"/);
+  });
+
   it("doesn't color an empty section as needing attention", () => {
     expect(section({ empty: true, tone: "warn" })).not.toContain("tone-warn");
   });

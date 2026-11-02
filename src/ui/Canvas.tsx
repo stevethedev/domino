@@ -267,6 +267,9 @@ export function Canvas({
         } else if (identityRefit.current) {
           // Still waiting on identities: the re-fit follows the latest layout. (An empty one is fitted afresh when cards return.)
           identityRefit.current = nothingDrawn ? null : fitThisLayout;
+        } else {
+          // Cards moved under a view that isn't re-fitted: the notice no longer describes it.
+          leaveFirstView();
         }
         wasEmpty.current = nothingDrawn;
       },
@@ -278,7 +281,7 @@ export function Canvas({
     return (): void => {
       cancelled = true;
     };
-  }, [vNodes, vEdges, graph.brokenEdgeIds, laneOf, layoutOrder, rf, store]);
+  }, [vNodes, vEdges, graph.brokenEdgeIds, laneOf, layoutOrder, rf, store, leaveFirstView]);
 
   // Identities load after the tickets: a first view picked without them is picked again, once.
   const assigned = insights.mine.assigned;

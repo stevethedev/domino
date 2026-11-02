@@ -1,4 +1,4 @@
-import { useId, type ReactElement, type ReactNode } from "react";
+import { useId, useLayoutEffect, useRef, type ReactElement, type ReactNode } from "react";
 import { usePersistentState } from "../state/storage";
 
 const asBool = (raw: unknown): boolean | undefined => (typeof raw === "boolean" ? raw : undefined);
@@ -37,11 +37,19 @@ export function SidebarSection({
 }): ReactElement {
   const [open, setOpen] = usePersistentState(`domino.sidebar.${id}`, asBool, defaultOpen);
   const bodyId = useId();
+  const emptyHeading = useRef<HTMLSpanElement>(null);
+  const wasEmpty = useRef(empty);
+  // Emptied while focus was in its body (e.g. "Mark as seen" removes its own button): focus falls
+  // to the page, so the heading catches it. Focus held anywhere else stays put.
+  useLayoutEffect(() => {
+    if (empty && !wasEmpty.current && document.activeElement === document.body) emptyHeading.current?.focus();
+    wasEmpty.current = empty;
+  }, [empty]);
   if (empty) {
     return (
       <section className="sb-section empty" data-section={id}>
         <h2 className="sb-heading">
-          <span className="sb-toggle">
+          <span className="sb-toggle" tabIndex={-1} ref={emptyHeading}>
             <span className="sb-title">
               {title}
               <span className="sb-none"> · none</span>
