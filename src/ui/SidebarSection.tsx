@@ -4,6 +4,13 @@ import { usePersistentState } from "../state/storage";
 const asBool = (raw: unknown): boolean | undefined => (typeof raw === "boolean" ? raw : undefined);
 
 /**
+ * A section that just emptied catches focus only when its own removed body dropped it: it had
+ * focus before, and focus has fallen to the page. Never on a first empty render nobody was in.
+ */
+export const catchesLostFocus = (s: Readonly<{ becameEmpty: boolean; hadFocus: boolean; focusOnPage: boolean }>): boolean =>
+  s.becameEmpty && s.hadFocus && s.focusOnPage;
+
+/**
  * One collapsible sidebar section, using the disclosure pattern: a real <h2> wrapping a toggle
  * button (aria-expanded / aria-controls), so the heading stays in screen readers' heading
  * navigation. Open/closed is remembered per section; the body stays mounted while collapsed.
@@ -37,17 +44,23 @@ export function SidebarSection({
 }): ReactElement {
   const [open, setOpen] = usePersistentState(`domino.sidebar.${id}`, asBool, defaultOpen);
   const bodyId = useId();
+  const sectionEl = useRef<HTMLElement>(null);
   const emptyHeading = useRef<HTMLSpanElement>(null);
   const wasEmpty = useRef(empty);
-  // Emptied while focus was in its body (e.g. "Mark as seen" removes its own button): focus falls
-  // to the page, so the heading catches it. Focus held anywhere else stays put.
+  // Read while rendering, before this render's commit removes the body: did the section hold focus?
+  const hadFocus = useRef(false);
+  hadFocus.current = sectionEl.current?.contains(document.activeElement) ?? false;
+  // Emptied under focus (e.g. "Mark as seen" removes its own button): the heading catches it.
   useLayoutEffect(() => {
-    if (empty && !wasEmpty.current && document.activeElement === document.body) emptyHeading.current?.focus();
+    const becameEmpty = empty && !wasEmpty.current;
     wasEmpty.current = empty;
+    if (catchesLostFocus({ becameEmpty, hadFocus: hadFocus.current, focusOnPage: document.activeElement === document.body })) {
+      emptyHeading.current?.focus();
+    }
   }, [empty]);
   if (empty) {
     return (
-      <section className="sb-section empty" data-section={id}>
+      <section className="sb-section empty" data-section={id} ref={sectionEl}>
         <h2 className="sb-heading">
           <span className="sb-toggle" tabIndex={-1} ref={emptyHeading}>
             <span className="sb-title">
@@ -60,7 +73,7 @@ export function SidebarSection({
     );
   }
   return (
-    <section className={`sb-section${tone ? ` tone-${tone}` : ""}`} data-section={id}>
+    <section className={`sb-section${tone ? ` tone-${tone}` : ""}`} data-section={id} ref={sectionEl}>
       <h2 className="sb-heading">
         <button
           type="button"
