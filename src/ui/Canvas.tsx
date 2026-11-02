@@ -30,7 +30,7 @@ import { isInCycle } from "../graph/cycles";
 import { visibleCentreShift } from "./drawerOffset";
 import { fitKeyOf } from "./fitKey";
 import { focusFirst } from "./focusFirst";
-import { FIT_PADDING, firstView, MIN_READABLE_ZOOM } from "./firstView";
+import { awaitsIdentities, FIT_PADDING, firstView, MIN_READABLE_ZOOM } from "./firstView";
 
 /** How long cards may slide after a sort change; longer than `--duration-base` so the slide finishes. */
 const RESORT_MS = 400;
@@ -147,15 +147,24 @@ export function Canvas({
   // Per scope, so a uid that comes back in another scope doesn't inherit the stop.
   const [focusedIn, setFocusedIn] = useState<{ scopeKey: string | null; uid: string } | null>(null);
   const lastFocused = focusedIn?.scopeKey === scopeKey ? focusedIn.uid : null;
+  /** Re-fits the first view once identities arrive, if it was picked without them and the user hasn't moved since. */
+  const identityRefit = useRef<(() => void) | null>(null);
+  /** The view moved away from the first view: its notice no longer describes it, and it's never re-fitted. */
+  const leaveFirstView = useCallback((): void => {
+    identityRefit.current = null;
+    setPartNotice(null);
+  }, []);
   const focusNode = useFocusNode();
   const onFocusCard = useCallback(
     (uid: string): void => {
       setFocusedIn({ scopeKey, uid });
+      // Focused from code (sidebar or warnings navigation): the view moves to the card, away from the part noticed.
+      if (focusingFromCode) leaveFirstView();
       // Tabbed to: keep the zoom and pan only when the card is off screen. (Focus moved by
       // `useFocusNode` comes with its own pan.)
       if (!focusingFromCode) focusNode(uid, false, true);
     },
-    [focusNode, scopeKey],
+    [focusNode, scopeKey, leaveFirstView],
   );
   // Cards stay where the last finished layout put them until the next one is ready, so new data
   // never blanks the canvas while the layout worker runs.
@@ -224,18 +233,22 @@ export function Canvas({
         const nothingDrawn = l.positions.size === 0;
         if (l.positions.size > 0 && (fitKey.current !== fittedKey.current || wasEmpty.current)) {
           fittedKey.current = fitKey.current;
-          requestAnimationFrame(() => {
+          const fit = (): void => {
             const duration = prefersReducedMotion() ? 0 : 250;
             const { width, height } = store.getState();
+            const mine = fitInsights.current.mine.assigned;
             const view = firstView({
               bounds: rf.getNodesBounds(rf.getNodes()),
+              boundsOf: (uids) => rf.getNodesBounds([...uids]),
               pane: { width, height },
               drawn: new Set(l.positions.keys()),
               edges: vEdges,
-              mine: fitInsights.current.mine.assigned,
+              mine,
               unblockers: fitInsights.current.unblockers,
+              downstream: fitInsights.current.downstream,
               keyOf: (uid) => vNodes.find((n) => n.uid === uid)?.key ?? uid,
             });
+            identityRefit.current = awaitsIdentities(view, mine) ? fit : null;
             setPartNotice(view.kind === "all" ? null : view.notice);
             if (view.kind === "all") void rf.fitView({ padding: FIT_PADDING, maxZoom: 1, duration });
             else if (view.kind === "corner") void rf.setViewport(view.viewport, { duration });
@@ -243,7 +256,8 @@ export function Canvas({
               const nodes = view.uids.map((id) => ({ id }));
               void rf.fitView({ nodes, padding: FIT_PADDING, minZoom: MIN_READABLE_ZOOM, maxZoom: 1, duration });
             }
-          });
+          };
+          requestAnimationFrame(fit);
         }
         wasEmpty.current = nothingDrawn;
       },
@@ -256,6 +270,15 @@ export function Canvas({
       cancelled = true;
     };
   }, [vNodes, vEdges, graph.brokenEdgeIds, laneOf, layoutOrder, rf, store]);
+
+  // Identities load after the tickets: a first view picked without them is picked again, once.
+  const assigned = insights.mine.assigned;
+  useEffect(() => {
+    const refit = identityRefit.current;
+    if (!refit || assigned.size === 0) return;
+    identityRefit.current = null;
+    requestAnimationFrame(refit);
+  }, [assigned]);
 
   // Highlights are computed on loaded issues; folded epics light up the summary each issue is shown as.
   const emphasized = useMemo(() => {
@@ -475,9 +498,9 @@ export function Canvas({
         zoomOnScroll={!stale}
         zoomOnPinch={!stale}
         zoomOnDoubleClick={!stale}
-        // Panned or zoomed by the user (programmatic moves have no event): the notice no longer describes the view.
+        // Panned or zoomed by the user (programmatic moves have no event; Controls and navigation clear it themselves).
         onMoveStart={(event) => {
-          if (event) setPartNotice(null);
+          if (event) leaveFirstView();
         }}
       >
         <Background gap={24} size={1} />
@@ -500,10 +523,12 @@ export function Canvas({
                       type="button"
                       className="link-btn"
                       onClick={() => {
-                        setPartNotice(null);
+                        leaveFirstView();
                         void rf.fitView({ padding: FIT_PADDING, maxZoom: 1, duration: prefersReducedMotion() ? 0 : 250 });
-                        // The button is gone: carry on from the graph.
+                        // The button is gone: carry on from the graph, without a pan to the card fighting the fit.
+                        focusingFromCode = true;
                         focusFirst('.canvas [data-uid][tabindex="0"]');
+                        focusingFromCode = false;
                       }}
                     >
                       Show all
@@ -512,7 +537,13 @@ export function Canvas({
                 )}
               </p>
             </Panel>
-            <Controls showInteractive={false} position="bottom-left" />
+            <Controls
+              showInteractive={false}
+              position="bottom-left"
+              onZoomIn={leaveFirstView}
+              onZoomOut={leaveFirstView}
+              onFitView={leaveFirstView}
+            />
             <MiniMap<FlowNode>
               pannable
               style={{ width: 170, height: 110 }}
