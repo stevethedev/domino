@@ -53,7 +53,7 @@ Shipped as planned, with these differences:
 ## 4. Messages and errors
 
 - **Where each kind of message goes.**
-  - **Toast:** confirmations of something you just did, often with Undo. It stays at least 6s and pauses on hover or focus.
+  - **Toast:** confirmations of something you just did, often with Undo. A plain confirmation stays at least 6s and pauses on hover or focus. A toast with an action, such as Undo, stays until it's dismissed, acted on or replaced by the next toast, so keyboard and screen-reader users can always reach it (WCAG 2.2.1). (`src/App.tsx:532-540`)
   - **Banner:** errors, and anything still true. It stays until fixed or dismissed.
   - **Inline:** field validation, with one announcement per submit instead of a `role="alert"` on every field.
   - **Confirm:** one component, inline, focus moved to Cancel, `role="group"` with a label. It replaces the misused `role="alertdialog"`.
