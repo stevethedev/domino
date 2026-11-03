@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { SiteConfig } from "../../config/types";
 import type { Scope } from "../../data/MultiSiteLoader";
-import { editorKeyAction, editorShift, ScopeInputs } from "../ScopeInputs";
+import { editorKeyAction, editorShift, refocusAfterLoad, ScopeInputs } from "../ScopeInputs";
 
 const jira = (id: string, baseJql?: string): SiteConfig => ({
   id,
@@ -105,5 +105,19 @@ describe("editorShift", () => {
 
   it("moves an editor that opens past the top bar's left edge (the bar wrapped) back inside it", () => {
     expect(editorShift({ editorLeft: -111, minLeft: 14 })).toBe(125);
+  });
+});
+
+describe("refocusAfterLoad", () => {
+  it("gives focus back to the editor's trigger when the editor loaded the scope", () => {
+    expect(refocusAfterLoad({ inEditor: true, inForm: true })).toBe("trigger");
+  });
+
+  it("gives focus to Load when the rest of the form loaded it (Epic / Seed, or Load with the editor closed)", () => {
+    expect(refocusAfterLoad({ inEditor: false, inForm: true })).toBe("load");
+  });
+
+  it("leaves focus alone when it was outside the form", () => {
+    expect(refocusAfterLoad({ inEditor: false, inForm: false })).toBeNull();
   });
 });

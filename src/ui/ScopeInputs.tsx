@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type ReactElement } from "react";
+import { useEffect, useId, useRef, useState, type ReactElement } from "react";
 import { siteKindOf, type SiteConfig } from "../config/types";
 import { combineGitHubQuery } from "../data/github/query";
 import { combineJql, JQL_PRESETS, presetById } from "../data/jqlPresets";
@@ -66,11 +66,15 @@ function QueryBox({
   );
 }
 
+/** Focus after these inputs load a scope: back on the editor's trigger if the editor loaded it, else on Load. */
+export const refocusAfterLoad = (f: Readonly<{ inEditor: boolean; inForm: boolean }>): "trigger" | "load" | null =>
+  f.inEditor ? "trigger" : f.inForm ? "load" : null;
+
 /**
- * Set when the editor loads a scope: App remounts these inputs for the new scope (see its `key`),
- * and the new trigger takes focus so it isn't lost to the page.
+ * Set when these inputs load a scope: App remounts them for the new scope (see its `key`), and the
+ * new mount puts focus back (see refocusAfterLoad) so it isn't lost to the page.
  */
-let refocusTrigger = false;
+let refocusOnMount: "trigger" | "load" | null = null;
 
 const MODES: readonly Mode[] = ["jql", "epic", "seed"];
 const isMode = isOneOf(MODES);
@@ -99,21 +103,34 @@ export function ScopeInputs({
     if (!sites.some((s) => s.id === siteId)) setSiteId(sites[0]?.id ?? "");
   }, [sites, siteId]);
 
+  const form = useRef<HTMLFormElement>(null);
+  const loadButton = useRef<HTMLButtonElement>(null);
+
   useEffect(() => {
-    if (!refocusTrigger) return;
-    refocusTrigger = false;
-    editor.ref.current?.querySelector("summary")?.focus();
+    const target = refocusOnMount;
+    if (!target) return;
+    refocusOnMount = null;
+    (target === "trigger" ? editor.ref.current?.querySelector("summary") : loadButton.current)?.focus();
   }, [editor.ref]);
 
-  /** Loads from the editor: closes it, and its trigger keeps focus across the remount. */
-  const loadQuery = (q: Scope): void => {
-    refocusTrigger = editor.ref.current?.contains(document.activeElement) ?? false;
-    editor.close();
+  /** Applies a scope; focus survives the remount it causes (see refocusOnMount). */
+  const apply = (q: Scope): void => {
+    const active = document.activeElement;
+    refocusOnMount = refocusAfterLoad({
+      inEditor: editor.ref.current?.contains(active) ?? false,
+      inForm: form.current?.contains(active) ?? false,
+    });
     onApply(q);
     // The same scope again doesn't remount: don't let the flag reach some later, unrelated mount.
     requestAnimationFrame(() => {
-      refocusTrigger = false;
+      refocusOnMount = null;
     });
+  };
+
+  /** Loads from the editor: closes it, and focus survives the remount. */
+  const loadQuery = (q: Scope): void => {
+    editor.close();
+    apply(q);
   };
 
   const submit = (e: React.FormEvent): void => {
@@ -139,7 +156,7 @@ export function ScopeInputs({
       return;
     }
     setError(null);
-    onApply(mode === "epic" ? { mode, siteId, key: k } : { mode, siteId, key: k, depth });
+    apply(mode === "epic" ? { mode, siteId, key: k } : { mode, siteId, key: k, depth });
   };
 
   const keySite = sites.find((s) => s.id === siteId);
@@ -170,7 +187,7 @@ export function ScopeInputs({
   };
 
   return (
-    <form className="scope" onSubmit={submit} aria-label="Scope">
+    <form className="scope" ref={form} onSubmit={submit} aria-label="Scope">
       <label className="field">
         <span className="field-label">Mode</span>
         <select
@@ -321,7 +338,7 @@ export function ScopeInputs({
           )}
         </>
       )}
-      <button type="submit" className="primary">
+      <button type="submit" className="primary" ref={loadButton}>
         Load
       </button>
       {error && (
