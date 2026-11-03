@@ -81,7 +81,12 @@ Shipped as planned, with these differences:
 
 ## 6. Scaling and responsiveness
 
-- **Webview zoom, keeping px tokens.** Set `zoomHotkeysEnabled` (Cmd/Ctrl + / − / 0), add View → Zoom In / Zoom Out / Actual Size, and remember the level. Webviews ignore the OS text size, so converting to rem would barely help. (`src-tauri/tauri.conf.json`)
+- **Webview zoom, keeping px tokens.** Set `zoomHotkeysEnabled` for Cmd/Ctrl + / −, add View → Zoom In / Zoom Out / Actual Size, and remember the level. Webviews ignore the OS text size, so converting to rem would barely help.
+  - On macOS and Linux the hotkeys are a Tauri polyfill that needs the `core:webview:allow-set-webview-zoom` permission. This step grants it: without it, zoom does nothing there.
+  - The polyfill has no reset key, so Actual Size and Cmd/Ctrl+0 come from the View menu calling `setZoom(1)`.
+
+  (`src-tauri/tauri.conf.json`, `src-tauri/capabilities/default.json`)
+
 - **Layout numbers come from one source.** TS writes `--label-w`, `--row-h`, `--lane-h`, `--card-w` and `--card-h` to the root. The CSS copies go away. (`src/ui/timeline/timelineLayout.ts:13`, `src/graph/layout.ts:6-7`, `src/styles/timeline.css:50, 61, 69, 254, 291, 504`, `src/styles/graph.css:5-6`)
 - **Three tiers via container queries on `.app`.** It holds the top bar, the workspace and Settings, so one container drives all of them. It spans the window. At 200% zoom, the 900px minimum window is effectively 450px wide.
 
