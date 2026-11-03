@@ -1188,6 +1188,10 @@ kbd {
 .canvas.has-detail .react-flow__panel.right {
   right: var(--detail-w);
 }
+/* The part-notice centers in what the drawer leaves visible, so Export (moved clear above) doesn't cover its Show all. */
+.canvas.has-detail .react-flow__panel.top.center {
+  left: calc(50% - var(--detail-w) / 2);
+}
 .canvas.has-detail .tl-toolbar {
   padding-right: calc(var(--detail-w) + var(--space-3));
 }

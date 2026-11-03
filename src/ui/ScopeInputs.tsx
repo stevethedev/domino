@@ -24,6 +24,13 @@ export function editorKeyAction(e: Readonly<{ key: string; shiftKey: boolean; is
   return null;
 }
 
+/**
+ * How far right to move the opened query editor so it starts inside the top bar. It grows leftward
+ * from the trigger, which only fits while the trigger sits far right; when the top bar wraps, the
+ * trigger starts a row and the editor would run off the left edge.
+ */
+export const editorShift = (e: Readonly<{ editorLeft: number; minLeft: number }>): number => Math.max(0, e.minLeft - e.editorLeft);
+
 /** One search box in the query editor, described by what every selected site will run. */
 function QueryBox({
   label,
@@ -183,7 +190,16 @@ export function ScopeInputs({
           className="query"
           ref={editor.ref}
           onToggle={(e) => {
-            if (e.currentTarget.open) e.currentTarget.querySelector<HTMLElement>("[data-autofocus]")?.focus();
+            if (!e.currentTarget.open) return;
+            const panel = e.currentTarget.querySelector<HTMLElement>(".query-editor");
+            const bar = e.currentTarget.closest(".topbar");
+            if (panel && bar) {
+              panel.style.translate = "";
+              const minLeft = bar.getBoundingClientRect().left + parseFloat(getComputedStyle(bar).paddingLeft);
+              const shift = editorShift({ editorLeft: panel.getBoundingClientRect().left, minLeft });
+              if (shift > 0) panel.style.translate = `${shift}px`;
+            }
+            e.currentTarget.querySelector<HTMLElement>("[data-autofocus]")?.focus();
           }}
           onKeyDown={(e) => {
             const action = editorKeyAction({ key: e.key, shiftKey: e.shiftKey, isComposing: e.nativeEvent.isComposing });

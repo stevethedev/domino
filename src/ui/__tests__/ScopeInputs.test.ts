@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { SiteConfig } from "../../config/types";
 import type { Scope } from "../../data/MultiSiteLoader";
-import { editorKeyAction, ScopeInputs } from "../ScopeInputs";
+import { editorKeyAction, editorShift, ScopeInputs } from "../ScopeInputs";
 
 const jira = (id: string, baseJql?: string): SiteConfig => ({
   id,
@@ -95,5 +95,15 @@ describe("editorKeyAction", () => {
   it("leaves Enter and Esc to the input method while it composes text (Esc closes its candidates)", () => {
     expect(key("Enter", { isComposing: true })).toBeNull();
     expect(key("Escape", { isComposing: true })).toBeNull();
+  });
+});
+
+describe("editorShift", () => {
+  it("leaves an editor that opens inside the top bar where it is", () => {
+    expect(editorShift({ editorLeft: 161, minLeft: 14 })).toBe(0);
+  });
+
+  it("moves an editor that opens past the top bar's left edge (the bar wrapped) back inside it", () => {
+    expect(editorShift({ editorLeft: -111, minLeft: 14 })).toBe(125);
   });
 });
