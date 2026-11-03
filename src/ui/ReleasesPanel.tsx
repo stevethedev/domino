@@ -48,17 +48,16 @@ export function ReleasesPanel({
                 {release.name}
                 {site && <span className="muted"> · {site}</span>}
               </span>
-              <span className="release-when">
-                {release.date ? (
-                  <>
-                    {fmtDay(release.date)} <span className="muted">({whenText(release.date, today)})</span>
-                  </>
-                ) : (
-                  <span className="muted">No release date</span>
-                )}
-              </span>
             </div>
             <p className="release-status">
+              {release.date ? (
+                <>
+                  {fmtDay(release.date)} <span className="muted">· {whenText(release.date, today)}</span>
+                </>
+              ) : (
+                <span className="muted">No release date</span>
+              )}
+              {" · "}
               {status}
               {s.forecastDone && release.date && s.atRisk.length > 0 && (
                 <span className="muted"> · forecast done {fmtDay(s.forecastDone)}</span>

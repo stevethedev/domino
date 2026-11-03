@@ -1,7 +1,15 @@
-import { useId, type ReactElement, type ReactNode } from "react";
+import { useId, useLayoutEffect, useRef, type ReactElement, type ReactNode } from "react";
 import { usePersistentState } from "../state/storage";
 
 const asBool = (raw: unknown): boolean | undefined => (typeof raw === "boolean" ? raw : undefined);
+
+/**
+ * A section that just emptied or filled swaps its heading (and body) for another, and catches
+ * focus only when that swap dropped it: it had focus before, and focus has fallen to the page.
+ * Never on a first render nobody was in.
+ */
+export const catchesLostFocus = (s: Readonly<{ wasEmpty: boolean; empty: boolean; hadFocus: boolean; focusOnPage: boolean }>): boolean =>
+  s.wasEmpty !== s.empty && s.hadFocus && s.focusOnPage;
 
 /**
  * One collapsible sidebar section, using the disclosure pattern: a real <h2> wrapping a toggle
@@ -16,6 +24,7 @@ export function SidebarSection({
   badgeLabel,
   tone,
   defaultOpen = true,
+  empty = false,
   children,
 }: {
   id: string;
@@ -27,16 +36,54 @@ export function SidebarSection({
   /** Colors the title and badge for sections that need attention. */
   tone?: "warn";
   defaultOpen?: boolean;
+  /**
+   * Nothing to show: the section is one muted line ("Warnings · none") with no toggle or body.
+   * The remembered open/closed state is left alone, so the section comes back as it was.
+   */
+  empty?: boolean;
   children: ReactNode;
 }): ReactElement {
   const [open, setOpen] = usePersistentState(`domino.sidebar.${id}`, asBool, defaultOpen);
   const bodyId = useId();
+  const sectionEl = useRef<HTMLElement>(null);
+  const emptyHeading = useRef<HTMLSpanElement>(null);
+  const toggle = useRef<HTMLButtonElement>(null);
+  const wasEmpty = useRef(empty);
+  // Read while rendering, before this render's commit removes the body: did the section hold focus?
+  const hadFocus = sectionEl.current?.contains(document.activeElement) ?? false;
+  // Emptied or filled under focus (e.g. "Mark as seen" removes its own button; a refresh brings
+  // changes back under the empty heading it focused): the heading now shown catches it.
+  useLayoutEffect(() => {
+    const catches = catchesLostFocus({
+      wasEmpty: wasEmpty.current,
+      empty,
+      hadFocus,
+      focusOnPage: document.activeElement === document.body,
+    });
+    wasEmpty.current = empty;
+    if (catches) (empty ? emptyHeading : toggle).current?.focus();
+  }, [empty]);
+  if (empty) {
+    return (
+      <section className="sb-section empty" data-section={id} ref={sectionEl}>
+        <h2 className="sb-heading">
+          <span className="sb-toggle" tabIndex={-1} ref={emptyHeading}>
+            <span className="sb-title">
+              {title}
+              <span className="sb-none"> · none</span>
+            </span>
+          </span>
+        </h2>
+      </section>
+    );
+  }
   return (
-    <section className={`sb-section${tone ? ` tone-${tone}` : ""}`} data-section={id}>
+    <section className={`sb-section${tone ? ` tone-${tone}` : ""}`} data-section={id} ref={sectionEl}>
       <h2 className="sb-heading">
         <button
           type="button"
           className="sb-toggle"
+          ref={toggle}
           aria-expanded={open}
           aria-controls={bodyId}
           // Starts with the visible title, so voice control ("click Warnings") still matches.

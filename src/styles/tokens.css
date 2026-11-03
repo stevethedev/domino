@@ -121,6 +121,7 @@
   --z-axis: 4;
   --z-axis-corner: 5;
   --z-popover: 20;
+  --z-editor: 25; /* the query editor: opened from the top bar, over the details drawer */
   --z-overlay: 30;
 
   color-scheme: light;
