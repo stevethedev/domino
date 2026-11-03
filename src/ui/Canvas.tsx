@@ -171,6 +171,10 @@ export function Canvas({
       onCardPan = null;
     };
   }, [leaveFirstView]);
+  // Another scope is loading: the notice is about the old one, and the new one gets a fresh first view.
+  useEffect(() => {
+    if (stale) leaveFirstView();
+  }, [stale, leaveFirstView]);
   // Cards stay where the last finished layout put them until the next one is ready, so new data
   // never blanks the canvas while the layout worker runs.
   const [drawn, setDrawn] = useState<Drawn | null>(null);
@@ -265,8 +269,10 @@ export function Canvas({
           fittedKey.current = fitKey.current;
           requestAnimationFrame(fitThisLayout);
         } else if (identityRefit.current) {
-          // Still waiting on identities: the re-fit follows the latest layout. (An empty one is fitted afresh when cards return.)
+          // Still waiting on identities: the re-fit follows the latest layout (an empty one is fitted
+          // afresh when cards return). Until it runs, the cards moved and the notice no longer holds.
           identityRefit.current = nothingDrawn ? null : fitThisLayout;
+          setPartNotice(null);
         } else {
           // Cards moved under a view that isn't re-fitted: the notice no longer describes it.
           leaveFirstView();
@@ -286,10 +292,9 @@ export function Canvas({
   // Identities load after the tickets: a first view picked without them is picked again, once.
   const assigned = insights.mine.assigned;
   useEffect(() => {
-    const refit = identityRefit.current;
-    if (!refit || assigned.size === 0) return;
-    identityRefit.current = null;
-    requestAnimationFrame(refit);
+    if (!identityRefit.current || assigned.size === 0) return;
+    // Read at the frame, not now: leaving the first view in between cancels it.
+    requestAnimationFrame(() => identityRefit.current?.());
   }, [assigned]);
 
   // Highlights are computed on loaded issues; folded epics light up the summary each issue is shown as.
@@ -516,6 +521,31 @@ export function Canvas({
         }}
       >
         <Background gap={24} size={1} />
+        <Panel position="top-center">
+          {/* Always mounted, even while another scope loads, so screen readers announce each notice as it appears. */}
+          <p className="part-notice" role="status">
+            {!stale && partNotice}
+            {!stale && partNotice && (
+              <>
+                {" · "}
+                <button
+                  type="button"
+                  className="link-btn"
+                  onClick={() => {
+                    leaveFirstView();
+                    void rf.fitView({ padding: FIT_PADDING, maxZoom: 1, duration: prefersReducedMotion() ? 0 : 250 });
+                    // The button is gone: carry on from the graph, without a pan to the card fighting the fit.
+                    focusingFromCode = true;
+                    focusFirst('.canvas [data-uid][tabindex="0"]');
+                    focusingFromCode = false;
+                  }}
+                >
+                  Show all
+                </button>
+              </>
+            )}
+          </p>
+        </Panel>
         {!stale && (
           <>
             <Panel position="top-right">
@@ -524,31 +554,6 @@ export function Canvas({
             <Panel position="top-left">
               <SortChip sort={view.sort} onClear={onClearSort} />
             </Panel>
-            <Panel position="top-center">
-              {/* Always mounted, so screen readers announce the notice when it appears. */}
-              <p className="part-notice" role="status">
-                {partNotice}
-                {partNotice && (
-                  <>
-                    {" · "}
-                    <button
-                      type="button"
-                      className="link-btn"
-                      onClick={() => {
-                        leaveFirstView();
-                        void rf.fitView({ padding: FIT_PADDING, maxZoom: 1, duration: prefersReducedMotion() ? 0 : 250 });
-                        // The button is gone: carry on from the graph, without a pan to the card fighting the fit.
-                        focusingFromCode = true;
-                        focusFirst('.canvas [data-uid][tabindex="0"]');
-                        focusingFromCode = false;
-                      }}
-                    >
-                      Show all
-                    </button>
-                  </>
-                )}
-              </p>
-            </Panel>
             <Controls
               showInteractive={false}
               position="bottom-left"
@@ -556,14 +561,18 @@ export function Canvas({
               onZoomOut={leaveFirstView}
               onFitView={leaveFirstView}
             />
-            <MiniMap<FlowNode>
-              pannable
-              style={{ width: 170, height: 110 }}
-              zoomable
-              ariaLabel="Minimap, tinted by site"
-              nodeColor={(n) => (n.type === "issue" ? (n.data.node.siteColor ?? "#9ca3af") : "transparent")}
-              nodeStrokeColor={(n) => (n.type === "siteGroup" ? (n.data.color ?? "#9ca3af") : "transparent")}
-            />
+            {/* MiniMap pans and zooms through React Flow's API, so onMoveStart sees no event: catch the
+                user's press or scroll here (capture phase, as d3-zoom stops them from bubbling). */}
+            <div style={{ display: "contents" }} onPointerDownCapture={leaveFirstView} onWheelCapture={leaveFirstView}>
+              <MiniMap<FlowNode>
+                pannable
+                style={{ width: 170, height: 110 }}
+                zoomable
+                ariaLabel="Minimap, tinted by site"
+                nodeColor={(n) => (n.type === "issue" ? (n.data.node.siteColor ?? "#9ca3af") : "transparent")}
+                nodeStrokeColor={(n) => (n.type === "siteGroup" ? (n.data.color ?? "#9ca3af") : "transparent")}
+              />
+            </div>
           </>
         )}
       </ReactFlow>

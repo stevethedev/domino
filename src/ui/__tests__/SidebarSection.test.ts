@@ -32,18 +32,23 @@ describe("SidebarSection", () => {
 
 describe("catchesLostFocus", () => {
   const at = (over: Partial<Parameters<typeof catchesLostFocus>[0]> = {}): boolean =>
-    catchesLostFocus({ becameEmpty: true, hadFocus: true, focusOnPage: true, ...over });
+    catchesLostFocus({ wasEmpty: false, empty: true, hadFocus: true, focusOnPage: true, ...over });
 
   it("catches focus its own removed body dropped (Mark as seen)", () => {
     expect(at()).toBe(true);
+  });
+
+  it("catches focus its empty heading dropped when a refresh fills it again", () => {
+    expect(at({ wasEmpty: true, empty: false })).toBe(true);
   });
 
   it("leaves focus alone when the section never had it (first load empties it with focus on the page)", () => {
     expect(at({ hadFocus: false })).toBe(false);
   });
 
-  it("leaves focus alone when it went somewhere else, or the section didn't just empty", () => {
+  it("leaves focus alone when it went somewhere else, or the section didn't change shape", () => {
     expect(at({ focusOnPage: false })).toBe(false);
-    expect(at({ becameEmpty: false })).toBe(false);
+    expect(at({ wasEmpty: true, empty: true })).toBe(false);
+    expect(at({ wasEmpty: false, empty: false })).toBe(false);
   });
 });

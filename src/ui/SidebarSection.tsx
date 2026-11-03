@@ -4,11 +4,12 @@ import { usePersistentState } from "../state/storage";
 const asBool = (raw: unknown): boolean | undefined => (typeof raw === "boolean" ? raw : undefined);
 
 /**
- * A section that just emptied catches focus only when its own removed body dropped it: it had
- * focus before, and focus has fallen to the page. Never on a first empty render nobody was in.
+ * A section that just emptied or filled swaps its heading (and body) for another, and catches
+ * focus only when that swap dropped it: it had focus before, and focus has fallen to the page.
+ * Never on a first render nobody was in.
  */
-export const catchesLostFocus = (s: Readonly<{ becameEmpty: boolean; hadFocus: boolean; focusOnPage: boolean }>): boolean =>
-  s.becameEmpty && s.hadFocus && s.focusOnPage;
+export const catchesLostFocus = (s: Readonly<{ wasEmpty: boolean; empty: boolean; hadFocus: boolean; focusOnPage: boolean }>): boolean =>
+  s.wasEmpty !== s.empty && s.hadFocus && s.focusOnPage;
 
 /**
  * One collapsible sidebar section, using the disclosure pattern: a real <h2> wrapping a toggle
@@ -46,15 +47,17 @@ export function SidebarSection({
   const bodyId = useId();
   const sectionEl = useRef<HTMLElement>(null);
   const emptyHeading = useRef<HTMLSpanElement>(null);
+  const toggle = useRef<HTMLButtonElement>(null);
   const wasEmpty = useRef(empty);
   // Read while rendering, before this render's commit removes the body: did the section hold focus?
   const hadFocus = sectionEl.current?.contains(document.activeElement) ?? false;
-  // Emptied under focus (e.g. "Mark as seen" removes its own button): the heading catches it.
+  // Emptied or filled under focus (e.g. "Mark as seen" removes its own button; a refresh brings
+  // changes back under the empty heading it focused): the heading now shown catches it.
   useLayoutEffect(() => {
-    const becameEmpty = empty && !wasEmpty.current;
+    const was = wasEmpty.current;
     wasEmpty.current = empty;
-    if (catchesLostFocus({ becameEmpty, hadFocus, focusOnPage: document.activeElement === document.body })) {
-      emptyHeading.current?.focus();
+    if (catchesLostFocus({ wasEmpty: was, empty, hadFocus, focusOnPage: document.activeElement === document.body })) {
+      (empty ? emptyHeading : toggle).current?.focus();
     }
   }, [empty]);
   if (empty) {
@@ -77,6 +80,7 @@ export function SidebarSection({
         <button
           type="button"
           className="sb-toggle"
+          ref={toggle}
           aria-expanded={open}
           aria-controls={bodyId}
           // Starts with the visible title, so voice control ("click Warnings") still matches.
