@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import type { SiteConfig } from "../../config/types";
 import type { Scope } from "../../data/MultiSiteLoader";
 import { editorKeyAction, editorShift, refocusAfterLoad, ScopeInputs } from "../ScopeInputs";
+import { markupText } from "./markupText";
 
 const jira = (id: string, baseJql?: string): SiteConfig => ({
   id,
@@ -26,14 +27,13 @@ const github = (id: string): SiteConfig => ({
 
 const render = (sites: SiteConfig[], scope: Scope = { mode: "jql", jql: "statusCategory != Done" }): string =>
   renderToStaticMarkup(createElement(ScopeInputs, { sites, scope, onApply: () => undefined }));
-const text = (html: string): string => html.replace(/<[^>]+>/g, "");
 
 describe("ScopeInputs query editor", () => {
   it("at rest shows the query on one line in a button that opens the editor", () => {
     const out = render([jira("Acme")]);
     const summary = /<summary[^>]*class="query-trigger"[^>]*>(.*?)<\/summary>/.exec(out);
     expect(summary).not.toBeNull();
-    expect(text(summary?.[1] ?? "")).toContain("statusCategory != Done");
+    expect(markupText(summary?.[1] ?? "")).toContain("statusCategory != Done");
   });
 
   it("edits in a labelled multi-line box", () => {
@@ -45,8 +45,8 @@ describe("ScopeInputs query editor", () => {
   it("shows what each site will run, where everyone can see it, and describes the box with it", () => {
     const out = render([jira("Acme", "project = CORE"), jira("Partner")]);
     const runs = /<div[^>]*id="([^"]+)"[^>]*class="query-runs"[^>]*>(.*?)<\/div>/.exec(out);
-    expect(text(runs?.[2] ?? "")).toContain("Acme: (project = CORE) AND (statusCategory != Done)");
-    expect(text(runs?.[2] ?? "")).toContain("Partner: statusCategory != Done");
+    expect(markupText(runs?.[2] ?? "")).toContain("Acme: (project = CORE) AND (statusCategory != Done)");
+    expect(markupText(runs?.[2] ?? "")).toContain("Partner: statusCategory != Done");
     expect(runs).not.toBeNull();
     expect(out).toContain(`aria-describedby="${runs?.[1] ?? "missing"}"`);
   });
@@ -70,8 +70,8 @@ describe("ScopeInputs query editor", () => {
     expect(out.match(/<textarea/g)).toHaveLength(2);
     expect(out).toContain(">GitHub search<");
     const summary = /<summary[^>]*>(.*?)<\/summary>/.exec(out)?.[1] ?? "";
-    expect(text(summary)).toContain("project = CORE");
-    expect(text(summary)).toContain("is:open");
+    expect(markupText(summary)).toContain("project = CORE");
+    expect(markupText(summary)).toContain("is:open");
   });
 
   it("keeps epic and seed modes as they were: a key field, no editor", () => {

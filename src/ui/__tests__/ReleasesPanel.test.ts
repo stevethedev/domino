@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { ReleaseStatus } from "../../graph/releases";
 import { ReleasesPanel } from "../ReleasesPanel";
+import { markupText } from "./markupText";
 
 const status = (over: Partial<ReleaseStatus> = {}): ReleaseStatus => ({
   release: { uid: "r1", siteId: "acme", name: "Partner SDK 3.0", date: "2026-11-13", released: false },
@@ -24,11 +25,11 @@ describe("ReleasesPanel", () => {
     expect(head).toContain("Partner SDK 3.0");
     expect(head).not.toContain("Nov 13");
     const line = /<p class="release-status">(.*?)<\/p>/.exec(out)?.[1] ?? "";
-    expect(line.replace(/<[^>]+>/g, "")).toBe("Nov 13 · in 11 days · 3 open · on track");
+    expect(markupText(line)).toBe("Nov 13 · in 11 days · 3 open · on track");
   });
 
   it("says when a release has no date", () => {
     const line = /<p class="release-status">(.*?)<\/p>/.exec(panel([status({ release: { ...status().release, date: undefined } })]))?.[1];
-    expect(line?.replace(/<[^>]+>/g, "")).toBe("No release date · 3 open");
+    expect(markupText(line ?? "")).toBe("No release date · 3 open");
   });
 });
