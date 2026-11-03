@@ -54,11 +54,14 @@ export function SidebarSection({
   // Emptied or filled under focus (e.g. "Mark as seen" removes its own button; a refresh brings
   // changes back under the empty heading it focused): the heading now shown catches it.
   useLayoutEffect(() => {
-    const was = wasEmpty.current;
+    const catches = catchesLostFocus({
+      wasEmpty: wasEmpty.current,
+      empty,
+      hadFocus,
+      focusOnPage: document.activeElement === document.body,
+    });
     wasEmpty.current = empty;
-    if (catchesLostFocus({ wasEmpty: was, empty, hadFocus, focusOnPage: document.activeElement === document.body })) {
-      (empty ? emptyHeading : toggle).current?.focus();
-    }
+    if (catches) (empty ? emptyHeading : toggle).current?.focus();
   }, [empty]);
   if (empty) {
     return (
