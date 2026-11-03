@@ -219,6 +219,98 @@
   flex-wrap: nowrap;
   min-width: 0;
 }
+/* The query: one line at rest, a wide editor under it when opened (see ScopeInputs). */
+.query {
+  position: relative;
+  flex: 1 1 240px;
+  min-width: 140px;
+  max-width: 480px;
+}
+.query-trigger {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1_5);
+  min-height: var(--control-h);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  cursor: text;
+}
+.query-trigger::-webkit-details-marker {
+  display: none;
+}
+.query-trigger:hover {
+  border-color: color-mix(in srgb, var(--border) 60%, var(--text));
+}
+.query-text {
+  /* width: 0 so the query's length doesn't set the top bar's content width and wrap it. */
+  flex: 1;
+  width: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: var(--text-sm);
+}
+.query-editor {
+  position: absolute;
+  top: calc(100% + 4px);
+  /* Grows leftward from the trigger's right edge: the trigger sits right of the brand and menus. */
+  right: 0;
+  z-index: var(--z-editor);
+  width: min(720px, 60vw);
+  min-width: 320px;
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+}
+.query-box {
+  display: grid;
+  gap: var(--space-1);
+}
+.query-box textarea {
+  width: 100%;
+  resize: vertical;
+  padding: var(--space-1_5) var(--space-2);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-family: var(--mono);
+  font-size: var(--text-sm);
+}
+.query-runs {
+  display: grid;
+  gap: var(--space-0_5);
+}
+.query-runs code {
+  font-size: var(--text-xs);
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.query-presets {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+}
+.query-presets [aria-current] {
+  font-weight: var(--weight-semibold);
+}
+.query-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
 .scope input[type="number"] {
   width: 56px;
 }
@@ -890,6 +982,18 @@ kbd {
   color: var(--muted);
   border: 1px solid var(--border);
 }
+/* An empty section is one quiet line: no chevron, nothing to open. */
+.sb-section.empty .sb-toggle {
+  cursor: default;
+  padding-bottom: var(--space-3);
+}
+.sb-section.empty .sb-title {
+  color: var(--muted);
+  font-weight: var(--weight-semibold);
+}
+.sb-none {
+  font-weight: normal;
+}
 .sb-section.tone-warn .sb-title {
   color: var(--warn-fg);
 }
@@ -1083,6 +1187,10 @@ kbd {
 }
 .canvas.has-detail .react-flow__panel.right {
   right: var(--detail-w);
+}
+/* The part-notice centers in what the drawer leaves visible, so Export (moved clear above) doesn't cover its Show all. */
+.canvas.has-detail .react-flow__panel.top.center {
+  left: calc(50% - var(--detail-w) / 2);
 }
 .canvas.has-detail .tl-toolbar {
   padding-right: calc(var(--detail-w) + var(--space-3));
@@ -1389,6 +1497,7 @@ kbd {
 }
 .releases > li {
   display: grid;
+  min-width: 0;
   gap: 2px;
   padding: var(--space-1_5) var(--space-2) var(--space-1_5) var(--space-2_5);
   border: 1px solid var(--border);
@@ -1401,9 +1510,6 @@ kbd {
 }
 .release-head {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: var(--space-2);
   min-width: 0;
 }
 .release-name {
@@ -1412,10 +1518,6 @@ kbd {
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
-}
-.release-when {
-  flex: none;
-  font-size: var(--text-xs);
 }
 .release-status {
   margin: 0;
@@ -1431,6 +1533,11 @@ kbd {
   padding: 0;
   display: grid;
   gap: 2px;
+  min-width: 0;
+}
+/* Grid items default to min-width: auto: without this, a long summary widens the card instead of truncating. */
+.release-risks > li {
+  min-width: 0;
 }
 .release-risks .link-btn {
   display: flex;
@@ -1458,6 +1565,23 @@ kbd {
 }
 
 /* "Sorted by …  ✕": shown while the view is sorted (top-left of the Graph, in the Timeline's Issue header). */
+/* The canvas shows only part of the graph (see firstView): what it shows, and a way to all of it. */
+.part-notice {
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+  color: var(--text);
+  font-size: var(--text-sm);
+}
+/* Empty but still rendered: a live region added together with its text often isn't announced. */
+.part-notice:empty {
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+}
 .sort-chip {
   display: inline-flex;
   align-items: center;

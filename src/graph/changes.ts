@@ -38,6 +38,9 @@ export type Changes = {
   since: string;
 };
 
+/** Whether anything changed: a ticket, a new blocking link, or a ticket that left the scope. */
+export const hasChanges = (c: Changes): boolean => c.byIssue.size > 0 || c.newLinks > 0 || c.leftScope > 0;
+
 const pairOf = (source: string, target: string): string => `${source}>${target}`;
 
 export function takeSnapshot(graph: Graph, insights: Insights, hasAging: boolean, now: Date = new Date()): Snapshot {

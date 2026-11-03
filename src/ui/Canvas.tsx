@@ -1,4 +1,4 @@
-import { Background, Controls, getNodesBounds, MiniMap, Panel, ReactFlow, useReactFlow, type Rect } from "@xyflow/react";
+import { Background, Controls, getNodesBounds, MiniMap, Panel, ReactFlow, useReactFlow, useStoreApi, type Rect } from "@xyflow/react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { blockingChain } from "../graph/analysis";
 import { collapseEpics, shownEdgeId } from "../graph/collapse";
@@ -29,6 +29,8 @@ import { prefersReducedMotion } from "../lib/motion";
 import { isInCycle } from "../graph/cycles";
 import { visibleCentreShift } from "./drawerOffset";
 import { fitKeyOf } from "./fitKey";
+import { focusFirst } from "./focusFirst";
+import { awaitsIdentities, FIT_PADDING, firstView, MIN_READABLE_ZOOM } from "./firstView";
 
 /** How long cards may slide after a sort change; longer than `--duration-base` so the slide finishes. */
 const RESORT_MS = 400;
@@ -138,10 +140,20 @@ export function Canvas({
   onClearSort: () => void;
 }): ReactElement {
   const rf = useReactFlow();
+  const store = useStoreApi();
+  /** Says the first view is only part of the graph (see firstView), until the user moves or asks for all. */
+  const [partNotice, setPartNotice] = useState<string | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
   // Per scope, so a uid that comes back in another scope doesn't inherit the stop.
   const [focusedIn, setFocusedIn] = useState<{ scopeKey: string | null; uid: string } | null>(null);
   const lastFocused = focusedIn?.scopeKey === scopeKey ? focusedIn.uid : null;
+  /** Re-fits the first view once identities arrive, if it was picked without them and the user hasn't moved since. */
+  const identityRefit = useRef<(() => void) | null>(null);
+  /** The view moved away from the first view: its notice no longer describes it, and it's never re-fitted. */
+  const leaveFirstView = useCallback((): void => {
+    identityRefit.current = null;
+    setPartNotice(null);
+  }, []);
   const focusNode = useFocusNode();
   const onFocusCard = useCallback(
     (uid: string): void => {
@@ -152,6 +164,17 @@ export function Canvas({
     },
     [focusNode, scopeKey],
   );
+  // Any pan to a card (navigation, Tab to an off-screen card) moves the view away from the part noticed.
+  useEffect(() => {
+    onCardPan = leaveFirstView;
+    return (): void => {
+      onCardPan = null;
+    };
+  }, [leaveFirstView]);
+  // Another scope is loading: the notice is about the old one, and the new one gets a fresh first view.
+  useEffect(() => {
+    if (stale) leaveFirstView();
+  }, [stale, leaveFirstView]);
   // Cards stay where the last finished layout put them until the next one is ready, so new data
   // never blanks the canvas while the layout worker runs.
   const [drawn, setDrawn] = useState<Drawn | null>(null);
@@ -183,6 +206,9 @@ export function Canvas({
   }, [resorts]);
   const fitKey = useRef("");
   fitKey.current = fitKeyOf(scopeKey, view.groupBy);
+  // Read when a layout is fitted, not a reason to lay out again.
+  const fitInsights = useRef(insights);
+  fitInsights.current = insights;
 
   // Folded epics swap in a collapsed graph; everything below draws whichever graph is shown.
   const collapsed = useMemo(
@@ -211,13 +237,45 @@ export function Canvas({
           setResorts((n) => n + 1);
         }
         // Fit once per scope and grouping (see fitKeyOf), when there's something to fit, and again
-        // when cards come back after filters hid them all. Never zoom past 100%: small graphs stay card-sized.
+        // when cards come back after filters hid them all. Never zoom past 100%: small graphs stay
+        // card-sized. Too big to read whole, it fits a part worth reading first (see firstView).
         const nothingDrawn = l.positions.size === 0;
-        if (l.positions.size > 0 && (fitKey.current !== fittedKey.current || wasEmpty.current)) {
-          fittedKey.current = fitKey.current;
-          requestAnimationFrame(() => {
-            void rf.fitView({ padding: 0.2, maxZoom: 1, duration: prefersReducedMotion() ? 0 : 250 });
+        /** Fits the first view of this layout; kept as the identity re-fit while identities are still unknown. */
+        const fitThisLayout = (): void => {
+          const duration = prefersReducedMotion() ? 0 : 250;
+          const { width, height } = store.getState();
+          const mine = fitInsights.current.mine.assigned;
+          const view = firstView({
+            bounds: rf.getNodesBounds(rf.getNodes()),
+            boundsOf: (uids) => rf.getNodesBounds([...uids]),
+            pane: { width, height },
+            drawn: new Set(l.positions.keys()),
+            edges: vEdges,
+            mine,
+            unblockers: fitInsights.current.unblockers,
+            downstream: fitInsights.current.downstream,
+            keyOf: (uid) => vNodes.find((n) => n.uid === uid)?.key ?? uid,
           });
+          identityRefit.current = awaitsIdentities(view, mine) ? fitThisLayout : null;
+          setPartNotice(view.kind === "all" ? null : view.notice);
+          if (view.kind === "all") void rf.fitView({ padding: FIT_PADDING, maxZoom: 1, duration });
+          else if (view.kind === "corner") void rf.setViewport(view.viewport, { duration });
+          else {
+            const nodes = view.uids.map((id) => ({ id }));
+            void rf.fitView({ nodes, padding: FIT_PADDING, minZoom: MIN_READABLE_ZOOM, maxZoom: 1, duration });
+          }
+        };
+        if (!nothingDrawn && (fitKey.current !== fittedKey.current || wasEmpty.current)) {
+          fittedKey.current = fitKey.current;
+          requestAnimationFrame(fitThisLayout);
+        } else if (identityRefit.current) {
+          // Still waiting on identities: the re-fit follows the latest layout (an empty one is fitted
+          // afresh when cards return). Until it runs, the cards moved and the notice no longer holds.
+          identityRefit.current = nothingDrawn ? null : fitThisLayout;
+          setPartNotice(null);
+        } else {
+          // Cards moved under a view that isn't re-fitted: the notice no longer describes it.
+          leaveFirstView();
         }
         wasEmpty.current = nothingDrawn;
       },
@@ -229,7 +287,15 @@ export function Canvas({
     return (): void => {
       cancelled = true;
     };
-  }, [vNodes, vEdges, graph.brokenEdgeIds, laneOf, layoutOrder, rf]);
+  }, [vNodes, vEdges, graph.brokenEdgeIds, laneOf, layoutOrder, rf, store, leaveFirstView]);
+
+  // Identities load after the tickets: a first view picked without them is picked again, once.
+  const assigned = insights.mine.assigned;
+  useEffect(() => {
+    if (!identityRefit.current || assigned.size === 0) return;
+    // Read at the frame, not now: leaving the first view in between cancels it.
+    requestAnimationFrame(() => identityRefit.current?.());
+  }, [assigned]);
 
   // Highlights are computed on loaded issues; folded epics light up the summary each issue is shown as.
   const emphasized = useMemo(() => {
@@ -449,8 +515,37 @@ export function Canvas({
         zoomOnScroll={!stale}
         zoomOnPinch={!stale}
         zoomOnDoubleClick={!stale}
+        // Panned or zoomed by the user (programmatic moves have no event; Controls and navigation clear it themselves).
+        onMoveStart={(event) => {
+          if (event) leaveFirstView();
+        }}
       >
         <Background gap={24} size={1} />
+        <Panel position="top-center">
+          {/* Always mounted, even while another scope loads, so screen readers announce each notice as it appears. */}
+          <p className="part-notice" role="status">
+            {!stale && partNotice}
+            {!stale && partNotice && (
+              <>
+                {" · "}
+                <button
+                  type="button"
+                  className="link-btn"
+                  onClick={() => {
+                    leaveFirstView();
+                    void rf.fitView({ padding: FIT_PADDING, maxZoom: 1, duration: prefersReducedMotion() ? 0 : 250 });
+                    // The button is gone: carry on from the graph, without a pan to the card fighting the fit.
+                    focusingFromCode = true;
+                    focusFirst('.canvas [data-uid][tabindex="0"]');
+                    focusingFromCode = false;
+                  }}
+                >
+                  Show all
+                </button>
+              </>
+            )}
+          </p>
+        </Panel>
         {!stale && (
           <>
             <Panel position="top-right">
@@ -459,15 +554,25 @@ export function Canvas({
             <Panel position="top-left">
               <SortChip sort={view.sort} onClear={onClearSort} />
             </Panel>
-            <Controls showInteractive={false} position="bottom-left" />
-            <MiniMap<FlowNode>
-              pannable
-              style={{ width: 170, height: 110 }}
-              zoomable
-              ariaLabel="Minimap, tinted by site"
-              nodeColor={(n) => (n.type === "issue" ? (n.data.node.siteColor ?? "#9ca3af") : "transparent")}
-              nodeStrokeColor={(n) => (n.type === "siteGroup" ? (n.data.color ?? "#9ca3af") : "transparent")}
+            <Controls
+              showInteractive={false}
+              position="bottom-left"
+              onZoomIn={leaveFirstView}
+              onZoomOut={leaveFirstView}
+              onFitView={leaveFirstView}
             />
+            {/* MiniMap pans and zooms through React Flow's API, so onMoveStart sees no event: catch the
+                user's press or scroll here (capture phase, as d3-zoom stops them from bubbling). */}
+            <div style={{ display: "contents" }} onPointerDownCapture={leaveFirstView} onWheelCapture={leaveFirstView}>
+              <MiniMap<FlowNode>
+                pannable
+                style={{ width: 170, height: 110 }}
+                zoomable
+                ariaLabel="Minimap, tinted by site"
+                nodeColor={(n) => (n.type === "issue" ? (n.data.node.siteColor ?? "#9ca3af") : "transparent")}
+                nodeStrokeColor={(n) => (n.type === "siteGroup" ? (n.data.color ?? "#9ca3af") : "transparent")}
+              />
+            </div>
           </>
         )}
       </ReactFlow>
@@ -478,6 +583,9 @@ export function Canvas({
 /** Centers the viewport on a card and focuses it (used by the Warnings panel). */
 /** Set while `useFocusNode` focuses a card itself (focus events fire synchronously inside `focus()`). */
 let focusingFromCode = false;
+
+/** Called whenever `useFocusNode` pans to a card, whoever asked (the mounted Canvas listens). */
+let onCardPan: (() => void) | null = null;
 
 export function useFocusNode(): (uid: string, moveFocus?: boolean, keepZoom?: boolean) => boolean {
   const rf = useReactFlow();
@@ -509,8 +617,10 @@ export function useFocusNode(): (uid: string, moveFocus?: boolean, keepZoom?: bo
       // Centred in what the drawer leaves visible, not under it.
       const zoom = keepZoom ? rf.getZoom() : 1.1;
       const shift = pane && right !== undefined ? visibleCentreShift(pane.right, right, zoom, pane.left, width * zoom) : 0;
-      if (!keepZoom) void rf.setCenter(x + width / 2 + shift, y + height / 2, { zoom, duration: 300 });
-      else if (!onScreen) void rf.setCenter(x + width / 2 + shift, y + height / 2, { zoom, duration: 200 });
+      if (!keepZoom || !onScreen) {
+        void rf.setCenter(x + width / 2 + shift, y + height / 2, { zoom, duration: keepZoom ? 200 : 300 });
+        onCardPan?.();
+      }
       if (moveFocus) {
         // The view is already moving to it: its onFocus mustn't start a second pan.
         focusingFromCode = true;

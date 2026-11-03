@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { RawIssue, RawStatusCategoryKey } from "../../data/jiraTypes";
 import { buildGraph } from "../buildGraph";
-import { diffSnapshot, parseSnapshot, takeSnapshot } from "../changes";
+import { diffSnapshot, hasChanges, parseSnapshot, takeSnapshot, type Changes } from "../changes";
 import { computeInsights, type Insights } from "../insights";
 import type { Graph } from "../types";
 import { BLOCKS, data, issue, link, site } from "./helpers";
@@ -84,5 +84,22 @@ describe("snapshot diff", () => {
     const stored: unknown = JSON.parse(JSON.stringify({ ...snap, issues: { ...snap.issues, "a:BAD": { c: "weird", b: 1 } } }));
     expect(parseSnapshot(stored)).toEqual(snap);
     expect(parseSnapshot({ nope: true })).toBeUndefined();
+  });
+});
+
+describe("hasChanges", () => {
+  const none: Changes = {
+    byIssue: new Map(),
+    counts: { new: 0, blocked: 0, unblocked: 0, done: 0, aging: 0, moved: 0 },
+    leftScope: 0,
+    newLinks: 0,
+    since: "2026-11-01T00:00:00Z",
+  };
+
+  it("is false when nothing changed, and true for a changed ticket, a new link or a ticket leaving scope", () => {
+    expect(hasChanges(none)).toBe(false);
+    expect(hasChanges({ ...none, byIssue: new Map([["a:X", ["done"]]]) })).toBe(true);
+    expect(hasChanges({ ...none, newLinks: 1 })).toBe(true);
+    expect(hasChanges({ ...none, leftScope: 2 })).toBe(true);
   });
 });
