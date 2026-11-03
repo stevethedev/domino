@@ -60,7 +60,7 @@ Shipped as planned, with these differences:
 
   Errors never go in toasts. (`src/App.tsx:628`, `src/ui/Toast.tsx`, `src/ui/Settings/SettingsDialog.tsx:173`, `src/ui/Settings/BackendSection.tsx:196`, `src/ui/Settings/SiteRow.tsx:73-85`, `src/ui/SavedViewsMenu.tsx:85-115`, `src/ui/Settings/SiteForm.tsx:208`)
 
-- **One `<Announcer>`** that's always in the page, with a polite and an assertive live region that every component uses. That fixes live regions appearing at the same moment as their text. (`src/ui/Toast.tsx:19`, `src/App.tsx:972-975`, `src/ui/SavedViewsMenu.tsx:231`, `src/ui/FilterPanel.tsx:254`, `src/ui/EmptySearchBanner.tsx:59`)
+- **One `<Announcer>`** that's always in the page, with a polite and an assertive live region that every component uses. That fixes live regions appearing at the same moment as their text. While a modal dialog is open, `announce()` routes into polite and assertive regions inside that dialog instead: `showModal()` makes the rest of the page inert, so its regions go silent. Each modal renders its regions once, so they exist before any text arrives. (`src/ui/Toast.tsx:19`, `src/ui/Settings/SettingsDialog.tsx:69`, `src/App.tsx:972-975`, `src/ui/SavedViewsMenu.tsx:231`, `src/ui/FilterPanel.tsx:254`, `src/ui/EmptySearchBanner.tsx:59`)
 - **One banner area.**
   - It shows the most severe banner (error, then warning, then info; ties go to the newest), plus "+N more", which expands in place.
   - Dismissing one shows the next.
@@ -83,13 +83,13 @@ Shipped as planned, with these differences:
 
 - **Webview zoom, keeping px tokens.** Set `zoomHotkeysEnabled` (Cmd/Ctrl + / − / 0), add View → Zoom In / Zoom Out / Actual Size, and remember the level. Webviews ignore the OS text size, so converting to rem would barely help. (`src-tauri/tauri.conf.json`)
 - **Layout numbers come from one source.** TS writes `--label-w`, `--row-h`, `--lane-h`, `--card-w` and `--card-h` to the root. The CSS copies go away. (`src/ui/timeline/timelineLayout.ts:13`, `src/graph/layout.ts:6-7`, `src/styles/timeline.css:50, 61, 69, 254, 291, 504`, `src/styles/graph.css:5-6`)
-- **Three tiers via container queries on `.workspace`.** At 200% zoom, the 900px minimum window is effectively 450px wide.
+- **Three tiers via container queries on `.app`.** It holds the top bar, the workspace and Settings, so one container drives all of them. It spans the window. At 200% zoom, the 900px minimum window is effectively 450px wide.
 
-  | Workspace width | Sidebar                                                       | Detail drawer                                  | Timeline label column           | Top bar                                                                                              |
-  | --------------- | ------------------------------------------------------------- | ---------------------------------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------- |
-  | ≥ 1100px        | 248px, as today                                               | 360px overlay                                  | 320px                           | As today                                                                                             |
-  | 700–1100px      | Collapsible: a top-bar toggle, overlays when open, remembered | 320px                                          | 240px, summary cut off with "…" | Find becomes an icon that expands. The view toggle shows icons, with the text in the accessible name |
-  | < 700px         | A drawer, closed by default                                   | Full width, with Close/Back that returns focus | 160px, key and status only      | Sites shows "N sites". Mode moves into the query editor                                              |
+  | Window width | Sidebar                                                       | Detail drawer                                  | Timeline label column           | Top bar                                                                                              |
+  | ------------ | ------------------------------------------------------------- | ---------------------------------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------- |
+  | ≥ 1100px     | 248px, as today                                               | 360px overlay                                  | 320px                           | As today                                                                                             |
+  | 700–1100px   | Collapsible: a top-bar toggle, overlays when open, remembered | 320px                                          | 240px, summary cut off with "…" | Find becomes an icon that expands. The view toggle shows icons, with the text in the accessible name |
+  | < 700px      | A drawer, closed by default                                   | Full width, with Close/Back that returns focus | 160px, key and status only      | Sites shows "N sites". Mode moves into the query editor                                              |
 
   Below 1100px, the timeline's Days/point, Unpointed and Unstarted from controls move into an overflow menu. Below 700px, Settings' sites table becomes a stacked list.
 
