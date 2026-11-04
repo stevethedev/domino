@@ -1,7 +1,7 @@
 import type { ElkExtendedEdge, ElkNode } from "elkjs/lib/elk-api.js";
 import { getElk } from "./elk";
 import { getOrThrow } from "../lib/guards";
-import type { GraphEdge, GraphNode } from "./types";
+import type { GraphEdge, GraphNode, Release } from "./types";
 
 export const CARD_WIDTH = 280;
 export const CARD_HEIGHT = 112;
@@ -114,6 +114,25 @@ export const laneByAssignee =
       label: waiting ? `${n.assigneeName} · holding up ${waiting}` : n.assigneeName,
     };
   };
+
+/** Calendar days in order, undated last. */
+const byDate = (a: string | undefined, b: string | undefined): number =>
+  a === b ? 0 : a === undefined ? 1 : b === undefined ? -1 : a < b ? -1 : 1;
+
+/** The release an issue is headed for: the earliest unreleased one (dated before undated), else the earliest. */
+const headedFor = (releases: readonly Release[]): Release | undefined =>
+  [...releases].sort((a, b) => Number(a.released) - Number(b.released) || byDate(a.date, b.date) || a.name.localeCompare(b.name))[0];
+
+/**
+ * One lane per release (Jira fix version or GitHub milestone), by name, so the same milestone in
+ * two repositories, or a version and a milestone named alike, share a lane.
+ */
+export const laneByRelease: LaneFn = (n) => {
+  if (n.ghost) return { id: "release:~ghost", label: "Outside scope", last: true };
+  const release = headedFor(n.releases ?? []);
+  if (!release) return { id: "release:~none", label: "No release", last: true };
+  return { id: `release:${release.name}`, label: release.name };
+};
 
 /**
  * Layered left-to-right layout. Only blocks edges that survived cycle breaking constrain
