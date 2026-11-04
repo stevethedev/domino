@@ -5,7 +5,7 @@ import type { Day, StatusChange } from "../graph/schedule";
 import type { Graph, GraphEdge, GraphNode, Release, StatusCategory } from "../graph/types";
 import type { DescriptionState } from "../state/useDescription";
 import { AdfDocument, hasContent } from "./Adf";
-import { AgingBadge, ChangeTag, ISSUE_DETAIL_ID, PriorityIcon, TypeIcon } from "./IssueCard";
+import { AgingBadge, ChangeTag, CriticalTag, ISSUE_DETAIL_ID, PriorityIcon, TypeIcon } from "./IssueCard";
 import { fmtDay } from "./format";
 import { Icon } from "./Icon";
 
@@ -20,6 +20,8 @@ export type IssueDetailData = {
   /** Open issues downstream of this one through blocking links (what finishing it unblocks). */
   unblocks: number;
   openBlockers: number;
+  /** On the critical path (the longest chain of open blocking work). */
+  critical: boolean;
   aging?: Aging;
   changes: readonly ChangeKind[];
   /** Status-category transitions, oldest first; undefined until history has loaded. */
@@ -221,7 +223,7 @@ export function IssueDetail({
   description: DescriptionState | null;
   onRetryDescription: () => void;
 }): ReactElement {
-  const { node: n, graph, unblocks, openBlockers, aging, changes, history, releases, forecastDone } = data;
+  const { node: n, graph, unblocks, openBlockers, critical, aging, changes, history, releases, forecastDone } = data;
   const headingRef = useRef<HTMLHeadingElement>(null);
   // Move focus into the panel when asked, so keyboard users land on it.
   useEffect(() => {
@@ -303,6 +305,7 @@ export function IssueDetail({
       </h2>
       <div className="detail-badges">
         <span className={`pill pill-${n.statusCategory}`}>{n.statusName || CATEGORY_LABEL[n.statusCategory]}</span>
+        {critical && <CriticalTag />}
         {openBlockers > 0 && (
           <span className="blockers">
             <Icon name="alert" /> {openBlockers} open blocker{openBlockers === 1 ? "" : "s"}

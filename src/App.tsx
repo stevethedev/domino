@@ -422,6 +422,7 @@ function Shell(): ReactElement {
         graph,
         unblocks: downstream.get(selectedNode.uid)?.size ?? 0,
         openBlockers: insights.openBlockers.get(selectedNode.uid) ?? 0,
+        critical: insights.critical.nodes.includes(selectedNode.uid),
         aging: insights.aging.get(selectedNode.uid),
         changes: insights.changed.get(selectedNode.uid) ?? [],
         history: history.status === "done" ? history.history.get(selectedNode.uid) : undefined,

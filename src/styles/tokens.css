@@ -10,8 +10,14 @@
   --text: #1f2430;
   --muted: #5d6576;
   --border: #d7dbe3;
+  /* Edges of inputs, selects and menu triggers: at least 3:1 on every background. --border is for dividers and cards. */
+  --border-control: #7d8594;
   --focus: #2563eb;
   --accent: #2563eb;
+  /* Link-colored text: at least 4.5:1 on --surface and --surface-2. */
+  --link: var(--accent);
+  /* A selected card or row: a tint, so the outside ring is left to focus. */
+  --selected-bg: color-mix(in srgb, var(--accent) 10%, var(--surface));
   --accent-text: #ffffff;
   /* Text on the cycle red (the at-risk release flag), and error text on any surface: both pass AA. */
   --on-cycle: #ffffff;
@@ -20,6 +26,8 @@
   --todo: #8b93a3;
   --inprogress: #2f6fe4;
   --done: #1f9d55;
+  /* "Done" as text (e.g. a healthy site): --done is for fills and edges. */
+  --done-fg: #146c3a;
   --unknown: #9aa1ad;
 
   --pill-todo-bg: #eceef2;
@@ -37,6 +45,9 @@
   --release: #7c3aed;
   --release-text: #ffffff;
   --critical: #b45309;
+  /* The "Critical" badge. */
+  --critical-bg: #fdecd3;
+  --critical-fg: #8a3a05;
   /* The amber tile of the Domino mark (assets/brand); the same in both themes. */
   --brand-amber: #f59e0b;
   --ready: #1f9d55;
@@ -48,10 +59,12 @@
   --epic: #7c3aed;
   --type-default: #6b7280;
   --type-epic: var(--epic);
-  --type-story: #16a34a;
+  --type-story: #15803d;
   --type-task: #2563eb;
   --type-bug: #dc2626;
   --on-type: #ffffff;
+  /* The letter on the epic icon: white in light mode, dark ink on dark mode's lighter purple. */
+  --on-type-epic: #ffffff;
   --minimap-mask: rgb(240 242 246 / 0.7);
 
   /* Type. One scale for the whole app; 2xs/xs are for dense card metadata, 3xl/4xl for
@@ -135,8 +148,11 @@
     --text: #e6e9ef;
     --muted: #a0a8b8;
     --border: #363c49;
+    --border-control: #757d8f;
     --focus: #7aa7ff;
     --accent: #4f86f7;
+    /* --accent is 4.17:1 on --surface-2 here. */
+    --link: #7aa7ff;
     /* White on the lighter dark-mode blue and red is under 4.5:1; dark text is over 5. */
     --accent-text: #10131a;
     --on-cycle: #10131a;
@@ -144,6 +160,7 @@
     --todo: #7d8596;
     --inprogress: #5b8ff0;
     --done: #3fbf74;
+    --done-fg: #3fbf74;
     --pill-todo-bg: #2c313c;
     --pill-todo-fg: #c9ceda;
     --pill-inprogress-bg: #1f3563;
@@ -157,11 +174,14 @@
     --release: #a78bfa;
     --release-text: #1b1530;
     --critical: #f59e0b;
+    --critical-bg: #3b2a10;
+    --critical-fg: #fcc96b;
     --warn-bg: #3b2f12;
     --warn-fg: #ffd98a;
     --error-bg: #3d1c1c;
     --error-fg: #ffb4b4;
     --epic: #a78bfa;
+    --on-type-epic: #10131a;
     --minimap-mask: rgb(10 12 16 / 0.65);
     --select-caret: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a0a8b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
     /* Shadows need more weight to read on dark surfaces. */

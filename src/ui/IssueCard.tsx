@@ -126,10 +126,21 @@ function initials(name?: string): string {
   return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase();
 }
 
-function rollupLabel(n: GraphNode, r: EpicRollup): string {
+/**
+ * A folded epic lights up when it or some of its tickets match the highlight (the epic folds into its
+ * own summary): say which highlight, not only by its ring.
+ */
+const ROLLUP_HIGHLIGHT: Partial<Record<Exclude<Highlight, "none">, string>> = {
+  critical: "on the critical path (it or some of its tickets)",
+  ready: "ready to start (it or some of its tickets)",
+};
+
+export function rollupLabel(n: GraphNode, r: EpicRollup, highlight: Exclude<Highlight, "none"> | null): string {
   const parts = [`Epic ${n.key}, ${n.summary}`, `${r.members.length} tickets`, `${r.done} done`];
   if (r.blocked) parts.push(`${r.blocked} blocked`);
   if (r.aging) parts.push(`${r.aging} aging`);
+  const lit = highlight && ROLLUP_HIGHLIGHT[highlight];
+  if (lit) parts.push(lit);
   return `${parts.join(", ")}. Expands the epic.`;
 }
 
@@ -140,6 +151,16 @@ export function CycleTag({ title }: { title: string }): ReactElement {
       ⟲<span className="badge-word"> Cycle</span>
     </span>
   );
+}
+
+/** On the critical path: said in words, not only by the highlight's colour. */
+export function CriticalTag(): ReactElement {
+  return <span className="tag-critical">Critical</span>;
+}
+
+/** Ready to start: no open blockers. */
+export function ReadyTag(): ReactElement {
+  return <span className="tag-ready">Ready</span>;
 }
 
 /** An epic summary card's count of blocked tickets; zoomed out, "⚠ 3". */
@@ -158,12 +179,15 @@ function RollupBody({
   rollup: r,
   compact,
   inCycle,
+  highlight,
 }: {
   node: GraphNode;
   rollup: EpicRollup;
   compact: boolean;
   /** Some of its tickets are in a blocking cycle (possibly one folding hides). */
   inCycle: boolean;
+  /** The highlight some of its tickets match, if any. */
+  highlight: Exclude<Highlight, "none"> | null;
 }): ReactElement {
   const total = r.members.length;
   return (
@@ -184,6 +208,8 @@ function RollupBody({
         <span className="rollup-bar" aria-hidden="true">
           <span style={{ width: `${total ? (100 * r.done) / total : 0}%` }} />
         </span>
+        {highlight === "critical" && <CriticalTag />}
+        {highlight === "ready" && <ReadyTag />}
         {inCycle && <CycleTag title="Some of its tickets are in a blocking cycle (see Warnings)" />}
         {r.blocked > 0 && <BlockedCount count={r.blocked} />}
         {r.aging > 0 && (
@@ -200,6 +226,39 @@ function RollupBody({
 }
 
 export type Badge = { key: string; label: string; el: React.ReactNode };
+
+/**
+ * A card's badges, most important first: the one that answers the active highlight (so a capped or
+ * zoomed-out card still shows it), then a cycle (it can't finish at all), then what's in the way, then the rest.
+ */
+export function cardBadges({
+  inCycle,
+  openBlockers,
+  highlight,
+  aging,
+  change,
+}: Readonly<{
+  inCycle?: boolean;
+  openBlockers: number;
+  highlight: Exclude<Highlight, "none"> | null;
+  aging?: Aging;
+  change?: ChangeKind;
+}>): Badge[] {
+  const answer: Badge | false =
+    (highlight === "critical" && { key: "critical", label: "Critical", el: <CriticalTag /> }) ||
+    (highlight === "ready" && { key: "ready", label: "Ready", el: <ReadyTag /> });
+  return [
+    answer,
+    inCycle && {
+      key: "cycle",
+      label: "In a blocking cycle",
+      el: <CycleTag title="In a blocking cycle (see Warnings)" />,
+    },
+    openBlockers > 0 && { key: "blockers", label: blockerText(openBlockers), el: <BlockersBadge count={openBlockers} /> },
+    aging && { key: "aging", label: agingDescription(aging), el: <AgingBadge aging={aging} /> },
+    change && { key: "change", label: CHANGE_LABEL[change], el: <ChangeTag change={change} /> },
+  ].filter((b): b is Badge => Boolean(b));
+}
 
 /**
  * Which badges fit `slots`, at most `full` of them whole: when they don't all fit, the last slot is a
@@ -363,18 +422,7 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
     .filter(Boolean)
     .join(", ");
 
-  // Most important first: a cycle can't finish at all, then what's in the way, then the rest.
-  const badges = [
-    inCycle && {
-      key: "cycle",
-      label: "In a blocking cycle",
-      el: <CycleTag title="In a blocking cycle (see Warnings)" />,
-    },
-    openBlockers > 0 && { key: "blockers", label: blockerText(openBlockers), el: <BlockersBadge count={openBlockers} /> },
-    highlight === "ready" && { key: "ready", label: "Ready", el: <span className="tag-ready">Ready</span> },
-    aging && { key: "aging", label: agingDescription(aging), el: <AgingBadge aging={aging} /> },
-    change && { key: "change", label: CHANGE_LABEL[change], el: <ChangeTag change={change} /> },
-  ];
+  const badges = cardBadges({ inCycle, openBlockers, highlight, aging, change });
 
   return (
     <div
@@ -384,7 +432,9 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
       aria-expanded={onExpand ? undefined : selected}
       aria-controls={selected ? ISSUE_DETAIL_ID : undefined}
       tabIndex={!stale && tabbable ? 0 : -1}
-      aria-label={n.rollup ? `${rollupLabel(n, n.rollup)}${inCycle ? " Part of a blocking cycle." : ""}` : `${label}. Shows details.`}
+      aria-label={
+        n.rollup ? `${rollupLabel(n, n.rollup, highlight)}${inCycle ? " Part of a blocking cycle." : ""}` : `${label}. Shows details.`
+      }
       aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown"
       data-uid={n.uid}
       onClick={activate}
@@ -414,7 +464,7 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
       <Handle type="target" position={Position.Left} isConnectable={false} />
       <TraverseHint direction={preview ?? "activate"} />
       {n.rollup ? (
-        <RollupBody node={n} rollup={n.rollup} compact={compact} inCycle={inCycle ?? false} />
+        <RollupBody node={n} rollup={n.rollup} compact={compact} inCycle={inCycle ?? false} highlight={highlight} />
       ) : compact ? (
         <CompactBody node={n} statusText={statusText} badges={badges} />
       ) : (

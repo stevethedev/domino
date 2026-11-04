@@ -1,7 +1,8 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { AgingBadge, BlockedCount, BlockersBadge, capBadges, CycleTag } from "../IssueCard";
+import type { GraphNode } from "../../graph/types";
+import { AgingBadge, BlockedCount, BlockersBadge, capBadges, cardBadges, CriticalTag, CycleTag, rollupLabel } from "../IssueCard";
 
 const shown = (n: number, slots: number, full?: number): string => {
   const { visible, rest } = capBadges(["a", "b", "c", "d"].slice(0, n), slots, full);
@@ -36,5 +37,48 @@ describe("epic summary card badges", () => {
     const blocked = renderToStaticMarkup(createElement(BlockedCount, { count: 3 }));
     expect(blocked).toContain('3<span class="badge-word"> blocked</span>');
     expect(blocked).toContain('title="3 tickets blocked"');
+  });
+});
+
+describe("CriticalTag", () => {
+  it("says Critical in words, so the critical path isn't shown by colour alone", () => {
+    expect(renderToStaticMarkup(createElement(CriticalTag))).toBe('<span class="tag-critical">Critical</span>');
+  });
+});
+
+describe("cardBadges", () => {
+  const keys = (over: Partial<Parameters<typeof cardBadges>[0]> = {}): string[] =>
+    cardBadges({ inCycle: true, openBlockers: 2, highlight: null, ...over }).map((b) => b.key);
+
+  it("leads with a cycle, then blockers, when nothing is highlighted", () => {
+    expect(keys({ change: "blocked" })).toEqual(["cycle", "blockers", "change"]);
+  });
+
+  it("leads with the badge that answers the highlight, so a capped or zoomed-out card still shows it", () => {
+    expect(keys({ highlight: "critical" })[0]).toBe("critical");
+    expect(keys({ highlight: "ready", inCycle: false, openBlockers: 0, change: "blocked" })[0]).toBe("ready");
+  });
+});
+
+describe("rollupLabel", () => {
+  const epic: GraphNode = {
+    uid: "a:CORE-1",
+    siteId: "a",
+    siteLabel: "a",
+    key: "CORE-1",
+    summary: "Checkout v2",
+    issueType: "Epic",
+    statusName: "In Progress",
+    statusCategory: "inprogress",
+    url: "",
+    ghost: false,
+  };
+  const rollup = { epicUid: epic.uid, members: ["a:CORE-2", "a:CORE-3"], done: 0, blocked: 0, aging: 0 };
+
+  // The epic itself can be what matched (it folds into its own summary), even with no tickets loaded.
+  it("says which highlight lit up a folded epic, not only by its ring, without claiming it's the tickets", () => {
+    expect(rollupLabel(epic, rollup, "critical")).toContain("on the critical path (it or some of its tickets)");
+    expect(rollupLabel(epic, rollup, "ready")).toContain("ready to start (it or some of its tickets)");
+    expect(rollupLabel(epic, rollup, null)).not.toMatch(/critical|ready/);
   });
 });

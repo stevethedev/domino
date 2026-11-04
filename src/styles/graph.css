@@ -9,20 +9,22 @@
   border: 1px solid var(--border);
   border-left: 4px solid var(--todo);
   border-radius: var(--radius);
-  box-shadow: var(--shadow-xs);
+  /* Built from parts so a highlight ring, the selected edge and the shadow all show at once. */
+  box-shadow: var(--hl-ring, 0 0 #0000), var(--sel-edge, 0 0 #0000), var(--card-shadow, var(--shadow-xs));
   display: flex;
   flex-direction: column;
   gap: var(--space-1_5);
   cursor: pointer;
   transition:
-    opacity var(--duration-fast) ease,
+    background-color var(--duration-fast) ease,
     box-shadow var(--duration-fast) ease;
 }
 .card:hover {
-  box-shadow: var(--shadow-sm);
+  --card-shadow: var(--shadow-sm);
 }
+/* Focus is the outside ring; selection stays inside the card (see .card.selected). */
 .card:focus-visible {
-  outline: 3px solid var(--focus);
+  outline: var(--ring-width) solid var(--focus);
   outline-offset: 3px;
 }
 .card.status-todo {
@@ -37,24 +39,31 @@
 .card.status-unknown {
   border-left-color: var(--unknown);
 }
+/* Outside scope: a recessed, dashed card with its "Outside scope" label; its text stays readable. */
 .card.ghost {
-  opacity: 0.5;
+  background: var(--surface-2);
   border-style: dashed;
   border-left-style: dashed;
-  box-shadow: none;
+  --card-shadow: 0 0 #0000;
 }
+/* Not part of the highlight: the text keeps full contrast; colour and depth go. */
 .card.dimmed {
-  opacity: 0.2;
+  border-color: var(--border);
+  --card-shadow: 0 0 #0000;
 }
-.card.ghost.dimmed {
-  opacity: 0.1;
+/* Badges, letters and initials only lose colour, so their text keeps its contrast; pictures also lighten. */
+.card.dimmed
+  :is(.pill, .site-badge, .blockers, .tag-ready, .tag-critical, .tag-risk, .tag-cycle, .age, .chg, .type-icon, .avatar, .priority-icon) {
+  filter: grayscale(1);
 }
-.card.hl-critical,
-.card.hl-both {
-  box-shadow: 0 0 0 3px var(--critical);
+.card.dimmed :is(img.avatar, img.priority-icon) {
+  filter: grayscale(1) opacity(0.55);
+}
+.card.hl-critical {
+  --hl-ring: 0 0 0 var(--ring-width) var(--critical);
 }
 .card.hl-ready {
-  box-shadow: 0 0 0 3px var(--ready);
+  --hl-ring: 0 0 0 var(--ring-width) var(--ready);
 }
 .card .react-flow__handle {
   opacity: 0;
@@ -97,6 +106,7 @@
 }
 .type-epic {
   background: var(--type-epic);
+  color: var(--on-type-epic);
 }
 .type-story {
   background: var(--type-story);
@@ -122,6 +132,7 @@
 .site-badge,
 .blockers,
 .tag-ready,
+.tag-critical,
 .tag-risk,
 .tag-cycle,
 .age,
@@ -144,7 +155,7 @@
   background: var(--error-bg);
   color: var(--error-fg);
 }
-.card.compact :is(.pill, .blockers, .tag-ready, .tag-cycle, .age, .chg) {
+.card.compact :is(.pill, .blockers, .tag-ready, .tag-critical, .tag-cycle, .age, .chg) {
   height: var(--badge-h-compact);
   padding: 0 var(--space-2);
   font-size: var(--text-lg);
@@ -235,6 +246,10 @@
 .tag-ready {
   background: var(--pill-done-bg);
   color: var(--pill-done-fg);
+}
+.tag-critical {
+  background: var(--critical-bg);
+  color: var(--critical-fg);
 }
 .outside {
   font-style: italic;
@@ -362,7 +377,7 @@
 
 /* Blocked highlight: the question Domino exists to answer. */
 .card.hl-blocked {
-  box-shadow: 0 0 0 3px var(--warn-fg);
+  --hl-ring: 0 0 0 var(--ring-width) var(--warn-fg);
 }
 
 /* Semantic zoom: when zoomed out past legibility, show only what a glance needs. */
@@ -397,7 +412,8 @@
   display: none;
 }
 .card.compact .blockers,
-.card.compact .tag-ready {
+.card.compact .tag-ready,
+.card.compact .tag-critical {
   margin-left: 0;
   flex: none;
 }
@@ -451,7 +467,7 @@
   color: var(--warn-fg);
 }
 .card.hl-aging {
-  box-shadow: 0 0 0 3px var(--warn-fg); /* the aging badges' colour; red means a cycle */
+  --hl-ring: 0 0 0 var(--ring-width) var(--warn-fg); /* the aging badges' colour; red means a cycle */
 }
 
 /* Folded epics: summary cards */
@@ -539,7 +555,7 @@
   border-color: transparent;
 }
 .card.hl-changed {
-  box-shadow: 0 0 0 3px var(--accent);
+  --hl-ring: 0 0 0 var(--ring-width) var(--accent);
 }
 
 /* Bottom row: assignee and points give way first; badges keep their full text. */
@@ -568,10 +584,16 @@
   cursor: default;
 }
 
-/* The issue open in the details panel: an outline, so a highlight's box-shadow ring still shows. */
-.card.selected:not(:focus-visible) {
-  outline: var(--ring-width) solid var(--accent);
-  outline-offset: 3px;
+/* The issue open in the details panel: a tint and an inside edge, so it never reads as focus. */
+.card.selected {
+  background: var(--selected-bg);
+  --sel-edge: inset 0 0 0 2px var(--accent);
+}
+@media (forced-colors: active) {
+  /* Tints are dropped in forced colours: mark the selected card with a system-colour border. */
+  .card.selected {
+    border-color: Highlight;
+  }
 }
 
 /* Where the focused card's ← or → would go: a dashed outline and the key, before it's pressed. */

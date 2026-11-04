@@ -109,7 +109,7 @@ h3 {
   padding: 0 var(--space-0_5);
   background: none;
   border: none;
-  color: var(--accent);
+  color: var(--link);
   font-weight: inherit;
   text-decoration: underline;
 }
@@ -128,7 +128,8 @@ h3 {
   color: var(--muted);
 }
 
-/* Text inputs and selects share the button height so mixed rows line up. */
+/* Text inputs, textareas and selects share the button height so mixed rows line up, and an edge
+   (--border-control) that stands out from every background at 3:1. */
 :where(
   input[type="text"],
   input[type="search"],
@@ -138,18 +139,23 @@ h3 {
   input[type="password"],
   input[type="number"],
   input:not([type]),
+  textarea,
   select
 ) {
   min-height: var(--control-h);
   min-width: 0;
   padding: 0 var(--space-2);
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-control);
   border-radius: var(--radius-md);
   transition: border-color var(--duration-fast) var(--ease);
 }
-:where(input:hover:not(:disabled, [readonly]), select:hover:not(:disabled)) {
-  border-color: color-mix(in srgb, var(--border) 60%, var(--text));
+:where(input:hover:not(:disabled, [readonly]), textarea:hover:not(:disabled, [readonly]), select:hover:not(:disabled)) {
+  border-color: color-mix(in srgb, var(--border-control) 60%, var(--text));
+}
+/* Checkboxes keep the native control (its unchecked edge comes from the OS) in the app's accent. */
+:where(input[type="checkbox"]) {
+  accent-color: var(--accent);
 }
 /* Selects drop the native look (its own caret, and a popup-button shape in WebKit that ignores
    height and radius) for the same chevron and box as the menu triggers. */
