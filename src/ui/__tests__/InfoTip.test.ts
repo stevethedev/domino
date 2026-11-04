@@ -60,4 +60,8 @@ describe("tipFit", () => {
   it("narrows a tip wider than the space, so it wraps, and starts it at the left edge", () => {
     expect(tipFit({ left: 300, right: 580, minLeft: 248, maxRight: 490 })).toEqual({ maxWidth: 242, shift: -52 });
   });
+
+  it("leaves it alone when there's no room at all (the drawer covers the whole toolbar)", () => {
+    expect(tipFit({ left: 300, right: 580, minLeft: 248, maxRight: 248 })).toEqual({ shift: 0 });
+  });
 });

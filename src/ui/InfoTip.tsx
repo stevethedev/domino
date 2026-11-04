@@ -15,11 +15,17 @@ export function tipFit(t: Readonly<{ left: number; right: number; minLeft: numbe
   shift: number;
 } {
   const space = t.maxRight - t.minLeft;
+  if (space <= 0) return { shift: 0 }; // nowhere to put it: leave it be rather than squash it
   const tooWide = t.right - t.left > space;
   const right = tooWide ? t.left + space : t.right;
   const shift = Math.max(Math.min(0, t.maxRight - right), t.minLeft - t.left);
   return tooWide ? { maxWidth: space, shift } : { shift };
 }
+
+const rectOf = (el: HTMLElement): { left: number; right: number } => {
+  const { left, right } = el.getBoundingClientRect();
+  return { left, right };
+};
 
 /**
  * Keeps an open floating tip inside its nearest `[data-tip-bounds]` (else the window), and left of
@@ -32,10 +38,12 @@ function keepInside(details: HTMLDetailsElement): void {
   panel.style.maxWidth = "";
   const box = details.closest("[data-tip-bounds]")?.getBoundingClientRect() ?? { left: 0, right: window.innerWidth };
   const drawerLeft = document.getElementById(ISSUE_DETAIL_ID)?.getBoundingClientRect().left ?? Infinity;
-  const { left, right } = panel.getBoundingClientRect();
-  const fit = tipFit({ left, right, minLeft: box.left, maxRight: Math.min(box.right, drawerLeft) });
-  if (fit.maxWidth !== undefined) panel.style.maxWidth = `${fit.maxWidth}px`;
-  if (fit.shift !== 0) panel.style.translate = `${fit.shift}px`;
+  const bounds = { minLeft: box.left, maxRight: Math.min(box.right, drawerLeft) };
+  const { maxWidth } = tipFit({ ...rectOf(panel), ...bounds });
+  // Narrowed, it's measured again: the shift then doesn't depend on which side it grew from.
+  if (maxWidth !== undefined) panel.style.maxWidth = `${maxWidth}px`;
+  const { shift } = tipFit({ ...rectOf(panel), ...bounds });
+  if (shift !== 0) panel.style.translate = `${shift}px`;
 }
 
 /**
