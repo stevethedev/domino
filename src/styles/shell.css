@@ -545,6 +545,13 @@
   background: var(--accent);
   color: var(--accent-text);
 }
+/* The view switch's shortcut key, beside its name (src/ui/ViewToggle.tsx). */
+.view-key {
+  margin-left: var(--space-1_5);
+  color: inherit;
+  background: transparent;
+  border-color: currentColor;
+}
 @media (forced-colors: active) {
   /* The fill is dropped in forced colours: outline the active segment in a system colour. */
   .segmented label.active {

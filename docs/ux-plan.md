@@ -23,9 +23,9 @@ Shipped in two PRs. Differences from the plan:
 - **The Critical badge comes first** on timeline rows, since rows are only marked critical while that highlight is on. It has its own `--critical-bg` / `--critical-fg`.
 - **The pressed "Since you last looked" summary** also gets the forced-colors outline, like the insight tiles.
 - **A token contrast test** (`src/styles/__tests__/tokens.test.ts`) checks every pair above in both themes.
-- **`<InfoTip>` is a `<details>`,** like the menus, using `useDetailsMenu`; moving focus away also closes it. Chrome leaves text inside a closed `<details>` out of a description, so a hidden copy outside it is what `aria-describedby` points at. In the sidebar it spans its row instead of floating, so it never runs past the sidebar. (`src/ui/InfoTip.tsx`)
+- **`<InfoTip>` is a `<details>`,** like the menus, using `useDetailsMenu`; moving focus away also closes it. Chrome leaves text inside a closed `<details>` out of a description, so a hidden copy outside it is what `aria-describedby` points at. In the sidebar it spans its row instead of floating, so it never runs past the sidebar; in the timeline toolbar it narrows and shifts to stay clear of the details drawer, and fits again on resize. (`src/ui/InfoTip.tsx`)
 - **Six field-help titles became InfoTips,** and so did the "Couldn't tell who you are" errors, which were only in a title. The timeline's variance badge sits inside a row that is a button, so its explanation went into the Timeline Legend instead. Both Legends now also say what each type letter means.
-- **The view switch's "(g)" / "(t)" titles became `aria-keyshortcuts`;** the Legend already shows the keys.
+- **The view switch shows its keys** (`g`, `t`) beside each name, like Find's `/`, instead of in a "(g)" / "(t)" title; screen readers get them from `aria-keyshortcuts`, and the keys work while its radios have focus. The Sort chip keeps its title: its text is cut off in a narrow sidebar.
 - **A test keeps titles off `<label>` and `<fieldset>`** (`src/ui/__tests__/fieldHelp.test.ts`).
 - **Left for step 5:** the "+N" badge overflow list, aging details and priority names, which only titles carry today.
 

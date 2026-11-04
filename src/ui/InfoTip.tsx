@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from "react";
+import { useEffect, useRef, type ReactElement, type ReactNode } from "react";
 import { ISSUE_DETAIL_ID } from "./IssueCard";
 import { useDetailsMenu } from "./useDetailsMenu";
 
@@ -46,6 +46,14 @@ function keepInside(details: HTMLDetailsElement): void {
   if (shift !== 0) panel.style.translate = `${shift}px`;
 }
 
+/** Runs `refit` on every resize of `win` until the returned function is called. */
+export function followResize(win: EventTarget, refit: () => void): () => void {
+  win.addEventListener("resize", refit);
+  return (): void => {
+    win.removeEventListener("resize", refit);
+  };
+}
+
 /**
  * An ⓘ that shows a field's explanation on click, Enter or Space, so it never needs a hover. Esc,
  * a click outside or moving focus away closes it. A hidden copy of the text has `id`: the field it
@@ -68,6 +76,14 @@ export function InfoTip({
   children: ReactNode;
 }): ReactElement {
   const menu = useDetailsMenu();
+  // While a floating tip is open, a resize (or zoom) fits it again.
+  const stopFollowing = useRef<() => void>();
+  useEffect(
+    () => (): void => {
+      stopFollowing.current?.();
+    },
+    [],
+  );
   return (
     <>
       <details
@@ -75,7 +91,14 @@ export function InfoTip({
         ref={menu.ref}
         onKeyDown={menu.onKeyDown}
         onToggle={(e) => {
-          if (e.currentTarget.open && !inline) keepInside(e.currentTarget);
+          stopFollowing.current?.();
+          stopFollowing.current = undefined;
+          const details = e.currentTarget;
+          if (!details.open || inline) return;
+          keepInside(details);
+          stopFollowing.current = followResize(window, () => {
+            keepInside(details);
+          });
         }}
         onBlur={(e) => {
           const next = e.relatedTarget instanceof Node ? e.relatedTarget : null;

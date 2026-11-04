@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { InfoTip, focusLeaves, tipFit } from "../InfoTip";
+import { InfoTip, focusLeaves, followResize, tipFit } from "../InfoTip";
 import { markupText } from "./markupText";
 
 const tip = (props: Partial<Parameters<typeof InfoTip>[0]> = {}): string =>
@@ -63,5 +63,21 @@ describe("tipFit", () => {
 
   it("leaves it alone when there's no room at all (the drawer covers the whole toolbar)", () => {
     expect(tipFit({ left: 300, right: 580, minLeft: 248, maxRight: 248 })).toEqual({ shift: 0 });
+  });
+});
+
+describe("followResize", () => {
+  it("fits an open tip again each time the window resizes, until it closes", () => {
+    const win = new EventTarget();
+    let fits = 0;
+    const stop = followResize(win, () => {
+      fits++;
+    });
+    win.dispatchEvent(new Event("resize"));
+    win.dispatchEvent(new Event("resize"));
+    expect(fits).toBe(2);
+    stop();
+    win.dispatchEvent(new Event("resize"));
+    expect(fits).toBe(2);
   });
 });
