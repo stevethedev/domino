@@ -46,7 +46,7 @@ export function releaseStatuses(graph: Pick<Graph, "nodes">, timeline: ReadonlyM
 }
 
 /** Upcoming releases soonest first, then upcoming undated ones, then released ones latest first. */
-function compareReleases(a: Release, b: Release): number {
+export function compareReleases(a: Release, b: Release): number {
   const group = (r: Release): number => (r.released ? 2 : r.date ? 0 : 1);
   const byDate = (x = "", y = ""): number => x.localeCompare(y);
   const dates = a.released ? byDate(b.date, a.date) : byDate(a.date, b.date);

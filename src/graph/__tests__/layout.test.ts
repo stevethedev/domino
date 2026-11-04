@@ -191,6 +191,9 @@ describe("laneByRelease", () => {
     ];
     expect(lane({ releases }).id).toBe("release:2.4");
     expect(lane({ releases: [rel("Someday"), rel("1.8", { date: "2026-09-20", released: true })] }).id).toBe("release:Someday");
+    // All shipped: the latest, as the Releases list orders them.
+    const shipped = [rel("1.8", { date: "2026-09-20", released: true }), rel("1.9", { date: "2026-10-01", released: true })];
+    expect(lane({ releases: shipped }).id).toBe("release:1.9");
   });
 
   it("puts issues without one, and ghosts, in catch-all lanes after the rest", () => {

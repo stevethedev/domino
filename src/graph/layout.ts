@@ -1,6 +1,7 @@
 import type { ElkExtendedEdge, ElkNode } from "elkjs/lib/elk-api.js";
 import { getElk } from "./elk";
 import { getOrThrow } from "../lib/guards";
+import { compareReleases } from "./releases";
 import type { GraphEdge, GraphNode, Release } from "./types";
 
 export const CARD_WIDTH = 280;
@@ -115,13 +116,8 @@ export const laneByAssignee =
     };
   };
 
-/** Calendar days in order, undated last. */
-const byDate = (a: string | undefined, b: string | undefined): number =>
-  a === b ? 0 : a === undefined ? 1 : b === undefined ? -1 : a < b ? -1 : 1;
-
-/** The release an issue is headed for: the earliest unreleased one (dated before undated), else the earliest. */
-const headedFor = (releases: readonly Release[]): Release | undefined =>
-  [...releases].sort((a, b) => Number(a.released) - Number(b.released) || byDate(a.date, b.date) || a.name.localeCompare(b.name))[0];
+/** The release an issue is headed for: the first in the Releases list's order (soonest upcoming first). */
+const headedFor = (releases: readonly Release[]): Release | undefined => [...releases].sort(compareReleases)[0];
 
 /**
  * One lane per release (Jira fix version or GitHub milestone), by name, so the same milestone in
