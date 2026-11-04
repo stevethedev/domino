@@ -178,8 +178,8 @@ describe("laneByRelease", () => {
   const lane = (n: Partial<GraphNode>): Lane => laneByRelease({ ...base, ...n });
 
   it("puts an issue in its release's lane, so a GitHub milestone and a Jira version of one name share it", () => {
-    expect(lane({ releases: [rel("v2")] })).toMatchObject({ id: "release:v2", label: "v2" });
-    expect(lane({ releases: [rel("v2", { uid: "gh:M_1", siteId: "gh" })] }).id).toBe("release:v2");
+    expect(lane({ releases: [rel("v2")] })).toMatchObject({ id: "release:name:v2", label: "v2" });
+    expect(lane({ releases: [rel("v2", { uid: "gh:M_1", siteId: "gh" })] }).id).toBe("release:name:v2");
   });
 
   it("picks the next unreleased release when an issue is planned for several", () => {
@@ -189,17 +189,20 @@ describe("laneByRelease", () => {
       rel("2.5", { date: "2026-11-01" }),
       rel("2.4", { date: "2026-10-12" }),
     ];
-    expect(lane({ releases }).id).toBe("release:2.4");
-    expect(lane({ releases: [rel("Someday"), rel("1.8", { date: "2026-09-20", released: true })] }).id).toBe("release:Someday");
+    expect(lane({ releases }).id).toBe("release:name:2.4");
+    expect(lane({ releases: [rel("Someday"), rel("1.8", { date: "2026-09-20", released: true })] }).id).toBe("release:name:Someday");
     // All shipped: the latest, as the Releases list orders them.
     const shipped = [rel("1.8", { date: "2026-09-20", released: true }), rel("1.9", { date: "2026-10-01", released: true })];
-    expect(lane({ releases: shipped }).id).toBe("release:1.9");
+    expect(lane({ releases: shipped }).id).toBe("release:name:1.9");
   });
 
   it("puts issues without one, and ghosts, in catch-all lanes after the rest", () => {
     expect(lane({ releases: undefined })).toMatchObject({ label: "No release", last: true });
     expect(lane({ releases: [] })).toMatchObject({ label: "No release", last: true });
     expect(lane({ ghost: true, releases: undefined })).toMatchObject({ label: "Outside scope", last: true });
+    // A release can be named anything, even like a catch-all lane.
+    expect(lane({ releases: [rel("~none")] }).id).not.toBe(lane({ releases: [] }).id);
+    expect(lane({ releases: [rel("~ghost")] }).id).not.toBe(lane({ ghost: true }).id);
   });
 });
 

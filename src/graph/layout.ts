@@ -127,7 +127,8 @@ export const laneByRelease: LaneFn = (n) => {
   if (n.ghost) return { id: "release:~ghost", label: "Outside scope", last: true };
   const release = headedFor(n.releases ?? []);
   if (!release) return { id: "release:~none", label: "No release", last: true };
-  return { id: `release:${release.name}`, label: release.name };
+  // Named lanes have their own prefix: a release can be named like a catch-all lane ("~none").
+  return { id: `release:name:${release.name}`, label: release.name };
 };
 
 /**
