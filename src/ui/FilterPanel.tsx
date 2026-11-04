@@ -306,6 +306,7 @@ export function FilterPanel({
           <option value="site">Site</option>
           <option value="epic">Epic</option>
           <option value="assignee">Assignee</option>
+          <option value="release">Release / milestone</option>
         </select>
       </label>
       <SortField

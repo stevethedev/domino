@@ -10,6 +10,7 @@ import {
   computeLayout,
   laneByAssignee,
   laneByEpic,
+  laneByRelease,
   laneBySite,
   type CardOrder,
   type LaneFn,
@@ -40,7 +41,7 @@ const EXPORT_PADDING = 40;
 
 /** Link and issue filters (display only; see visibleSubgraph). */
 export type Filters = ViewFilters;
-const GROUP_BY = ["none", "site", "epic", "assignee"] as const;
+const GROUP_BY = ["none", "site", "epic", "assignee", "release"] as const;
 export type GroupBy = (typeof GROUP_BY)[number];
 export const isGroupBy = isOneOf(GROUP_BY);
 /**
@@ -60,6 +61,8 @@ export function lanesFor(groupBy: GroupBy, insights: Insights): LaneFn | undefin
       return laneByEpic;
     case "assignee":
       return laneByAssignee(insights.holdingUpByAssignee);
+    case "release":
+      return laneByRelease;
   }
 }
 

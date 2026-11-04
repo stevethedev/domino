@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { getOrThrow } from "../../lib/guards";
+import { defined, getOrThrow } from "../../lib/guards";
 import { buildGraph } from "../buildGraph";
 import {
   CARD_HEIGHT,
   CARD_WIDTH,
   computeLayout,
   laneByEpic,
+  laneByRelease,
   laneBySite,
+  type Lane,
   type LaneFn,
   type Layout,
   epicLaneId,
@@ -14,7 +16,7 @@ import {
   withEpicFolds,
 } from "../layout";
 import { mockConfig, mockLinkTypes, mockSites } from "../../data/mockData";
-import type { GraphEdge, GraphNode } from "../types";
+import type { GraphEdge, GraphNode, Release } from "../types";
 
 const g = buildGraph({
   sites: mockConfig.sites,
@@ -25,6 +27,7 @@ const MODES: [string, LaneFn | undefined][] = [
   ["none", undefined],
   ["site", laneBySite],
   ["epic", laneByEpic],
+  ["release", laneByRelease],
 ];
 
 describe.each(MODES)("computeLayout (group by %s)", (mode, laneOf) => {
@@ -163,6 +166,43 @@ describe("swimlanes stay compact", () => {
 
   it.each(MODES.filter(([, laneOf]) => laneOf))("never packs a card onto a link in the mock data (%s)", async (_, laneOf) => {
     expectNoLinkOverCards(await computeLayout(g.nodes, g.edges, g.brokenEdgeIds, laneOf), g.nodes, g.edges, g.brokenEdgeIds);
+  });
+});
+
+describe("laneByRelease", () => {
+  const base = defined(
+    g.nodes.find((n) => !n.ghost),
+    "a loaded issue",
+  );
+  const rel = (name: string, extra: Partial<Release> = {}): Release => ({ uid: `x:${name}`, siteId: "x", name, released: false, ...extra });
+  const lane = (n: Partial<GraphNode>): Lane => laneByRelease({ ...base, ...n });
+
+  it("puts an issue in its release's lane, so a GitHub milestone and a Jira version of one name share it", () => {
+    expect(lane({ releases: [rel("v2")] })).toMatchObject({ id: "release:name:v2", label: "v2" });
+    expect(lane({ releases: [rel("v2", { uid: "gh:M_1", siteId: "gh" })] }).id).toBe("release:name:v2");
+  });
+
+  it("picks the next unreleased release when an issue is planned for several", () => {
+    const releases = [
+      rel("1.8", { date: "2026-09-20", released: true }),
+      rel("Someday"),
+      rel("2.5", { date: "2026-11-01" }),
+      rel("2.4", { date: "2026-10-12" }),
+    ];
+    expect(lane({ releases }).id).toBe("release:name:2.4");
+    expect(lane({ releases: [rel("Someday"), rel("1.8", { date: "2026-09-20", released: true })] }).id).toBe("release:name:Someday");
+    // All shipped: the latest, as the Releases list orders them.
+    const shipped = [rel("1.8", { date: "2026-09-20", released: true }), rel("1.9", { date: "2026-10-01", released: true })];
+    expect(lane({ releases: shipped }).id).toBe("release:name:1.9");
+  });
+
+  it("puts issues without one, and ghosts, in catch-all lanes after the rest", () => {
+    expect(lane({ releases: undefined })).toMatchObject({ label: "No release", last: true });
+    expect(lane({ releases: [] })).toMatchObject({ label: "No release", last: true });
+    expect(lane({ ghost: true, releases: undefined })).toMatchObject({ label: "Outside scope", last: true });
+    // A release can be named anything, even like a catch-all lane.
+    expect(lane({ releases: [rel("~none")] }).id).not.toBe(lane({ releases: [] }).id);
+    expect(lane({ releases: [rel("~ghost")] }).id).not.toBe(lane({ ghost: true }).id);
   });
 });
 
