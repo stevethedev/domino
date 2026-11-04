@@ -622,11 +622,11 @@
   box-shadow: inset 0 0 0 1px var(--accent);
 }
 @media (forced-colors: active) {
-  /* Shadows are dropped in forced colours: outline pressed toggles in a system colour. */
+  /* Shadows are dropped in forced colours: pressed toggles get a thick system-colour border,
+     leaving the outline to show keyboard focus. */
   .insight[aria-pressed="true"],
   .change-summary[aria-pressed="true"] {
-    outline: 2px solid Highlight;
-    outline-offset: -2px;
+    border: 2px solid Highlight;
   }
 }
 
