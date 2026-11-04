@@ -7,11 +7,19 @@ export const focusLeaves = <T,>(tip: Readonly<{ contains: (n: T) => boolean }>, 
   next === null || !tip.contains(next);
 
 /**
- * How far to move an open tip sideways so it stays within `minLeft`..`maxRight`: left when it
- * runs past the right edge, but never past the left one (a tip wider than the space starts there).
+ * How to fit an open tip within `minLeft`..`maxRight`: narrower (so its text wraps) when it's wider
+ * than the space, then moved left when it runs past the right edge, never past the left one.
  */
-export const tipShift = (t: Readonly<{ left: number; right: number; minLeft: number; maxRight: number }>): number =>
-  Math.max(Math.min(0, t.maxRight - t.right), t.minLeft - t.left);
+export function tipFit(t: Readonly<{ left: number; right: number; minLeft: number; maxRight: number }>): {
+  maxWidth?: number;
+  shift: number;
+} {
+  const space = t.maxRight - t.minLeft;
+  const tooWide = t.right - t.left > space;
+  const right = tooWide ? t.left + space : t.right;
+  const shift = Math.max(Math.min(0, t.maxRight - right), t.minLeft - t.left);
+  return tooWide ? { maxWidth: space, shift } : { shift };
+}
 
 /**
  * Keeps an open floating tip inside its nearest `[data-tip-bounds]` (else the window), and left of
@@ -21,11 +29,13 @@ function keepInside(details: HTMLDetailsElement): void {
   const panel = details.querySelector<HTMLElement>(".info-tip-text.popover");
   if (!panel) return;
   panel.style.translate = "";
+  panel.style.maxWidth = "";
   const box = details.closest("[data-tip-bounds]")?.getBoundingClientRect() ?? { left: 0, right: window.innerWidth };
   const drawerLeft = document.getElementById(ISSUE_DETAIL_ID)?.getBoundingClientRect().left ?? Infinity;
   const { left, right } = panel.getBoundingClientRect();
-  const shift = tipShift({ left, right, minLeft: box.left, maxRight: Math.min(box.right, drawerLeft) });
-  if (shift !== 0) panel.style.translate = `${shift}px`;
+  const fit = tipFit({ left, right, minLeft: box.left, maxRight: Math.min(box.right, drawerLeft) });
+  if (fit.maxWidth !== undefined) panel.style.maxWidth = `${fit.maxWidth}px`;
+  if (fit.shift !== 0) panel.style.translate = `${fit.shift}px`;
 }
 
 /**

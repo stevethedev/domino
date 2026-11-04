@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { InfoTip, focusLeaves, tipShift } from "../InfoTip";
+import { InfoTip, focusLeaves, tipFit } from "../InfoTip";
 import { markupText } from "./markupText";
 
 const tip = (props: Partial<Parameters<typeof InfoTip>[0]> = {}): string =>
@@ -45,18 +45,19 @@ describe("focusLeaves", () => {
   });
 });
 
-describe("tipShift", () => {
+describe("tipFit", () => {
   const bounds = { minLeft: 100, maxRight: 900 };
 
   it("leaves a tip that fits where it is", () => {
-    expect(tipShift({ left: 300, right: 580, ...bounds })).toBe(0);
+    expect(tipFit({ left: 300, right: 580, ...bounds })).toEqual({ shift: 0 });
   });
 
   it("moves a tip that runs past the right edge (or under the details drawer) back inside", () => {
-    expect(tipShift({ left: 700, right: 980, ...bounds })).toBe(-80);
+    expect(tipFit({ left: 700, right: 980, ...bounds })).toEqual({ shift: -80 });
   });
 
-  it("never moves it past the left edge: a tip wider than the space starts at the left", () => {
-    expect(tipShift({ left: 150, right: 1050, ...bounds })).toBe(-50);
+  // 850px window: 248px sidebar and 360px drawer leave 242px, less than the tip's 280px.
+  it("narrows a tip wider than the space, so it wraps, and starts it at the left edge", () => {
+    expect(tipFit({ left: 300, right: 580, minLeft: 248, maxRight: 490 })).toEqual({ maxWidth: 242, shift: -52 });
   });
 });
