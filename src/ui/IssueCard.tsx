@@ -155,6 +155,11 @@ export function CriticalTag(): ReactElement {
   return <span className="tag-critical">Critical</span>;
 }
 
+/** Ready to start: no open blockers. */
+export function ReadyTag(): ReactElement {
+  return <span className="tag-ready">Ready</span>;
+}
+
 /** An epic summary card's count of blocked tickets; zoomed out, "⚠ 3". */
 export function BlockedCount({ count }: { count: number }): ReactElement {
   return (
@@ -201,7 +206,7 @@ function RollupBody({
           <span style={{ width: `${total ? (100 * r.done) / total : 0}%` }} />
         </span>
         {highlight === "critical" && <CriticalTag />}
-        {highlight === "ready" && <span className="tag-ready">Ready</span>}
+        {highlight === "ready" && <ReadyTag />}
         {inCycle && <CycleTag title="Some of its tickets are in a blocking cycle (see Warnings)" />}
         {r.blocked > 0 && <BlockedCount count={r.blocked} />}
         {r.aging > 0 && (
@@ -238,7 +243,7 @@ export function cardBadges({
 }>): Badge[] {
   const answer: Badge | false =
     (highlight === "critical" && { key: "critical", label: "Critical", el: <CriticalTag /> }) ||
-    (highlight === "ready" && { key: "ready", label: "Ready", el: <span className="tag-ready">Ready</span> });
+    (highlight === "ready" && { key: "ready", label: "Ready", el: <ReadyTag /> });
   return [
     answer,
     inCycle && {

@@ -5,7 +5,17 @@ import { addDays, maxDay, type Day, type Span } from "../../graph/schedule";
 import type { GraphNode } from "../../graph/types";
 import type { Aging } from "../../graph/aging";
 import { CHANGE_LABEL, type ChangeKind } from "../../graph/changes";
-import { AgingBadge, agingDescription, CappedBadges, ChangeTag, CriticalTag, ISSUE_DETAIL_ID, TraverseHint, TypeIcon } from "../IssueCard";
+import {
+  AgingBadge,
+  agingDescription,
+  CappedBadges,
+  ChangeTag,
+  CriticalTag,
+  ISSUE_DETAIL_ID,
+  ReadyTag,
+  TraverseHint,
+  TypeIcon,
+} from "../IssueCard";
 import {
   BADGE_ROOM,
   entryEnd,
@@ -183,7 +193,7 @@ export const TimelineRow = memo(function TimelineRow({
                     </span>
                   ),
                 },
-                flags.ready && { key: "ready", label: "Ready", el: <span className="tag-ready">Ready</span> },
+                flags.ready && { key: "ready", label: "Ready", el: <ReadyTag /> },
                 flags.aging && { key: "aging", label: agingDescription(flags.aging), el: <AgingBadge aging={flags.aging} /> },
                 flags.change && { key: "change", label: CHANGE_LABEL[flags.change], el: <ChangeTag change={flags.change} /> },
               ]}
