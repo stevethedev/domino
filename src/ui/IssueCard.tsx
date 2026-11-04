@@ -126,10 +126,13 @@ function initials(name?: string): string {
   return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase();
 }
 
-/** A folded epic lights up when some of its tickets match the highlight: say which, not only by its ring. */
+/**
+ * A folded epic lights up when it or some of its tickets match the highlight (the epic folds into its
+ * own summary): say which highlight, not only by its ring.
+ */
 const ROLLUP_HIGHLIGHT: Partial<Record<Exclude<Highlight, "none">, string>> = {
-  critical: "some of its tickets are on the critical path",
-  ready: "some of its tickets are ready to start",
+  critical: "on the critical path (it or some of its tickets)",
+  ready: "ready to start (it or some of its tickets)",
 };
 
 export function rollupLabel(n: GraphNode, r: EpicRollup, highlight: Exclude<Highlight, "none"> | null): string {

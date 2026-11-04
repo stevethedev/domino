@@ -75,9 +75,10 @@ describe("rollupLabel", () => {
   };
   const rollup = { epicUid: epic.uid, members: ["a:CORE-2", "a:CORE-3"], done: 0, blocked: 0, aging: 0 };
 
-  it("says which highlight lit up a folded epic, not only by its ring", () => {
-    expect(rollupLabel(epic, rollup, "critical")).toContain("some of its tickets are on the critical path");
-    expect(rollupLabel(epic, rollup, "ready")).toContain("some of its tickets are ready to start");
+  // The epic itself can be what matched (it folds into its own summary), even with no tickets loaded.
+  it("says which highlight lit up a folded epic, not only by its ring, without claiming it's the tickets", () => {
+    expect(rollupLabel(epic, rollup, "critical")).toContain("on the critical path (it or some of its tickets)");
+    expect(rollupLabel(epic, rollup, "ready")).toContain("ready to start (it or some of its tickets)");
     expect(rollupLabel(epic, rollup, null)).not.toMatch(/critical|ready/);
   });
 });
