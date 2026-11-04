@@ -142,6 +142,11 @@ export function CycleTag({ title }: { title: string }): ReactElement {
   );
 }
 
+/** On the critical path: said in words, not only by the highlight's colour. */
+export function CriticalTag(): ReactElement {
+  return <span className="tag-critical">Critical</span>;
+}
+
 /** An epic summary card's count of blocked tickets; zoomed out, "⚠ 3". */
 export function BlockedCount({ count }: { count: number }): ReactElement {
   return (
@@ -371,6 +376,7 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
       el: <CycleTag title="In a blocking cycle (see Warnings)" />,
     },
     openBlockers > 0 && { key: "blockers", label: blockerText(openBlockers), el: <BlockersBadge count={openBlockers} /> },
+    highlight === "critical" && { key: "critical", label: "Critical", el: <CriticalTag /> },
     highlight === "ready" && { key: "ready", label: "Ready", el: <span className="tag-ready">Ready</span> },
     aging && { key: "aging", label: agingDescription(aging), el: <AgingBadge aging={aging} /> },
     change && { key: "change", label: CHANGE_LABEL[change], el: <ChangeTag change={change} /> },

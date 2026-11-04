@@ -15,26 +15,23 @@ Shipped as planned, with these differences:
 
 ## 2. State tokens
 
-- **Selected and focused look different.** Focus is the outside ring (3px, 3px offset, `--focus`) everywhere. Selection moves inside the card: a new `--selected-bg` tint plus a 2px accent border. In the timeline, the focused row gets the ring and the selected row gets the tint plus the inset accent bar, which now means "selected" only. (`src/styles/graph.css:24-27, 572-575`, `src/styles/timeline.css:267-273, 584-586`)
-- **Faded cards keep readable text.**
-  - _Ghost:_ no opacity. It gets `--surface-2`, a dashed border and the "Outside scope" label. `--muted` must reach ≥ 4.5:1 on `--surface-2` in both themes.
-  - _Dimmed:_ text stays at full contrast. The border, badges, type icon and avatar go grayscale and lighter, and its edges drop to ~30%. The highlighted cards keep their ring.
+Shipped in two PRs. The first (states and tokens) is done. Differences from the plan:
 
-  (`src/styles/graph.css:40-51`, `src/styles/timeline.css:275-280`)
+- **Timeline rows keep an inset focus ring.** Rows sit edge to edge in a scrolling list, so an outside ring would be cut off. Selection there is the tint and the accent bar, never a ring.
+- **`--muted` needed no change:** it was already 5.26:1 (light) and 6.02:1 (dark) on `--surface-2`.
+- **`--done-fg` is new,** for "done" as text; `--done` stays for fills and edges. The Story icon's green was darkened too: white on it was 3.30:1.
+- **The Critical badge comes first** on timeline rows, since rows are only marked critical while that highlight is on. It has its own `--critical-bg` / `--critical-fg`.
+- **The pressed "Since you last looked" summary** also gets the forced-colors outline, like the insight tiles.
+- **A token contrast test** (`src/styles/__tests__/tokens.test.ts`) checks every pair above in both themes.
 
-- **Controls get visible edges.** A new `--border-control` at ≥ 3:1 in both themes for inputs, selects, textareas, checkboxes and `<summary>` triggers. `--border` stays for dividers and cards. The five repeated trigger styles become one rule. (`src/styles/tokens.css`, `src/styles/base.css:132-150`, `src/styles/shell.css:229, 390, 841, 1138, 1459`)
-- **Critical path gets a "Critical" badge** in timeline rows, like Ready, and the inset bar is dropped from critical rows. In the graph the badge shows only when highlighted and in the detail drawer. (`src/ui/timeline/TimelineRow.tsx`, `src/styles/timeline.css:284-286`)
-- **Explanations reachable without hovering.** The 66 `title=` uses split three ways:
-  - Field help becomes a new `<InfoTip>` toggletip: an ⓘ button, opened by click, Enter or Space, closed by Esc or blur, linked with `aria-describedby`.
+Still to do, in the second PR:
+
+- **Explanations reachable without hovering.** The 53 `title=` attributes on page elements split three ways:
+  - The 7 field-help titles become a new `<InfoTip>` toggletip: an ⓘ button, opened by click, Enter or Space, closed by Esc or blur, linked with `aria-describedby`. (`src/ui/FilterPanel.tsx`, `src/ui/Glance.tsx`, `src/ui/timeline/Timeline.tsx`, `src/ui/timeline/TimelineRow.tsx`)
   - Meanings carried only by an icon become visible text, such as "misses due", or go into the ticket description from step 5.
   - Text cut off with "…" keeps `title`.
-- **Contrast fixes.**
-  - `.health-ok` uses a darker `--done-fg`.
-  - Type-icon letters meet 4.5:1.
-  - In dark mode, `--on-type` on the epic color becomes dark ink.
-  - In dark mode, the link color on `--surface-2` reaches 4.5:1.
-- **Windows High Contrast.** Under `forced-colors`, the active segment and pressed insight tiles get a border or outline in system colors.
-- Not included: an in-app theme switch. The app keeps following the OS.
+
+Not included: an in-app theme switch. The app keeps following the OS.
 
 ## 3. Focus helper
 

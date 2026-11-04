@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { AgingBadge, BlockedCount, BlockersBadge, capBadges, CycleTag } from "../IssueCard";
+import { AgingBadge, BlockedCount, BlockersBadge, capBadges, CriticalTag, CycleTag } from "../IssueCard";
 
 const shown = (n: number, slots: number, full?: number): string => {
   const { visible, rest } = capBadges(["a", "b", "c", "d"].slice(0, n), slots, full);
@@ -36,5 +36,11 @@ describe("epic summary card badges", () => {
     const blocked = renderToStaticMarkup(createElement(BlockedCount, { count: 3 }));
     expect(blocked).toContain('3<span class="badge-word"> blocked</span>');
     expect(blocked).toContain('title="3 tickets blocked"');
+  });
+});
+
+describe("CriticalTag", () => {
+  it("says Critical in words, so the critical path isn't shown by colour alone", () => {
+    expect(renderToStaticMarkup(createElement(CriticalTag))).toBe('<span class="tag-critical">Critical</span>');
   });
 });

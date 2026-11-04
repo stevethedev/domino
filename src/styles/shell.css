@@ -226,23 +226,28 @@
   min-width: 140px;
   max-width: 480px;
 }
-.query-trigger {
+/* Menu and editor triggers (<summary>): the same box and edge as inputs. Each menu's own rule
+   below keeps only what differs. */
+:where(.query-trigger, .site-selector summary, .saved-views summary, .filter-menu summary, .export-menu summary) {
   list-style: none;
   display: flex;
   align-items: center;
   gap: var(--space-1_5);
   min-height: var(--control-h);
   padding: 0 var(--space-2);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-control);
   border-radius: var(--radius-md);
   background: var(--surface);
-  cursor: text;
+  cursor: pointer;
 }
-.query-trigger::-webkit-details-marker {
+:where(.query-trigger, .site-selector summary, .saved-views summary, .filter-menu summary, .export-menu summary)::-webkit-details-marker {
   display: none;
 }
-.query-trigger:hover {
-  border-color: color-mix(in srgb, var(--border) 60%, var(--text));
+:where(.query-trigger, .site-selector summary, .saved-views summary, .filter-menu summary, .export-menu summary):hover {
+  border-color: color-mix(in srgb, var(--border-control) 60%, var(--text));
+}
+.query-trigger {
+  cursor: text;
 }
 .query-text {
   /* width: 0 so the query's length doesn't set the top bar's content width and wrap it. */
@@ -281,7 +286,7 @@
   padding: var(--space-1_5) var(--space-2);
   background: var(--surface);
   color: var(--text);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-control);
   border-radius: var(--radius-md);
   font-family: var(--mono);
   font-size: var(--text-sm);
@@ -386,21 +391,6 @@
 
 .site-selector {
   position: relative;
-}
-.site-selector summary {
-  list-style: none;
-  display: flex;
-  align-items: center;
-  gap: var(--space-1_5);
-  cursor: pointer;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  min-height: var(--control-h);
-  padding: 0 var(--space-2);
-  background: var(--surface);
-}
-.site-selector summary::-webkit-details-marker {
-  display: none;
 }
 /* A menu panel under its <details> trigger, floating over the page (the trigger is position: relative). */
 .popover {
@@ -555,6 +545,13 @@
   background: var(--accent);
   color: var(--accent-text);
 }
+@media (forced-colors: active) {
+  /* The fill is dropped in forced colours: outline the active segment in a system colour. */
+  .segmented label.active {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+}
 .segmented input {
   position: absolute;
   opacity: 0;
@@ -623,6 +620,14 @@
   border-color: currentColor;
   background: var(--surface-2);
   box-shadow: inset 0 0 0 1px var(--accent);
+}
+@media (forced-colors: active) {
+  /* Shadows are dropped in forced colours: outline pressed toggles in a system colour. */
+  .insight[aria-pressed="true"],
+  .change-summary[aria-pressed="true"] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
 }
 
 /* Quick find */
@@ -839,19 +844,7 @@ kbd {
   position: relative;
 }
 .saved-views summary {
-  list-style: none;
-  display: flex;
-  align-items: center;
   gap: var(--space-1);
-  cursor: pointer;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  min-height: var(--control-h);
-  padding: 0 var(--space-2);
-  background: var(--surface);
-}
-.saved-views summary::-webkit-details-marker {
-  display: none;
 }
 .saved-views-popover {
   width: 320px;
@@ -944,7 +937,7 @@ kbd {
   user-select: none;
 }
 .sb-toggle:hover .sb-title {
-  color: var(--accent);
+  color: var(--link);
 }
 .sb-toggle:focus-visible {
   outline-offset: -3px;
@@ -1135,27 +1128,12 @@ kbd {
   position: relative;
   margin-bottom: var(--space-1_5);
 }
-.filter-menu summary {
-  list-style: none;
-  display: flex;
-  align-items: center;
-  gap: var(--space-1_5);
-  min-height: var(--control-h);
-  padding: 0 var(--space-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface);
-  cursor: pointer;
-}
-.filter-menu summary::-webkit-details-marker {
-  display: none;
-}
 .filter-menu-state {
   flex: 1;
   color: var(--muted);
 }
 .filter-menu-state.active {
-  color: var(--accent);
+  color: var(--link);
   font-weight: var(--weight-semibold);
 }
 /* The sidebar scrolls (and so clips), so these menus span the sidebar's width instead of the
@@ -1327,7 +1305,7 @@ kbd {
   margin: 0;
 }
 .detail-description a {
-  color: var(--accent);
+  color: var(--link);
 }
 .detail-description code {
   font: var(--text-sm) var(--mono);
@@ -1457,20 +1435,9 @@ kbd {
   position: relative;
 }
 .export-menu summary {
-  list-style: none;
   display: inline-flex;
-  align-items: center;
-  gap: var(--space-1_5);
-  min-height: var(--control-h);
   padding: 0 var(--space-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface);
   font-weight: var(--weight-semibold);
-  cursor: pointer;
-}
-.export-menu summary::-webkit-details-marker {
-  display: none;
 }
 .export-popover {
   left: auto;

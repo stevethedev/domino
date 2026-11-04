@@ -5,7 +5,7 @@ import { addDays, maxDay, type Day, type Span } from "../../graph/schedule";
 import type { GraphNode } from "../../graph/types";
 import type { Aging } from "../../graph/aging";
 import { CHANGE_LABEL, type ChangeKind } from "../../graph/changes";
-import { AgingBadge, agingDescription, CappedBadges, ChangeTag, ISSUE_DETAIL_ID, TraverseHint, TypeIcon } from "../IssueCard";
+import { AgingBadge, agingDescription, CappedBadges, ChangeTag, CriticalTag, ISSUE_DETAIL_ID, TraverseHint, TypeIcon } from "../IssueCard";
 import {
   BADGE_ROOM,
   entryEnd,
@@ -42,7 +42,7 @@ const VARIANCE_HINT =
 const missesText = (names: readonly string[]): string =>
   `forecast to miss ${names.length === 1 ? "release" : "releases"} ${names.join(", ")}`;
 
-function describe(node: GraphNode, row: TimelineRowModel): string {
+function describe(node: GraphNode, row: TimelineRowModel, critical: boolean): string {
   const p = row.entry.progress;
   const parts = [`${node.key}, ${node.summary}`, `status ${node.statusName}`, `projected ${spanText(row.entry.projected)}`];
   if (p.state === "done")
@@ -52,6 +52,7 @@ function describe(node: GraphNode, row: TimelineRowModel): string {
   if (p.state === "unknown") parts.push(node.statusCategory === "done" ? "done, dates unknown" : "start date unknown");
   if (node.dates?.due) parts.push(`due ${fmtDay(node.dates.due)}`);
   if (p.state !== "unknown" && !(p.state === "done" && p.startUnknown)) parts.push(varianceLabel(row.entry.varianceDays));
+  if (critical) parts.push("on critical path");
   if (node.ghost) parts.push("outside scope");
   return `${parts.join(", ")}. Shows details.`;
 }
@@ -123,7 +124,7 @@ export const TimelineRow = memo(function TimelineRow({
       aria-label={
         epic
           ? describeEpic(node, epic)
-          : `${describe(node, row)}${flags.missedReleases ? ` ${missesText(flags.missedReleases)}.` : ""}${flags.aging ? ` ${agingDescription(flags.aging)}.` : ""}`
+          : `${describe(node, row, flags.critical)}${flags.missedReleases ? ` ${missesText(flags.missedReleases)}.` : ""}${flags.aging ? ` ${agingDescription(flags.aging)}.` : ""}`
       }
       aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown"
       data-tl-uid={node.uid}
@@ -169,6 +170,8 @@ export const TimelineRow = memo(function TimelineRow({
             <span className={`pill pill-${node.statusCategory}`}>{node.statusName}</span>
             <CappedBadges
               badges={[
+                // Set only while the critical-path highlight is on: the badge that answers it comes first.
+                flags.critical && { key: "critical", label: "Critical", el: <CriticalTag /> },
                 flags.missedReleases && {
                   key: "release",
                   label: missesText(flags.missedReleases),

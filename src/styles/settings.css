@@ -46,7 +46,7 @@ dialog.settings header {
   font-weight: var(--weight-semibold);
 }
 .health-ok {
-  color: var(--done);
+  color: var(--done-fg);
 }
 .health-error {
   color: var(--error-text);

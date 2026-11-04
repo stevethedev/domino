@@ -2,6 +2,15 @@ import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, type Edge, type EdgePro
 import { memo } from "react";
 import type { GraphEdge } from "../../graph/types";
 
+/** A link outside the highlight stays faintly traceable. */
+const DIMMED_EDGE_OPACITY = 0.3;
+
+/** How strongly to draw a link: duplicates and links from finished work are lighter, dimmed ones fainter still. */
+export function edgeOpacity(e: Readonly<{ kind: GraphEdge["kind"]; sourceDone: boolean; dimmed: boolean }>): number {
+  const base = Math.min(e.kind === "duplicates" ? 0.4 : 1, e.sourceDone ? 0.25 : 1);
+  return e.dimmed ? base * DIMMED_EDGE_OPACITY : base;
+}
+
 export type LinkEdgeData = {
   edge: GraphEdge;
   inCycle: boolean;
@@ -23,9 +32,7 @@ export const LinkEdge = memo(function LinkEdge(props: EdgeProps<LinkFlowEdge>) {
         getSmoothStepPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, borderRadius: 10, offset: 18 });
   const { edge, inCycle, sourceDone, dimmed, critical } = data;
 
-  let opacity = edge.kind === "duplicates" ? 0.4 : 1;
-  if (sourceDone) opacity = Math.min(opacity, 0.25);
-  if (dimmed) opacity *= 0.2;
+  const opacity = edgeOpacity({ kind: edge.kind, sourceDone, dimmed });
 
   const stroke = inCycle ? "var(--cycle)" : critical ? "var(--critical)" : "var(--edge)";
   const style = {

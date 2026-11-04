@@ -210,7 +210,7 @@
   stroke-linecap: round;
 }
 .tl-arrow.dimmed {
-  opacity: 0.15;
+  opacity: 0.3;
 }
 .tl-arrowhead.edge {
   fill: var(--edge);
@@ -256,33 +256,29 @@
   border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
   cursor: pointer;
   z-index: var(--z-raised);
-  transition:
-    opacity var(--duration-fast) ease,
-    top var(--fold-ms) ease;
+  transition: top var(--fold-ms) ease;
 }
 .tl-row:hover {
   background: color-mix(in srgb, var(--accent) 5%, transparent);
 }
+/* Focus rings the row inside its edges: rows sit edge to edge in a scrolling list, so an outside
+   ring would be cut off. Selection is a tint and a bar (see .tl-row.selected), never a ring. */
 .tl-row:focus-visible {
-  outline: 3px solid var(--focus);
-  outline-offset: -3px;
+  outline: var(--ring-width) solid var(--focus);
+  outline-offset: calc(-1 * var(--ring-width));
 }
 /* The sticky label column paints over the row's own outline: ring the label too. */
 .tl-row:focus-visible .tl-label,
 .tl-row.selected:focus-visible .tl-label {
-  box-shadow: inset 0 0 0 3px var(--focus);
+  box-shadow: inset 0 0 0 var(--ring-width) var(--focus);
 }
-.tl-row.dimmed {
-  opacity: 0.2;
-}
-.tl-row.ghost {
-  opacity: 0.5;
+/* Not part of the highlight: the text keeps full contrast; bars and badges lose colour. */
+.tl-row.dimmed :is(.tl-bar, .tl-due, .tl-variance, .type-icon, .pill, .tag-ready, .tag-critical, .tag-risk, .age, .chg) {
+  filter: grayscale(1) opacity(0.55);
 }
 .tl-row.ghost .tl-label {
+  background: var(--surface-2);
   font-style: italic;
-}
-.tl-row.critical .tl-label {
-  box-shadow: inset 4px 0 0 var(--critical);
 }
 .tl-label {
   position: sticky;
@@ -580,16 +576,16 @@
   }
 }
 
-/* The issue open in the details panel. */
+/* The issue open in the details panel: the tint and the bar mean "selected" only. */
 .tl-row.selected .tl-label {
-  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  background: var(--selected-bg);
   box-shadow: inset 3px 0 0 var(--accent);
 }
-/* Both marks: the critical-path bar, then the selection's beside it. */
-.tl-row.selected.critical:not(:focus-visible) .tl-label {
-  box-shadow:
-    inset 4px 0 0 var(--critical),
-    inset 7px 0 0 var(--accent);
+@media (forced-colors: active) {
+  /* Tints are dropped in forced colours: mark the selected row with a system-colour edge. */
+  .tl-row.selected .tl-label {
+    border-left: 3px solid Highlight;
+  }
 }
 
 /* Where the focused row's ← or → would go (see .traverse-hint in graph.css). */
