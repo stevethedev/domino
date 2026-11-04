@@ -48,6 +48,7 @@ import { FinishFirst } from "./ui/InsightsBar";
 import { ReleasesPanel } from "./ui/ReleasesPanel";
 import { UpdateBanner } from "./ui/UpdateBanner";
 import { BrandMark } from "./ui/BrandMark";
+import { TypeKey } from "./ui/IssueCard";
 import { IssueDetail, type IssueDetailData } from "./ui/IssueDetail";
 import { ConfigProblemBanner } from "./ui/ConfigProblemBanner";
 import { noSitesShown } from "./ui/canvasMessage";
@@ -1000,6 +1001,7 @@ function Legend(): ReactElement {
           <span className="swatch ghost-swatch" aria-hidden="true" /> Outside scope
         </li>
       </ul>
+      <TypeKey />
       <p className="hint">Hover or focus a card to trace its blockers. Enter or click shows its details; ⌘/Ctrl+click opens it in Jira.</p>
       <p className="hint">
         <kbd>/</kbd> find · <kbd>g</kbd> graph · <kbd>t</kbd> timeline

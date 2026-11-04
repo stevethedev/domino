@@ -186,3 +186,71 @@ input[readonly] {
     animation-iteration-count: 1 !important;
   }
 }
+
+/* InfoTip: an ⓘ that shows a field's explanation (src/ui/InfoTip.tsx). The summary is a 24px
+   target (WCAG 2.5.8). It floats beside the ⓘ, or, inline, spans the .has-tip row it's in. */
+.info-tip {
+  position: relative;
+  display: inline-block;
+}
+.info-tip.inline {
+  position: static;
+}
+.has-tip {
+  position: relative;
+}
+/* A label and its ⓘ, kept together in a row that spreads its items apart. */
+.label-with-tip,
+.check-with-tip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-0_5);
+}
+.info-tip > summary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  min-height: 24px;
+  border-radius: 50%;
+  color: var(--link);
+  cursor: pointer;
+  list-style: none;
+}
+.info-tip > summary::-webkit-details-marker {
+  display: none;
+}
+.info-tip > summary:hover {
+  background: var(--surface-2);
+}
+.info-tip-text {
+  font-size: var(--text-sm);
+  font-weight: normal;
+  color: var(--text);
+  line-height: 1.4;
+}
+.info-tip-text.popover {
+  display: block;
+  width: max-content;
+  max-width: 280px;
+  min-width: 0;
+}
+.info-tip.inline > .info-tip-text {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: var(--z-popover);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-2);
+  box-shadow: var(--shadow-md);
+}
+.tip-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--space-0_5);
+}

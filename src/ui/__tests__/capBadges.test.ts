@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { GraphNode } from "../../graph/types";
-import { AgingBadge, BlockedCount, BlockersBadge, capBadges, cardBadges, CriticalTag, CycleTag, rollupLabel } from "../IssueCard";
+import { AgingBadge, BlockedCount, BlockersBadge, capBadges, cardBadges, CriticalTag, CycleTag, rollupLabel, TypeKey } from "../IssueCard";
 
 const shown = (n: number, slots: number, full?: number): string => {
   const { visible, rest } = capBadges(["a", "b", "c", "d"].slice(0, n), slots, full);
@@ -80,5 +80,15 @@ describe("rollupLabel", () => {
     expect(rollupLabel(epic, rollup, "critical")).toContain("on the critical path (it or some of its tickets)");
     expect(rollupLabel(epic, rollup, "ready")).toContain("ready to start (it or some of its tickets)");
     expect(rollupLabel(epic, rollup, null)).not.toMatch(/critical|ready/);
+  });
+});
+
+describe("TypeKey", () => {
+  const out = renderToStaticMarkup(createElement(TypeKey));
+  it("lists each type letter once, with the real icon and its name", () => {
+    expect(out.match(/<li>/g)).toHaveLength(5);
+    expect(out).toMatch(/<span class="type-icon type-story"[^>]*>S<\/span> Story/);
+    expect(out).toMatch(/<span class="type-icon type-sub-task"[^>]*>s<\/span> Sub-task/);
+    expect(out).not.toContain("Subtask");
   });
 });

@@ -64,6 +64,20 @@ export function TypeIcon({ type }: { type: string }): ReactElement {
   );
 }
 
+/** What each type letter means, for the Legends: one line per letter, with the icon cards use. */
+export function TypeKey(): ReactElement {
+  const types = Object.keys(TYPE_GLYPH).filter((t, i, all) => all.findIndex((u) => TYPE_GLYPH[u] === TYPE_GLYPH[t]) === i);
+  return (
+    <ul className="legend-list type-key" aria-label="Ticket types">
+      {types.map((t) => (
+        <li key={t}>
+          <TypeIcon type={t} /> {t}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /** The site's own priority icon, or the name's first letter when there's no icon or it fails to load. */
 export function PriorityIcon({ priority }: { priority: Priority }): ReactElement {
   // Remember which URL failed, so a different priority (or a fixed URL) after a refresh still gets tried.

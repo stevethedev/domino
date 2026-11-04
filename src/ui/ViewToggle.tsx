@@ -12,11 +12,12 @@ export function ViewToggle({ value, onChange }: { value: ViewMode; onChange: (v:
     <fieldset className="segmented">
       <legend className="sr-only">View</legend>
       {MODES.map((m) => (
-        <label key={m} className={value === m ? "active" : ""} title={`${LABELS[m]} (${m[0]})`}>
+        <label key={m} className={value === m ? "active" : ""}>
           <input
             type="radio"
             name="view-mode"
             value={m}
+            aria-keyshortcuts={m[0]}
             checked={value === m}
             onChange={() => {
               onChange(m);

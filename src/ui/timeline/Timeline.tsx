@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactElement } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { prefersReducedMotion } from "../../lib/motion";
 import { blockingChain } from "../../graph/analysis";
 import { emphasis, type Insights } from "../../graph/insights";
@@ -13,6 +13,7 @@ import { useForecast } from "../../state/useForecast";
 import type { HistoryState } from "../../state/useStatusHistory";
 import { getOrThrow } from "../../lib/guards";
 import { lanesFor, type Filters, type ViewOptions } from "../Canvas";
+import { InfoTip } from "../InfoTip";
 import { NumberField } from "../NumberField";
 import { SortChip } from "../SortChip";
 import { flagWidth, releaseX, TimeAxis, TimeGrid, type ReleaseMarker } from "./TimeAxis";
@@ -260,6 +261,9 @@ export function Timeline({
   // A new scope opens on today (a quarter of the way in), not on its oldest work; a new scale
   // keeps the date that was in the middle. Layout effects, so the first paint is already there.
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fieldIds = useId();
+  const field = (name: string): { input: string; tip: string } => ({ input: `${fieldIds}${name}`, tip: `${fieldIds}${name}-tip` });
+  const [planStartField, perPointField, unpointedField] = [field("start"), field("per-point"), field("unpointed")];
   const scrolledFor = useRef<string | null | undefined>(undefined);
   /** The scroll box's width, kept current on resize (the room after today depends on it). */
   const [viewportWidth, setViewportWidth] = useState(0);
@@ -371,16 +375,23 @@ export function Timeline({
         >
           Today
         </button>
-        <label className="field" title="Unstarted work is projected to begin no earlier than this day">
-          <span className="field-label">Unstarted from</span>
+        <div className="field">
+          <label className="field-label" htmlFor={planStartField.input}>
+            Unstarted from
+          </label>
+          <InfoTip id={planStartField.tip} label="Unstarted from">
+            Unstarted work is projected to begin no earlier than this day.
+          </InfoTip>
           <input
+            id={planStartField.input}
             type="date"
             value={opts.planStart}
+            aria-describedby={planStartField.tip}
             onChange={(e) => {
               setSettings({ planStart: e.target.value || null });
             }}
           />
-        </label>
+        </div>
         {settings.planStart && (
           <button
             type="button"
@@ -392,12 +403,17 @@ export function Timeline({
             Reset to today
           </button>
         )}
-        <label
-          className="field"
-          title="How long a story point takes, in working days. Sets each ticket's estimate (dashed) and forecast length, and so what counts as over estimate. Rounded up to whole days."
-        >
-          <span className="field-label">Days / point</span>
+        <div className="field">
+          <label className="field-label" htmlFor={perPointField.input}>
+            Days / point
+          </label>
+          <InfoTip id={perPointField.tip} label="Days / point">
+            How long a story point takes, in working days. Sets each ticket&apos;s estimate (dashed) and forecast length, and so what counts
+            as over estimate. Rounded up to whole days.
+          </InfoTip>
           <NumberField
+            id={perPointField.input}
+            aria-describedby={perPointField.tip}
             min={0.25}
             step={0.25}
             value={settings.daysPerPoint}
@@ -405,10 +421,17 @@ export function Timeline({
               setSettings({ daysPerPoint });
             }}
           />
-        </label>
-        <label className="field" title="Working days assumed for a ticket with no story points.">
-          <span className="field-label">Unpointed</span>
+        </div>
+        <div className="field">
+          <label className="field-label" htmlFor={unpointedField.input}>
+            Unpointed
+          </label>
+          <InfoTip id={unpointedField.tip} label="Unpointed">
+            Working days assumed for a ticket with no story points.
+          </InfoTip>
           <NumberField
+            id={unpointedField.input}
+            aria-describedby={unpointedField.tip}
             min={1}
             step={1}
             integer
@@ -418,7 +441,7 @@ export function Timeline({
             }}
           />
           <span className="muted small">days</span>
-        </label>
+        </div>
         <ul className="tl-legend" aria-label="Legend (the sidebar's Legend has every mark)">
           <li>
             <span className="tl-key tl-projected" aria-hidden="true" /> Estimate

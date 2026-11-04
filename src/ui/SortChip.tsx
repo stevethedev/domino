@@ -13,7 +13,7 @@ export const SORT_SELECT_ID = "sort-by";
 export function SortChip({ sort, onClear }: { sort: SortBy; onClear: () => void }): ReactElement | null {
   if (sort.key === "natural") return null;
   return (
-    <span className="sort-chip" title={`Sorted by ${SORT_INFO[sort.key].label} · ${orderText(sort)}`}>
+    <span className="sort-chip">
       <span>
         Sorted by <strong>{SORT_INFO[sort.key].label}</strong> · {orderText(sort)}
       </span>
