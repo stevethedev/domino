@@ -66,6 +66,7 @@ import { SiteSelector } from "./ui/SiteSelector";
 import { FOLD_MS, localToday } from "./ui/timeline/timelineLayout";
 import { isViewMode, ViewToggle, type ViewMode } from "./ui/ViewToggle";
 import { screenLayout } from "./ui/traverseLayout";
+import { typesText } from "./ui/typesText";
 import { WarningsPanel } from "./ui/WarningsPanel";
 import { Icon } from "./ui/Icon";
 
@@ -114,12 +115,13 @@ const MAX_COLLAPSED_LANES = 200;
 const parseLaneIds = (raw: unknown): string[] | undefined =>
   Array.isArray(raw) ? raw.filter((x): x is string => typeof x === "string").slice(-MAX_COLLAPSED_LANES) : undefined;
 
-/** `g` / `t` switch between Graph and Timeline when focus isn't in a text field. */
+/** `g` / `t` switch between Graph and Timeline when focus isn't somewhere you type. */
 function useViewHotkeys(setViewMode: (m: ViewMode) => void): void {
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.target instanceof HTMLElement && e.target.matches("input, textarea, select, [contenteditable]")) return;
+      // Not while typing; a radio or checkbox is fine (the view switch's radios announce g / t).
+      if (e.target instanceof HTMLElement && typesText(e.target)) return;
       // Not behind an open dialog or from a menu: the view would change out of sight.
       // (Release notes in the update banner are a <details> too, but not a menu.)
       if (e.target instanceof Element && e.target.closest("dialog[open], details[open]:not(.update-notes)")) return;
