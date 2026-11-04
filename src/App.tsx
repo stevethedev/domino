@@ -282,6 +282,8 @@ function Shell(): ReactElement {
   };
   const nodesByUid = useMemo(() => new Map(graph.nodes.map((n) => [n.uid, n])), [graph]);
   const loadedIssues = useMemo(() => graph.nodes.filter((n) => !n.ghost), [graph]);
+  // Ghosts too: they show a type letter as well.
+  const issueTypes = useMemo(() => graph.nodes.map((n) => n.issueType), [graph]);
   /** Issues the filters leave on screen (implied-link hiding never removes an issue). */
   const drawnUids = useMemo(
     () => new Set(visibleSubgraph(graph, { ...filters, hideImplied: false }).nodes.map((n) => n.uid)),
@@ -774,7 +776,7 @@ function Shell(): ReactElement {
             />
           </SidebarSection>
           <SidebarSection id="legend" title="Legend" defaultOpen={false}>
-            {viewMode === "timeline" ? <TimelineLegend /> : <Legend />}
+            {viewMode === "timeline" ? <TimelineLegend types={issueTypes} /> : <Legend types={issueTypes} />}
           </SidebarSection>
         </aside>
         <section
@@ -978,7 +980,7 @@ function CanvasMessage({
   );
 }
 
-function Legend(): ReactElement {
+function Legend({ types }: { types: readonly string[] }): ReactElement {
   return (
     <>
       <ul className="legend-list">
@@ -1001,7 +1003,7 @@ function Legend(): ReactElement {
           <span className="swatch ghost-swatch" aria-hidden="true" /> Outside scope
         </li>
       </ul>
-      <TypeKey />
+      <TypeKey types={types} />
       <p className="hint">Hover or focus a card to trace its blockers. Enter or click shows its details; ⌘/Ctrl+click opens it in Jira.</p>
       <p className="hint">
         <kbd>/</kbd> find · <kbd>g</kbd> graph · <kbd>t</kbd> timeline

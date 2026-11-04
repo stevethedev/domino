@@ -2,6 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { GraphNode } from "../../graph/types";
+import { markupText } from "./markupText";
 import { AgingBadge, BlockedCount, BlockersBadge, capBadges, cardBadges, CriticalTag, CycleTag, rollupLabel, TypeKey } from "../IssueCard";
 
 const shown = (n: number, slots: number, full?: number): string => {
@@ -84,11 +85,27 @@ describe("rollupLabel", () => {
 });
 
 describe("TypeKey", () => {
-  const out = renderToStaticMarkup(createElement(TypeKey));
-  it("lists each type letter once, with the real icon and its name", () => {
-    expect(out.match(/<li>/g)).toHaveLength(5);
+  const key = (types: readonly string[]): string => renderToStaticMarkup(createElement(TypeKey, { types }));
+
+  it("lists each type on screen once, with the real icon and its name", () => {
+    const out = key(["Story", "Story", "Sub-task"]);
+    expect(out.match(/<li>/g)).toHaveLength(2);
     expect(out).toMatch(/<span class="type-icon type-story"[^>]*>S<\/span> Story/);
     expect(out).toMatch(/<span class="type-icon type-sub-task"[^>]*>s<\/span> Sub-task/);
-    expect(out).not.toContain("Subtask");
+  });
+
+  // GitHub's types (and custom Jira ones) have no glyph of their own: the icon shows their first letter.
+  it("includes types without a glyph of their own, like GitHub's", () => {
+    const out = key(["Pull request", "Issue"]);
+    expect(out).toMatch(/>I<\/span> Issue/);
+    expect(out).toMatch(/>P<\/span> Pull request/);
+  });
+
+  it("lists the known types in their usual order, then the rest by name", () => {
+    expect(markupText(key(["Spike", "Bug", "Issue", "Epic"]))).toBe("E EpicB BugI IssueS Spike");
+  });
+
+  it("shows nothing when nothing is loaded", () => {
+    expect(key([])).toBe("");
   });
 });

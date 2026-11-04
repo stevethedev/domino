@@ -4,9 +4,9 @@ import { TypeKey } from "../IssueCard";
 /**
  * Everything the timeline draws, for the sidebar's Legend while the timeline is shown: the bars in
  * each of their colours, markers, releases, epics, and every kind of arrow (each with a cue
- * besides colour).
+ * besides colour). `types`: the ticket types on screen, for what each type letter means.
  */
-export function TimelineLegend(): ReactElement {
+export function TimelineLegend({ types }: { types: readonly string[] }): ReactElement {
   return (
     <>
       <ul className="legend-list tl-legend-full">
@@ -66,7 +66,7 @@ export function TimelineLegend(): ReactElement {
         </li>
         <li>+3d / −2d: forecast finish against the estimate, in working days. Due dates are the ◆.</li>
       </ul>
-      <TypeKey />
+      <TypeKey types={types} />
     </>
   );
 }

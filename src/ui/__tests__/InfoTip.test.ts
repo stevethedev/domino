@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { InfoTip, focusLeaves } from "../InfoTip";
+import { InfoTip, focusLeaves, tipShift } from "../InfoTip";
 import { markupText } from "./markupText";
 
 const tip = (props: Partial<Parameters<typeof InfoTip>[0]> = {}): string =>
@@ -41,5 +41,21 @@ describe("focusLeaves", () => {
 
   it("is false while focus stays inside the tip", () => {
     expect(focusLeaves(box, inside)).toBe(false);
+  });
+});
+
+describe("tipShift", () => {
+  const bounds = { minLeft: 100, maxRight: 900 };
+
+  it("leaves a tip that fits where it is", () => {
+    expect(tipShift({ left: 300, right: 580, ...bounds })).toBe(0);
+  });
+
+  it("moves a tip that runs past the right edge (or under the details drawer) back inside", () => {
+    expect(tipShift({ left: 700, right: 980, ...bounds })).toBe(-80);
+  });
+
+  it("never moves it past the left edge: a tip wider than the space starts at the left", () => {
+    expect(tipShift({ left: 150, right: 1050, ...bounds })).toBe(-50);
   });
 });

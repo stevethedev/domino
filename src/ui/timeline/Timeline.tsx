@@ -335,7 +335,7 @@ export function Timeline({
 
   return (
     <div className="timeline">
-      <div className="tl-toolbar" role="toolbar" aria-label="Timeline settings">
+      <div className="tl-toolbar" role="toolbar" aria-label="Timeline settings" data-tip-bounds>
         <fieldset className="segmented">
           <legend className="sr-only">Scale</legend>
           {SCALES.map((s) => (

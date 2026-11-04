@@ -64,12 +64,21 @@ export function TypeIcon({ type }: { type: string }): ReactElement {
   );
 }
 
-/** What each type letter means, for the Legends: one line per letter, with the icon cards use. */
-export function TypeKey(): ReactElement {
-  const types = Object.keys(TYPE_GLYPH).filter((t, i, all) => all.findIndex((u) => TYPE_GLYPH[u] === TYPE_GLYPH[t]) === i);
+/** Known types in their usual order, then the rest (GitHub's, custom Jira ones) by name. */
+const KNOWN_TYPES = Object.keys(TYPE_GLYPH);
+const byTypeOrder = (a: string, b: string): number => {
+  const [ia, ib] = [KNOWN_TYPES.indexOf(a), KNOWN_TYPES.indexOf(b)];
+  if (ia !== -1 || ib !== -1) return ia === -1 ? 1 : ib === -1 ? -1 : ia - ib;
+  return a.localeCompare(b);
+};
+
+/** What each type letter on screen means, for the Legends: one line per type, with the icon cards use. */
+export function TypeKey({ types }: { types: readonly string[] }): ReactElement | null {
+  const listed = [...new Set(types)].sort(byTypeOrder);
+  if (listed.length === 0) return null;
   return (
     <ul className="legend-list type-key" aria-label="Ticket types">
-      {types.map((t) => (
+      {listed.map((t) => (
         <li key={t}>
           <TypeIcon type={t} /> {t}
         </li>
