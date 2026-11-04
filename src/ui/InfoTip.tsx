@@ -67,7 +67,10 @@ export function InfoTip({
         <summary aria-label={`About ${label}`}>
           <span aria-hidden="true">ⓘ</span>
         </summary>
-        <div className={inline ? "info-tip-text" : "info-tip-text popover"}>{children}</div>
+        {/* Focusable, so clicking its text keeps focus inside the tip and doesn't close it (see onBlur). */}
+        <div className={inline ? "info-tip-text" : "info-tip-text popover"} tabIndex={-1}>
+          {children}
+        </div>
       </details>
       {/* Chrome leaves text inside a closed <details> out of a description: this copy is the one read. */}
       <div id={id} hidden>

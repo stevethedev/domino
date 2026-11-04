@@ -23,10 +23,11 @@ describe("InfoTip", () => {
     expect(markupText(out)).toBe("ⓘHow long a point takes.How long a point takes.");
   });
 
-  it("floats by default, and fits its row in the sidebar", () => {
-    expect(tip()).toContain('<div class="info-tip-text popover">');
+  // Clicking its text (to read or select it) moves focus to the panel, inside the tip, so it stays open.
+  it("floats by default, and fits its row in the sidebar; its panel takes focus when clicked", () => {
+    expect(tip()).toContain('<div class="info-tip-text popover" tabindex="-1">');
     expect(tip({ inline: true })).toMatch(/^<details class="info-tip inline">/);
-    expect(tip({ inline: true })).toContain('<div class="info-tip-text">');
+    expect(tip({ inline: true })).toContain('<div class="info-tip-text" tabindex="-1">');
   });
 });
 
