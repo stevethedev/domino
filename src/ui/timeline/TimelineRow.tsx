@@ -57,9 +57,10 @@ function describe(node: GraphNode, row: TimelineRowModel, critical: boolean): st
   return `${parts.join(", ")}. Shows details.`;
 }
 
-function describeEpic(node: GraphNode, epic: EpicSummary | "empty"): string {
-  if (epic === "empty") return `Epic ${node.key}, ${node.summary}, no child tickets in scope. Shows details.`;
-  return `Epic ${node.key}, ${node.summary}, ${epic.children} tickets, projected ${spanText(epic.projected)}, work ${spanText(epic.work)}. Shows details.`;
+function describeEpic(node: GraphNode, epic: EpicSummary | "empty", critical: boolean): string {
+  const onPath = critical ? ", on critical path" : "";
+  if (epic === "empty") return `Epic ${node.key}, ${node.summary}, no child tickets in scope${onPath}. Shows details.`;
+  return `Epic ${node.key}, ${node.summary}, ${epic.children} tickets, projected ${spanText(epic.projected)}, work ${spanText(epic.work)}${onPath}. Shows details.`;
 }
 
 function Bar({ span, start, scale, className }: { span: Span; start: Day; scale: Scale; className: string }): ReactElement | null {
@@ -123,7 +124,7 @@ export const TimelineRow = memo(function TimelineRow({
       aria-hidden={row.folded || undefined}
       aria-label={
         epic
-          ? describeEpic(node, epic)
+          ? describeEpic(node, epic, flags.critical)
           : `${describe(node, row, flags.critical)}${flags.missedReleases ? ` ${missesText(flags.missedReleases)}.` : ""}${flags.aging ? ` ${agingDescription(flags.aging)}.` : ""}`
       }
       aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown"

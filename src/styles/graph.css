@@ -51,8 +51,12 @@
   border-color: var(--border);
   --card-shadow: 0 0 #0000;
 }
+/* Badges, letters and initials only lose colour, so their text keeps its contrast; pictures also lighten. */
 .card.dimmed
   :is(.pill, .site-badge, .blockers, .tag-ready, .tag-critical, .tag-risk, .tag-cycle, .age, .chg, .type-icon, .avatar, .priority-icon) {
+  filter: grayscale(1);
+}
+.card.dimmed :is(img.avatar, img.priority-icon) {
   filter: grayscale(1) opacity(0.55);
 }
 .card.hl-critical {

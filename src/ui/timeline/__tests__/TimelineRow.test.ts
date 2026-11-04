@@ -17,7 +17,10 @@ const node: GraphNode = {
   ghost: false,
 };
 
-const row = (flags: Partial<RowFlags>): string =>
+const row = (
+  flags: Partial<RowFlags>,
+  epic?: { projected: { start: string; end: string }; work: { start: string; end: string }; children: number },
+): string =>
   renderToStaticMarkup(
     createElement(TimelineRow, {
       row: {
@@ -31,6 +34,7 @@ const row = (flags: Partial<RowFlags>): string =>
         y: 0,
         folded: false,
       },
+      epic,
       rangeStart: "2026-11-01",
       scale: "day",
       today: "2026-11-02",
@@ -54,6 +58,11 @@ describe("TimelineRow", () => {
     const out = row({ critical: true, missedReleases: ["Checkout 2.4"], aging: { kind: "stuck", days: 23, estimateDays: 5 } });
     const visible = out.split('class="badge-more"')[0];
     expect(visible).toContain("tag-critical");
+  });
+
+  it("says an epic row is on the critical path in its label too", () => {
+    const span = { start: "2026-11-02", end: "2026-11-05" };
+    expect(row({ critical: true }, { projected: span, work: span, children: 2 })).toMatch(/aria-label="Epic [^"]*on critical path/);
   });
 
   it("shows no Critical badge off the critical path", () => {

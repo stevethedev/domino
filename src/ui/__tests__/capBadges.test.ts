@@ -1,7 +1,8 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { AgingBadge, BlockedCount, BlockersBadge, capBadges, CriticalTag, CycleTag } from "../IssueCard";
+import type { GraphNode } from "../../graph/types";
+import { AgingBadge, BlockedCount, BlockersBadge, capBadges, cardBadges, CriticalTag, CycleTag, rollupLabel } from "../IssueCard";
 
 const shown = (n: number, slots: number, full?: number): string => {
   const { visible, rest } = capBadges(["a", "b", "c", "d"].slice(0, n), slots, full);
@@ -42,5 +43,41 @@ describe("epic summary card badges", () => {
 describe("CriticalTag", () => {
   it("says Critical in words, so the critical path isn't shown by colour alone", () => {
     expect(renderToStaticMarkup(createElement(CriticalTag))).toBe('<span class="tag-critical">Critical</span>');
+  });
+});
+
+describe("cardBadges", () => {
+  const keys = (over: Partial<Parameters<typeof cardBadges>[0]> = {}): string[] =>
+    cardBadges({ inCycle: true, openBlockers: 2, highlight: null, ...over }).map((b) => b.key);
+
+  it("leads with a cycle, then blockers, when nothing is highlighted", () => {
+    expect(keys({ change: "blocked" })).toEqual(["cycle", "blockers", "change"]);
+  });
+
+  it("leads with the badge that answers the highlight, so a capped or zoomed-out card still shows it", () => {
+    expect(keys({ highlight: "critical" })[0]).toBe("critical");
+    expect(keys({ highlight: "ready", inCycle: false, openBlockers: 0, change: "blocked" })[0]).toBe("ready");
+  });
+});
+
+describe("rollupLabel", () => {
+  const epic: GraphNode = {
+    uid: "a:CORE-1",
+    siteId: "a",
+    siteLabel: "a",
+    key: "CORE-1",
+    summary: "Checkout v2",
+    issueType: "Epic",
+    statusName: "In Progress",
+    statusCategory: "inprogress",
+    url: "",
+    ghost: false,
+  };
+  const rollup = { epicUid: epic.uid, members: ["a:CORE-2", "a:CORE-3"], done: 0, blocked: 0, aging: 0 };
+
+  it("says which highlight lit up a folded epic, not only by its ring", () => {
+    expect(rollupLabel(epic, rollup, "critical")).toContain("some of its tickets are on the critical path");
+    expect(rollupLabel(epic, rollup, "ready")).toContain("some of its tickets are ready to start");
+    expect(rollupLabel(epic, rollup, null)).not.toMatch(/critical|ready/);
   });
 });

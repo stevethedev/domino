@@ -272,8 +272,12 @@
 .tl-row.selected:focus-visible .tl-label {
   box-shadow: inset 0 0 0 var(--ring-width) var(--focus);
 }
-/* Not part of the highlight: the text keeps full contrast; bars and badges lose colour. */
-.tl-row.dimmed :is(.tl-bar, .tl-due, .tl-variance, .type-icon, .pill, .tag-ready, .tag-critical, .tag-risk, .age, .chg) {
+/* Not part of the highlight: the text keeps full contrast. Badges and labels only lose colour;
+   bars and markers also lighten. */
+.tl-row.dimmed :is(.tl-variance, .type-icon, .pill, .tag-ready, .tag-critical, .tag-risk, .age, .chg) {
+  filter: grayscale(1);
+}
+.tl-row.dimmed :is(.tl-bar, .tl-due) {
   filter: grayscale(1) opacity(0.55);
 }
 .tl-row.ghost .tl-label {
