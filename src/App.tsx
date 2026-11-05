@@ -403,8 +403,7 @@ function Shell(): ReactElement {
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
   // Opening an issue moves focus into the panel; following links with the arrow keys doesn't.
   const [detailFocusRequest, setDetailFocusRequest] = useState(0);
-  const detailReturn = useFocusReturn();
-  const { remember: rememberDetailOpener } = detailReturn;
+  const { remember: rememberDetailOpener, restore: restoreDetailFocus } = useFocusReturn();
   const selectIssue = useCallback(
     (uid: string) => {
       // What opened the panel, not a link followed inside it.
@@ -463,12 +462,7 @@ function Shell(): ReactElement {
     // Back to the card or row of the issue it showed; if a filter or fold has hidden that, to what
     // opened the panel, then the view's Tab stop; with everything filtered out, to the canvas
     // message's Clear filters.
-    detailReturn.restore((opener) => [
-      viewItemOf(uid),
-      opener,
-      viewTabStop(),
-      document.querySelector<HTMLElement>(".canvas-message button"),
-    ]);
+    restoreDetailFocus((opener) => [viewItemOf(uid), opener, viewTabStop(), document.querySelector<HTMLElement>(".canvas-message button")]);
   };
   // How many links "Hide implied links" removes from what's drawn (counted even while it's off),
   // on the graph actually drawn: folded epics have their own, combined links.

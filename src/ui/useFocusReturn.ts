@@ -26,6 +26,7 @@ type ReturnOrder = (opener: HTMLElement | null) => readonly (HTMLElement | null 
  */
 export function useFocusReturn(): Readonly<{ remember: () => void; restore: (order?: ReturnOrder) => void }> {
   const opener = useRef<HTMLElement | null>(null);
+  // Boxed: a function handed to a state setter would be called as an updater.
   const [returning, setReturning] = useState<{ order: ReturnOrder } | null>(null);
   useEffect(() => {
     if (!returning) return;

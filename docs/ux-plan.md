@@ -33,7 +33,7 @@ Not included: an in-app theme switch. The app keeps following the OS.
 
 ## 3. Focus helper
 
-Ships in three PRs. The first (timeline) is done in #44, the second (focus return) in the PR after it. Differences from the plan:
+Ships in three PRs. The first (timeline) is done in #44, the second (focus return) in #46. Differences from the plan:
 
 - **The timeline is one Tab stop** over its lane headers and rows, in screen order. ↑/↓ move one item, Home/End go to the ends, PgUp/PgDn jump a screen, Enter or Space opens a row, and coming back returns to the last item. Lane headers are items too, so a header's ←/→ fold and unfold its lane, and ⌘/Ctrl+Enter opens an epic lane's epic.
 - **←/→ on a row still follow blocking links,** as they do in the graph, instead of folding lanes: both views keep one meaning for ←/→. A row's ↑/↓ move in order and no longer go through the link trail's alternatives; the graph's still do.
