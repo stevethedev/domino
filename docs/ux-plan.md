@@ -33,7 +33,7 @@ Not included: an in-app theme switch. The app keeps following the OS.
 
 ## 3. Focus helper
 
-Ships in three PRs. The first (timeline) is done in #44, the second (focus return) in #46. Differences from the plan:
+Done in three PRs: the timeline in #44, focus return in #46, and menus and Find in the PR after it. Differences from the plan:
 
 - **The timeline is one Tab stop** over its lane headers and rows, in screen order. ↑/↓ move one item, Home/End go to the ends, PgUp/PgDn jump a screen, Enter or Space opens a row, and coming back returns to the last item. Lane headers are items too, so a header's ←/→ fold and unfold its lane, and ⌘/Ctrl+Enter opens an epic lane's epic.
 - **←/→ on a row still follow blocking links,** as they do in the graph, instead of folding lanes: both views keep one meaning for ←/→. A row's ↑/↓ move in order and no longer go through the link trail's alternatives; the graph's still do.
@@ -47,10 +47,11 @@ Done in the second PR:
 - **No more polling for a just-revealed issue.** `focusWhenDrawn` in `App.tsx` leaves a `FocusRequest` (`src/ui/focusRequest.ts`) that the card or row answers once it's mounted, from an effect; it gives up after 2s. It replaces the 25×80ms and 10×120ms retries.
 - **Not changed:** the "button goes away" moves (Clear filters, Show, Start fresh) still focus a fixed element, since nothing opened them. A saved view's ✕ is drawn anew after "Keep", so it's found by name (`data-view`), not remembered.
 
-Still to do, in the last PR:
+Done in the third PR:
 
-- **Menus stay `<details>`.** `useDetailsMenu` closes on `focusout` that leaves the menu, and Esc returns focus to the `<summary>`. The sidebar filter menus expand in place instead of overlaying, so they no longer get clipped. Native `popover` isn't used: macOS < 14 and older WebKitGTK don't support it. (`src/ui/useDetailsMenu.ts`, `src/styles/shell.css:1163-1167`)
-- **Find.** The first Esc closes the list and the second returns focus to where you were. "No tickets match" moves outside the listbox, the result count is announced, and `aria-controls` is set only while the list exists. (`src/ui/QuickFind.tsx`)
+- **Menus stay `<details>`** and close when focus leaves them (`onBlur` from `useDetailsMenu`, `leavesMenu`). A blur with nowhere to go (the window losing focus, a click on a menu's padding) leaves it open; clicks outside were already caught on mousedown. Info tips keep their own rule, closing then too, since their text takes focus (`focusLeaves`, now shared from `src/ui/useDetailsMenu.ts`). Esc already returned focus to the `<summary>`, and the canvas already ignores Esc from inside a `<details>`.
+- **The sidebar filter menus open in place,** pushing the fields below them down, so the sidebar's scroll no longer clips them.
+- **Find:** the first Esc closes the list and keeps what you typed; the second clears it and returns focus to where you were before Find (`useFocusReturn`, remembering the focus event's `relatedTarget`), or the view's Tab stop. A status region announces the count ("12 tickets match, showing the first 8", from `findStatus`). "No tickets match" shows beside the listbox, which exists only with options in it; `aria-expanded` and `aria-controls` follow it.
 
 ## 4. Messages and errors
 

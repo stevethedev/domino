@@ -1,7 +1,8 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { InfoTip, focusLeaves, followResize, tipFit } from "../InfoTip";
+import { InfoTip, followResize, tipFit } from "../InfoTip";
+import { focusLeaves } from "../useDetailsMenu";
 import { markupText } from "./markupText";
 
 const tip = (props: Partial<Parameters<typeof InfoTip>[0]> = {}): string =>

@@ -206,6 +206,7 @@ export function ScopeInputs({
         <details
           className="query"
           ref={editor.ref}
+          onBlur={editor.onBlur}
           onToggle={(e) => {
             if (!e.currentTarget.open) return;
             const panel = e.currentTarget.querySelector<HTMLElement>(".query-editor");

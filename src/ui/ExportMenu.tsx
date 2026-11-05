@@ -25,7 +25,7 @@ export function ExportMenu({ name, capture }: { name: string; capture: Capture }
     }
   };
   return (
-    <details className="export-menu" ref={menu.ref} onKeyDown={menu.onKeyDown}>
+    <details className="export-menu" ref={menu.ref} onKeyDown={menu.onKeyDown} onBlur={menu.onBlur}>
       <summary aria-label={`Export the ${name}`}>
         Export <Icon name="chevron-down" className="disclosure-caret" />
       </summary>

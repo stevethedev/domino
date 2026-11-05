@@ -78,12 +78,13 @@ function FilterMenu({
 }): ReactElement {
   const hiddenHere = options.filter(([v]) => hidden.includes(v)).length;
   // Esc and a click elsewhere close it, as the other menus do, so opening one closes the rest.
-  const { ref, onKeyDown } = useDetailsMenu();
+  const { ref, onKeyDown, onBlur } = useDetailsMenu();
   return (
     <details
       className="filter-menu"
       ref={ref}
       onKeyDown={onKeyDown}
+      onBlur={onBlur}
       // One open at a time, keyboard included (outside clicks only cover the mouse): browsers
       // with exclusive <details> use the shared name; onToggle covers the rest.
       name="filter-menu"

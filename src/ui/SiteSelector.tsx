@@ -17,7 +17,7 @@ export function SiteSelector({
   const chosen = enabled.filter((s) => selected.includes(s.id));
 
   return (
-    <details className="site-selector" ref={menu.ref} onKeyDown={menu.onKeyDown}>
+    <details className="site-selector" ref={menu.ref} onKeyDown={menu.onKeyDown} onBlur={menu.onBlur}>
       <summary aria-label={`Sites: ${chosen.map((s) => s.label).join(", ") || "none selected"}`}>
         <span className="field-label">Sites</span>
         {chosen.length === 0 ? (

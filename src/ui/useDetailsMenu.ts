@@ -1,4 +1,4 @@
-import { useEffect, useRef, type KeyboardEvent, type RefObject } from "react";
+import { useEffect, useRef, type FocusEvent, type KeyboardEvent, type RefObject } from "react";
 
 export type DetailsMenu = Readonly<{
   ref: RefObject<HTMLDetailsElement>;
@@ -6,9 +6,22 @@ export type DetailsMenu = Readonly<{
   close: () => void;
   /** Esc closes the menu and returns focus to its summary. */
   onKeyDown: (e: KeyboardEvent<HTMLDetailsElement>) => void;
+  /** Focus moving out of the menu closes it, leaving focus where it went. */
+  onBlur: (e: FocusEvent<HTMLDetailsElement>) => void;
 }>;
 
-/** A `<details>` popover menu that closes on Esc or a click outside it. */
+/** Whether focus moving to `next` leaves `box` (`next` is null when focus leaves the page). */
+export const focusLeaves = <T>(box: Readonly<{ contains: (n: T) => boolean }>, next: T | null): boolean =>
+  next === null || !box.contains(next);
+
+/**
+ * Whether focus moving to `next` leaves `menu`. With no `next` (the window lost focus, or a click
+ * landed on padding, which takes none) it stays: a click outside is caught on mousedown instead.
+ */
+export const leavesMenu = <T>(menu: Readonly<{ contains: (n: T) => boolean }>, next: T | null): boolean =>
+  next !== null && focusLeaves(menu, next);
+
+/** A `<details>` popover menu that closes on Esc, a click outside it, or focus leaving it. */
 export function useDetailsMenu(): DetailsMenu {
   const ref = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
@@ -35,6 +48,10 @@ export function useDetailsMenu(): DetailsMenu {
         ref.current.open = false;
         ref.current.querySelector("summary")?.focus();
       }
+    },
+    onBlur: (e) => {
+      const menu = ref.current;
+      if (menu?.open && leavesMenu(menu, e.relatedTarget instanceof Node ? e.relatedTarget : null)) menu.open = false;
     },
   };
 }
