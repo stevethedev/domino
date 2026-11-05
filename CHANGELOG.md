@@ -1,5 +1,35 @@
 # domino
 
+## 0.7.0
+
+### Minor Changes
+
+- [#37](https://github.com/stevethedev/domino/pull/37) [`04bb4dc`](https://github.com/stevethedev/domino/commit/04bb4dc05973a3358157032efd2502092b37c374) Thanks [@stevethedev](https://github.com/stevethedev)! - "Since you last looked" now reports a status move within a category, like In Progress to In Review (or a pull request turning Approved), not only moves between To Do, In Progress and Done. A scope marked seen before this update compares categories only until it's marked seen again.
+
+- [#39](https://github.com/stevethedev/domino/pull/39) [`4df4f2a`](https://github.com/stevethedev/domino/commit/4df4f2a650fd5346990ce21a7e2004c8c3d598ab) Thanks [@stevethedev](https://github.com/stevethedev)! - The graph opens at a zoom you can read. When the whole scope won't fit readably, it shows your tickets and what blocks them (or the ticket that unblocks the most), says so, and offers Show all. The query opens into a wider editor that shows what each site will run, lists the presets and loads on Enter. Sidebar sections with nothing to show take one line, and long release names no longer push release cards past the sidebar.
+
+- [#36](https://github.com/stevethedev/domino/pull/36) [`33fe237`](https://github.com/stevethedev/domino/commit/33fe23722feb3e2699e24905e8b5ea50e5451cf3) Thanks [@stevethedev](https://github.com/stevethedev)! - The Display panel's new **Status** menu hides tickets by individual status (like "In Review" or "Approved"), not only by category; statuses are listed by category, most common first, and a status name hides on every site that uses it. Saved views keep the setting.
+
+- [#32](https://github.com/stevethedev/domino/pull/32) [`e8161f1`](https://github.com/stevethedev/domino/commit/e8161f13b23eeb11f0a56916f5a044a095aea307) Thanks [@stevethedev](https://github.com/stevethedev)! - GitHub pull requests now show whether they're approved: an open pull request's status reads **Approved** or **Needs changes** instead of **In review**, from the base branch's review rules or, without them, the reviewers' latest verdicts.
+
+- [#42](https://github.com/stevethedev/domino/pull/42) [`8430070`](https://github.com/stevethedev/domino/commit/8430070a0e10f20ca452fd0cc3b54980546945cf) Thanks [@stevethedev](https://github.com/stevethedev)! - Group by now offers Release / milestone: one lane per Jira fix version or GitHub milestone, in the Graph and the Timeline. A milestone and a version with the same name share a lane, as do same-named milestones in different repositories. An issue planned for several releases goes in the next unreleased one, and issues with none go under "No release".
+
+- [#43](https://github.com/stevethedev/domino/pull/43) [`a50a1de`](https://github.com/stevethedev/domino/commit/a50a1de1880aa0212bf1660739800a6d1e7bde91) Thanks [@stevethedev](https://github.com/stevethedev)! - Field explanations no longer need a mouse hover. An ⓘ next to Sort by, Hide implied links, Whose tickets and the timeline's Unstarted from, Days / point and Unpointed opens the explanation on click, Enter or Space, and screen readers hear it with the field. When Domino can't tell who you are on a site, the ⓘ shows why. The Legends now say what each ticket-type letter means, and the Timeline Legend explains the over/under estimate badge.
+
+- [#30](https://github.com/stevethedev/domino/pull/30) [`d2f27b1`](https://github.com/stevethedev/domino/commit/d2f27b1bcf6b223eceb7326de67e222174ffb2e7) Thanks [@stevethedev](https://github.com/stevethedev)! - Several sites can now share one GitHub or Jira address, so it can be split into segments: one site per org, repo or project, each with its own filter, colour and token. A linked ticket outside one site's filter loads on the site at that address whose filter covers it, as a cross-site link, and Settings warns when two such sites' filters could match the same tickets.
+
+- [#41](https://github.com/stevethedev/domino/pull/41) [`84ee170`](https://github.com/stevethedev/domino/commit/84ee170cb931bb4e86024137090a0ea62876cfd7) Thanks [@stevethedev](https://github.com/stevethedev)! - Selected and focused tickets now look different: focus is the outside ring, and the ticket open in the details panel gets a tint and an inside edge. Faded and outside-scope tickets keep readable text instead of fading it, and links outside a highlight stay faintly visible. Critical-path tickets say "Critical" on timeline rows, highlighted cards and in the details panel. Inputs, selects and menu buttons have edges you can see, and several colors were adjusted to meet contrast guidelines (the Story icon, links and the epic icon in dark mode, and "connected" in Settings). Windows High Contrast now marks the active view, pressed filters and the selected ticket.
+
+### Patch Changes
+
+- [#35](https://github.com/stevethedev/domino/pull/35) [`c20be3c`](https://github.com/stevethedev/domino/commit/c20be3c3bd729e5039c17189f85a40bb10b36155) Thanks [@stevethedev](https://github.com/stevethedev)! - Zoomed-out cards no longer clip their bottom row. The status shows with one badge and a "+N" for the rest, badges show their icon and number only ("⚠ 2", "19d", full text in their tooltips), and a very long status name shortens with an ellipsis instead of pushing a badge out of the card.
+
+- [#33](https://github.com/stevethedev/domino/pull/33) [`375f049`](https://github.com/stevethedev/domino/commit/375f0494473eff88215c06ce04a1baa741466ce9) Thanks [@stevethedev](https://github.com/stevethedev)! - Long GitHub keys no longer push a card's status and site badge past its edge: the repository part shortens with an ellipsis (the full key shows on hover), and the issue number always shows.
+
+- [#34](https://github.com/stevethedev/domino/pull/34) [`652fd5d`](https://github.com/stevethedev/domino/commit/652fd5d9174ce0dbca34b4b896dde63ffe92e16d) Thanks [@stevethedev](https://github.com/stevethedev)! - Changing the filter of a site that isn't selected now reloads the graph when it changes where links load: on an address several sites share, a linked ticket loads on the site whose filter covers it, so a ticket that newly falls to a selected site no longer stays a placeholder until the next refresh.
+
+- [#38](https://github.com/stevethedev/domino/pull/38) [`de3bd7f`](https://github.com/stevethedev/domino/commit/de3bd7faf26f018850b74225fc48e82d9074b836) Thanks [@stevethedev](https://github.com/stevethedev)! - With GitHub split into sites per org or repo, a link to an issue by its renamed repo's old URL (from a Jira ticket, say) now loads the issue on the site that covers its new name and connects to it, instead of leaving a placeholder.
+
 ## 0.6.0
 
 ### Minor Changes
