@@ -7,14 +7,25 @@ type Span = Readonly<{ start: number; end: number }>;
 
 /**
  * How far to scroll (negative: back) to show `start`..`end` within `viewStart`..`viewEnd`, clear of
- * the `padStart` covered by something sticky at the start (the axis, the label column): only as
- * far as needed.
+ * the `padStart` and `padEnd` covered at either end (the sticky axis and label column, the open
+ * details drawer): only as far as needed. An item that doesn't fit shows from its start.
  */
-export const scrollIntoRange = (r: Span & Readonly<{ viewStart: number; viewEnd: number; padStart: number }>): number =>
-  r.start < r.viewStart + r.padStart ? r.start - (r.viewStart + r.padStart) : r.end > r.viewEnd ? r.end - r.viewEnd : 0;
+export const scrollIntoRange = (r: Span & Readonly<{ viewStart: number; viewEnd: number; padStart: number; padEnd: number }>): number => {
+  const [first, last] = [r.viewStart + r.padStart, r.viewEnd - r.padEnd];
+  return r.start < first ? r.start - first : r.end > last ? r.end - last : 0;
+};
 
-/** The timeline's visible area on screen, and what its sticky axis and label column cover. */
-type ViewBox = Readonly<{ top: number; bottom: number; padTop: number; left: number; right: number; padLeft: number }>;
+/** The timeline's visible area on screen, and what covers its edges (its scroll padding). */
+type ViewBox = Readonly<{
+  top: number;
+  bottom: number;
+  padTop: number;
+  padBottom: number;
+  left: number;
+  right: number;
+  padLeft: number;
+  padRight: number;
+}>;
 
 /**
  * How far to scroll the timeline to show an item: the whole of it up and down (a row's key and
@@ -25,8 +36,10 @@ export const scrollToShow = (
   bar: Readonly<{ left: number; right: number }> | undefined,
   v: ViewBox,
 ): { top: number; left: number } => ({
-  top: scrollIntoRange({ start: item.top, end: item.bottom, viewStart: v.top, viewEnd: v.bottom, padStart: v.padTop }),
-  left: bar ? scrollIntoRange({ start: bar.left, end: bar.right, viewStart: v.left, viewEnd: v.right, padStart: v.padLeft }) : 0,
+  top: scrollIntoRange({ start: item.top, end: item.bottom, viewStart: v.top, viewEnd: v.bottom, padStart: v.padTop, padEnd: v.padBottom }),
+  left: bar
+    ? scrollIntoRange({ start: bar.left, end: bar.right, viewStart: v.left, viewEnd: v.right, padStart: v.padLeft, padEnd: v.padRight })
+    : 0,
 });
 
 /** The view's client area (inside its border, short of its scrollbars) and its scroll padding. */
@@ -39,9 +52,12 @@ function viewBox(view: HTMLElement): ViewBox {
     top,
     bottom: top + view.clientHeight,
     padTop: parseFloat(style.scrollPaddingTop) || 0,
+    padBottom: parseFloat(style.scrollPaddingBottom) || 0,
     left,
     right: left + view.clientWidth,
     padLeft: parseFloat(style.scrollPaddingLeft) || 0,
+    // The open details drawer covers the right (see `.canvas.has-detail .tl-scroll`).
+    padRight: parseFloat(style.scrollPaddingRight) || 0,
   };
 }
 
