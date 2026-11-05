@@ -571,9 +571,10 @@ describe("laneContaining", () => {
     laneOf,
   );
 
-  it("is the lane a row sits in", () => {
-    expect(laneContaining(items, "a1")).toBe("lane:a");
-    expect(laneContaining(items, "b1")).toBe("lane:b");
+  // With its final y, so focus handed to it while lanes fold scrolls to where it ends up.
+  it("is the lane a row sits in, and where its header is laid out", () => {
+    expect(laneContaining(items, "a1")).toEqual({ id: "lane:a", y: 0 });
+    expect(laneContaining(items, "b1")).toEqual({ id: "lane:b", y: LANE_HEIGHT + ROW_HEIGHT });
   });
 
   // Not the last lane looked at: a row that isn't drawn has no lane.

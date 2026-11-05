@@ -167,8 +167,9 @@ export function Timeline({
   useEffect(() => {
     const uid = document.activeElement?.getAttribute("data-tl-uid");
     if (!uid || stops.includes(uid)) return;
+    // To where its header ends up: several lanes may be sliding at once (Collapse all).
     const lane = laneContaining(items, uid);
-    if (lane !== undefined) focusTimelineItem(laneStop(lane));
+    if (lane) focusTimelineItem(laneStop(lane.id), lane.y);
   }, [items, stops]);
   // Rows slide whenever they move (lane folds, sort changes, refreshed data), but arrows jump to
   // their final positions: hide the arrows until the rows land. A layout effect, so arrows never

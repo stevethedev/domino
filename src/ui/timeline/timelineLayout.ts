@@ -127,12 +127,15 @@ export const laneStop = (laneId: string): string => `lane ${laneId}`;
 export const navOrder = (items: readonly TimelineItem[]): string[] =>
   items.flatMap((i) => (i.kind === "lane" ? [laneStop(i.lane.id)] : i.folded ? [] : [i.node.uid]));
 
-/** The lane a row sits in (in `items`), or undefined when there's no such row or no lanes. */
-export function laneContaining(items: readonly TimelineItem[], uid: string): string | undefined {
-  let lane: string | undefined;
+/**
+ * The lane a row sits in (in `items`) and its header's laid-out y, or undefined when there's no
+ * such row or no lanes.
+ */
+export function laneContaining(items: readonly TimelineItem[], uid: string): { id: string; y: number } | undefined {
+  let lane: TimelineLaneModel | undefined;
   for (const i of items) {
-    if (i.kind === "lane") lane = i.lane.id;
-    else if (i.node.uid === uid) return lane;
+    if (i.kind === "lane") lane = i;
+    else if (i.node.uid === uid) return lane && { id: lane.lane.id, y: lane.y };
   }
   return undefined;
 }
