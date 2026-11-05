@@ -544,6 +544,8 @@ describe("roveKey", () => {
   it("always moves at least one item, even on a screen shorter than a row", () => {
     expect(roveKey({ key: "PageDown", index: 2, ys: rows, screen: 10 })).toBe(3);
     expect(roveKey({ key: "PageUp", index: 2, ys: rows, screen: 10 })).toBe(1);
+    expect(roveKey({ key: "PageUp", index: 9, ys: rows, screen: 10 })).toBe(8);
+    expect(roveKey({ key: "PageDown", index: 0, ys: rows, screen: 10 })).toBe(1);
   });
 
   it("leaves other keys, and any key with a modifier, alone", () => {

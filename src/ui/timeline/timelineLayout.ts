@@ -160,7 +160,8 @@ export function roveKey(k: RoveInput): number | null {
   const last = k.ys.length - 1;
   if (last < 0 || k.altKey || k.ctrlKey || k.metaKey || k.shiftKey) return null;
   const y = k.ys[k.index] ?? 0;
-  const reach = k.screen - ROW_HEIGHT;
+  // A screen shorter than a row still pages one item (each case moves at least one).
+  const reach = Math.max(0, k.screen - ROW_HEIGHT);
   const clamp = (i: number): number => Math.min(last, Math.max(0, i));
   switch (k.key) {
     case "ArrowUp":

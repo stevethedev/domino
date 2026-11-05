@@ -159,7 +159,8 @@ export function Timeline({
     const next = index === -1 ? null : roveKey({ ...e, index, ys, screen });
     if (next === null) return false;
     const target = ids[next];
-    if (target !== id) focusTimelineItem(target);
+    // Scrolled to where it ends up, even mid-fold (see focusTimelineItem).
+    if (target !== id) focusTimelineItem(target, ys[next]);
     return true;
   }, []);
   // A focused row folded away (Collapse all, say) hands focus to its lane's header, not the page.
