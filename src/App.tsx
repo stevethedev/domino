@@ -375,8 +375,10 @@ function Shell(): ReactElement {
     if (!hidden) return void focusGraphNode(uid, moveFocus, follow);
     if (epicUid === uid) return void focusGraphNode(summaryUid(epicUid), moveFocus, follow);
     toggleEpic(epicUid);
-    // Once the re-layout draws the issue.
-    focusWhenDrawn([uid], () => focusGraphNode(uid, moveFocus, follow));
+    // Once the re-layout draws the issue, in whichever view drew it.
+    focusWhenDrawn([uid], () => {
+      latestFocusInView.current(uid, moveFocus, follow);
+    });
   };
   /** In the timeline, an issue inside a collapsed lane is revealed by expanding that lane first. */
   const focusInTimeline = (uid: string, moveFocus = true, follow = false): void => {
