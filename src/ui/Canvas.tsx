@@ -29,7 +29,7 @@ import { isOneOf } from "../lib/guards";
 import { prefersReducedMotion } from "../lib/motion";
 import { isInCycle } from "../graph/cycles";
 import { visibleCentreShift } from "./drawerOffset";
-import { fitKeyOf } from "./fitKey";
+import { fitKeyOf, fitsLayout } from "./fitKey";
 import { tabStopOf, useRovingStop } from "./useRovingStop";
 import { viewTabStop } from "./viewItems";
 import { frameQueue } from "./frameQueue";
@@ -274,7 +274,14 @@ export function Canvas({
             void rf.fitView({ nodes, padding: FIT_PADDING, minZoom: MIN_READABLE_ZOOM, maxZoom: 1, duration });
           }
         };
-        if (!nothingDrawn && (fitKey.current !== fittedKey.current || wasEmpty.current)) {
+        if (
+          fitsLayout({
+            nothingDrawn,
+            keyChanged: fitKey.current !== fittedKey.current,
+            wasEmpty: wasEmpty.current,
+            fitWaiting: pendingFit.waiting(),
+          })
+        ) {
           fittedKey.current = fitKey.current;
           pendingFit.queue(fitThisLayout);
         } else if (identityRefit.current) {

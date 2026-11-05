@@ -54,3 +54,18 @@ describe("frameQueue", () => {
     expect(later).toHaveBeenCalledOnce();
   });
 });
+
+describe("frameQueue waiting", () => {
+  it("is true from queuing until the job runs or is cancelled", () => {
+    const frames = fakeFrames();
+    const queue = frameQueue(frames.raf, frames.caf);
+    expect(queue.waiting()).toBe(false);
+    queue.queue(vi.fn());
+    expect(queue.waiting()).toBe(true);
+    frames.tick();
+    expect(queue.waiting()).toBe(false);
+    queue.queue(vi.fn());
+    queue.cancel();
+    expect(queue.waiting()).toBe(false);
+  });
+});

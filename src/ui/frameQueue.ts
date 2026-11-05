@@ -2,7 +2,7 @@
 export function frameQueue(
   raf: (fn: FrameRequestCallback) => number = requestAnimationFrame,
   caf: (id: number) => void = cancelAnimationFrame,
-): Readonly<{ queue: (job: () => void) => void; cancel: () => void }> {
+): Readonly<{ queue: (job: () => void) => void; cancel: () => void; waiting: () => boolean }> {
   let waiting: number | null = null;
   const cancel = (): void => {
     if (waiting !== null) caf(waiting);
@@ -17,5 +17,6 @@ export function frameQueue(
       });
     },
     cancel,
+    waiting: (): boolean => waiting !== null,
   };
 }
