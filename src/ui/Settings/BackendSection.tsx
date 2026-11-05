@@ -3,6 +3,7 @@ import type { BackendKind, DominoConfig, OAuthStatus } from "../../config/types"
 import { errorMessage } from "../../data/errors";
 import type { Domino } from "../../state/useDomino";
 import { Confirm } from "../Confirm";
+import { useFocusReturn } from "../useFocusReturn";
 
 const CLIENT_ID_REF = "DOMINO_OAUTH_CLIENT_ID";
 const CLIENT_SECRET_REF = "DOMINO_OAUTH_CLIENT_SECRET";
@@ -20,6 +21,7 @@ export function BackendSection({ domino, config }: { domino: Domino; config: Dom
   const hasOAuthSites = oauthSites.length > 0;
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
   const disconnectRef = useRef<HTMLButtonElement>(null);
+  const { restore } = useFocusReturn();
 
   const refresh = useCallback(() => {
     store.oauthStatus().then(setStatus, () => {
@@ -210,7 +212,8 @@ export function BackendSection({ domino, config }: { domino: Domino; config: Dom
               label: "Keep connected",
               run: () => {
                 setConfirmDisconnect(false);
-                disconnectRef.current?.focus(); // back where they were, not lost with this button
+                // Back to Disconnect once the prompt is gone (it's disabled until then).
+                restore(() => [disconnectRef.current]);
               },
             }}
           >
