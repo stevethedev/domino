@@ -42,8 +42,11 @@ const timers: { polite?: ReturnType<typeof setTimeout>; assertive?: ReturnType<t
 export function announce(text: string, { assertive = false, source }: Readonly<{ assertive?: boolean; source?: string }> = {}): void {
   if (!text.trim()) return;
   const kind = assertive ? "assertive" : "polite";
-  // Without a source, it's its own: nothing else replaces it.
-  waiting[kind].set(source ?? Symbol("announcement"), text);
+  if (source !== undefined) {
+    // Its latest text only, even if it's switched between polite and assertive; in its place.
+    waiting[assertive ? "polite" : "assertive"].delete(source);
+    waiting[kind].set(source, text);
+  } else waiting[kind].set(Symbol("announcement"), text); // its own: nothing else replaces it
   if (timers[kind] === undefined) deliver(assertive);
 }
 
@@ -127,6 +130,8 @@ export function useAnnounced<T extends HTMLElement>({ assertive = false }: Reado
   useEffect(
     () => (): void => {
       cancelAnnouncement(source);
+      // Mounted again (StrictMode replays effects in development): its text is news again.
+      said.current = "";
     },
     [source],
   );

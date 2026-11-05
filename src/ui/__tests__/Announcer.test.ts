@@ -51,6 +51,17 @@ describe("announce", () => {
     expect(page.polite.textContent).toBe("Showing 5 of 12 tickets");
   });
 
+  it("reads only a source's latest text when it switches politeness", () => {
+    vi.useFakeTimers();
+    const page = regions();
+    unlisten.push(listen(page));
+    announce("Couldn't read that file.", { assertive: true, source: "saved-views" });
+    announce("Imported 2 views.", { source: "saved-views" });
+    vi.runAllTimers();
+    expect(page.assertive.textContent).toBe("");
+    expect(page.polite.textContent).toBe("Imported 2 views.");
+  });
+
   it("reads nothing for a message removed before its text went out", () => {
     vi.useFakeTimers();
     const page = regions();
