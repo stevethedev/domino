@@ -18,15 +18,20 @@ export function ConfigProblemBanner({
   onReload: () => Promise<void>;
   /** Sets the file aside and writes an empty one (asks first). */
   onStartFresh: () => Promise<unknown>;
-  onReveal: () => void;
+  /** Shows the file in the file manager; a failure is said in the banner. */
+  onReveal: () => Promise<unknown>;
   onOpenSettings: () => void;
 }): ReactElement | null {
   const [reloading, setReloading] = useState(false);
   const [confirmFresh, setConfirmFresh] = useState(false);
   const startFreshRef = useRef<HTMLButtonElement>(null);
   const [freshError, setFreshError] = useState<string | null>(null);
-  // Once the file is usable again, an old start-fresh failure is no longer news.
-  if (status.problem === null && freshError !== null) setFreshError(null);
+  const [revealError, setRevealError] = useState<string | null>(null);
+  // Once the file is usable again, an old failure is no longer news.
+  if (status.problem === null && (freshError !== null || revealError !== null)) {
+    setFreshError(null);
+    setRevealError(null);
+  }
   if (status.problem === null) return null;
   return (
     <div className="banner error actionable" role="alert">
@@ -52,7 +57,15 @@ export function ConfigProblemBanner({
         >
           {reloading ? "Reloading…" : "Reload file"}
         </button>
-        <button type="button" onClick={onReveal}>
+        <button
+          type="button"
+          onClick={() => {
+            setRevealError(null);
+            onReveal().catch((e: unknown) => {
+              setRevealError(errorMessage(e)); // already says it couldn't show the file
+            });
+          }}
+        >
           Show file
         </button>
         <button type="button" onClick={onOpenSettings}>
@@ -99,6 +112,7 @@ export function ConfigProblemBanner({
         )}
       </div>
       {freshError && <p className="small banner-confirm">Couldn't start fresh: {freshError}</p>}
+      {revealError && <p className="small banner-confirm">{revealError}</p>}
       {confirmFresh && (
         <p className="small banner-confirm">
           Start with no sites? If the file is still there, it's kept beside it as <code>domino.config.broken.json</code> (or <code>-2</code>

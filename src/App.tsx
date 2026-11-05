@@ -14,7 +14,6 @@ import { DEFAULT_REFRESH_MINUTES, parseRefreshMinutes, REFRESH_MINUTES_KEY } fro
 import { useAutoRefresh } from "./state/useAutoRefresh";
 import { useDomino } from "./state/useDomino";
 import { loadViewOf, scopeLabel, type LoadView } from "./state/loadView";
-import { errorMessage } from "./data/errors";
 import { failureText, otherScopeFailureText } from "./state/refresh";
 import { useMyself } from "./state/useMyself";
 import { useUnblockedNotifications } from "./state/useUnblockedNotifications";
@@ -56,6 +55,7 @@ import { Toast, type ToastMessage } from "./ui/Toast";
 import { focusFirst } from "./ui/focusFirst";
 import { FocusRequestContext, focusRequest, type FocusRequest } from "./ui/focusRequest";
 import { useFocusReturn } from "./ui/useFocusReturn";
+import { LiveRegions, useAnnounced } from "./ui/Announcer";
 import { viewItemOf, viewTabStop } from "./ui/viewItems";
 import { TimelineLegend } from "./ui/timeline/TimelineLegend";
 import { focusTimelineRow } from "./ui/timeline/focusItem";
@@ -573,6 +573,7 @@ function Shell(): ReactElement {
 
   return (
     <div className="app">
+      <LiveRegions />
       <header className="topbar">
         <h1 className="brand">
           <BrandMark /> Domino
@@ -639,11 +640,7 @@ function Shell(): ReactElement {
             // The banner is gone: on to adding a site.
             requestAnimationFrame(() => focusFirst(".canvas-message button", 'button[aria-label="Settings"]'));
           }}
-          onReveal={() => {
-            domino.store.revealFile().catch((e: unknown) => {
-              setToast({ text: errorMessage(e) }); // already says it couldn't show the file
-            });
-          }}
+          onReveal={() => domino.store.revealFile()}
           onOpenSettings={() => {
             setSettingsOpen(true);
           }}
@@ -941,6 +938,7 @@ function CanvasMessage({
   onClearFilters: () => void;
 }): ReactElement | null {
   const { load, selectedSites, graph } = domino;
+  const said = useAnnounced<HTMLDivElement>();
   let msg: React.ReactNode = null;
   if (selectedSites.length === 0 && domino.config) {
     const why = noSitesShown(domino.config.sites);
@@ -988,8 +986,8 @@ function CanvasMessage({
   }
   if (!msg) return null;
   return (
-    <div className="canvas-message" role="status">
-      <div>{msg}</div>
+    <div className="canvas-message">
+      <div ref={said}>{msg}</div>
     </div>
   );
 }
