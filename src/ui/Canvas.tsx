@@ -32,6 +32,7 @@ import { visibleCentreShift } from "./drawerOffset";
 import { fitKeyOf } from "./fitKey";
 import { tabStopOf, useRovingStop } from "./useRovingStop";
 import { viewTabStop } from "./viewItems";
+import { frameQueue } from "./frameQueue";
 import { awaitsIdentities, FIT_PADDING, firstView, MIN_READABLE_ZOOM } from "./firstView";
 
 /** How long cards may slide after a sort change; longer than `--duration-base` so the slide finishes. */
@@ -151,11 +152,17 @@ export function Canvas({
   const { lastFocused, onFocusItem } = useRovingStop(scopeKey);
   /** Re-fits the first view once identities arrive, if it was picked without them and the user hasn't moved since. */
   const identityRefit = useRef<(() => void) | null>(null);
-  /** The view moved away from the first view: its notice no longer describes it, and it's never re-fitted. */
+  /** A layout's fit, waiting for its cards to be drawn. */
+  const [pendingFit] = useState(() => frameQueue());
+  /**
+   * The view moved away from the first view: its notice no longer describes it, and it's never
+   * re-fitted, nor fitted at all if the fit hasn't run yet (a pan to a card mustn't be undone).
+   */
   const leaveFirstView = useCallback((): void => {
+    pendingFit.cancel();
     identityRefit.current = null;
     setPartNotice(null);
-  }, []);
+  }, [pendingFit]);
   const focusNode = useFocusNode();
   const onFocusCard = useCallback(
     (uid: string): void => {
@@ -269,7 +276,7 @@ export function Canvas({
         };
         if (!nothingDrawn && (fitKey.current !== fittedKey.current || wasEmpty.current)) {
           fittedKey.current = fitKey.current;
-          requestAnimationFrame(fitThisLayout);
+          pendingFit.queue(fitThisLayout);
         } else if (identityRefit.current) {
           // Still waiting on identities: the re-fit follows the latest layout (an empty one is fitted
           // afresh when cards return). Until it runs, the cards moved and the notice no longer holds.
@@ -289,7 +296,7 @@ export function Canvas({
     return (): void => {
       cancelled = true;
     };
-  }, [vNodes, vEdges, graph.brokenEdgeIds, laneOf, layoutOrder, rf, store, leaveFirstView]);
+  }, [vNodes, vEdges, graph.brokenEdgeIds, laneOf, layoutOrder, rf, store, leaveFirstView, pendingFit]);
 
   // Identities load after the tickets: a first view picked without them is picked again, once.
   const assigned = insights.mine.assigned;
