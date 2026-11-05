@@ -28,6 +28,7 @@ import {
   isLate,
   LABEL_WIDTH,
   LANE_HEIGHT,
+  laneContaining,
   laneStop,
   layoutRows,
   navOrder,
@@ -159,11 +160,7 @@ export function Timeline({
   useEffect(() => {
     const uid = document.activeElement?.getAttribute("data-tl-uid");
     if (!uid || stops.includes(uid)) return;
-    let lane: string | undefined;
-    for (const i of items) {
-      if (i.kind === "lane") lane = i.lane.id;
-      else if (i.node.uid === uid) break;
-    }
+    const lane = laneContaining(items, uid);
     if (lane !== undefined) focusTimelineItem(laneStop(lane));
   }, [items, stops]);
   // Rows slide whenever they move (lane folds, sort changes, refreshed data), but arrows jump to

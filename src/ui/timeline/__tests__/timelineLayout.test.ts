@@ -12,6 +12,7 @@ import {
   LABEL_WIDTH,
   LANE_HEIGHT,
   layoutRows,
+  laneContaining,
   laneStop,
   mergeFoldedArrows,
   navOrder,
@@ -534,5 +535,27 @@ describe("roveKey", () => {
 
   it("does nothing in an empty timeline", () => {
     expect(roveKey({ key: "ArrowDown", index: 0, count: 0, page: 4 })).toBeNull();
+  });
+});
+
+describe("laneContaining", () => {
+  const laneOf = (n: GraphNode): Lane => ({ id: `lane:${n.uid[0]}`, label: n.uid[0] });
+  const { items } = layoutRows(
+    [node("a1"), node("b1")],
+    new Map([
+      ["a1", entry("2026-10-01")],
+      ["b1", entry("2026-10-02")],
+    ]),
+    laneOf,
+  );
+
+  it("is the lane a row sits in", () => {
+    expect(laneContaining(items, "a1")).toBe("lane:a");
+    expect(laneContaining(items, "b1")).toBe("lane:b");
+  });
+
+  // Not the last lane looked at: a row that isn't drawn has no lane.
+  it("is undefined for a row that isn't there", () => {
+    expect(laneContaining(items, "gone")).toBeUndefined();
   });
 });

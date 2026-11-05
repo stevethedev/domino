@@ -127,6 +127,16 @@ export const laneStop = (laneId: string): string => `lane ${laneId}`;
 export const navOrder = (items: readonly TimelineItem[]): string[] =>
   items.flatMap((i) => (i.kind === "lane" ? [laneStop(i.lane.id)] : i.folded ? [] : [i.node.uid]));
 
+/** The lane a row sits in (in `items`), or undefined when there's no such row or no lanes. */
+export function laneContaining(items: readonly TimelineItem[], uid: string): string | undefined {
+  let lane: string | undefined;
+  for (const i of items) {
+    if (i.kind === "lane") lane = i.lane.id;
+    else if (i.node.uid === uid) return lane;
+  }
+  return undefined;
+}
+
 /** Keys that move the timeline's Tab stop through `navOrder`, without modifiers. */
 type RoveInput = Readonly<{
   key: string;
