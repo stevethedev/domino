@@ -117,6 +117,78 @@ export function layoutRows(
 }
 
 /** Header flags that end at `right` (px) and are `width` wide; see `stackFlags`. */
+/** A lane header's id in `navOrder`: ticket keys never contain spaces, so it can't be a row's uid. */
+export const laneStop = (laneId: string): string => `lane ${laneId}`;
+
+/**
+ * What the timeline's one Tab stop moves through, top to bottom: each lane header (see `laneStop`)
+ * and row as drawn, skipping the rows of folded lanes.
+ */
+export const navOrder = (items: readonly TimelineItem[]): string[] =>
+  items.flatMap((i) => (i.kind === "lane" ? [laneStop(i.lane.id)] : i.folded ? [] : [i.node.uid]));
+
+/**
+ * The lane a row sits in (in `items`) and its header's laid-out y, or undefined when there's no
+ * such row or no lanes.
+ */
+export function laneContaining(items: readonly TimelineItem[], uid: string): { id: string; y: number } | undefined {
+  let lane: TimelineLaneModel | undefined;
+  for (const i of items) {
+    if (i.kind === "lane") lane = i;
+    else if (i.node.uid === uid) return lane && { id: lane.lane.id, y: lane.y };
+  }
+  return undefined;
+}
+
+/** Keys that move the timeline's Tab stop through `navOrder`, without modifiers. */
+type RoveInput = Readonly<{
+  key: string;
+  index: number;
+  /** Each item's y, in `navOrder`. */
+  ys: readonly number[];
+  /** The height of the view below the sticky axis, for PgUp/PgDn. */
+  screen: number;
+  altKey?: boolean;
+  ctrlKey?: boolean;
+  metaKey?: boolean;
+  shiftKey?: boolean;
+}>;
+
+/**
+ * Where ↑ ↓ Home End PgUp PgDn move from `index` (kept in range), or null for any other key.
+ * PgDn goes to the last item wholly within a screen below this one, PgUp likewise upward, and
+ * each moves at least one item.
+ */
+export function roveKey(k: RoveInput): number | null {
+  const last = k.ys.length - 1;
+  if (last < 0 || k.altKey || k.ctrlKey || k.metaKey || k.shiftKey) return null;
+  const y = k.ys[k.index] ?? 0;
+  // A screen shorter than a row still pages one item (each case moves at least one).
+  const reach = Math.max(0, k.screen - ROW_HEIGHT);
+  const clamp = (i: number): number => Math.min(last, Math.max(0, i));
+  switch (k.key) {
+    case "ArrowUp":
+      return clamp(k.index - 1);
+    case "ArrowDown":
+      return clamp(k.index + 1);
+    case "Home":
+      return 0;
+    case "End":
+      return last;
+    case "PageDown":
+      return clamp(Math.max(k.index + 1, k.ys.filter((t) => t - y <= reach).length - 1));
+    case "PageUp":
+      return clamp(
+        Math.min(
+          k.index - 1,
+          k.ys.findIndex((t) => y - t <= reach),
+        ),
+      );
+    default:
+      return null;
+  }
+}
+
 export type Flag = Readonly<{ id: string; right: number; width: number }>;
 
 /** Space kept between flags on one header line, in px. */

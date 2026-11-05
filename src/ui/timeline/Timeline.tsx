@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactElement } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { prefersReducedMotion } from "../../lib/motion";
 import { blockingChain } from "../../graph/analysis";
 import { emphasis, type Insights } from "../../graph/insights";
@@ -16,6 +16,7 @@ import { lanesFor, type Filters, type ViewOptions } from "../Canvas";
 import { InfoTip } from "../InfoTip";
 import { NumberField } from "../NumberField";
 import { SortChip } from "../SortChip";
+import { tabStopOf, useRovingStop } from "../useRovingStop";
 import { flagWidth, releaseX, TimeAxis, TimeGrid, type ReleaseMarker } from "./TimeAxis";
 import { arrowAnchors, isViolated, TimelineArrows, type ArrowModel } from "./TimelineArrows";
 import {
@@ -27,7 +28,11 @@ import {
   isLate,
   LABEL_WIDTH,
   LANE_HEIGHT,
+  laneContaining,
+  laneStop,
   layoutRows,
+  navOrder,
+  roveKey,
   mergeFoldedArrows,
   ROW_HEIGHT,
   dayAt,
@@ -47,7 +52,8 @@ import {
 import { captureElement } from "../capture";
 import { fmtDay } from "../format";
 import { ExportMenu } from "../ExportMenu";
-import { TimelineLane } from "./TimelineLane";
+import { focusTimelineItem } from "./focusItem";
+import { TimelineLane, type RoveEvent } from "./TimelineLane";
 import { TimelineRow } from "./TimelineRow";
 
 /** The chart's scroll box width the details drawer leaves visible, for placing Today and the centre. */
@@ -133,6 +139,38 @@ export function Timeline({
     [nodes, placed, view.groupBy, insights, collapsedLanes, order],
   );
   const lanes = items.filter((i) => i.kind === "lane");
+  // One Tab stop for the whole timeline (see tabStopOf): ↑ ↓ Home End PgUp PgDn move it through
+  // the lane headers and rows in screen order (navOrder).
+  const stops = useMemo(() => navOrder(items), [items]);
+  const stopYs = useMemo(() => {
+    const y = new Map(items.map((i) => [i.kind === "lane" ? laneStop(i.lane.id) : i.node.uid, i.y]));
+    return stops.map((id) => getOrThrow(y, id));
+  }, [items, stops]);
+  const { lastFocused, onFocusItem } = useRovingStop(scopeKey);
+  const tabStop = tabStopOf({ lastFocused, selected: selectedUid, has: (id) => stops.includes(id), first: stops[0] });
+  const latestStops = useRef({ ids: stops, ys: stopYs });
+  latestStops.current = { ids: stops, ys: stopYs };
+  const onRove = useCallback((id: string, e: RoveEvent): boolean => {
+    const { ids, ys } = latestStops.current;
+    const index = ids.indexOf(id);
+    // A screen is what shows below the sticky axis.
+    const view = scrollRef.current;
+    const screen = (view?.clientHeight ?? 0) - (view?.querySelector<HTMLElement>(".tl-axis")?.offsetHeight ?? 0);
+    const next = index === -1 ? null : roveKey({ ...e, index, ys, screen });
+    if (next === null) return false;
+    const target = ids[next];
+    // Scrolled to where it ends up, even mid-fold (see focusTimelineItem).
+    if (target !== id) focusTimelineItem(target, ys[next]);
+    return true;
+  }, []);
+  // A focused row folded away (Collapse all, say) hands focus to its lane's header, not the page.
+  useEffect(() => {
+    const uid = document.activeElement?.getAttribute("data-tl-uid");
+    if (!uid || stops.includes(uid)) return;
+    // To where its header ends up: several lanes may be sliding at once (Collapse all).
+    const lane = laneContaining(items, uid);
+    if (lane) focusTimelineItem(laneStop(lane.id), lane.y);
+  }, [items, stops]);
   // Rows slide whenever they move (lane folds, sort changes, refreshed data), but arrows jump to
   // their final positions: hide the arrows until the rows land. A layout effect, so arrows never
   // paint early.
@@ -487,6 +525,8 @@ export function Timeline({
           <div
             className="tl-scroll"
             ref={scrollRef}
+            // The axis's height (its release lines), which the scroll padding keeps clear too.
+            style={{ "--release-lines": releaseLines }}
             onScroll={(e) => {
               leftEdge.current = { start: range.start, px: e.currentTarget.scrollLeft, scale: settings.scale };
             }}
@@ -505,7 +545,7 @@ export function Timeline({
                   ),
               }}
             >
-              <div className={`tl-axis${releaseLines ? " with-releases" : ""}`} style={{ "--release-lines": releaseLines }}>
+              <div className={`tl-axis${releaseLines ? " with-releases" : ""}`}>
                 <div className="tl-corner">Ticket</div>
                 <TimeAxis range={range} scale={settings.scale} today={today} releases={releaseMarkers} />
               </div>
@@ -530,6 +570,9 @@ export function Timeline({
                         toggleLane(item.lane.id);
                       }}
                       onOpen={onOpen}
+                      onRove={onRove}
+                      onFocusItem={onFocusItem}
+                      tabbable={laneStop(item.lane.id) === tabStop}
                       rangeStart={range.start}
                       scale={settings.scale}
                     />
@@ -556,6 +599,9 @@ export function Timeline({
                       onOpen={onOpen}
                       onHover={setHovered}
                       onTraverse={onTraverse}
+                      onRove={onRove}
+                      onFocusItem={onFocusItem}
+                      tabbable={item.node.uid === tabStop}
                     />
                   ),
                 )}

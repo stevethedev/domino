@@ -20,6 +20,7 @@ const node: GraphNode = {
 const row = (
   flags: Partial<RowFlags>,
   epic?: { projected: { start: string; end: string }; work: { start: string; end: string }; children: number },
+  tabbable = false,
 ): string =>
   renderToStaticMarkup(
     createElement(TimelineRow, {
@@ -44,6 +45,9 @@ const row = (
       onOpen: () => undefined,
       onHover: () => undefined,
       onTraverse: () => false,
+      onRove: () => false,
+      onFocusItem: () => undefined,
+      tabbable,
     }),
   );
 
@@ -67,5 +71,15 @@ describe("TimelineRow", () => {
 
   it("shows no Critical badge off the critical path", () => {
     expect(row({})).not.toContain("tag-critical");
+  });
+
+  it("is part of the timeline's one Tab stop: reachable by Tab only when it's the stop", () => {
+    expect(row({}, undefined, true)).toMatch(/<div class="tl-row[^"]*"[^>]*tabindex="0"/);
+    expect(row({}, undefined, false)).toMatch(/<div class="tl-row[^"]*"[^>]*tabindex="-1"/);
+    expect(row({ stale: true }, undefined, true)).toMatch(/tabindex="-1"/);
+  });
+
+  it("names its keys: ←/→ follow links, ↑ ↓ Home End PgUp PgDn move through the timeline", () => {
+    expect(row({})).toContain('aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown Home End PageUp PageDown"');
   });
 });

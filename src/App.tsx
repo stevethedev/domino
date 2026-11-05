@@ -55,6 +55,7 @@ import { noSitesShown } from "./ui/canvasMessage";
 import { Toast, type ToastMessage } from "./ui/Toast";
 import { focusFirst } from "./ui/focusFirst";
 import { TimelineLegend } from "./ui/timeline/TimelineLegend";
+import { focusTimelineRow } from "./ui/timeline/focusItem";
 import { Glance } from "./ui/Glance";
 import { SidebarSection } from "./ui/SidebarSection";
 import { QuickFind } from "./ui/QuickFind";
@@ -92,22 +93,6 @@ const NOTIFY_UNBLOCKED_KEY = "domino.notifyUnblocked";
 const AUTO_UPDATE_CHECK_KEY = "domino.autoUpdateCheck";
 const parseBool = (raw: unknown): boolean | undefined => (typeof raw === "boolean" ? raw : undefined);
 const parseGlanceScope = oneOf(isHighlightScope);
-
-/**
- * Focus a timeline row by uid (the graph view uses React Flow's viewport instead), centring it, or
- * with `nearest` (following links) scrolling only as far as needed. Returns whether it was found.
- */
-function focusTimelineRow(uid: string, moveFocus = true, nearest = false): boolean {
-  const el = document.querySelector<HTMLElement>(`[data-tl-uid="${CSS.escape(uid)}"]`);
-  // Scroll its work bar into view, across as well as down (the row spans the whole chart, so
-  // scrolling to the row alone never moved sideways); the chart's scroll-padding keeps it clear of
-  // the sticky labels. A ghost has no bar: scroll to the row.
-  const bar =
-    [".tl-actual", ".tl-forecast", ".tl-epic-work", ".tl-projected"].map((s) => el?.querySelector<HTMLElement>(s)).find(Boolean) ?? el;
-  bar?.scrollIntoView({ block: nearest ? "nearest" : "center", inline: "nearest", behavior: prefersReducedMotion() ? "auto" : "smooth" });
-  if (moveFocus) el?.focus({ preventScroll: true });
-  return el !== null;
-}
 
 const COLLAPSED_LANES_KEY = "domino.timeline.collapsedLanes";
 /** Remembered collapsed lanes; capped so ids from long-gone scopes don't pile up. */
@@ -450,7 +435,8 @@ function Shell(): ReactElement {
     // everything filtered out, to the canvas message's Clear filters.
     focusFirst(
       `[data-uid="${CSS.escape(uid)}"], [data-tl-uid="${CSS.escape(uid)}"]`,
-      '.canvas [data-uid][tabindex="0"], .canvas [data-tl-uid][tabindex="0"]',
+      // (The timeline's stop can be a lane header, when its rows are all filtered out or folded.)
+      '.canvas [data-uid][tabindex="0"], .canvas [data-tl-uid][tabindex="0"], .canvas [data-tl-lane][tabindex="0"]',
       ".canvas-message button",
     );
   };
@@ -473,7 +459,10 @@ function Shell(): ReactElement {
     return out;
   }, [drawnGraph, filters]);
   const impliedLinkCount = useMemo(() => visibleSubgraph(drawnGraph, { ...filters, hideImplied: true }).implied, [drawnGraph, filters]);
-  /** Arrow keys on a card or row follow the drawn blocking links (see `step`); an open details panel follows along. */
+  /**
+   * Arrow keys on a card, and ←/→ on a timeline row, follow the drawn blocking links (see `step`);
+   * an open details panel follows along. (A row's ↑/↓ move through the timeline in order instead.)
+   */
   const trail = useRef<Trail | null>(null);
   /** Where the drawn issues are right now, over the links drawn (read at key press, not render). */
   const layoutNow = (): TraverseLayout => screenLayout(visibleSubgraph(drawnGraph, filters).edges);
@@ -1007,6 +996,9 @@ function Legend({ types }: { types: readonly string[] }): ReactElement {
       </ul>
       <TypeKey types={types} />
       <p className="hint">Hover or focus a card to trace its blockers. Enter or click shows its details; ⌘/Ctrl+click opens it in Jira.</p>
+      <p className="hint">
+        <kbd>←</kbd> <kbd>→</kbd> follow blocking links · <kbd>↑</kbd> <kbd>↓</kbd> move to the card above or below
+      </p>
       <p className="hint">
         <kbd>/</kbd> find · <kbd>g</kbd> graph · <kbd>t</kbd> timeline
       </p>

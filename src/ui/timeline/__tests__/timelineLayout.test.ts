@@ -12,8 +12,12 @@ import {
   LABEL_WIDTH,
   LANE_HEIGHT,
   layoutRows,
+  laneContaining,
+  laneStop,
   mergeFoldedArrows,
+  navOrder,
   PX_PER_DAY,
+  roveKey,
   ROW_HEIGHT,
   rowsMoved,
   scrollLeftFor,
@@ -466,5 +470,115 @@ describe("mergeFoldedArrows", () => {
 
   it("keeps every arrow between unfolded rows", () => {
     expect(mergeFoldedArrows([arrow("1", "a", "x"), arrow("2", "b", "x")], new Map()).map((a) => a.edge.id)).toEqual(["1", "2"]);
+  });
+});
+
+describe("navOrder", () => {
+  const laneOf = (n: GraphNode): Lane => ({ id: `lane:${n.uid[0]}`, label: n.uid[0] });
+  const nodes = [node("a1"), node("a2"), node("b1")];
+  const timeline = new Map([
+    ["a1", entry("2026-10-01")],
+    ["a2", entry("2026-10-02")],
+    ["b1", entry("2026-10-03")],
+  ]);
+
+  it("is every lane header and row in screen order, so ↑/↓ walk the timeline as drawn", () => {
+    expect(navOrder(layoutRows(nodes, timeline, laneOf).items)).toEqual([laneStop("lane:a"), "a1", "a2", laneStop("lane:b"), "b1"]);
+  });
+
+  it("skips the rows of a folded lane, but keeps its header", () => {
+    expect(navOrder(layoutRows(nodes, timeline, laneOf, new Set(["lane:a"])).items)).toEqual([
+      laneStop("lane:a"),
+      laneStop("lane:b"),
+      "b1",
+    ]);
+  });
+
+  it("is just the rows when nothing is grouped", () => {
+    expect(navOrder(layoutRows(nodes, timeline, undefined).items)).toEqual(["a1", "a2", "b1"]);
+  });
+
+  // Ticket keys never contain spaces, so a header's id can't be mistaken for a row's.
+  it("names a lane's header apart from any row", () => {
+    expect(laneStop("lane:a")).toBe("lane lane:a");
+  });
+});
+
+describe("roveKey", () => {
+  // Ten rows, 40px apart; a screen below the axis of 200px.
+  const rows = Array.from({ length: 10 }, (_, n) => n * 40);
+  const at = (
+    key: string,
+    index: number,
+    mods: Partial<Record<"altKey" | "ctrlKey" | "metaKey" | "shiftKey", boolean>> = {},
+  ): number | null => roveKey({ key, index, ys: rows, screen: 200, ...mods });
+
+  it("moves one item with ↑/↓, stopping at the ends", () => {
+    expect(at("ArrowDown", 3)).toBe(4);
+    expect(at("ArrowUp", 3)).toBe(2);
+    expect(at("ArrowUp", 0)).toBe(0);
+    expect(at("ArrowDown", 9)).toBe(9);
+  });
+
+  it("goes to the ends with Home/End, and a screen at a time with PgUp/PgDn", () => {
+    expect(at("Home", 5)).toBe(0);
+    expect(at("End", 5)).toBe(9);
+    expect(at("PageDown", 3)).toBe(7);
+    expect(at("PageDown", 8)).toBe(9);
+    expect(at("PageUp", 3)).toBe(0);
+    expect(at("PageUp", 7)).toBe(3);
+  });
+
+  // The sticky axis isn't screen: four release lines leave 298px of a 400px view.
+  it("pages by what fits below the axis, to the last item wholly in view", () => {
+    expect(roveKey({ key: "PageDown", index: 0, ys: Array.from({ length: 11 }, (_, n) => n * 40), screen: 298 })).toBe(6);
+  });
+
+  // Lane headers are shorter than rows, so a screen holds a mix: page by where items are, not a count.
+  it("pages by where items are, with lane headers among the rows", () => {
+    const ys = [0, 30, 70, 110, 140, 180, 220, 260, 300];
+    expect(roveKey({ key: "PageDown", index: 0, ys, screen: 200 })).toBe(4);
+    expect(roveKey({ key: "PageUp", index: 8, ys, screen: 200 })).toBe(4);
+  });
+
+  it("always moves at least one item, even on a screen shorter than a row", () => {
+    expect(roveKey({ key: "PageDown", index: 2, ys: rows, screen: 10 })).toBe(3);
+    expect(roveKey({ key: "PageUp", index: 2, ys: rows, screen: 10 })).toBe(1);
+    expect(roveKey({ key: "PageUp", index: 9, ys: rows, screen: 10 })).toBe(8);
+    expect(roveKey({ key: "PageDown", index: 0, ys: rows, screen: 10 })).toBe(1);
+  });
+
+  it("leaves other keys, and any key with a modifier, alone", () => {
+    expect(at("ArrowLeft", 3)).toBeNull();
+    expect(at("Enter", 3)).toBeNull();
+    expect(at("ArrowDown", 3, { shiftKey: true })).toBeNull();
+    expect(at("End", 3, { metaKey: true })).toBeNull();
+  });
+
+  it("does nothing in an empty timeline", () => {
+    expect(roveKey({ key: "ArrowDown", index: 0, ys: [], screen: 200 })).toBeNull();
+  });
+});
+
+describe("laneContaining", () => {
+  const laneOf = (n: GraphNode): Lane => ({ id: `lane:${n.uid[0]}`, label: n.uid[0] });
+  const { items } = layoutRows(
+    [node("a1"), node("b1")],
+    new Map([
+      ["a1", entry("2026-10-01")],
+      ["b1", entry("2026-10-02")],
+    ]),
+    laneOf,
+  );
+
+  // With its final y, so focus handed to it while lanes fold scrolls to where it ends up.
+  it("is the lane a row sits in, and where its header is laid out", () => {
+    expect(laneContaining(items, "a1")).toEqual({ id: "lane:a", y: 0 });
+    expect(laneContaining(items, "b1")).toEqual({ id: "lane:b", y: LANE_HEIGHT + ROW_HEIGHT });
+  });
+
+  // Not the last lane looked at: a row that isn't drawn has no lane.
+  it("is undefined for a row that isn't there", () => {
+    expect(laneContaining(items, "gone")).toBeUndefined();
   });
 });

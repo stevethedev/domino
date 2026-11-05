@@ -46,8 +46,11 @@
   flex: 1;
   overflow: auto;
   position: relative;
-  /* Scrolling a bar into view keeps it clear of the sticky label column (LABEL_WIDTH). */
+  /* Scrolling a bar or header into view keeps it clear of the sticky label column (LABEL_WIDTH)
+     and of the sticky axis above (the same height as .tl-axis.with-releases; Timeline sets
+     --release-lines here, and the axis inherits it). */
   scroll-padding-left: calc(320px + var(--space-4));
+  scroll-padding-top: calc(30px + var(--release-lines, 0) * 18px);
 }
 .tl-inner {
   position: relative;
