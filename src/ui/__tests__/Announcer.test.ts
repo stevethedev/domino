@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { announce, listen, regionFor, spokenText } from "../Announcer";
+import { announce, cancelAnnouncement, listen, regionFor, spokenText } from "../Announcer";
 
 describe("regionFor", () => {
   const page = { polite: "page-polite", assertive: "page-assertive" };
@@ -49,6 +49,40 @@ describe("announce", () => {
     announce("Showing 5 of 12 tickets", { source: "filters" });
     vi.runAllTimers();
     expect(page.polite.textContent).toBe("Showing 5 of 12 tickets");
+  });
+
+  it("reads nothing for a message removed before its text went out", () => {
+    vi.useFakeTimers();
+    const page = regions();
+    unlisten.push(listen(page));
+    announce("Loading 2 sites…", { source: "canvas" });
+    cancelAnnouncement("canvas");
+    vi.runAllTimers();
+    expect(page.polite.textContent).toBe("");
+  });
+
+  it("empties a new destination first, so text it already holds is read again", () => {
+    vi.useFakeTimers();
+    const page = regions();
+    const writes: string[] = [];
+    let held = "Saved.";
+    const dialog = {
+      polite: {
+        get textContent(): string {
+          return held;
+        },
+        set textContent(t: string) {
+          writes.push(t);
+          held = t;
+        },
+      },
+      assertive: region(),
+    };
+    unlisten.push(listen(page));
+    announce("Saved.", { source: "settings" });
+    unlisten.push(listen(dialog)); // Settings opened, its region still holding the last "Saved."
+    vi.runAllTimers();
+    expect(writes).toEqual(["", "Saved."]);
   });
 
   it("delivers to the regions listening when it's read, not when it was asked", () => {

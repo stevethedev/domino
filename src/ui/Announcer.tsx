@@ -42,19 +42,37 @@ const timers: { polite?: ReturnType<typeof setTimeout>; assertive?: ReturnType<t
 export function announce(text: string, { assertive = false, source }: Readonly<{ assertive?: boolean; source?: string }> = {}): void {
   if (!text.trim()) return;
   const kind = assertive ? "assertive" : "polite";
-  const queue = waiting[kind];
   // Without a source, it's its own: nothing else replaces it.
-  queue.set(source ?? Symbol("announcement"), text);
-  if (timers[kind] !== undefined) return;
-  // Emptied now and filled after a moment, so the same text twice still counts as a change.
-  const now = regionFor(listening, assertive);
-  if (now) now.textContent = "";
+  waiting[kind].set(source ?? Symbol("announcement"), text);
+  if (timers[kind] === undefined) deliver(kind, assertive);
+}
+
+/**
+ * Empties the destination, then fills it after a moment, so the same text twice still counts as a
+ * change. If the destination changed meanwhile (Settings opened or closed), it empties that one
+ * and waits again.
+ */
+function deliver(kind: keyof typeof waiting, assertive: boolean): void {
+  const emptied = regionFor(listening, assertive);
+  if (emptied) emptied.textContent = "";
   timers[kind] = setTimeout(() => {
     timers[kind] = undefined;
+    const queue = waiting[kind];
+    if (queue.size === 0) return;
     const region = regionFor(listening, assertive);
+    if (region !== emptied) {
+      deliver(kind, assertive);
+      return;
+    }
     if (region) region.textContent = [...queue.values()].join(" ");
     queue.clear();
   }, CLEAR_MS);
+}
+
+/** Drops `source`'s text not yet read: its message is gone, or says nothing now. */
+export function cancelAnnouncement(source: string): void {
+  waiting.polite.delete(source);
+  waiting.assertive.delete(source);
 }
 
 // Node.TEXT_NODE and Node.ELEMENT_NODE, without needing a DOM to compare against.
@@ -98,8 +116,18 @@ export function useAnnounced<T extends HTMLElement>({ assertive = false }: Reado
   const source = useId();
   useEffect(() => {
     const text = ref.current ? spokenText(ref.current).trim() : "";
-    if (text !== said.current && text) announce(text, { assertive, source });
+    if (text !== said.current) {
+      // A message that's gone, or says nothing now, isn't read late.
+      if (text) announce(text, { assertive, source });
+      else cancelAnnouncement(source);
+    }
     said.current = text;
   });
+  useEffect(
+    () => (): void => {
+      cancelAnnouncement(source);
+    },
+    [source],
+  );
   return ref;
 }
