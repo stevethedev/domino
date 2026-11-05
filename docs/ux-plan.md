@@ -33,7 +33,7 @@ Not included: an in-app theme switch. The app keeps following the OS.
 
 ## 3. Focus helper
 
-Ships in three PRs. The first (timeline) is done in #44. Differences from the plan:
+Ships in three PRs. The first (timeline) is done in #44, the second (focus return) in #46. Differences from the plan:
 
 - **The timeline is one Tab stop** over its lane headers and rows, in screen order. ↑/↓ move one item, Home/End go to the ends, PgUp/PgDn jump a screen, Enter or Space opens a row, and coming back returns to the last item. Lane headers are items too, so a header's ←/→ fold and unfold its lane, and ⌘/Ctrl+Enter opens an epic lane's epic.
 - **←/→ on a row still follow blocking links,** as they do in the graph, instead of folding lanes: both views keep one meaning for ←/→. A row's ↑/↓ move in order and no longer go through the link trail's alternatives; the graph's still do.
@@ -41,9 +41,14 @@ Ships in three PRs. The first (timeline) is done in #44. Differences from the pl
 - **A focused row that's folded away** hands focus to its lane's header.
 - **Both Legends name the arrow keys.**
 
-Still to do, in the next two PRs:
+Done in the second PR:
 
-- **`useFocusReturn`** remembers the element that opened a drawer, menu, editor or Find. It restores focus there, or to the view's Tab stop if that element is gone. It replaces the DOM-string lookups and the 25×80ms polling. (`src/App.tsx:445-449, 546-551, 861`, `src/ui/FilterPanel.tsx:264`, `src/ui/Settings/SettingsDialog.tsx:262-266`, `src/ui/SavedViewsMenu.tsx:110-113`)
+- **Focus return** (`src/ui/useFocusReturn.ts`): `remember` as a drawer or prompt opens, `restore` as it closes; the return waits for the closing render, so no `requestAnimationFrame`. Used by the details panel, Settings' "Keep editing" and a saved view's "Keep". The details panel goes back to the issue it was showing first (it can differ from what opened it, after following links inside it), then the opener, then the view's Tab stop (`viewTabStop` in `src/ui/viewItems.ts`).
+- **No more polling for a just-revealed issue.** `focusWhenDrawn` in `App.tsx` leaves a `FocusRequest` (`src/ui/focusRequest.ts`) that the card or row answers once it's mounted, from an effect; it gives up after 2s. It replaces the 25×80ms and 10×120ms retries.
+- **Not changed:** the "button goes away" moves (Clear filters, Show, Start fresh) still focus a fixed element, since nothing opened them. A saved view's ✕ is drawn anew after "Keep", so it's found by name (`data-view`), not remembered.
+
+Still to do, in the last PR:
+
 - **Menus stay `<details>`.** `useDetailsMenu` closes on `focusout` that leaves the menu, and Esc returns focus to the `<summary>`. The sidebar filter menus expand in place instead of overlaying, so they no longer get clipped. Native `popover` isn't used: macOS < 14 and older WebKitGTK don't support it. (`src/ui/useDetailsMenu.ts`, `src/styles/shell.css:1163-1167`)
 - **Find.** The first Esc closes the list and the second returns focus to where you were. "No tickets match" moves outside the listbox, the result count is announced, and `aria-controls` is set only while the list exists. (`src/ui/QuickFind.tsx`)
 
