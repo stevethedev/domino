@@ -17,6 +17,7 @@ import {
   TypeIcon,
 } from "../IssueCard";
 import type { RoveEvent } from "./TimelineLane";
+import { useAnswerFocusRequest } from "../focusRequest";
 import {
   BADGE_ROOM,
   entryEnd,
@@ -121,6 +122,7 @@ export const TimelineRow = memo(function TimelineRow({
   tabbable: boolean;
 }) {
   const { node, entry } = row;
+  useAnswerFocusRequest(node.uid);
   const p = entry.progress;
   const finish = p.state === "done" ? p.actual.end : p.forecast.end;
   const due = node.dates?.due;

@@ -48,12 +48,15 @@ import { FinishFirst } from "./ui/InsightsBar";
 import { ReleasesPanel } from "./ui/ReleasesPanel";
 import { UpdateBanner } from "./ui/UpdateBanner";
 import { BrandMark } from "./ui/BrandMark";
-import { TypeKey } from "./ui/IssueCard";
+import { ISSUE_DETAIL_ID, TypeKey } from "./ui/IssueCard";
 import { IssueDetail, type IssueDetailData } from "./ui/IssueDetail";
 import { ConfigProblemBanner } from "./ui/ConfigProblemBanner";
 import { noSitesShown } from "./ui/canvasMessage";
 import { Toast, type ToastMessage } from "./ui/Toast";
 import { focusFirst } from "./ui/focusFirst";
+import { FocusRequestContext, focusRequest, type FocusRequest } from "./ui/focusRequest";
+import { useFocusReturn } from "./ui/useFocusReturn";
+import { viewItemOf, viewTabStop } from "./ui/viewItems";
 import { TimelineLegend } from "./ui/timeline/TimelineLegend";
 import { focusTimelineRow } from "./ui/timeline/focusItem";
 import { Glance } from "./ui/Glance";
@@ -87,6 +90,8 @@ const DEFAULT_VIEW: Omit<ViewOptions, "sort"> = { groupBy: "none", highlight: "n
 const SORT_KEY = "domino.sortBy";
 const NO_FOLDED_EPICS: ReadonlySet<string> = new Set();
 const NO_NODES: readonly GraphNode[] = [];
+/** How long focus waits for an issue to be drawn (see `focusWhenDrawn`) before giving up. */
+const FOCUS_GIVE_UP_MS = 2000;
 const parseViewMode = oneOf(isViewMode);
 const GLANCE_SCOPE_KEY = "domino.glanceScope";
 const NOTIFY_UNBLOCKED_KEY = "domino.notifyUnblocked";
@@ -342,6 +347,24 @@ function Shell(): ReactElement {
     }
     setCollapsedLanes(next);
   };
+  /** Focus waiting for a card or row to be drawn (see `FocusRequest`); one at a time. */
+  const [pendingFocus, setPendingFocus] = useState<FocusRequest | null>(null);
+  const focusWhenDrawn = (ids: readonly string[], then: () => void): void => {
+    const request: FocusRequest = focusRequest(ids, then, () => {
+      setPendingFocus((r) => (r === request ? null : r));
+    });
+    setPendingFocus(request);
+  };
+  // One that's never drawn gives up, rather than taking focus whenever it finally shows.
+  useEffect(() => {
+    if (!pendingFocus) return;
+    const timer = setTimeout(() => {
+      setPendingFocus((r) => (r === pendingFocus ? null : r));
+    }, FOCUS_GIVE_UP_MS);
+    return (): void => {
+      clearTimeout(timer);
+    };
+  }, [pendingFocus]);
   /** In the Graph, an issue inside a folded epic is revealed by unfolding that epic first. */
   const focusInGraph = (uid: string, moveFocus = true, follow = false): void => {
     // A ghost epic with loaded children is drawn as its summary while folded.
@@ -352,12 +375,8 @@ function Shell(): ReactElement {
     if (!hidden) return void focusGraphNode(uid, moveFocus, follow);
     if (epicUid === uid) return void focusGraphNode(summaryUid(epicUid), moveFocus, follow);
     toggleEpic(epicUid);
-    // Wait for the re-layout to render the issue, then focus it.
-    let tries = 0;
-    const retry = (): void => {
-      if (!focusGraphNode(uid, moveFocus, follow) && ++tries < 10) setTimeout(retry, 120);
-    };
-    setTimeout(retry, 120);
+    // Once the re-layout draws the issue.
+    focusWhenDrawn([uid], () => focusGraphNode(uid, moveFocus, follow));
   };
   /** In the timeline, an issue inside a collapsed lane is revealed by expanding that lane first. */
   const focusInTimeline = (uid: string, moveFocus = true, follow = false): void => {
@@ -377,14 +396,24 @@ function Shell(): ReactElement {
     }, settleMs);
   };
   const focusInView = viewMode === "graph" ? focusInGraph : focusInTimeline;
+  // Read when a waiting focus is answered, a render or more after it was asked for.
+  const latestFocusInView = useRef(focusInView);
+  latestFocusInView.current = focusInView;
   // The issue open in the details panel. It closes by itself if the issue leaves the loaded graph.
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
   // Opening an issue moves focus into the panel; following links with the arrow keys doesn't.
   const [detailFocusRequest, setDetailFocusRequest] = useState(0);
-  const selectIssue = useCallback((uid: string) => {
-    setSelectedUid(uid);
-    setDetailFocusRequest((n) => n + 1);
-  }, []);
+  const detailReturn = useFocusReturn();
+  const { remember: rememberDetailOpener } = detailReturn;
+  const selectIssue = useCallback(
+    (uid: string) => {
+      // What opened the panel, not a link followed inside it.
+      if (!document.getElementById(ISSUE_DETAIL_ID)?.contains(document.activeElement)) rememberDetailOpener();
+      setSelectedUid(uid);
+      setDetailFocusRequest((n) => n + 1);
+    },
+    [rememberDetailOpener],
+  );
   // From the insights, which already traverse the graph for it.
   const downstream = baseInsights.downstream;
   // The user's sort, shared by the Graph (within columns) and the Timeline (rows); null keeps each
@@ -431,14 +460,15 @@ function Shell(): ReactElement {
     const uid = selectedUid;
     setSelectedUid(null);
     if (!uid) return;
-    // Back to its card or row; if a filter or fold has hidden it, to the view's tab stop; with
-    // everything filtered out, to the canvas message's Clear filters.
-    focusFirst(
-      `[data-uid="${CSS.escape(uid)}"], [data-tl-uid="${CSS.escape(uid)}"]`,
-      // (The timeline's stop can be a lane header, when its rows are all filtered out or folded.)
-      '.canvas [data-uid][tabindex="0"], .canvas [data-tl-uid][tabindex="0"], .canvas [data-tl-lane][tabindex="0"]',
-      ".canvas-message button",
-    );
+    // Back to the card or row of the issue it showed; if a filter or fold has hidden that, to what
+    // opened the panel, then the view's Tab stop; with everything filtered out, to the canvas
+    // message's Clear filters.
+    detailReturn.restore((opener) => [
+      viewItemOf(uid),
+      opener,
+      viewTabStop(),
+      document.querySelector<HTMLElement>(".canvas-message button"),
+    ]);
   };
   // How many links "Hide implied links" removes from what's drawn (counted even while it's off),
   // on the graph actually drawn: folded epics have their own, combined links.
@@ -533,17 +563,12 @@ function Shell(): ReactElement {
         },
       },
     });
-    // Layout runs off the main thread: wait until the issue (or the epic card or lane row it sits
-    // in) is on screen, then focus it once; the focus helpers handle collapsed epics and lanes.
+    // Layout runs off the main thread: once the issue (or the epic card it's folded into) is
+    // drawn, focus it; the focus helpers handle folded epics and collapsed lanes.
     const epicUid = node.epic?.uid;
-    const selectors = [`[data-id="${CSS.escape(uid)}"]`, `[data-tl-uid="${CSS.escape(uid)}"]`];
-    if (epicUid) selectors.push(`[data-id="${CSS.escape(summaryUid(epicUid))}"]`);
-    let tries = 0;
-    const whenDrawn = (): void => {
-      if (document.querySelector(selectors.join(","))) focusInView(uid, moveFocus);
-      else if (++tries < 25) setTimeout(whenDrawn, 80);
-    };
-    setTimeout(whenDrawn, 80);
+    focusWhenDrawn(epicUid ? [uid, summaryUid(epicUid)] : [uid], () => {
+      latestFocusInView.current(uid, moveFocus);
+    });
   };
   useViewHotkeys(setViewMode);
 
@@ -788,48 +813,50 @@ function Shell(): ReactElement {
           }}
         >
           <div className={stale ? "canvas-body stale" : "canvas-body"} ref={inertWhileStale} aria-hidden={stale || undefined}>
-            {viewMode === "graph" ? (
-              <Canvas
-                graph={graph}
-                insights={insights}
-                filters={filters}
-                view={shownView}
-                showSiteBadges={domino.loadedSiteCount > 1}
-                foldedEpics={foldedEpics}
-                onToggleEpic={toggleEpic}
-                selectedUid={selectedUid}
-                onSelect={selectIssue}
-                onTraverse={onTraverse}
-                linkPreview={preview}
-                scopeKey={shownScopeKey}
-                stale={stale}
-                order={order}
-                onClearSort={clearSort}
-              />
-            ) : (
-              <Suspense fallback={<div className="canvas-message">Loading timeline…</div>}>
-                <Timeline
+            <FocusRequestContext.Provider value={pendingFocus}>
+              {viewMode === "graph" ? (
+                <Canvas
                   graph={graph}
                   insights={insights}
                   filters={filters}
                   view={shownView}
-                  history={history}
-                  settings={estimates}
-                  onSettings={setEstimates}
-                  onOpen={openExternal}
-                  collapsedLanes={collapsedLanes}
-                  onCollapsedLanes={setCollapsedLanes}
+                  showSiteBadges={domino.loadedSiteCount > 1}
+                  foldedEpics={foldedEpics}
+                  onToggleEpic={toggleEpic}
                   selectedUid={selectedUid}
                   onSelect={selectIssue}
                   onTraverse={onTraverse}
                   linkPreview={preview}
-                  stale={stale}
-                  order={rowOrder}
-                  onClearSort={clearSort}
                   scopeKey={shownScopeKey}
+                  stale={stale}
+                  order={order}
+                  onClearSort={clearSort}
                 />
-              </Suspense>
-            )}
+              ) : (
+                <Suspense fallback={<div className="canvas-message">Loading timeline…</div>}>
+                  <Timeline
+                    graph={graph}
+                    insights={insights}
+                    filters={filters}
+                    view={shownView}
+                    history={history}
+                    settings={estimates}
+                    onSettings={setEstimates}
+                    onOpen={openExternal}
+                    collapsedLanes={collapsedLanes}
+                    onCollapsedLanes={setCollapsedLanes}
+                    selectedUid={selectedUid}
+                    onSelect={selectIssue}
+                    onTraverse={onTraverse}
+                    linkPreview={preview}
+                    stale={stale}
+                    order={rowOrder}
+                    onClearSort={clearSort}
+                    scopeKey={shownScopeKey}
+                  />
+                </Suspense>
+              )}
+            </FocusRequestContext.Provider>
           </div>
           <LoadPill
             view={loadView}

@@ -11,6 +11,7 @@ import { CachedTicketsSection } from "./CachedTicketsSection";
 import { blankSite, SiteForm, type SiteFormResult } from "./SiteForm";
 import { SiteRow } from "./SiteRow";
 import { Icon } from "../Icon";
+import { useFocusReturn } from "../useFocusReturn";
 
 type Editing = { kind: "new" } | { kind: "edit"; id: string } | null;
 
@@ -45,7 +46,7 @@ export function SettingsDialog({
   const [formDirty, setFormDirty] = useState(false);
   /** What to do once the user agrees to discard those edits (closing the form or the dialog). */
   const [pendingDiscard, setPendingDiscard] = useState<(() => void) | null>(null);
-  const returnFocusTo = useRef<HTMLElement | null>(null);
+  const discardReturn = useFocusReturn();
   /** Bumped on every close: the sections below remount, so their errors and prompts don't outlive a visit. */
   const [visit, setVisit] = useState(0);
   const config = domino.config;
@@ -55,7 +56,7 @@ export function SettingsDialog({
   const guard = (then: () => void): void => {
     if (formDirty) {
       // Whatever asked (a field, ×, an Edit button) gets focus back if the edits are kept.
-      returnFocusTo.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      discardReturn.remember();
       setPendingDiscard(() => then);
     } else then();
   };
@@ -191,9 +192,7 @@ export function SettingsDialog({
               autoFocus
               onClick={() => {
                 setPendingDiscard(null);
-                requestAnimationFrame(() => {
-                  returnFocusTo.current?.focus();
-                });
+                discardReturn.restore();
               }}
             >
               Keep editing

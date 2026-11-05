@@ -3,6 +3,7 @@ import { saveFile } from "../platform";
 import { canSaveView, MAX_SAVED_VIEWS, readViewsFile, viewsFile, type ImportReport, type SavedView } from "../state/savedViews";
 import { Icon } from "./Icon";
 import { useDetailsMenu } from "./useDetailsMenu";
+import { useFocusReturn } from "./useFocusReturn";
 
 /** "N views" / "1 view". */
 const countViews = (n: number): string => `${n} ${n === 1 ? "view" : "views"}`;
@@ -48,6 +49,7 @@ export function SavedViewsMenu({
   /** The view whose delete is waiting for a confirm. */
   const [confirming, setConfirming] = useState<string | null>(null);
   const list = useRef<HTMLUListElement>(null);
+  const { restore } = useFocusReturn();
   // Asking to confirm puts focus on Keep, the safe choice, so Enter can't delete by accident.
   useEffect(() => {
     if (confirming !== null) list.current?.querySelector<HTMLButtonElement>(".saved-view-keep")?.focus();
@@ -104,12 +106,12 @@ export function SavedViewsMenu({
                     className="saved-view-keep"
                     onClick={() => {
                       setConfirming(null);
-                      // Back to this view's ✕ (this button goes away), matched by label text.
-                      requestAnimationFrame(() => {
-                        [...(list.current?.querySelectorAll<HTMLElement>(".saved-view-delete") ?? [])]
-                          .find((btn) => btn.getAttribute("aria-label") === `Delete view ${v.name}`)
-                          ?.focus();
-                      });
+                      // Back to this view's ✕ (this button goes away; the ✕ is drawn anew), by name.
+                      restore(() => [
+                        [...(list.current?.querySelectorAll<HTMLElement>(".saved-view-delete") ?? [])].find(
+                          (btn) => btn.dataset.view === v.name,
+                        ),
+                      ]);
                     }}
                   >
                     Keep
@@ -137,6 +139,7 @@ export function SavedViewsMenu({
                       setConfirming(v.name);
                     }}
                     aria-label={`Delete view ${v.name}`}
+                    data-view={v.name}
                     title="Delete"
                   >
                     <Icon name="close" />

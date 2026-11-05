@@ -7,6 +7,7 @@ import type { Highlight } from "../graph/insights";
 import type { EpicRollup, GraphNode, Priority, StatusCategory } from "../graph/types";
 import { parseGitHubKey } from "../data/ticketKey";
 import { Icon } from "./Icon";
+import { useAnswerFocusRequest } from "./focusRequest";
 
 export type IssueNodeData = {
   node: GraphNode;
@@ -419,6 +420,7 @@ export const IssueCard = memo(function IssueCard({ data }: NodeProps<IssueFlowNo
     onFocusCard,
     inCycle,
   } = data;
+  useAnswerFocusRequest(n.uid);
   const activate = (e: { metaKey: boolean; ctrlKey: boolean }): void => {
     if (onExpand) onExpand();
     else if (e.metaKey || e.ctrlKey) onOpen(n.url);

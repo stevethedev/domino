@@ -31,7 +31,7 @@ import { isInCycle } from "../graph/cycles";
 import { visibleCentreShift } from "./drawerOffset";
 import { fitKeyOf } from "./fitKey";
 import { tabStopOf, useRovingStop } from "./useRovingStop";
-import { focusFirst } from "./focusFirst";
+import { viewTabStop } from "./viewItems";
 import { awaitsIdentities, FIT_PADDING, firstView, MIN_READABLE_ZOOM } from "./firstView";
 
 /** How long cards may slide after a sort change; longer than `--duration-base` so the slide finishes. */
@@ -538,7 +538,7 @@ export function Canvas({
                     void rf.fitView({ padding: FIT_PADDING, maxZoom: 1, duration: prefersReducedMotion() ? 0 : 250 });
                     // The button is gone: carry on from the graph, without a pan to the card fighting the fit.
                     focusingFromCode = true;
-                    focusFirst('.canvas [data-uid][tabindex="0"]');
+                    viewTabStop()?.focus();
                     focusingFromCode = false;
                   }}
                 >
