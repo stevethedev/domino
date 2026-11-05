@@ -9,6 +9,20 @@ export type ConfirmChoices = Readonly<{
 }>;
 
 /**
+ * Esc in a confirm picks the safe choice. Only the question is dismissed: not the menu or dialog
+ * around it, and not the dialog's own native close on Esc.
+ */
+export function confirmKey(
+  e: Readonly<{ key: string; preventDefault: () => void; stopPropagation: () => void }>,
+  cancel: () => void,
+): void {
+  if (e.key !== "Escape") return;
+  e.preventDefault();
+  e.stopPropagation();
+  cancel();
+}
+
+/**
  * Asks before something that can't be undone, in place: a labelled group (not a dialog: nothing
  * else is blocked) whose question describes it, with focus on the safe choice. `inline` fits it in
  * a row or list item instead of a banner.
@@ -39,11 +53,7 @@ export function Confirm({
       aria-describedby={questionId}
       className={inline ? "confirm-inline" : "banner warn actionable"}
       onKeyDown={(e) => {
-        if (e.key !== "Escape") return;
-        // Only the question is dismissed: not the menu or dialog around it.
-        e.preventDefault();
-        e.stopPropagation();
-        cancel.run();
+        confirmKey(e, cancel.run);
       }}
     >
       <div id={questionId} className={inline ? "confirm-question" : "banner-text"}>
