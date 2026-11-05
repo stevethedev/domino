@@ -31,9 +31,8 @@ const CLEAR_MS = 50;
  * Text waiting to be read, per politeness and then per source, in the order first asked: a source's
  * newer text replaces its own, not anyone else's.
  */
-const waiting = { polite: new Map<string, string>(), assertive: new Map<string, string>() };
+const waiting = { polite: new Map<string | symbol, string>(), assertive: new Map<string | symbol, string>() };
 const timers: { polite?: ReturnType<typeof setTimeout>; assertive?: ReturnType<typeof setTimeout> } = {};
-let anonymous = 0;
 
 /**
  * Says `text` to screen readers, politely unless `assertive` (errors that need attention now). Text
@@ -44,8 +43,8 @@ export function announce(text: string, { assertive = false, source }: Readonly<{
   if (!text.trim()) return;
   const kind = assertive ? "assertive" : "polite";
   const queue = waiting[kind];
-  const key = source ?? `anonymous-${String((anonymous += 1))}`;
-  queue.set(key, text);
+  // Without a source, it's its own: nothing else replaces it.
+  queue.set(source ?? Symbol("announcement"), text);
   if (timers[kind] !== undefined) return;
   // Emptied now and filled after a moment, so the same text twice still counts as a change.
   const now = regionFor(listening, assertive);
