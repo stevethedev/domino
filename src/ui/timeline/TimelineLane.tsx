@@ -3,9 +3,16 @@ import type { Day } from "../../graph/schedule";
 import { LABEL_WIDTH, LANE_HEIGHT, laneStop, spanLabel, xOf, type Scale, type TimelineLaneModel } from "./timelineLayout";
 import { Icon } from "../Icon";
 
-/** The keys a lane header takes, besides Enter/Space: ← folds an open lane, → unfolds a folded one. */
-export const laneKey = (key: string, collapsed: boolean): "fold" | "unfold" | null =>
-  key === "ArrowLeft" && !collapsed ? "fold" : key === "ArrowRight" && collapsed ? "unfold" : null;
+/**
+ * The keys a lane header takes, besides Enter/Space: ← folds an open lane, → unfolds a folded one.
+ * Either one when the lane is already that way is still the header's ("stay"): left to the
+ * browser, it would pan the chart sideways.
+ */
+export const laneKey = (key: string, collapsed: boolean): "fold" | "unfold" | "stay" | null => {
+  if (key === "ArrowLeft") return collapsed ? "stay" : "fold";
+  if (key === "ArrowRight") return collapsed ? "unfold" : "stay";
+  return null;
+};
 
 /** A key press the timeline's Tab stop may move on (see `roveKey`). */
 export type RoveEvent = Readonly<{ key: string; altKey: boolean; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }>;
@@ -58,9 +65,10 @@ export function TimelineLane({
               onOpen(url);
               return;
             }
-            if (!e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey && laneKey(e.key, collapsed)) {
+            const action = e.altKey || e.metaKey || e.ctrlKey || e.shiftKey ? null : laneKey(e.key, collapsed);
+            if (action) {
               e.preventDefault();
-              onToggle();
+              if (action !== "stay") onToggle();
               return;
             }
             if (onRove(laneStop(lane.id), e)) e.preventDefault();

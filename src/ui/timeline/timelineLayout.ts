@@ -141,28 +141,48 @@ export function laneContaining(items: readonly TimelineItem[], uid: string): str
 type RoveInput = Readonly<{
   key: string;
   index: number;
-  count: number;
-  /** Items per screen, for PgUp/PgDn. */
-  page: number;
+  /** Each item's y, in `navOrder`. */
+  ys: readonly number[];
+  /** The height of the view below the sticky axis, for PgUp/PgDn. */
+  screen: number;
   altKey?: boolean;
   ctrlKey?: boolean;
   metaKey?: boolean;
   shiftKey?: boolean;
 }>;
 
-/** Where ↑ ↓ Home End PgUp PgDn move from `index` (kept in range), or null for any other key. */
+/**
+ * Where ↑ ↓ Home End PgUp PgDn move from `index` (kept in range), or null for any other key.
+ * PgDn goes to the last item wholly within a screen below this one, PgUp likewise upward, and
+ * each moves at least one item.
+ */
 export function roveKey(k: RoveInput): number | null {
-  if (k.count === 0 || k.altKey || k.ctrlKey || k.metaKey || k.shiftKey) return null;
-  const step: Partial<Record<string, number>> = {
-    ArrowUp: -1,
-    ArrowDown: 1,
-    PageUp: -Math.max(1, k.page),
-    PageDown: Math.max(1, k.page),
-    Home: -k.count,
-    End: k.count,
-  };
-  const by = step[k.key];
-  return by === undefined ? null : Math.min(k.count - 1, Math.max(0, k.index + by));
+  const last = k.ys.length - 1;
+  if (last < 0 || k.altKey || k.ctrlKey || k.metaKey || k.shiftKey) return null;
+  const y = k.ys[k.index] ?? 0;
+  const reach = k.screen - ROW_HEIGHT;
+  const clamp = (i: number): number => Math.min(last, Math.max(0, i));
+  switch (k.key) {
+    case "ArrowUp":
+      return clamp(k.index - 1);
+    case "ArrowDown":
+      return clamp(k.index + 1);
+    case "Home":
+      return 0;
+    case "End":
+      return last;
+    case "PageDown":
+      return clamp(Math.max(k.index + 1, k.ys.filter((t) => t - y <= reach).length - 1));
+    case "PageUp":
+      return clamp(
+        Math.min(
+          k.index - 1,
+          k.ys.findIndex((t) => y - t <= reach),
+        ),
+      );
+    default:
+      return null;
+  }
 }
 
 export type Flag = Readonly<{ id: string; right: number; width: number }>;

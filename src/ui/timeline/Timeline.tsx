@@ -142,15 +142,21 @@ export function Timeline({
   // One Tab stop for the whole timeline (see tabStopOf): ↑ ↓ Home End PgUp PgDn move it through
   // the lane headers and rows in screen order (navOrder).
   const stops = useMemo(() => navOrder(items), [items]);
+  const stopYs = useMemo(() => {
+    const y = new Map(items.map((i) => [i.kind === "lane" ? laneStop(i.lane.id) : i.node.uid, i.y]));
+    return stops.map((id) => y.get(id) ?? 0);
+  }, [items, stops]);
   const { lastFocused, onFocusItem } = useRovingStop(scopeKey);
   const tabStop = tabStopOf({ lastFocused, selected: selectedUid, has: (id) => stops.includes(id), first: stops[0] });
-  const latestStops = useRef(stops);
-  latestStops.current = stops;
+  const latestStops = useRef({ ids: stops, ys: stopYs });
+  latestStops.current = { ids: stops, ys: stopYs };
   const onRove = useCallback((id: string, e: RoveEvent): boolean => {
-    const ids = latestStops.current;
+    const { ids, ys } = latestStops.current;
     const index = ids.indexOf(id);
-    const page = Math.floor((scrollRef.current?.clientHeight ?? 0) / ROW_HEIGHT);
-    const next = index === -1 ? null : roveKey({ ...e, index, count: ids.length, page });
+    // A screen is what shows below the sticky axis.
+    const view = scrollRef.current;
+    const screen = (view?.clientHeight ?? 0) - (view?.querySelector<HTMLElement>(".tl-axis")?.offsetHeight ?? 0);
+    const next = index === -1 ? null : roveKey({ ...e, index, ys, screen });
     if (next === null) return false;
     const target = ids[next];
     if (target !== id) focusTimelineItem(target);

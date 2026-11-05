@@ -35,10 +35,15 @@ describe("laneKey", () => {
     expect(laneKey("ArrowRight", true)).toBe("unfold");
   });
 
-  it("does nothing when the lane is already that way, or for other keys", () => {
-    expect(laneKey("ArrowLeft", true)).toBeNull();
-    expect(laneKey("ArrowRight", false)).toBeNull();
+  // Still the header's key: left alone, it would pan the chart sideways.
+  it("keeps ←/→ when the lane is already that way, changing nothing", () => {
+    expect(laneKey("ArrowLeft", true)).toBe("stay");
+    expect(laneKey("ArrowRight", false)).toBe("stay");
+  });
+
+  it("leaves other keys to the timeline", () => {
     expect(laneKey("ArrowDown", false)).toBeNull();
+    expect(laneKey("Enter", true)).toBeNull();
   });
 });
 

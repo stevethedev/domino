@@ -20,6 +20,14 @@ export function focusTimelineRow(uid: string, moveFocus = true, nearest = false)
 }
 
 /**
+ * How far to scroll the timeline down (negative: up) to show an item between the sticky axis
+ * (`padTop` below the view's top) and the view's bottom: only as far as needed.
+ */
+export const verticalScroll = (
+  r: Readonly<{ top: number; bottom: number; viewTop: number; viewBottom: number; padTop: number }>,
+): number => (r.top < r.viewTop + r.padTop ? r.top - (r.viewTop + r.padTop) : r.bottom > r.viewBottom ? r.bottom - r.viewBottom : 0);
+
+/**
  * Focus an item of the timeline's Tab stop (see `navOrder`): a row, its bar scrolled into view
  * only as far as needed, or a lane header. Returns whether it was found.
  */
@@ -28,7 +36,16 @@ export function focusTimelineItem(id: string): boolean {
   if (!id.startsWith(prefix)) return focusTimelineRow(id, true, true);
   const lane = document.querySelector<HTMLElement>(`[data-tl-lane="${CSS.escape(id.slice(prefix.length))}"]`);
   if (!lane) return false;
-  lane.scrollIntoView({ block: "nearest", behavior: scrollBehavior() });
+  // Up or down only: the header sits in the sticky label column, so scrolling it into view
+  // would also pan the dates sideways.
+  const view = lane.closest<HTMLElement>(".tl-scroll");
+  const row = lane.closest<HTMLElement>(".tl-lane") ?? lane;
+  if (view) {
+    const [r, v] = [row.getBoundingClientRect(), view.getBoundingClientRect()];
+    const padTop = parseFloat(getComputedStyle(view).scrollPaddingTop) || 0;
+    const top = verticalScroll({ top: r.top, bottom: r.bottom, viewTop: v.top, viewBottom: v.bottom, padTop });
+    if (top !== 0) view.scrollBy({ top, behavior: scrollBehavior() });
+  }
   lane.focus({ preventScroll: true });
   return true;
 }

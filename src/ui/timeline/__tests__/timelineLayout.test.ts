@@ -505,11 +505,13 @@ describe("navOrder", () => {
 });
 
 describe("roveKey", () => {
+  // Ten rows, 40px apart; a screen below the axis of 200px.
+  const rows = Array.from({ length: 10 }, (_, n) => n * 40);
   const at = (
     key: string,
     index: number,
     mods: Partial<Record<"altKey" | "ctrlKey" | "metaKey" | "shiftKey", boolean>> = {},
-  ): number | null => roveKey({ key, index, count: 10, page: 4, ...mods });
+  ): number | null => roveKey({ key, index, ys: rows, screen: 200, ...mods });
 
   it("moves one item with ↑/↓, stopping at the ends", () => {
     expect(at("ArrowDown", 3)).toBe(4);
@@ -524,6 +526,24 @@ describe("roveKey", () => {
     expect(at("PageDown", 3)).toBe(7);
     expect(at("PageDown", 8)).toBe(9);
     expect(at("PageUp", 3)).toBe(0);
+    expect(at("PageUp", 7)).toBe(3);
+  });
+
+  // The sticky axis isn't screen: four release lines leave 298px of a 400px view.
+  it("pages by what fits below the axis, to the last item wholly in view", () => {
+    expect(roveKey({ key: "PageDown", index: 0, ys: Array.from({ length: 11 }, (_, n) => n * 40), screen: 298 })).toBe(6);
+  });
+
+  // Lane headers are shorter than rows, so a screen holds a mix: page by where items are, not a count.
+  it("pages by where items are, with lane headers among the rows", () => {
+    const ys = [0, 30, 70, 110, 140, 180, 220, 260, 300];
+    expect(roveKey({ key: "PageDown", index: 0, ys, screen: 200 })).toBe(4);
+    expect(roveKey({ key: "PageUp", index: 8, ys, screen: 200 })).toBe(4);
+  });
+
+  it("always moves at least one item, even on a screen shorter than a row", () => {
+    expect(roveKey({ key: "PageDown", index: 2, ys: rows, screen: 10 })).toBe(3);
+    expect(roveKey({ key: "PageUp", index: 2, ys: rows, screen: 10 })).toBe(1);
   });
 
   it("leaves other keys, and any key with a modifier, alone", () => {
@@ -534,7 +554,7 @@ describe("roveKey", () => {
   });
 
   it("does nothing in an empty timeline", () => {
-    expect(roveKey({ key: "ArrowDown", index: 0, count: 0, page: 4 })).toBeNull();
+    expect(roveKey({ key: "ArrowDown", index: 0, ys: [], screen: 200 })).toBeNull();
   });
 });
 
