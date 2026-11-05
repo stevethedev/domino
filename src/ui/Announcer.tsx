@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactElement, type RefObject } from "react";
+import { useEffect, useId, useRef, type ReactElement, type RefObject } from "react";
 
 /** A pair of live regions: one waits for a pause in speech, the other interrupts. */
 export type Regions<T> = Readonly<{ polite: T; assertive: T }>;
@@ -13,27 +13,61 @@ export const regionFor = <T,>(listening: readonly Regions<T>[], assertive: boole
   return top && (assertive ? top.assertive : top.polite);
 };
 
-const listening: Regions<HTMLElement>[] = [];
-const pending = new WeakMap<HTMLElement, ReturnType<typeof setTimeout>>();
+type Region = { textContent: string | null };
+const listening: Regions<Region>[] = [];
+
+/** Starts sending announcements to `regions`; returns how to stop. */
+export function listen(regions: Regions<Region>): () => void {
+  listening.push(regions);
+  return (): void => {
+    listening.splice(listening.indexOf(regions), 1);
+  };
+}
 
 /** How long a region stays empty before new text, so the same text twice is still read. */
 const CLEAR_MS = 50;
 
 /**
- * Says `text` to screen readers, politely unless `assertive` (errors that need attention now). A
- * newer announcement in the same region replaces one not yet made.
+ * Text waiting to be read, per politeness and then per source, in the order first asked: a source's
+ * newer text replaces its own, not anyone else's.
  */
-export function announce(text: string, { assertive = false }: Readonly<{ assertive?: boolean }> = {}): void {
-  const region = regionFor(listening, assertive);
-  if (!region || !text.trim()) return;
-  clearTimeout(pending.get(region));
-  region.textContent = "";
-  pending.set(
-    region,
-    setTimeout(() => {
-      region.textContent = text;
-    }, CLEAR_MS),
-  );
+const waiting = { polite: new Map<string, string>(), assertive: new Map<string, string>() };
+const timers: { polite?: ReturnType<typeof setTimeout>; assertive?: ReturnType<typeof setTimeout> } = {};
+let anonymous = 0;
+
+/**
+ * Says `text` to screen readers, politely unless `assertive` (errors that need attention now). Text
+ * from the same `source` (each message's own) replaces its earlier text not yet read; other sources'
+ * is read too, in order. It goes to whichever regions are listening when it's read.
+ */
+export function announce(text: string, { assertive = false, source }: Readonly<{ assertive?: boolean; source?: string }> = {}): void {
+  if (!text.trim()) return;
+  const kind = assertive ? "assertive" : "polite";
+  const queue = waiting[kind];
+  const key = source ?? `anonymous-${String((anonymous += 1))}`;
+  queue.set(key, text);
+  if (timers[kind] !== undefined) return;
+  // Emptied now and filled after a moment, so the same text twice still counts as a change.
+  const now = regionFor(listening, assertive);
+  if (now) now.textContent = "";
+  timers[kind] = setTimeout(() => {
+    timers[kind] = undefined;
+    const region = regionFor(listening, assertive);
+    if (region) region.textContent = [...queue.values()].join(" ");
+    queue.clear();
+  }, CLEAR_MS);
+}
+
+// Node.TEXT_NODE and Node.ELEMENT_NODE, without needing a DOM to compare against.
+const TEXT_NODE = 3;
+const ELEMENT_NODE = 1;
+const isElement = (node: Node): node is Element => node.nodeType === ELEMENT_NODE;
+
+/** What a screen reader says for `node`: its text, leaving out `aria-hidden` parts. */
+export function spokenText(node: Node): string {
+  if (node.nodeType === TEXT_NODE) return node.textContent ?? "";
+  if (isElement(node) && node.getAttribute("aria-hidden") === "true") return "";
+  return [...node.childNodes].map(spokenText).join("");
 }
 
 /**
@@ -45,11 +79,7 @@ export function LiveRegions({ listening: on = true }: Readonly<{ listening?: boo
   const assertive = useRef<HTMLSpanElement>(null);
   useEffect(() => {
     if (!on || !polite.current || !assertive.current) return;
-    const regions = { polite: polite.current, assertive: assertive.current };
-    listening.push(regions);
-    return (): void => {
-      listening.splice(listening.indexOf(regions), 1);
-    };
+    return listen({ polite: polite.current, assertive: assertive.current });
   }, [on]);
   return (
     <>
@@ -66,9 +96,10 @@ export function LiveRegions({ listening: on = true }: Readonly<{ listening?: boo
 export function useAnnounced<T extends HTMLElement>({ assertive = false }: Readonly<{ assertive?: boolean }> = {}): RefObject<T> {
   const ref = useRef<T>(null);
   const said = useRef("");
+  const source = useId();
   useEffect(() => {
-    const text = ref.current?.textContent.trim() ?? "";
-    if (text !== said.current && text) announce(text, { assertive });
+    const text = ref.current ? spokenText(ref.current).trim() : "";
+    if (text !== said.current && text) announce(text, { assertive, source });
     said.current = text;
   });
   return ref;

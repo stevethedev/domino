@@ -1,12 +1,16 @@
 import { useEffect, useState, type ReactElement } from "react";
 import { Icon } from "./Icon";
-import { useAnnounced } from "./Announcer";
+import { announce } from "./Announcer";
 
 /** A passing notice about something the app just did, with an optional way to undo or follow up. */
 export type ToastMessage = Readonly<{
   text: string;
   action?: Readonly<{ label: string; run: () => void }>;
 }>;
+
+/** What a screen reader hears for `toast`. */
+export const toastAnnouncement = (toast: ToastMessage): string =>
+  toast.action ? `${toast.text} ${toast.action.label} is available.` : toast.text;
 
 /** How long a plain notice stays (at least 6s); hovering or focusing it pauses the countdown. */
 const SHOW_MS = 10_000;
@@ -34,7 +38,9 @@ const idOf = (t: ToastMessage): number => {
 function ToastCard({ toast, onDismiss }: { toast: ToastMessage; onDismiss: () => void }): ReactElement {
   const [paused, setPaused] = useState(false);
   const { action } = toast;
-  const said = useAnnounced<HTMLSpanElement>();
+  useEffect(() => {
+    announce(toastAnnouncement(toast), { source: "toast" });
+  }, [toast]);
   useEffect(() => {
     if (paused || action) return;
     const timer = setTimeout(onDismiss, SHOW_MS);
@@ -58,7 +64,7 @@ function ToastCard({ toast, onDismiss }: { toast: ToastMessage; onDismiss: () =>
         if (!e.currentTarget.contains(e.relatedTarget)) setPaused(false);
       }}
     >
-      <span ref={said}>{toast.text}</span>
+      <span>{toast.text}</span>
       {action && (
         <button
           type="button"
