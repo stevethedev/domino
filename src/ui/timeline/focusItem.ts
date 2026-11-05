@@ -12,7 +12,9 @@ type Span = Readonly<{ start: number; end: number }>;
  */
 export const scrollIntoRange = (r: Span & Readonly<{ viewStart: number; viewEnd: number; padStart: number; padEnd: number }>): number => {
   const [first, last] = [r.viewStart + r.padStart, r.viewEnd - r.padEnd];
-  return r.start < first ? r.start - first : r.end > last ? r.end - last : 0;
+  // Too big to fit, or starting before the space: line its start up with the space's.
+  if (r.end - r.start > last - first || r.start < first) return r.start - first;
+  return r.end > last ? r.end - last : 0;
 };
 
 /** The timeline's visible area on screen, and what covers its edges (its scroll padding). */

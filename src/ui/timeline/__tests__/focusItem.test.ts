@@ -18,6 +18,13 @@ describe("scrollIntoRange", () => {
     expect(scrollIntoRange({ start: 490, end: 520, ...range })).toBe(20);
   });
 
+  // Visible space here is 172..500 (328): a span wider than that shows from its start, every time.
+  it("shows a span too big for the view from its start, and leaves it there once it is", () => {
+    expect(scrollIntoRange({ start: 200, end: 600, ...range })).toBe(28);
+    expect(scrollIntoRange({ start: 172, end: 600, ...range })).toBe(0);
+    expect(scrollIntoRange({ start: 50, end: 600, ...range })).toBe(-122);
+  });
+
   // The open details drawer covers the view's right side (the timeline's scroll-padding-right).
   it("keeps an item clear of what covers the end too", () => {
     expect(scrollIntoRange({ start: 380, end: 420, ...range, padEnd: 120 })).toBe(40);
