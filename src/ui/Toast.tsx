@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactElement } from "react";
 import { Icon } from "./Icon";
-import { announce } from "./Announcer";
+import { announce, cancelAnnouncement } from "./Announcer";
 
 /** A passing notice about something the app just did, with an optional way to undo or follow up. */
 export type ToastMessage = Readonly<{
@@ -40,6 +40,10 @@ function ToastCard({ toast, onDismiss }: { toast: ToastMessage; onDismiss: () =>
   const { action } = toast;
   useEffect(() => {
     announce(toastAnnouncement(toast), { source: "toast" });
+    // Gone before it was read (dismissed, or replaced by the next): it isn't read late.
+    return (): void => {
+      cancelAnnouncement("toast");
+    };
   }, [toast]);
   useEffect(() => {
     if (paused || action) return;
