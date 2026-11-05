@@ -435,7 +435,8 @@ function Shell(): ReactElement {
     // everything filtered out, to the canvas message's Clear filters.
     focusFirst(
       `[data-uid="${CSS.escape(uid)}"], [data-tl-uid="${CSS.escape(uid)}"]`,
-      '.canvas [data-uid][tabindex="0"], .canvas [data-tl-uid][tabindex="0"]',
+      // (The timeline's stop can be a lane header, when its rows are all filtered out or folded.)
+      '.canvas [data-uid][tabindex="0"], .canvas [data-tl-uid][tabindex="0"], .canvas [data-tl-lane][tabindex="0"]',
       ".canvas-message button",
     );
   };

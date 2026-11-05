@@ -520,6 +520,8 @@ export function Timeline({
           <div
             className="tl-scroll"
             ref={scrollRef}
+            // The axis's height (its release lines), which the scroll padding keeps clear too.
+            style={{ "--release-lines": releaseLines }}
             onScroll={(e) => {
               leftEdge.current = { start: range.start, px: e.currentTarget.scrollLeft, scale: settings.scale };
             }}
@@ -538,7 +540,7 @@ export function Timeline({
                   ),
               }}
             >
-              <div className={`tl-axis${releaseLines ? " with-releases" : ""}`} style={{ "--release-lines": releaseLines }}>
+              <div className={`tl-axis${releaseLines ? " with-releases" : ""}`}>
                 <div className="tl-corner">Ticket</div>
                 <TimeAxis range={range} scale={settings.scale} today={today} releases={releaseMarkers} />
               </div>
