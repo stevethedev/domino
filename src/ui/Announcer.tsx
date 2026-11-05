@@ -44,7 +44,7 @@ export function announce(text: string, { assertive = false, source }: Readonly<{
   const kind = assertive ? "assertive" : "polite";
   // Without a source, it's its own: nothing else replaces it.
   waiting[kind].set(source ?? Symbol("announcement"), text);
-  if (timers[kind] === undefined) deliver(kind, assertive);
+  if (timers[kind] === undefined) deliver(assertive);
 }
 
 /**
@@ -52,7 +52,8 @@ export function announce(text: string, { assertive = false, source }: Readonly<{
  * change. If the destination changed meanwhile (Settings opened or closed), it empties that one
  * and waits again.
  */
-function deliver(kind: keyof typeof waiting, assertive: boolean): void {
+function deliver(assertive: boolean): void {
+  const kind = assertive ? "assertive" : "polite";
   const emptied = regionFor(listening, assertive);
   if (emptied) emptied.textContent = "";
   timers[kind] = setTimeout(() => {
@@ -61,7 +62,7 @@ function deliver(kind: keyof typeof waiting, assertive: boolean): void {
     if (queue.size === 0) return;
     const region = regionFor(listening, assertive);
     if (region !== emptied) {
-      deliver(kind, assertive);
+      deliver(assertive);
       return;
     }
     if (region) region.textContent = [...queue.values()].join(" ");
