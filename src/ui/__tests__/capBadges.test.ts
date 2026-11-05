@@ -2,7 +2,8 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { GraphNode } from "../../graph/types";
-import { AgingBadge, BlockedCount, BlockersBadge, capBadges, cardBadges, CriticalTag, CycleTag, rollupLabel } from "../IssueCard";
+import { markupText } from "./markupText";
+import { AgingBadge, BlockedCount, BlockersBadge, capBadges, cardBadges, CriticalTag, CycleTag, rollupLabel, TypeKey } from "../IssueCard";
 
 const shown = (n: number, slots: number, full?: number): string => {
   const { visible, rest } = capBadges(["a", "b", "c", "d"].slice(0, n), slots, full);
@@ -80,5 +81,31 @@ describe("rollupLabel", () => {
     expect(rollupLabel(epic, rollup, "critical")).toContain("on the critical path (it or some of its tickets)");
     expect(rollupLabel(epic, rollup, "ready")).toContain("ready to start (it or some of its tickets)");
     expect(rollupLabel(epic, rollup, null)).not.toMatch(/critical|ready/);
+  });
+});
+
+describe("TypeKey", () => {
+  const key = (types: readonly string[]): string => renderToStaticMarkup(createElement(TypeKey, { types }));
+
+  it("lists each type on screen once, with the real icon and its name", () => {
+    const out = key(["Story", "Story", "Sub-task"]);
+    expect(out.match(/<li>/g)).toHaveLength(2);
+    expect(out).toMatch(/<span class="type-icon type-story"[^>]*>S<\/span> Story/);
+    expect(out).toMatch(/<span class="type-icon type-sub-task"[^>]*>s<\/span> Sub-task/);
+  });
+
+  // GitHub's types (and custom Jira ones) have no glyph of their own: the icon shows their first letter.
+  it("includes types without a glyph of their own, like GitHub's", () => {
+    const out = key(["Pull request", "Issue"]);
+    expect(out).toMatch(/>I<\/span> Issue/);
+    expect(out).toMatch(/>P<\/span> Pull request/);
+  });
+
+  it("lists the known types in their usual order, then the rest by name", () => {
+    expect(markupText(key(["Spike", "Bug", "Issue", "Epic"]))).toBe("E EpicB BugI IssueS Spike");
+  });
+
+  it("shows nothing when nothing is loaded", () => {
+    expect(key([])).toBe("");
   });
 });

@@ -64,6 +64,29 @@ export function TypeIcon({ type }: { type: string }): ReactElement {
   );
 }
 
+/** Known types in their usual order, then the rest (GitHub's, custom Jira ones) by name. */
+const KNOWN_TYPES = Object.keys(TYPE_GLYPH);
+const byTypeOrder = (a: string, b: string): number => {
+  const [ia, ib] = [KNOWN_TYPES.indexOf(a), KNOWN_TYPES.indexOf(b)];
+  if (ia !== -1 || ib !== -1) return ia === -1 ? 1 : ib === -1 ? -1 : ia - ib;
+  return a.localeCompare(b);
+};
+
+/** What each type letter on screen means, for the Legends: one line per type, with the icon cards use. */
+export function TypeKey({ types }: { types: readonly string[] }): ReactElement | null {
+  const listed = [...new Set(types)].sort(byTypeOrder);
+  if (listed.length === 0) return null;
+  return (
+    <ul className="legend-list type-key" aria-label="Ticket types">
+      {listed.map((t) => (
+        <li key={t}>
+          <TypeIcon type={t} /> {t}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /** The site's own priority icon, or the name's first letter when there's no icon or it fails to load. */
 export function PriorityIcon({ priority }: { priority: Priority }): ReactElement {
   // Remember which URL failed, so a different priority (or a fixed URL) after a refresh still gets tried.

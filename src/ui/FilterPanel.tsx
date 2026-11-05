@@ -1,4 +1,4 @@
-import type { ReactElement } from "react";
+import { useId, type ReactElement } from "react";
 import type { GraphNode, StatusCategory } from "../graph/types";
 import {
   hasIssueFilters,
@@ -12,6 +12,7 @@ import {
 import { isSortKey, orderText, SORT_INFO, SORT_KEYS, type SortBy, type SortGroup } from "../graph/sort";
 import { isGroupBy, type Filters, type ViewOptions } from "./Canvas";
 import { Icon } from "./Icon";
+import { InfoTip } from "./InfoTip";
 import { SORT_SELECT_ID } from "./SortChip";
 import { useDetailsMenu } from "./useDetailsMenu";
 
@@ -126,14 +127,20 @@ const SORT_GROUPS: readonly SortGroup[] = ["Ticket", "Dates", "Impact", "Release
  */
 function SortField({ sort, onSort }: { sort: SortBy; onSort: (next: SortBy) => void }): ReactElement {
   const order = orderText(sort);
+  const tipId = useId();
   return (
-    <div className="field sort-by">
-      <label className="field">
-        <span>Sort by</span>
+    <div className="field sort-by has-tip">
+      <div className="field">
+        <span className="label-with-tip">
+          <label htmlFor={SORT_SELECT_ID}>Sort by</label>
+          <InfoTip id={tipId} label="Sort by" inline>
+            Natural order is each view&apos;s own: by dependencies in the Graph, by start date in the Timeline.
+          </InfoTip>
+        </span>
         <select
           id={SORT_SELECT_ID}
           value={sort.key}
-          title={sort.key === "natural" ? "Graph: by dependencies; Timeline: by start date" : undefined}
+          aria-describedby={tipId}
           onChange={(e) => {
             if (isSortKey(e.target.value)) onSort({ key: e.target.value, reversed: false });
           }}
@@ -153,7 +160,7 @@ function SortField({ sort, onSort }: { sort: SortBy; onSort: (next: SortBy) => v
             </optgroup>
           ))}
         </select>
-      </label>
+      </div>
       {sort.key !== "natural" && (
         <button
           type="button"
@@ -199,6 +206,7 @@ export function FilterPanel({
   // Only categories something is in (or that are already hidden, so they can be shown again).
   const categories = CATEGORIES.filter((c) => byCategory.has(c) || f.hiddenCategories.includes(c));
   const shown = issues.filter((n) => passesIssueFilters(n, f)).length;
+  const impliedTipId = useId();
   return (
     <>
       <h3 className="subhead">Tickets</h3>
@@ -281,18 +289,24 @@ export function FilterPanel({
           {r.label}
         </label>
       ))}
-      <label className="check" title="A→C is implied when A→B→C is drawn; it shows again if B is hidden">
-        <input
-          type="checkbox"
-          role="switch"
-          checked={filters.hideImplied}
-          onChange={(e) => {
-            onFilters({ ...filters, hideImplied: e.target.checked });
-          }}
-        />
-        Hide implied links
-        {impliedLinks > 0 && <span className="muted small"> · {impliedLinks}</span>}
-      </label>
+      <div className="check-with-tip has-tip">
+        <label className="check">
+          <input
+            type="checkbox"
+            role="switch"
+            checked={filters.hideImplied}
+            aria-describedby={impliedTipId}
+            onChange={(e) => {
+              onFilters({ ...filters, hideImplied: e.target.checked });
+            }}
+          />
+          Hide implied links
+          {impliedLinks > 0 && <span className="muted small"> · {impliedLinks}</span>}
+        </label>
+        <InfoTip id={impliedTipId} label="Hide implied links" inline>
+          A→C is implied when A→B→C is drawn. It shows again if B is hidden.
+        </InfoTip>
+      </div>
       <h3 className="subhead">Layout</h3>
       <label className="field group-by">
         <span>Group by</span>

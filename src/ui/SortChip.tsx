@@ -13,6 +13,7 @@ export const SORT_SELECT_ID = "sort-by";
 export function SortChip({ sort, onClear }: { sort: SortBy; onClear: () => void }): ReactElement | null {
   if (sort.key === "natural") return null;
   return (
+    // Its text is cut off with "…" in a narrow sidebar: the title keeps the whole of it.
     <span className="sort-chip" title={`Sorted by ${SORT_INFO[sort.key].label} · ${orderText(sort)}`}>
       <span>
         Sorted by <strong>{SORT_INFO[sort.key].label}</strong> · {orderText(sort)}

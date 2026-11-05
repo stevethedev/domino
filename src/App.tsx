@@ -48,6 +48,7 @@ import { FinishFirst } from "./ui/InsightsBar";
 import { ReleasesPanel } from "./ui/ReleasesPanel";
 import { UpdateBanner } from "./ui/UpdateBanner";
 import { BrandMark } from "./ui/BrandMark";
+import { TypeKey } from "./ui/IssueCard";
 import { IssueDetail, type IssueDetailData } from "./ui/IssueDetail";
 import { ConfigProblemBanner } from "./ui/ConfigProblemBanner";
 import { noSitesShown } from "./ui/canvasMessage";
@@ -65,6 +66,7 @@ import { SiteSelector } from "./ui/SiteSelector";
 import { FOLD_MS, localToday } from "./ui/timeline/timelineLayout";
 import { isViewMode, ViewToggle, type ViewMode } from "./ui/ViewToggle";
 import { screenLayout } from "./ui/traverseLayout";
+import { typesText } from "./ui/typesText";
 import { WarningsPanel } from "./ui/WarningsPanel";
 import { Icon } from "./ui/Icon";
 
@@ -113,12 +115,13 @@ const MAX_COLLAPSED_LANES = 200;
 const parseLaneIds = (raw: unknown): string[] | undefined =>
   Array.isArray(raw) ? raw.filter((x): x is string => typeof x === "string").slice(-MAX_COLLAPSED_LANES) : undefined;
 
-/** `g` / `t` switch between Graph and Timeline when focus isn't in a text field. */
+/** `g` / `t` switch between Graph and Timeline when focus isn't somewhere you type. */
 function useViewHotkeys(setViewMode: (m: ViewMode) => void): void {
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.target instanceof HTMLElement && e.target.matches("input, textarea, select, [contenteditable]")) return;
+      // Not while typing; a radio or checkbox is fine (the view switch's radios announce g / t).
+      if (e.target instanceof HTMLElement && typesText(e.target)) return;
       // Not behind an open dialog or from a menu: the view would change out of sight.
       // (Release notes in the update banner are a <details> too, but not a menu.)
       if (e.target instanceof Element && e.target.closest("dialog[open], details[open]:not(.update-notes)")) return;
@@ -281,6 +284,8 @@ function Shell(): ReactElement {
   };
   const nodesByUid = useMemo(() => new Map(graph.nodes.map((n) => [n.uid, n])), [graph]);
   const loadedIssues = useMemo(() => graph.nodes.filter((n) => !n.ghost), [graph]);
+  // Ghosts too: they show a type letter as well.
+  const issueTypes = useMemo(() => graph.nodes.map((n) => n.issueType), [graph]);
   /** Issues the filters leave on screen (implied-link hiding never removes an issue). */
   const drawnUids = useMemo(
     () => new Set(visibleSubgraph(graph, { ...filters, hideImplied: false }).nodes.map((n) => n.uid)),
@@ -773,7 +778,7 @@ function Shell(): ReactElement {
             />
           </SidebarSection>
           <SidebarSection id="legend" title="Legend" defaultOpen={false}>
-            {viewMode === "timeline" ? <TimelineLegend /> : <Legend />}
+            {viewMode === "timeline" ? <TimelineLegend types={issueTypes} /> : <Legend types={issueTypes} />}
           </SidebarSection>
         </aside>
         <section
@@ -977,7 +982,7 @@ function CanvasMessage({
   );
 }
 
-function Legend(): ReactElement {
+function Legend({ types }: { types: readonly string[] }): ReactElement {
   return (
     <>
       <ul className="legend-list">
@@ -1000,6 +1005,7 @@ function Legend(): ReactElement {
           <span className="swatch ghost-swatch" aria-hidden="true" /> Outside scope
         </li>
       </ul>
+      <TypeKey types={types} />
       <p className="hint">Hover or focus a card to trace its blockers. Enter or click shows its details; ⌘/Ctrl+click opens it in Jira.</p>
       <p className="hint">
         <kbd>/</kbd> find · <kbd>g</kbd> graph · <kbd>t</kbd> timeline

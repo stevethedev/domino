@@ -13,9 +13,9 @@ Shipped as planned, with these differences:
 - **The query field expands when edited.** It opens when clicked or activated, not on focus: it's a `<details>`, like the other menus. It moves right to stay on screen when the top bar wraps. Loading a new scope gives focus back to the field, or to Load. (`src/ui/ScopeInputs.tsx`)
 - **Release cards stop overflowing.** As planned. (`src/ui/ReleasesPanel.tsx`)
 
-## 2. State tokens
+## 2. State tokens — done in #41 and #43
 
-Shipped in two PRs. The first (states and tokens) is done. Differences from the plan:
+Shipped in two PRs. Differences from the plan:
 
 - **Timeline rows keep an inset focus ring.** Rows sit edge to edge in a scrolling list, so an outside ring would be cut off. Selection there is the tint and the accent bar, never a ring.
 - **`--muted` needed no change:** it was already 5.26:1 (light) and 6.02:1 (dark) on `--surface-2`.
@@ -23,13 +23,11 @@ Shipped in two PRs. The first (states and tokens) is done. Differences from the 
 - **The Critical badge comes first** on timeline rows, since rows are only marked critical while that highlight is on. It has its own `--critical-bg` / `--critical-fg`.
 - **The pressed "Since you last looked" summary** also gets the forced-colors outline, like the insight tiles.
 - **A token contrast test** (`src/styles/__tests__/tokens.test.ts`) checks every pair above in both themes.
-
-Still to do, in the second PR:
-
-- **Explanations reachable without hovering.** The 53 `title=` attributes on page elements split three ways:
-  - The 7 field-help titles become a new `<InfoTip>` toggletip: an ⓘ button, opened by click, Enter or Space, closed by Esc or blur, linked with `aria-describedby`. (`src/ui/FilterPanel.tsx`, `src/ui/Glance.tsx`, `src/ui/timeline/Timeline.tsx`, `src/ui/timeline/TimelineRow.tsx`)
-  - Meanings carried only by an icon become visible text, such as "misses due", or go into the ticket description from step 5.
-  - Text cut off with "…" keeps `title`.
+- **`<InfoTip>` is a `<details>`,** like the menus, using `useDetailsMenu`; moving focus away also closes it. Chrome leaves text inside a closed `<details>` out of a description, so a hidden copy outside it is what `aria-describedby` points at. In the sidebar it spans its row instead of floating, so it never runs past the sidebar; in the timeline toolbar it narrows and shifts to stay clear of the details drawer, and fits again on resize. (`src/ui/InfoTip.tsx`)
+- **Six field-help titles became InfoTips,** and so did the "Couldn't tell who you are" errors, which were only in a title. The timeline's variance badge sits inside a row that is a button, so its explanation went into the Timeline Legend instead. Both Legends now also say what each type letter means.
+- **The view switch shows its keys** (`g`, `t`) beside each name, like Find's `/`, instead of in a "(g)" / "(t)" title; screen readers get them from `aria-keyshortcuts`, and the keys work while its radios have focus. The Sort chip keeps its title: its text is cut off in a narrow sidebar.
+- **A test keeps titles off `<label>` and `<fieldset>`** (`src/ui/__tests__/fieldHelp.test.ts`).
+- **Left for step 5:** the "+N" badge overflow list, aging details and priority names, which only titles carry today.
 
 Not included: an in-app theme switch. The app keeps following the OS.
 
