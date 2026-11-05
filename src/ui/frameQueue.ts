@@ -3,20 +3,20 @@ export function frameQueue(
   raf: (fn: FrameRequestCallback) => number = requestAnimationFrame,
   caf: (id: number) => void = cancelAnimationFrame,
 ): Readonly<{ queue: (job: () => void) => void; cancel: () => void; waiting: () => boolean }> {
-  let waiting: number | null = null;
+  let frame: number | null = null;
   const cancel = (): void => {
-    if (waiting !== null) caf(waiting);
-    waiting = null;
+    if (frame !== null) caf(frame);
+    frame = null;
   };
   return {
     queue: (job): void => {
       cancel();
-      waiting = raf(() => {
-        waiting = null;
+      frame = raf(() => {
+        frame = null;
         job();
       });
     },
     cancel,
-    waiting: (): boolean => waiting !== null,
+    waiting: (): boolean => frame !== null,
   };
 }
