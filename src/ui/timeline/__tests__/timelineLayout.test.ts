@@ -12,8 +12,11 @@ import {
   LABEL_WIDTH,
   LANE_HEIGHT,
   layoutRows,
+  laneStop,
   mergeFoldedArrows,
+  navOrder,
   PX_PER_DAY,
+  roveKey,
   ROW_HEIGHT,
   rowsMoved,
   scrollLeftFor,
@@ -466,5 +469,70 @@ describe("mergeFoldedArrows", () => {
 
   it("keeps every arrow between unfolded rows", () => {
     expect(mergeFoldedArrows([arrow("1", "a", "x"), arrow("2", "b", "x")], new Map()).map((a) => a.edge.id)).toEqual(["1", "2"]);
+  });
+});
+
+describe("navOrder", () => {
+  const laneOf = (n: GraphNode): Lane => ({ id: `lane:${n.uid[0]}`, label: n.uid[0] });
+  const nodes = [node("a1"), node("a2"), node("b1")];
+  const timeline = new Map([
+    ["a1", entry("2026-10-01")],
+    ["a2", entry("2026-10-02")],
+    ["b1", entry("2026-10-03")],
+  ]);
+
+  it("is every lane header and row in screen order, so ↑/↓ walk the timeline as drawn", () => {
+    expect(navOrder(layoutRows(nodes, timeline, laneOf).items)).toEqual([laneStop("lane:a"), "a1", "a2", laneStop("lane:b"), "b1"]);
+  });
+
+  it("skips the rows of a folded lane, but keeps its header", () => {
+    expect(navOrder(layoutRows(nodes, timeline, laneOf, new Set(["lane:a"])).items)).toEqual([
+      laneStop("lane:a"),
+      laneStop("lane:b"),
+      "b1",
+    ]);
+  });
+
+  it("is just the rows when nothing is grouped", () => {
+    expect(navOrder(layoutRows(nodes, timeline, undefined).items)).toEqual(["a1", "a2", "b1"]);
+  });
+
+  // Ticket keys never contain spaces, so a header's id can't be mistaken for a row's.
+  it("names a lane's header apart from any row", () => {
+    expect(laneStop("lane:a")).toBe("lane lane:a");
+  });
+});
+
+describe("roveKey", () => {
+  const at = (
+    key: string,
+    index: number,
+    mods: Partial<Record<"altKey" | "ctrlKey" | "metaKey" | "shiftKey", boolean>> = {},
+  ): number | null => roveKey({ key, index, count: 10, page: 4, ...mods });
+
+  it("moves one item with ↑/↓, stopping at the ends", () => {
+    expect(at("ArrowDown", 3)).toBe(4);
+    expect(at("ArrowUp", 3)).toBe(2);
+    expect(at("ArrowUp", 0)).toBe(0);
+    expect(at("ArrowDown", 9)).toBe(9);
+  });
+
+  it("goes to the ends with Home/End, and a screen at a time with PgUp/PgDn", () => {
+    expect(at("Home", 5)).toBe(0);
+    expect(at("End", 5)).toBe(9);
+    expect(at("PageDown", 3)).toBe(7);
+    expect(at("PageDown", 8)).toBe(9);
+    expect(at("PageUp", 3)).toBe(0);
+  });
+
+  it("leaves other keys, and any key with a modifier, alone", () => {
+    expect(at("ArrowLeft", 3)).toBeNull();
+    expect(at("Enter", 3)).toBeNull();
+    expect(at("ArrowDown", 3, { shiftKey: true })).toBeNull();
+    expect(at("End", 3, { metaKey: true })).toBeNull();
+  });
+
+  it("does nothing in an empty timeline", () => {
+    expect(roveKey({ key: "ArrowDown", index: 0, count: 0, page: 4 })).toBeNull();
   });
 });

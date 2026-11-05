@@ -67,6 +67,10 @@ export function TimelineLegend({ types }: { types: readonly string[] }): ReactEl
         <li>+3d / −2d: forecast finish against the estimate, in working days. Due dates are the ◆.</li>
       </ul>
       <TypeKey types={types} />
+      <p className="hint">
+        <kbd>↑</kbd> <kbd>↓</kbd> move between tickets and lanes · <kbd>←</kbd> <kbd>→</kbd> follow blocking links (on a lane: fold, unfold)
+        · <kbd>Home</kbd> <kbd>End</kbd> <kbd>PgUp</kbd> <kbd>PgDn</kbd> jump · <kbd>Enter</kbd> shows details
+      </p>
     </>
   );
 }

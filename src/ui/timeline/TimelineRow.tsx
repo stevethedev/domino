@@ -16,6 +16,7 @@ import {
   TraverseHint,
   TypeIcon,
 } from "../IssueCard";
+import type { RoveEvent } from "./TimelineLane";
 import {
   BADGE_ROOM,
   entryEnd,
@@ -92,6 +93,9 @@ export const TimelineRow = memo(function TimelineRow({
   onOpen,
   onHover,
   onTraverse,
+  onRove,
+  onFocusItem,
+  tabbable,
 }: {
   row: TimelineRowModel;
   /** Set for epics: a summary over their loaded children, or "empty" when none are loaded. */
@@ -107,8 +111,14 @@ export const TimelineRow = memo(function TimelineRow({
   /** ⌘/Ctrl+click: open in Jira directly. */
   onOpen: (url: string) => void;
   onHover: (uid: string | null) => void;
-  /** Arrow keys: follow links to the next row; true when it moved. */
+  /** ←/→: follow blocking links to the next row; true when it moved. */
   onTraverse: (uid: string, move: Move) => boolean;
+  /** ↑ ↓ Home End PgUp PgDn: move the timeline's Tab stop from this row; true when it moved. */
+  onRove: (id: string, e: RoveEvent) => boolean;
+  /** Focus landed here: it's the timeline's Tab stop now. */
+  onFocusItem: (id: string) => void;
+  /** Whether this row is the timeline's one Tab stop. */
+  tabbable: boolean;
 }) {
   const { node, entry } = row;
   const p = entry.progress;
@@ -130,14 +140,14 @@ export const TimelineRow = memo(function TimelineRow({
       aria-expanded={selected}
       aria-controls={selected ? ISSUE_DETAIL_ID : undefined}
       // A folded row (collapsed lane) is only kept for the fold animation: out of reach until shown.
-      tabIndex={row.folded || flags.stale ? -1 : 0}
+      tabIndex={tabbable && !row.folded && !flags.stale ? 0 : -1}
       aria-hidden={row.folded || undefined}
       aria-label={
         epic
           ? describeEpic(node, epic, flags.critical)
           : `${describe(node, row, flags.critical)}${flags.missedReleases ? ` ${missesText(flags.missedReleases)}.` : ""}${flags.aging ? ` ${agingDescription(flags.aging)}.` : ""}`
       }
-      aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown"
+      aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown Home End PageUp PageDown"
       data-tl-uid={node.uid}
       onClick={(e) => {
         if (e.metaKey || e.ctrlKey) onOpen(node.url);
@@ -150,8 +160,11 @@ export const TimelineRow = memo(function TimelineRow({
           else onSelect(node.uid);
           return;
         }
+        // ←/→ follow links; ↑/↓ and the rest move through the timeline's rows and lanes in order.
         const move = MOVE_KEYS[e.key];
-        if (move && !e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey && onTraverse(node.uid, move)) e.preventDefault();
+        const followsLink = move === "upstream" || move === "downstream";
+        const mods = e.altKey || e.metaKey || e.ctrlKey || e.shiftKey;
+        if (followsLink ? !mods && onTraverse(node.uid, move) : onRove(node.uid, e)) e.preventDefault();
       }}
       onMouseEnter={() => {
         onHover(node.uid);
@@ -161,6 +174,7 @@ export const TimelineRow = memo(function TimelineRow({
       }}
       onFocus={() => {
         onHover(node.uid);
+        onFocusItem(node.uid);
       }}
       onBlur={() => {
         onHover(null);

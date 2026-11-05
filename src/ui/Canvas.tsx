@@ -30,6 +30,7 @@ import { prefersReducedMotion } from "../lib/motion";
 import { isInCycle } from "../graph/cycles";
 import { visibleCentreShift } from "./drawerOffset";
 import { fitKeyOf } from "./fitKey";
+import { tabStopOf, useRovingStop } from "./useRovingStop";
 import { focusFirst } from "./focusFirst";
 import { awaitsIdentities, FIT_PADDING, firstView, MIN_READABLE_ZOOM } from "./firstView";
 
@@ -147,9 +148,7 @@ export function Canvas({
   /** Says the first view is only part of the graph (see firstView), until the user moves or asks for all. */
   const [partNotice, setPartNotice] = useState<string | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
-  // Per scope, so a uid that comes back in another scope doesn't inherit the stop.
-  const [focusedIn, setFocusedIn] = useState<{ scopeKey: string | null; uid: string } | null>(null);
-  const lastFocused = focusedIn?.scopeKey === scopeKey ? focusedIn.uid : null;
+  const { lastFocused, onFocusItem } = useRovingStop(scopeKey);
   /** Re-fits the first view once identities arrive, if it was picked without them and the user hasn't moved since. */
   const identityRefit = useRef<(() => void) | null>(null);
   /** The view moved away from the first view: its notice no longer describes it, and it's never re-fitted. */
@@ -160,12 +159,12 @@ export function Canvas({
   const focusNode = useFocusNode();
   const onFocusCard = useCallback(
     (uid: string): void => {
-      setFocusedIn({ scopeKey, uid });
+      onFocusItem(uid);
       // Tabbed to: keep the zoom and pan only when the card is off screen. (Focus moved by
       // `useFocusNode` comes with its own pan.)
       if (!focusingFromCode) focusNode(uid, false, true);
     },
-    [focusNode, scopeKey],
+    [focusNode, onFocusItem],
   );
   // Any pan to a card (navigation, Tab to an off-screen card) moves the view away from the part noticed.
   useEffect(() => {
@@ -347,8 +346,8 @@ export function Canvas({
       draggable: false,
       zIndex: -1,
     }));
-    // One Tab stop for the whole graph (roving tabindex): the card last focused, else the open
-    // issue, else the first card in reading order (leftmost column, top). Arrow keys move on.
+    // One Tab stop for the whole graph (see tabStopOf); the first card is in reading order
+    // (leftmost column, top). Arrow keys move on.
     const groupAt = new Map(layout.groups.map((g) => [g.id, g]));
     const at = (uid: string): { x: number; y: number } | undefined => {
       const p = layout.positions.get(uid);
@@ -361,7 +360,7 @@ export function Canvas({
         return p ? [{ uid: n.uid, ...p }] : [];
       })
       .reduce<{ uid: string; x: number; y: number } | null>((a, b) => (!a || b.x < a.x || (b.x === a.x && b.y < a.y) ? b : a), null);
-    const tabStop = [lastFocused, selectedUid].find((u) => u && layout.positions.has(u)) ?? firstCard?.uid;
+    const tabStop = tabStopOf({ lastFocused, selected: selectedUid, has: (u) => layout.positions.has(u), first: firstCard?.uid });
     // Each card shows its latest data; cards the next layout drops stay until it's ready.
     const cards: IssueFlowNode[] = drawn.nodes.flatMap((laidOut) => {
       const n = visibleByUid.get(laidOut.uid) ?? laidOut;

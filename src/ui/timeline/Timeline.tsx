@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactElement } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { prefersReducedMotion } from "../../lib/motion";
 import { blockingChain } from "../../graph/analysis";
 import { emphasis, type Insights } from "../../graph/insights";
@@ -16,6 +16,7 @@ import { lanesFor, type Filters, type ViewOptions } from "../Canvas";
 import { InfoTip } from "../InfoTip";
 import { NumberField } from "../NumberField";
 import { SortChip } from "../SortChip";
+import { tabStopOf, useRovingStop } from "../useRovingStop";
 import { flagWidth, releaseX, TimeAxis, TimeGrid, type ReleaseMarker } from "./TimeAxis";
 import { arrowAnchors, isViolated, TimelineArrows, type ArrowModel } from "./TimelineArrows";
 import {
@@ -27,7 +28,10 @@ import {
   isLate,
   LABEL_WIDTH,
   LANE_HEIGHT,
+  laneStop,
   layoutRows,
+  navOrder,
+  roveKey,
   mergeFoldedArrows,
   ROW_HEIGHT,
   dayAt,
@@ -47,7 +51,8 @@ import {
 import { captureElement } from "../capture";
 import { fmtDay } from "../format";
 import { ExportMenu } from "../ExportMenu";
-import { TimelineLane } from "./TimelineLane";
+import { focusTimelineItem } from "./focusItem";
+import { TimelineLane, type RoveEvent } from "./TimelineLane";
 import { TimelineRow } from "./TimelineRow";
 
 /** The chart's scroll box width the details drawer leaves visible, for placing Today and the centre. */
@@ -133,6 +138,34 @@ export function Timeline({
     [nodes, placed, view.groupBy, insights, collapsedLanes, order],
   );
   const lanes = items.filter((i) => i.kind === "lane");
+  // One Tab stop for the whole timeline (see tabStopOf): ↑ ↓ Home End PgUp PgDn move it through
+  // the lane headers and rows in screen order (navOrder).
+  const stops = useMemo(() => navOrder(items), [items]);
+  const { lastFocused, onFocusItem } = useRovingStop(scopeKey);
+  const tabStop = tabStopOf({ lastFocused, selected: selectedUid, has: (id) => stops.includes(id), first: stops[0] });
+  const latestStops = useRef(stops);
+  latestStops.current = stops;
+  const onRove = useCallback((id: string, e: RoveEvent): boolean => {
+    const ids = latestStops.current;
+    const index = ids.indexOf(id);
+    const page = Math.floor((scrollRef.current?.clientHeight ?? 0) / ROW_HEIGHT);
+    const next = index === -1 ? null : roveKey({ ...e, index, count: ids.length, page });
+    if (next === null) return false;
+    const target = ids[next];
+    if (target !== id) focusTimelineItem(target);
+    return true;
+  }, []);
+  // A focused row folded away (Collapse all, say) hands focus to its lane's header, not the page.
+  useEffect(() => {
+    const uid = document.activeElement?.getAttribute("data-tl-uid");
+    if (!uid || stops.includes(uid)) return;
+    let lane: string | undefined;
+    for (const i of items) {
+      if (i.kind === "lane") lane = i.lane.id;
+      else if (i.node.uid === uid) break;
+    }
+    if (lane !== undefined) focusTimelineItem(laneStop(lane));
+  }, [items, stops]);
   // Rows slide whenever they move (lane folds, sort changes, refreshed data), but arrows jump to
   // their final positions: hide the arrows until the rows land. A layout effect, so arrows never
   // paint early.
@@ -530,6 +563,9 @@ export function Timeline({
                         toggleLane(item.lane.id);
                       }}
                       onOpen={onOpen}
+                      onRove={onRove}
+                      onFocusItem={onFocusItem}
+                      tabbable={laneStop(item.lane.id) === tabStop}
                       rangeStart={range.start}
                       scale={settings.scale}
                     />
@@ -556,6 +592,9 @@ export function Timeline({
                       onOpen={onOpen}
                       onHover={setHovered}
                       onTraverse={onTraverse}
+                      onRove={onRove}
+                      onFocusItem={onFocusItem}
+                      tabbable={item.node.uid === tabStop}
                     />
                   ),
                 )}

@@ -117,6 +117,44 @@ export function layoutRows(
 }
 
 /** Header flags that end at `right` (px) and are `width` wide; see `stackFlags`. */
+/** A lane header's id in `navOrder`: ticket keys never contain spaces, so it can't be a row's uid. */
+export const laneStop = (laneId: string): string => `lane ${laneId}`;
+
+/**
+ * What the timeline's one Tab stop moves through, top to bottom: each lane header (see `laneStop`)
+ * and row as drawn, skipping the rows of folded lanes.
+ */
+export const navOrder = (items: readonly TimelineItem[]): string[] =>
+  items.flatMap((i) => (i.kind === "lane" ? [laneStop(i.lane.id)] : i.folded ? [] : [i.node.uid]));
+
+/** Keys that move the timeline's Tab stop through `navOrder`, without modifiers. */
+type RoveInput = Readonly<{
+  key: string;
+  index: number;
+  count: number;
+  /** Items per screen, for PgUp/PgDn. */
+  page: number;
+  altKey?: boolean;
+  ctrlKey?: boolean;
+  metaKey?: boolean;
+  shiftKey?: boolean;
+}>;
+
+/** Where ↑ ↓ Home End PgUp PgDn move from `index` (kept in range), or null for any other key. */
+export function roveKey(k: RoveInput): number | null {
+  if (k.count === 0 || k.altKey || k.ctrlKey || k.metaKey || k.shiftKey) return null;
+  const step: Partial<Record<string, number>> = {
+    ArrowUp: -1,
+    ArrowDown: 1,
+    PageUp: -Math.max(1, k.page),
+    PageDown: Math.max(1, k.page),
+    Home: -k.count,
+    End: k.count,
+  };
+  const by = step[k.key];
+  return by === undefined ? null : Math.min(k.count - 1, Math.max(0, k.index + by));
+}
+
 export type Flag = Readonly<{ id: string; right: number; width: number }>;
 
 /** Space kept between flags on one header line, in px. */

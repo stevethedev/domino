@@ -33,13 +33,15 @@ Not included: an in-app theme switch. The app keeps following the OS.
 
 ## 3. Focus helper
 
-- **The timeline becomes one Tab stop** with roving focus:
-  - ↑/↓ move between rows, Home/End go to the ends, PgUp/PgDn jump a screen.
-  - Enter or Space opens a row.
-  - ←/→ fold and unfold lanes.
-  - Coming back returns to the last row.
+Ships in three PRs. The first (timeline) is done in #44. Differences from the plan:
 
-  It shares one roving-focus hook with the graph. (`src/ui/timeline/TimelineRow.tsx:121`, `src/ui/Canvas.tsx:392`)
+- **The timeline is one Tab stop** over its lane headers and rows, in screen order. ↑/↓ move one item, Home/End go to the ends, PgUp/PgDn jump a screen, Enter or Space opens a row, and coming back returns to the last item. Lane headers are items too, so a header's ←/→ fold and unfold its lane, and ⌘/Ctrl+Enter opens an epic lane's epic.
+- **←/→ on a row still follow blocking links,** as they do in the graph, instead of folding lanes: both views keep one meaning for ←/→. A row's ↑/↓ move in order and no longer go through the link trail's alternatives; the graph's still do.
+- **One roving-stop rule for both views** (`tabStopOf` in `src/ui/useRovingStop.ts`): the item last focused, else the open issue, else the first item.
+- **A focused row that's folded away** hands focus to its lane's header.
+- **Both Legends name the arrow keys.**
+
+Still to do, in the next two PRs:
 
 - **`useFocusReturn`** remembers the element that opened a drawer, menu, editor or Find. It restores focus there, or to the view's Tab stop if that element is gone. It replaces the DOM-string lookups and the 25×80ms polling. (`src/App.tsx:445-449, 546-551, 861`, `src/ui/FilterPanel.tsx:264`, `src/ui/Settings/SettingsDialog.tsx:262-266`, `src/ui/SavedViewsMenu.tsx:110-113`)
 - **Menus stay `<details>`.** `useDetailsMenu` closes on `focusout` that leaves the menu, and Esc returns focus to the `<summary>`. The sidebar filter menus expand in place instead of overlaying, so they no longer get clipped. Native `popover` isn't used: macOS < 14 and older WebKitGTK don't support it. (`src/ui/useDetailsMenu.ts`, `src/styles/shell.css:1163-1167`)
