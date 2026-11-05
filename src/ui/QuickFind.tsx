@@ -24,8 +24,8 @@ export function matchIssues(nodes: readonly GraphNode[], query: string): GraphNo
     .map(({ n }) => n);
 }
 
-/** The matches Find lists (see `matchIssues`), best first. */
-export const findIssues = (nodes: readonly GraphNode[], query: string): GraphNode[] => matchIssues(nodes, query).slice(0, MAX_RESULTS);
+/** The matches Find lists: the best few of `matchIssues`. */
+export const listedMatches = (matches: readonly GraphNode[]): readonly GraphNode[] => matches.slice(0, MAX_RESULTS);
 
 /** What Find announces as you type: how many tickets match, and how many of them are listed. */
 export function findStatus(query: string, total: number, shown: number): string {
@@ -52,7 +52,7 @@ export function QuickFind({
   const [active, setActive] = useState(0);
   const [open, setOpen] = useState(false);
   const matches = useMemo(() => matchIssues(nodes, query), [nodes, query]);
-  const results = matches.slice(0, MAX_RESULTS);
+  const results = listedMatches(matches);
   // Where focus was before Find: the second Esc goes back there.
   const { remember, restore } = useFocusReturn();
 
