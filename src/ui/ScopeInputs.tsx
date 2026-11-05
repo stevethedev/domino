@@ -8,6 +8,7 @@ import { saveGitHubQuery, saveQuery } from "../state/useDomino";
 import { isOneOf } from "../lib/guards";
 import { NumberField } from "./NumberField";
 import { useDetailsMenu } from "./useDetailsMenu";
+import { announce } from "./Announcer";
 
 type Mode = Scope["mode"];
 
@@ -133,6 +134,11 @@ export function ScopeInputs({
     apply(q);
   };
 
+  /** Shown beside the field, and said once per Load that fails (not each time it renders). */
+  const fail = (message: string): void => {
+    setError(message);
+    announce(message, { assertive: true, source: "scope" });
+  };
   const submit = (e: React.FormEvent): void => {
     e.preventDefault();
     if (mode === "jql") {
@@ -143,12 +149,12 @@ export function ScopeInputs({
       return;
     }
     if (!keySite) {
-      setError("Select a site first");
+      fail("Select a site first");
       return;
     }
     const k = normalizeKeyInput(keySite, key);
     if (!isTicketKey(keySite, k)) {
-      setError(
+      fail(
         siteKindOf(keySite) === "github"
           ? "Enter a key like acme/web#12, or paste the issue's URL from this site"
           : "Enter a ticket key like CORE-1",
@@ -342,7 +348,7 @@ export function ScopeInputs({
         Load
       </button>
       {error && (
-        <span id="scope-error" role="alert" className="field-error">
+        <span id="scope-error" className="field-error">
           {error}
         </span>
       )}

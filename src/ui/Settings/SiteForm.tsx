@@ -15,6 +15,7 @@ import { errorMessage } from "../../data/errors";
 import { overlappingSites } from "../../data/siteScope";
 import { openExternal } from "../../platform";
 import { Icon } from "../Icon";
+import { announce, spokenText } from "../Announcer";
 import { prefersReducedMotion } from "../../lib/motion";
 
 export type SiteFormResult = { site: SiteConfig; isDefault: boolean; token: string; test: boolean };
@@ -39,6 +40,16 @@ function normalize(s: SiteConfig): SiteConfig {
   const out: SiteConfig = { ...s, label: s.label.trim(), baseUrl: parseJiraUrl(s.baseUrl)?.origin ?? s.baseUrl.trim() };
   if (!out.baseJql?.trim()) delete out.baseJql;
   return out;
+}
+
+/** A field that needs fixing: its label, and what it needs. */
+export type FieldProblem = Readonly<{ label: string; problem: string }>;
+
+/** What a failed submit says: how many fields need fixing, and what each one needs. */
+export function problemsText(problems: readonly FieldProblem[]): string {
+  const count = problems.length === 1 ? "1 field needs fixing" : `${problems.length} fields need fixing`;
+  const each = problems.map(({ label, problem }) => `${label}: ${/[.!?]$/.test(problem) ? problem : `${problem}.`}`);
+  return `${count}: ${each.join(" ")}`;
 }
 
 export function SiteForm({
@@ -170,6 +181,14 @@ export function SiteForm({
   const submit = async (test: boolean): Promise<void> => {
     setSubmitted(true);
     if (hasErrors) {
+      // Said once for the whole form; each field shows (and describes itself with) its own.
+      // A field's label as it's read (not its info tip's ⓘ), or its name if it has none.
+      const labelOf = (name: string): string => {
+        const label = document.querySelector(`label[for="${CSS.escape(`${uid}-${name}`)}"]`);
+        return (label && spokenText(label).trim()) || name;
+      };
+      const problems = Object.entries(errors).flatMap(([name, problem]) => (problem ? [{ label: labelOf(name), problem }] : []));
+      announce(problemsText(problems), { assertive: true, source: "site-form" });
       const first = Object.keys(errors)[0];
       if (ADVANCED_FIELDS.has(first)) setAdvancedOpen(true);
       requestAnimationFrame(() => document.getElementById(`${uid}-${first}`)?.focus());
@@ -181,6 +200,7 @@ export function SiteForm({
       await onSubmit({ site: normalize(draft), isDefault, token, test });
     } catch (err) {
       setSaveError(errorMessage(err));
+      announce(`Could not save: ${errorMessage(err)}`, { assertive: true, source: "site-form" });
       setSaving(false);
     }
   };
@@ -205,7 +225,7 @@ export function SiteForm({
         <label htmlFor={`${uid}-${name}`}>{label}</label>
         {input}
         {err ? (
-          <span className="field-error" id={errId(name)} role="alert">
+          <span className="field-error" id={errId(name)}>
             {err}
           </span>
         ) : (
@@ -544,11 +564,7 @@ export function SiteForm({
         </div>
       </details>
 
-      {saveError && (
-        <p className="field-error" role="alert">
-          Could not save: {saveError}
-        </p>
-      )}
+      {saveError && <p className="field-error">Could not save: {saveError}</p>}
       <div className="form-actions">
         <button type="button" onClick={onCancel}>
           Cancel

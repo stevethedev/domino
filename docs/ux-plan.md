@@ -60,7 +60,12 @@ Ships in three PRs. Done in the first (the Announcer, toasts):
 - **One Announcer** (`src/ui/Announcer.tsx`): the page renders a polite and an assertive region once (`LiveRegions`), and `announce()` writes to them. The Settings dialog renders its own pair, listening only while it's open (`regionFor`: the regions mounted last win). Messages that appear with their text say it through `useAnnounced`, instead of a `role="status"` of their own: the toast, the canvas message, the filters' "Showing N of M", the empty-search banner's headline, and saved views' import and export notes. Regions that are always mounted (the load pill, Find's count) keep theirs.
 - **Toasts:** a plain one still stays 10s, pausing on hover or focus; one with an action stays until it's dismissed, used or replaced. The one error that went in a toast (Show file failing) is said in the settings-file banner, beside its button.
 
-Still to do: Confirm and inline validation, then one banner area.
+Done in the second (Confirm, inline validation):
+
+- **One `Confirm`** (`src/ui/Confirm.tsx`): a labelled `role="group"`, described by its question, with the risky choice as a danger button and focus on the safe one; Esc picks the safe one without closing the menu or dialog around it. A banner by default, `inline` in a row or list item. It replaces the `role="alertdialog"` prompts for unsaved site changes and Disconnect, and the confirms for removing a site and deleting a saved view. Removing a site put focus on "Confirm remove"; it's on Keep now, and Keep goes back to Remove.
+- **Inline validation:** the site form's fields and the scope bar's error lose `role="alert"`. A failed submit says once what needs fixing (`problemsText`: "3 fields need fixing: Name: Required. …"), assertively, and a failed save or Load says its reason the same way. The settings-file banner's "Start fresh" confirm keeps its own buttons for now.
+
+Still to do: one banner area.
 
 - **Where each kind of message goes.**
   - **Toast:** confirmations of something you just did, often with Undo. A plain confirmation stays at least 6s and pauses on hover or focus. A toast with an action, such as Undo, stays until it's dismissed, acted on or replaced by the next toast, so keyboard and screen-reader users can always reach it (WCAG 2.2.1). (`src/App.tsx:532-540`)
