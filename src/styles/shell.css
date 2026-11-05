@@ -691,7 +691,7 @@
   white-space: nowrap;
 }
 .quick-find-empty {
-  cursor: default !important;
+  padding: var(--space-1_5) var(--space-2);
 }
 
 kbd {
@@ -1143,11 +1143,13 @@ kbd {
   color: var(--link);
   font-weight: var(--weight-semibold);
 }
-/* The sidebar scrolls (and so clips), so these menus span the sidebar's width instead of the
-   default popover min-width. */
+/* The sidebar scrolls (and so would clip an overlay): these menus open in place, pushing what's
+   below them down, at the sidebar's width. */
 .filter-menu .popover {
-  right: 0;
+  position: static;
   min-width: 0;
+  margin-top: var(--space-1);
+  box-shadow: none;
   max-height: 50vh;
   overflow: auto;
 }

@@ -1,10 +1,6 @@
 import { useEffect, useRef, type ReactElement, type ReactNode } from "react";
 import { ISSUE_DETAIL_ID } from "./IssueCard";
-import { useDetailsMenu } from "./useDetailsMenu";
-
-/** Whether focus moving to `next` leaves `tip` (`next` is null when focus leaves the page). */
-export const focusLeaves = <T,>(tip: Readonly<{ contains: (n: T) => boolean }>, next: T | null): boolean =>
-  next === null || !tip.contains(next);
+import { focusLeaves, useDetailsMenu } from "./useDetailsMenu";
 
 /**
  * How to fit an open tip within `minLeft`..`maxRight`: narrower (so its text wraps) when it's wider

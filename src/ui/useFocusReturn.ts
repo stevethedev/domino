@@ -24,7 +24,7 @@ type ReturnOrder = (opener: HTMLElement | null) => readonly (HTMLElement | null 
  * puts focus back when it closes (`restore`). The return happens once the closing render is on
  * screen, so `order` can name elements that render only then; by default it's just the opener.
  */
-export function useFocusReturn(): Readonly<{ remember: () => void; restore: (order?: ReturnOrder) => void }> {
+export function useFocusReturn(): Readonly<{ remember: (opener?: Element | null) => void; restore: (order?: ReturnOrder) => void }> {
   const opener = useRef<HTMLElement | null>(null);
   // Boxed: a function handed to a state setter would be called as an updater.
   const [returning, setReturning] = useState<{ order: ReturnOrder } | null>(null);
@@ -34,8 +34,9 @@ export function useFocusReturn(): Readonly<{ remember: () => void; restore: (ord
     focusFirstOf(returning.order(opener.current));
     opener.current = null;
   }, [returning]);
-  const remember = useCallback((): void => {
-    opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  /** `opener` defaults to what has focus now. */
+  const remember = useCallback((el: Element | null = document.activeElement): void => {
+    opener.current = el instanceof HTMLElement ? el : null;
   }, []);
   const restore = useCallback((order: ReturnOrder = (el) => [el]): void => {
     setReturning({ order });
