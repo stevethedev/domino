@@ -44,7 +44,7 @@ export function SavedViewsMenu({
 }): ReactElement {
   const fileInput = useRef<HTMLInputElement>(null);
   const [shareStatus, setShareStatus] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
-  const { ref, close, onKeyDown, onBlur } = useDetailsMenu();
+  const { ref, close, onKeyDown } = useDetailsMenu();
   const [name, setName] = useState("");
   /** The view whose delete is waiting for a confirm. */
   const [confirming, setConfirming] = useState<string | null>(null);
@@ -73,7 +73,6 @@ export function SavedViewsMenu({
       className="saved-views"
       ref={ref}
       onKeyDown={onKeyDown}
-      onBlur={onBlur}
       onToggle={(e) => {
         if (!e.currentTarget.open) setConfirming(null); // a pending delete doesn't outlive the menu
       }}

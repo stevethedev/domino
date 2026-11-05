@@ -49,7 +49,7 @@ Done in the second PR:
 
 Done in the third PR:
 
-- **Menus stay `<details>`** and close when focus leaves them (`onBlur` from `useDetailsMenu`, `leavesMenu`). A blur with nowhere to go (the window losing focus, a click on a menu's padding) leaves it open; clicks outside were already caught on mousedown. Info tips keep their own rule, closing then too, since their text takes focus (`focusLeaves`, now shared from `src/ui/useDetailsMenu.ts`). Esc already returned focus to the `<summary>`, and the canvas already ignores Esc from inside a `<details>`.
+- **Menus stay `<details>`** and close when focus lands outside them: `useDetailsMenu` listens for `focusin` on the document, as it did for `mousedown` (`leavesMenu`), so Tab and hotkeys (`/` to Find) both close it. Focus leaving for nowhere (the window losing it, a click on a menu's padding) leaves it open. Info tips keep their own rule, closing then too, since their text takes focus (`focusLeaves`, now shared from `src/ui/useDetailsMenu.ts`). Esc already returned focus to the `<summary>`, and the canvas already ignores Esc from inside a `<details>`.
 - **The sidebar filter menus open in place,** pushing the fields below them down, so the sidebar's scroll no longer clips them.
 - **Find:** the first Esc closes the list and keeps what you typed; the second clears it and returns focus to where you were before Find (`useFocusReturn`, remembering the focus event's `relatedTarget`), or the view's Tab stop. A status region announces the count ("12 tickets match, showing the first 8", from `findStatus`). "No tickets match" shows beside the listbox, which exists only with options in it; `aria-expanded` and `aria-controls` follow it.
 

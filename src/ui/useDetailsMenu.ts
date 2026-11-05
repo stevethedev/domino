@@ -1,4 +1,4 @@
-import { useEffect, useRef, type FocusEvent, type KeyboardEvent, type RefObject } from "react";
+import { useEffect, useRef, type KeyboardEvent, type RefObject } from "react";
 
 export type DetailsMenu = Readonly<{
   ref: RefObject<HTMLDetailsElement>;
@@ -6,32 +6,32 @@ export type DetailsMenu = Readonly<{
   close: () => void;
   /** Esc closes the menu and returns focus to its summary. */
   onKeyDown: (e: KeyboardEvent<HTMLDetailsElement>) => void;
-  /** Focus moving out of the menu closes it, leaving focus where it went. */
-  onBlur: (e: FocusEvent<HTMLDetailsElement>) => void;
 }>;
 
 /** Whether focus moving to `next` leaves `box` (`next` is null when focus leaves the page). */
 export const focusLeaves = <T>(box: Readonly<{ contains: (n: T) => boolean }>, next: T | null): boolean =>
   next === null || !box.contains(next);
 
-/**
- * Whether focus moving to `next` leaves `menu`. With no `next` (the window lost focus, or a click
- * landed on padding, which takes none) it stays: a click outside is caught on mousedown instead.
- */
+/** Whether a click or focus landing on `next` (if anything) is outside `menu`. */
 export const leavesMenu = <T>(menu: Readonly<{ contains: (n: T) => boolean }>, next: T | null): boolean =>
   next !== null && focusLeaves(menu, next);
 
-/** A `<details>` popover menu that closes on Esc, a click outside it, or focus leaving it. */
+/** A `<details>` popover menu that closes on Esc, or when a click or focus lands outside it. */
 export function useDetailsMenu(): DetailsMenu {
   const ref = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
-    const onDown = (e: MouseEvent): void => {
-      if (ref.current?.open && e.target instanceof Node && !ref.current.contains(e.target)) ref.current.open = false;
+    const onOutside = (e: Event): void => {
+      const menu = ref.current;
+      if (menu?.open && leavesMenu(menu, e.target instanceof Node ? e.target : null)) menu.open = false;
     };
-    // Capture phase: the graph's pan/zoom stops mousedown from bubbling to the document.
-    document.addEventListener("mousedown", onDown, true);
+    // Capture phase: the graph's pan/zoom stops mousedown from bubbling to the document. Focus
+    // landing outside covers Tab and hotkeys (`/` to Find) alike; focus leaving for nowhere (the
+    // window losing it, a click on the menu's padding) lands nowhere, so the menu stays open.
+    document.addEventListener("mousedown", onOutside, true);
+    document.addEventListener("focusin", onOutside, true);
     return (): void => {
-      document.removeEventListener("mousedown", onDown, true);
+      document.removeEventListener("mousedown", onOutside, true);
+      document.removeEventListener("focusin", onOutside, true);
     };
   }, []);
   return {
@@ -48,10 +48,6 @@ export function useDetailsMenu(): DetailsMenu {
         ref.current.open = false;
         ref.current.querySelector("summary")?.focus();
       }
-    },
-    onBlur: (e) => {
-      const menu = ref.current;
-      if (menu?.open && leavesMenu(menu, e.relatedTarget instanceof Node ? e.relatedTarget : null)) menu.open = false;
     },
   };
 }
