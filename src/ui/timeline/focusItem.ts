@@ -41,9 +41,11 @@ export function focusTimelineItem(id: string): boolean {
   const view = lane.closest<HTMLElement>(".tl-scroll");
   const row = lane.closest<HTMLElement>(".tl-lane") ?? lane;
   if (view) {
-    const [r, v] = [row.getBoundingClientRect(), view.getBoundingClientRect()];
+    const r = row.getBoundingClientRect();
+    // The visible area, inside the view's border and above its horizontal scrollbar.
+    const viewTop = view.getBoundingClientRect().top + view.clientTop;
     const padTop = parseFloat(getComputedStyle(view).scrollPaddingTop) || 0;
-    const top = verticalScroll({ top: r.top, bottom: r.bottom, viewTop: v.top, viewBottom: v.bottom, padTop });
+    const top = verticalScroll({ top: r.top, bottom: r.bottom, viewTop, viewBottom: viewTop + view.clientHeight, padTop });
     if (top !== 0) view.scrollBy({ top, behavior: scrollBehavior() });
   }
   lane.focus({ preventScroll: true });

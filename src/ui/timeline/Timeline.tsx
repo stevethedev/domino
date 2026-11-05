@@ -144,7 +144,7 @@ export function Timeline({
   const stops = useMemo(() => navOrder(items), [items]);
   const stopYs = useMemo(() => {
     const y = new Map(items.map((i) => [i.kind === "lane" ? laneStop(i.lane.id) : i.node.uid, i.y]));
-    return stops.map((id) => y.get(id) ?? 0);
+    return stops.map((id) => getOrThrow(y, id));
   }, [items, stops]);
   const { lastFocused, onFocusItem } = useRovingStop(scopeKey);
   const tabStop = tabStopOf({ lastFocused, selected: selectedUid, has: (id) => stops.includes(id), first: stops[0] });
