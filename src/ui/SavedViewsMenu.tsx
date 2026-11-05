@@ -4,6 +4,7 @@ import { canSaveView, MAX_SAVED_VIEWS, readViewsFile, viewsFile, type ImportRepo
 import { Icon } from "./Icon";
 import { useDetailsMenu } from "./useDetailsMenu";
 import { useFocusReturn } from "./useFocusReturn";
+import { useAnnounced } from "./Announcer";
 
 /** "N views" / "1 view". */
 const countViews = (n: number): string => `${n} ${n === 1 ? "view" : "views"}`;
@@ -44,6 +45,7 @@ export function SavedViewsMenu({
 }): ReactElement {
   const fileInput = useRef<HTMLInputElement>(null);
   const [shareStatus, setShareStatus] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  const shareNote = useAnnounced<HTMLParagraphElement>({ assertive: shareStatus?.kind === "error" });
   const { ref, close, onKeyDown } = useDetailsMenu();
   const [name, setName] = useState("");
   /** The view whose delete is waiting for a confirm. */
@@ -232,7 +234,7 @@ export function SavedViewsMenu({
           />
         </div>
         {shareStatus && (
-          <p className={shareStatus.kind === "error" ? "field-error" : "hint"} role="status">
+          <p ref={shareNote} className={shareStatus.kind === "error" ? "field-error" : "hint"}>
             {shareStatus.text}
           </p>
         )}

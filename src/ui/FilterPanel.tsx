@@ -15,6 +15,7 @@ import { Icon } from "./Icon";
 import { InfoTip } from "./InfoTip";
 import { SORT_SELECT_ID } from "./SortChip";
 import { useDetailsMenu } from "./useDetailsMenu";
+import { useAnnounced } from "./Announcer";
 
 const LINK_ROWS: { key: keyof LinkFilters; label: string; sample: string }[] = [
   { key: "blocks", label: "Blocks", sample: "solid" },
@@ -207,6 +208,7 @@ export function FilterPanel({
   const categories = CATEGORIES.filter((c) => byCategory.has(c) || f.hiddenCategories.includes(c));
   const shown = issues.filter((n) => passesIssueFilters(n, f)).length;
   const impliedTipId = useId();
+  const shownCount = useAnnounced<HTMLSpanElement>();
   return (
     <>
       <h3 className="subhead">Tickets</h3>
@@ -260,8 +262,11 @@ export function FilterPanel({
         display={(v) => (v === NO_PRIORITY ? "No priority" : v)}
       />
       {hasIssueFilters(f) && (
-        <p className="hint" role="status">
-          Showing {shown} of {issues.length} tickets ·{" "}
+        <p className="hint">
+          <span ref={shownCount}>
+            Showing {shown} of {issues.length} tickets
+          </span>{" "}
+          ·{" "}
           <button
             type="button"
             className="link-btn"

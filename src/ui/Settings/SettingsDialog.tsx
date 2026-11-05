@@ -12,6 +12,7 @@ import { blankSite, SiteForm, type SiteFormResult } from "./SiteForm";
 import { SiteRow } from "./SiteRow";
 import { Icon } from "../Icon";
 import { useFocusReturn } from "../useFocusReturn";
+import { LiveRegions } from "../Announcer";
 
 type Editing = { kind: "new" } | { kind: "edit"; id: string } | null;
 
@@ -164,6 +165,8 @@ export function SettingsDialog({
         onClose();
       }}
     >
+      {/* The rest of the page is inert while this is open: announcements are made in here. */}
+      <LiveRegions listening={open} />
       <header>
         <h2 id="settings-title">Settings</h2>
         <button type="button" className="icon-btn" onClick={closeDialog} aria-label="Close settings">
