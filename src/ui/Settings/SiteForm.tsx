@@ -18,6 +18,9 @@ import { Icon } from "../Icon";
 import { announce, cancelAnnouncement, spokenText } from "../Announcer";
 import { prefersReducedMotion } from "../../lib/motion";
 
+/** What the form says, so its newer problems replace its older ones and closing it drops them. */
+const ANNOUNCED_AS = "site-form";
+
 export type SiteFormResult = { site: SiteConfig; isDefault: boolean; token: string; test: boolean };
 
 const PALETTE = ["#7c3aed", "#c2410c", "#0f766e", "#be185d", "#1d4ed8", "#4d7c0f"];
@@ -117,7 +120,7 @@ export function SiteForm({
     open.current = true;
     return (): void => {
       open.current = false;
-      cancelAnnouncement("site-form");
+      cancelAnnouncement(ANNOUNCED_AS);
     };
   }, []);
 
@@ -197,7 +200,7 @@ export function SiteForm({
         return (label && spokenText(label).trim()) || name;
       };
       const problems = Object.entries(errors).flatMap(([name, problem]) => (problem ? [{ label: labelOf(name), problem }] : []));
-      announce(problemsText(problems), { assertive: true, source: "site-form" });
+      announce(problemsText(problems), { assertive: true, source: ANNOUNCED_AS });
       const first = Object.keys(errors)[0];
       if (ADVANCED_FIELDS.has(first)) setAdvancedOpen(true);
       requestAnimationFrame(() => document.getElementById(`${uid}-${first}`)?.focus());
@@ -210,7 +213,7 @@ export function SiteForm({
     } catch (err) {
       if (!open.current) return;
       setSaveError(errorMessage(err));
-      announce(`Could not save: ${errorMessage(err)}`, { assertive: true, source: "site-form" });
+      announce(`Could not save: ${errorMessage(err)}`, { assertive: true, source: ANNOUNCED_AS });
       setSaving(false);
     }
   };

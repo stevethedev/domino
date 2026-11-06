@@ -12,6 +12,9 @@ import { announce, cancelAnnouncement } from "./Announcer";
 
 type Mode = Scope["mode"];
 
+/** What a failed Load says, so a later one replaces or drops it. */
+const ANNOUNCED_AS = "scope";
+
 /** A query scope, with the GitHub search when there is one (so scopes without it look as they always did). */
 const withGitHub = (scope: { mode: "jql"; jql: string }, github: string): Scope =>
   github.trim() ? { ...scope, github: github.trim() } : scope;
@@ -137,12 +140,12 @@ export function ScopeInputs({
   /** Shown beside the field, and said once per Load that fails (not each time it renders). */
   const fail = (message: string): void => {
     setError(message);
-    announce(message, { assertive: true, source: "scope" });
+    announce(message, { assertive: true, source: ANNOUNCED_AS });
   };
   /** A Load that goes ahead: its earlier error, shown or still waiting to be said, is gone. */
   const clearError = (): void => {
     setError(null);
-    cancelAnnouncement("scope");
+    cancelAnnouncement(ANNOUNCED_AS);
   };
   const submit = (e: React.FormEvent): void => {
     e.preventDefault();
