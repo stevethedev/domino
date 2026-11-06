@@ -2,6 +2,8 @@ import { useCallback, useEffect, useId, useRef, useState, type ReactElement } fr
 import type { BackendKind, DominoConfig, OAuthStatus } from "../../config/types";
 import { errorMessage } from "../../data/errors";
 import type { Domino } from "../../state/useDomino";
+import { Confirm } from "../Confirm";
+import { useFocusReturn } from "../useFocusReturn";
 
 const CLIENT_ID_REF = "DOMINO_OAUTH_CLIENT_ID";
 const CLIENT_SECRET_REF = "DOMINO_OAUTH_CLIENT_SECRET";
@@ -19,6 +21,7 @@ export function BackendSection({ domino, config }: { domino: Domino; config: Dom
   const hasOAuthSites = oauthSites.length > 0;
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
   const disconnectRef = useRef<HTMLButtonElement>(null);
+  const { restore } = useFocusReturn();
 
   const refresh = useCallback(() => {
     store.oauthStatus().then(setStatus, () => {
@@ -193,39 +196,32 @@ export function BackendSection({ domino, config }: { domino: Domino; config: Dom
           </p>
         )}
         {confirmDisconnect && (
-          <div className="banner warn actionable" role="alertdialog" aria-label="Disconnect from Atlassian">
-            <div className="banner-text">
-              Disconnect from Atlassian?{" "}
-              {hasOAuthSites
-                ? `${oauthSites.join(", ")} will stop loading until you connect again, and ${oauthSites.length === 1 ? "its" : "their"} cached tickets are discarded.`
-                : "No site uses it right now."}
-            </div>
-            <div className="banner-actions">
-              <button
-                type="button"
-                className="danger"
-                onClick={() => {
-                  setConfirmDisconnect(false);
-                  void run("disconnect", async () => {
-                    await store.oauthDisconnect();
-                    return "Disconnected.";
-                  });
-                }}
-              >
-                Disconnect
-              </button>
-              <button
-                type="button"
-                autoFocus
-                onClick={() => {
-                  setConfirmDisconnect(false);
-                  disconnectRef.current?.focus(); // back where they were, not lost with this button
-                }}
-              >
-                Keep connected
-              </button>
-            </div>
-          </div>
+          <Confirm
+            label="Disconnect from Atlassian"
+            confirm={{
+              label: "Disconnect",
+              run: () => {
+                setConfirmDisconnect(false);
+                void run("disconnect", async () => {
+                  await store.oauthDisconnect();
+                  return "Disconnected.";
+                });
+              },
+            }}
+            cancel={{
+              label: "Keep connected",
+              run: () => {
+                setConfirmDisconnect(false);
+                // Back to Disconnect once the prompt is gone (it's disabled until then).
+                restore(() => [disconnectRef.current]);
+              },
+            }}
+          >
+            Disconnect from Atlassian?{" "}
+            {hasOAuthSites
+              ? `${oauthSites.join(", ")} will stop loading until you connect again, and ${oauthSites.length === 1 ? "its" : "their"} cached tickets are discarded.`
+              : "No site uses it right now."}
+          </Confirm>
         )}
       </details>
       {message && (

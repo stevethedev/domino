@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState, type ReactElement } from "react";
+import { useRef, useState, type ReactElement } from "react";
 import { saveFile } from "../platform";
 import { canSaveView, MAX_SAVED_VIEWS, readViewsFile, viewsFile, type ImportReport, type SavedView } from "../state/savedViews";
 import { Icon } from "./Icon";
 import { useDetailsMenu } from "./useDetailsMenu";
 import { useFocusReturn } from "./useFocusReturn";
 import { useAnnounced } from "./Announcer";
+import { Confirm } from "./Confirm";
 
 /** "N views" / "1 view". */
 const countViews = (n: number): string => `${n} ${n === 1 ? "view" : "views"}`;
@@ -52,10 +53,6 @@ export function SavedViewsMenu({
   const [confirming, setConfirming] = useState<string | null>(null);
   const list = useRef<HTMLUListElement>(null);
   const { restore } = useFocusReturn();
-  // Asking to confirm puts focus on Keep, the safe choice, so Enter can't delete by accident.
-  useEffect(() => {
-    if (confirming !== null) list.current?.querySelector<HTMLButtonElement>(".saved-view-keep")?.focus();
-  }, [confirming]);
 
   const exists = views.some((v) => v.name.toLowerCase() === name.trim().toLowerCase());
   const full = name.trim() !== "" && !canSaveView(views, name);
@@ -91,33 +88,30 @@ export function SavedViewsMenu({
             {views.map((v) =>
               confirming === v.name ? (
                 <li key={v.name} className="saved-view-confirm">
-                  <span>
+                  <Confirm
+                    inline
+                    label={`Delete view ${v.name}`}
+                    confirm={{
+                      label: "Delete",
+                      run: () => {
+                        remove(v.name);
+                      },
+                    }}
+                    cancel={{
+                      label: "Keep",
+                      run: () => {
+                        setConfirming(null);
+                        // Back to this view's ✕ (this button goes away; the ✕ is drawn anew), by name.
+                        restore(() => [
+                          [...(list.current?.querySelectorAll<HTMLElement>(".saved-view-delete") ?? [])].find(
+                            (btn) => btn.dataset.view === v.name,
+                          ),
+                        ]);
+                      },
+                    }}
+                  >
                     Delete <strong>{v.name}</strong>?
-                  </span>
-                  <button
-                    type="button"
-                    className="danger"
-                    onClick={() => {
-                      remove(v.name);
-                    }}
-                  >
-                    Delete
-                  </button>
-                  <button
-                    type="button"
-                    className="saved-view-keep"
-                    onClick={() => {
-                      setConfirming(null);
-                      // Back to this view's ✕ (this button goes away; the ✕ is drawn anew), by name.
-                      restore(() => [
-                        [...(list.current?.querySelectorAll<HTMLElement>(".saved-view-delete") ?? [])].find(
-                          (btn) => btn.dataset.view === v.name,
-                        ),
-                      ]);
-                    }}
-                  >
-                    Keep
-                  </button>
+                  </Confirm>
                 </li>
               ) : (
                 <li key={v.name}>

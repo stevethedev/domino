@@ -13,6 +13,7 @@ import { SiteRow } from "./SiteRow";
 import { Icon } from "../Icon";
 import { useFocusReturn } from "../useFocusReturn";
 import { LiveRegions } from "../Announcer";
+import { Confirm } from "../Confirm";
 
 type Editing = { kind: "new" } | { kind: "edit"; id: string } | null;
 
@@ -174,34 +175,27 @@ export function SettingsDialog({
         </button>
       </header>
       {pendingDiscard && (
-        <div className="banner warn actionable" role="alertdialog" aria-label="Unsaved site changes">
-          <div className="banner-text">Discard your changes to this site?</div>
-          <div className="banner-actions">
-            <button
-              type="button"
-              className="danger"
-              onClick={() => {
-                const then = pendingDiscard;
-                setPendingDiscard(null);
-                setEditing(null);
-                then();
-              }}
-            >
-              Discard
-            </button>
-            <button
-              type="button"
-              // The safe choice gets focus, so Enter keeps the edits.
-              autoFocus
-              onClick={() => {
-                setPendingDiscard(null);
-                discardReturn.restore();
-              }}
-            >
-              Keep editing
-            </button>
-          </div>
-        </div>
+        <Confirm
+          label="Unsaved site changes"
+          confirm={{
+            label: "Discard",
+            run: () => {
+              const then = pendingDiscard;
+              setPendingDiscard(null);
+              setEditing(null);
+              then();
+            },
+          }}
+          cancel={{
+            label: "Keep editing",
+            run: () => {
+              setPendingDiscard(null);
+              discardReturn.restore();
+            },
+          }}
+        >
+          Discard your changes to this site?
+        </Confirm>
       )}
       {error && (
         <p className="banner error" role="alert">

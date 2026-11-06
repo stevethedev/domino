@@ -891,15 +891,23 @@ kbd {
   white-space: nowrap;
 }
 .saved-view-confirm {
+  padding: var(--space-1) var(--space-1_5);
+}
+/* A Confirm in a row or list item: the question, then its two choices. */
+.confirm-inline {
   display: flex;
   align-items: center;
   gap: var(--space-1_5);
-  padding: var(--space-1) var(--space-1_5);
 }
-.saved-view-confirm > span {
+.confirm-question {
   flex: 1;
   min-width: 0;
+  white-space: normal;
   overflow-wrap: anywhere;
+}
+.confirm-actions {
+  display: flex;
+  gap: var(--space-1_5);
 }
 .saved-view-delete {
   font-size: var(--text-lg);
