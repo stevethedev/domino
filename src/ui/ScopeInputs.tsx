@@ -99,6 +99,13 @@ export function ScopeInputs({
   const [key, setKey] = useState(scope.mode !== "jql" ? scope.key : "");
   const [depth, setDepth] = useState(scope.mode === "seed" ? scope.depth : 2);
   const [error, setError] = useState<string | null>(null);
+  // Remounted for a new scope (from here or elsewhere): its error, shown or waiting to be said, is gone.
+  useEffect(
+    () => (): void => {
+      cancelAnnouncement(ANNOUNCED_AS);
+    },
+    [],
+  );
   const editor = useDetailsMenu();
   const runsId = useId();
   const presetsId = useId();
