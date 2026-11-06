@@ -111,6 +111,14 @@ export function SiteForm({
     },
     [onDirty],
   );
+  // Discarded mid-save (by editing another site, or closing Settings): a late failure is not said.
+  const open = useRef(true);
+  useEffect(() => {
+    open.current = true;
+    return (): void => {
+      open.current = false;
+    };
+  }, []);
 
   const takenIds = useMemo(() => others.map((o) => o.id), [others]);
   const secretRef = draft.auth.type === "oauth3lo" ? "" : draft.auth.secretRef;
@@ -199,6 +207,7 @@ export function SiteForm({
     try {
       await onSubmit({ site: normalize(draft), isDefault, token, test });
     } catch (err) {
+      if (!open.current) return;
       setSaveError(errorMessage(err));
       announce(`Could not save: ${errorMessage(err)}`, { assertive: true, source: "site-form" });
       setSaving(false);
