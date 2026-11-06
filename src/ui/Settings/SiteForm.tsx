@@ -15,7 +15,7 @@ import { errorMessage } from "../../data/errors";
 import { overlappingSites } from "../../data/siteScope";
 import { openExternal } from "../../platform";
 import { Icon } from "../Icon";
-import { announce, spokenText } from "../Announcer";
+import { announce, cancelAnnouncement, spokenText } from "../Announcer";
 import { prefersReducedMotion } from "../../lib/motion";
 
 export type SiteFormResult = { site: SiteConfig; isDefault: boolean; token: string; test: boolean };
@@ -111,12 +111,13 @@ export function SiteForm({
     },
     [onDirty],
   );
-  // Discarded mid-save (by editing another site, or closing Settings): a late failure is not said.
+  // Closed (by saving, editing another site, or closing Settings): its problems aren't said late.
   const open = useRef(true);
   useEffect(() => {
     open.current = true;
     return (): void => {
       open.current = false;
+      cancelAnnouncement("site-form");
     };
   }, []);
 

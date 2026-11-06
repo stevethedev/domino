@@ -8,7 +8,7 @@ import { saveGitHubQuery, saveQuery } from "../state/useDomino";
 import { isOneOf } from "../lib/guards";
 import { NumberField } from "./NumberField";
 import { useDetailsMenu } from "./useDetailsMenu";
-import { announce } from "./Announcer";
+import { announce, cancelAnnouncement } from "./Announcer";
 
 type Mode = Scope["mode"];
 
@@ -139,10 +139,15 @@ export function ScopeInputs({
     setError(message);
     announce(message, { assertive: true, source: "scope" });
   };
+  /** A Load that goes ahead: its earlier error, shown or still waiting to be said, is gone. */
+  const clearError = (): void => {
+    setError(null);
+    cancelAnnouncement("scope");
+  };
   const submit = (e: React.FormEvent): void => {
     e.preventDefault();
     if (mode === "jql") {
-      setError(null);
+      clearError();
       saveQuery(jql.trim());
       saveGitHubQuery(github.trim());
       loadQuery(withGitHub({ mode, jql: jql.trim() }, github));
@@ -161,7 +166,7 @@ export function ScopeInputs({
       );
       return;
     }
-    setError(null);
+    clearError();
     apply(mode === "epic" ? { mode, siteId, key: k } : { mode, siteId, key: k, depth });
   };
 
