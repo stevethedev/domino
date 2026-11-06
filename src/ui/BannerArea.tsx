@@ -73,8 +73,8 @@ type Area = Readonly<{
   firstTimeOnTop: (id: string) => boolean;
   /** Folded away before it was heard: it's news again. */
   unsay: (id: string) => void;
-  /** Focus went into the banner. */
-  focusIn: (id: string) => void;
+  /** Focus went into the banner, onto `element`. */
+  focusIn: (id: string, element: HTMLElement) => void;
   /** Focus left the banner (if it's still the one with focus). */
   focusOut: (id: string) => void;
 }>;
@@ -94,6 +94,9 @@ const SlotContext = createContext("");
 
 type Registered = Entry & Readonly<{ slot: string; element: HTMLElement }>;
 
+/** Focus is nowhere: what the browser does when the focused element goes away. */
+const focusLost = (): boolean => document.activeElement === null || document.activeElement === document.body;
+
 /** A banner's first action, rather than a "What's new" toggle before it. */
 const firstAction = (el: HTMLElement): HTMLElement | null =>
   el.querySelector<HTMLElement>("button") ?? el.querySelector<HTMLElement>("a[href], summary");
@@ -110,6 +113,8 @@ export function BannerArea({ children }: Readonly<{ children: ReactNode }>): Rea
   const seq = useRef(0);
   const said = useRef(new Set<string>());
   const focused = useRef<string | null>(null);
+  /** What had focus in that banner. */
+  const focusedEl = useRef<HTMLElement | null>(null);
   /** The place of a banner that went away with focus in it, until focus has moved on. */
   const refocusAt = useRef<number | null>(null);
 
@@ -127,6 +132,7 @@ export function BannerArea({ children }: Readonly<{ children: ReactNode }>): Rea
       said.current.delete(id); // back again later, it's news again
       if (focused.current === id) {
         focused.current = null;
+        focusedEl.current = null;
         refocusAt.current = placesNow.current.get(id) ?? 0;
       }
       setEntries((all) => all.filter((e) => e !== entry));
@@ -145,11 +151,14 @@ export function BannerArea({ children }: Readonly<{ children: ReactNode }>): Rea
       unsay: (id): void => {
         said.current.delete(id);
       },
-      focusIn: (id): void => {
+      focusIn: (id, element): void => {
         focused.current = id;
+        focusedEl.current = element;
       },
       focusOut: (id): void => {
-        if (focused.current === id) focused.current = null;
+        if (focused.current !== id) return;
+        focused.current = null;
+        focusedEl.current = null;
       },
     }),
     [register, places, top?.id],
@@ -179,13 +188,20 @@ export function BannerArea({ children }: Readonly<{ children: ReactNode }>): Rea
     ranked.map((e) => e.id),
   );
 
-  // The banner with focus went away: on to the one now in its place.
+  // Some browsers drop focus from a banner moved into its place: put it back, before it's drawn.
+  useLayoutEffect(() => {
+    const el = focusedEl.current;
+    if (focusLost() && el?.isConnected && !el.closest("[hidden]")) el.focus({ preventScroll: true });
+  });
+
+  // The banner with focus went away: on to the one now in its place. Only if focus really went with
+  // it: a banner that's still there under a new id (an install that failed) keeps it.
   useEffect(() => {
     if (refocusAt.current === null) return;
     const shown = [...places.keys()];
     const target = ranked.find((e) => e.id === focusTargetAfter(shown, refocusAt.current ?? 0));
     refocusAt.current = null;
-    if (target) firstAction(target.element)?.focus();
+    if (target && focusLost()) firstAction(target.element)?.focus();
   }, [ranked, places]);
 
   return (
@@ -238,10 +254,10 @@ export function Banner({
     if (!ref.current) return;
     const unregister = register(id, severity, slot, ref.current);
     return (): void => {
-      cancelAnnouncement(`banner:${id}`);
+      cancelAnnouncement(source);
       unregister();
     };
-  }, [register, id, severity, slot]);
+  }, [register, id, severity, slot, source]);
 
   const saidFor = useRef<string | null>(null);
   const saidAt = useRef(0);
@@ -268,8 +284,8 @@ export function Banner({
       ref={ref}
       className={className}
       hidden={place === null}
-      onFocus={() => {
-        area.focusIn(id);
+      onFocus={(e) => {
+        area.focusIn(id, e.target);
       }}
       onBlur={(e) => {
         const el = e.currentTarget;
