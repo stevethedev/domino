@@ -41,6 +41,7 @@ import { epicLaneId, foldedEpicUids, withEpicFolds } from "./graph/layout";
 import { Canvas, lanesFor, useFocusNode, type Filters, type ViewOptions } from "./ui/Canvas";
 import { ChangesPanel } from "./ui/ChangesPanel";
 import { EmptySearchBanner, emptyScopedSearches } from "./ui/EmptySearchBanner";
+import { Banner, BannerArea } from "./ui/BannerArea";
 import { ErrorBanner } from "./ui/ErrorBanner";
 import { FilterPanel } from "./ui/FilterPanel";
 import { FinishFirst } from "./ui/InsightsBar";
@@ -625,55 +626,57 @@ function Shell(): ReactElement {
         </button>
       </header>
 
-      {domino.configError && (
-        <div className="banner error" role="alert">
-          Could not load configuration: {domino.configError}
-        </div>
-      )}
-      {domino.configFile && (
-        <ConfigProblemBanner
-          status={domino.configFile}
-          onReload={domino.reloadConfigFile}
-          onStartFresh={async () => {
-            const setAside = await domino.startFreshConfig();
-            if (setAside) setToast({ text: `Started fresh. Your old settings file is kept at ${setAside}.` });
-            // The banner is gone: on to adding a site.
-            requestAnimationFrame(() => focusFirst(".canvas-message button", 'button[aria-label="Settings"]'));
-          }}
-          onReveal={() => domino.store.revealFile()}
-          onOpenSettings={() => {
-            setSettingsOpen(true);
-          }}
-        />
-      )}
-      <UpdateBanner updates={updates} />
-      {config && (
-        <ErrorBanner
-          errors={errors}
-          // Only sites still selected: a deselected one's failure isn't news.
-          lagging={domino.background.lagging.filter((l) => domino.selected.includes(l.siteId))}
-          sites={config.sites}
-          attempted={domino.selectedSites.length}
-          onRetry={domino.reload}
-          onOpenSettings={() => {
-            setSettingsOpen(true);
-          }}
-        />
-      )}
-      {config && (
-        <EmptySearchBanner
-          // Only for what's on screen: the scope asked for, loaded. Null while loading keeps a dismissal.
-          searches={
-            load.status === "done" && loadView.mode === "current"
-              ? emptyScopedSearches(domino.scope, config.sites, load.result, domino.background.lagging)
-              : null
-          }
-          sites={config.sites}
-          onOpenSettings={() => {
-            setSettingsOpen(true);
-          }}
-        />
-      )}
+      <BannerArea>
+        {domino.configError && (
+          <Banner id={`config-error:${domino.configError}`} severity="error" className="banner error">
+            Could not load configuration: {domino.configError}
+          </Banner>
+        )}
+        {domino.configFile && (
+          <ConfigProblemBanner
+            status={domino.configFile}
+            onReload={domino.reloadConfigFile}
+            onStartFresh={async () => {
+              const setAside = await domino.startFreshConfig();
+              if (setAside) setToast({ text: `Started fresh. Your old settings file is kept at ${setAside}.` });
+              // The banner is gone: on to adding a site.
+              requestAnimationFrame(() => focusFirst(".canvas-message button", 'button[aria-label="Settings"]'));
+            }}
+            onReveal={() => domino.store.revealFile()}
+            onOpenSettings={() => {
+              setSettingsOpen(true);
+            }}
+          />
+        )}
+        <UpdateBanner updates={updates} />
+        {config && (
+          <ErrorBanner
+            errors={errors}
+            // Only sites still selected: a deselected one's failure isn't news.
+            lagging={domino.background.lagging.filter((l) => domino.selected.includes(l.siteId))}
+            sites={config.sites}
+            attempted={domino.selectedSites.length}
+            onRetry={domino.reload}
+            onOpenSettings={() => {
+              setSettingsOpen(true);
+            }}
+          />
+        )}
+        {config && (
+          <EmptySearchBanner
+            // Only for what's on screen: the scope asked for, loaded. Null while loading keeps a dismissal.
+            searches={
+              load.status === "done" && loadView.mode === "current"
+                ? emptyScopedSearches(domino.scope, config.sites, load.result, domino.background.lagging)
+                : null
+            }
+            sites={config.sites}
+            onOpenSettings={() => {
+              setSettingsOpen(true);
+            }}
+          />
+        )}
+      </BannerArea>
 
       <main className="workspace">
         <aside className="sidebar" aria-label="Insights, filters and warnings">
