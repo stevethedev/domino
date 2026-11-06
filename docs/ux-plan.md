@@ -55,7 +55,7 @@ Done in the third PR:
 
 ## 4. Messages and errors
 
-Ships in three PRs. Done in the first (the Announcer, toasts):
+Ships in four PRs. Done in the first (the Announcer, toasts):
 
 - **One Announcer** (`src/ui/Announcer.tsx`): the page renders a polite and an assertive region once (`LiveRegions`), and `announce()` writes to them. The Settings dialog renders its own pair, listening only while it's open (`regionFor`: the regions mounted last win). Messages that appear with their text say it through `useAnnounced`, instead of a `role="status"` of their own: the toast, the canvas message, the filters' "Showing N of M", the empty-search banner's headline, and saved views' import and export notes. Regions that are always mounted (the load pill, Find's count) keep theirs.
 - **Toasts:** a plain one still stays 10s, pausing on hover or focus; one with an action stays until it's dismissed, used or replaced. The one error that went in a toast (Show file failing) is said in the settings-file banner, beside its button.
@@ -65,7 +65,13 @@ Done in the second (Confirm, inline validation):
 - **One `Confirm`** (`src/ui/Confirm.tsx`): a labelled `role="group"`, described by its question, with the risky choice as a danger button and focus on the safe one; Esc picks the safe one without closing the menu or dialog around it. A banner by default, `inline` in a row or list item. It replaces the `role="alertdialog"` prompts for unsaved site changes and Disconnect, and the confirms for removing a site and deleting a saved view. Removing a site put focus on "Confirm remove"; it's on Keep now, and Keep goes back to Remove.
 - **Inline validation:** the site form's fields and the scope bar's error lose `role="alert"`. A failed submit says once what needs fixing (`problemsText`: "3 fields need fixing: Name: Required. …"), assertively, and a failed save or Load says its reason the same way. The settings-file banner's "Start fresh" confirm keeps its own buttons for now.
 
-Still to do: one banner area.
+Done in the third (one banner area):
+
+- **One `BannerArea`** (`src/ui/BannerArea.tsx`) holds the page's banners: the settings file's problem, a config that couldn't load, the app update, sites that failed or couldn't update, and empty GitHub searches. It shows the most severe (error, then warning, then info; ties go to the newest, `rankBanners`), with "+N more" under it to show the rest in place. Each banner still decides when it's there and keeps its own Dismiss or Later, so dismissing one shows the next, and focus moves on to the banner now in its place. A new banner never hides the one in use: the area expands instead. The banners are in the page in the order they're shown, so Tab and screen readers follow the screen.
+- **Each banner is said once,** the first time it's on top (assertive for errors), instead of a `role="alert"` or `role="status"` of its own. What's said is its message (`data-said`), not its buttons; a banner whose message changes (new failures, an install starting) is news again. One seen expanded isn't said when it later reaches the top. The update's download progress is there to read, not announced as it moves. The settings-file banner's later failures (Show file, Start fresh) say themselves when they appear, and its "Start fresh?" question describes the Keep button focus lands on.
+- **Not changed:** the Settings dialog's error banner and the timeline's own stay where they are, outside the page's area.
+
+Still to do: banners about a single site move into the load pill's popover.
 
 - **Where each kind of message goes.**
   - **Toast:** confirmations of something you just did, often with Undo. A plain confirmation stays at least 6s and pauses on hover or focus. A toast with an action, such as Undo, stays until it's dismissed, acted on or replaced by the next toast, so keyboard and screen-reader users can always reach it (WCAG 2.2.1). (`src/App.tsx:532-540`)
