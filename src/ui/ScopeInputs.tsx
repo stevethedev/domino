@@ -99,7 +99,7 @@ export function ScopeInputs({
   const [key, setKey] = useState(scope.mode !== "jql" ? scope.key : "");
   const [depth, setDepth] = useState(scope.mode === "seed" ? scope.depth : 2);
   const [error, setError] = useState<string | null>(null);
-  // Remounted for a new scope (from here or elsewhere): its error, shown or waiting to be said, is gone.
+  // Unmounted (as when a new scope, from here or elsewhere, remounts it): its error not yet said goes too.
   useEffect(
     () => (): void => {
       cancelAnnouncement(ANNOUNCED_AS);
