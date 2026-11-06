@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { moreText, placesOf, rankBanners, type Severity } from "../BannerArea";
+import { MORE, childOrder, expandsToKeepFocus, focusTargetAfter, moreText, placesOf, rankBanners, type Severity } from "../BannerArea";
 
 type Entry = { id: string; severity: Severity; seq: number };
 const entry = (id: string, severity: Severity, seq: number): Entry => ({ id, severity, seq });
@@ -47,5 +47,60 @@ describe("moreText", () => {
 
   it("offers to fold them away again", () => {
     expect(moreText(2, true)).toBe("Show fewer");
+  });
+});
+
+describe("focusTargetAfter", () => {
+  const shown = ["load", "empty", "update"];
+
+  it("goes to the banner that took the dismissed one's place", () => {
+    expect(focusTargetAfter(shown, 1)).toBe("empty");
+  });
+
+  it("goes to the one above when the last was dismissed", () => {
+    expect(focusTargetAfter(shown, 3)).toBe("update");
+  });
+
+  it("has nowhere to go when none are left", () => {
+    expect(focusTargetAfter([], 0)).toBeUndefined();
+  });
+});
+
+describe("expandsToKeepFocus", () => {
+  const registered = new Set(["load", "update"]);
+
+  it("expands when the focused banner is folded away by a new top one", () => {
+    expect(expandsToKeepFocus({ focused: "update", top: "load", registered, expanded: false })).toBe(true);
+  });
+
+  it("stays folded when the focused banner is still on top", () => {
+    expect(expandsToKeepFocus({ focused: "load", top: "load", registered, expanded: false })).toBe(false);
+  });
+
+  it("stays folded when focus isn't in a banner, or its banner is gone", () => {
+    expect(expandsToKeepFocus({ focused: null, top: "load", registered, expanded: false })).toBe(false);
+    expect(expandsToKeepFocus({ focused: "empty", top: "load", registered, expanded: false })).toBe(false);
+  });
+
+  it("has nothing to do when already expanded", () => {
+    expect(expandsToKeepFocus({ focused: "update", top: "load", registered, expanded: true })).toBe(false);
+  });
+});
+
+describe("childOrder", () => {
+  // Children by position key; three of them have a banner up, ranked load, update, config.
+  const keys = [".0", ".1", ".2", ".3", ".4"];
+  const slots = new Map([
+    ["config", ".1"],
+    ["update", ".2"],
+    ["load", ".3"],
+  ]);
+
+  it("puts the top banner first, then the toggle, then the rest in rank order", () => {
+    expect(childOrder(keys, slots, ["load", "update", "config"])).toEqual([".3", MORE, ".2", ".1", ".0", ".4"]);
+  });
+
+  it("has no toggle for a single banner", () => {
+    expect(childOrder(keys, new Map([["load", ".3"]]), ["load"])).toEqual([".3", ".0", ".1", ".2", ".4"]);
   });
 });

@@ -1,5 +1,7 @@
 import {
+  Children,
   createContext,
+  isValidElement,
   useCallback,
   useContext,
   useEffect,
@@ -30,13 +32,51 @@ export const placesOf = (ranked: readonly Entry[], expanded: boolean): ReadonlyM
 /** The toggle under the top banner. */
 export const moreText = (hidden: number, expanded: boolean): string => (expanded ? "Show fewer" : `+${hidden} more`);
 
+/** Where focus goes once the banner it was in, shown at `place`, is gone: the one now there, or the one above. */
+export const focusTargetAfter = (shown: readonly string[], place: number): string | undefined => shown[place] ?? shown.at(-1);
+
+/** Folded, a newer or more severe banner would hide the one with focus: show them all instead. */
+export const expandsToKeepFocus = ({
+  focused,
+  top,
+  registered,
+  expanded,
+}: Readonly<{ focused: string | null; top: string | undefined; registered: ReadonlySet<string>; expanded: boolean }>): boolean =>
+  !expanded && focused !== null && focused !== top && registered.has(focused);
+
+/** The toggle's place among the children. Children's keys (from `Children.toArray`) start with ".". */
+export const MORE = "more";
+
+/**
+ * The area's children in the order they're read and tabbed through: the top banner, the toggle, the
+ * other banners by rank, then children with no banner up (they render nothing). `slots` maps each
+ * banner's id to its child's key.
+ */
+export function childOrder(keys: readonly string[], slots: ReadonlyMap<string, string>, ranked: readonly string[]): string[] {
+  const banners = ranked.flatMap((id) => slots.get(id) ?? []);
+  const rest = keys.filter((k) => !banners.includes(k));
+  return banners.length > 1 ? [banners[0], MORE, ...banners.slice(1), ...rest] : [...banners, ...rest];
+}
+
+/**
+ * How long after it's asked for an announcement may still be waiting to be read (the Announcer
+ * reads after about 50 ms). A banner folded away sooner wasn't heard, so it's said when it's back on top.
+ */
+const UNHEARD_MS = 100;
+
 type Area = Readonly<{
-  /** Adds a banner; returns how to take it away, saying whether focus was in it. */
-  register: (id: string, severity: Severity, element: HTMLElement) => (hadFocus: boolean) => void;
+  /** Adds a banner from the child at `slot`; returns how to take it away. */
+  register: (id: string, severity: Severity, slot: string, element: HTMLElement) => () => void;
   /** Its place among the shown banners, or null while it's folded away. */
   placeOf: (id: string) => number | null;
   /** True the first time it's asked for `id` while `id` is the top banner: say it then. */
   firstTimeOnTop: (id: string) => boolean;
+  /** Folded away before it was heard: it's news again. */
+  unsay: (id: string) => void;
+  /** Focus went into the banner. */
+  focusIn: (id: string) => void;
+  /** Focus left the banner (if it's still the one with focus). */
+  focusOut: (id: string) => void;
 }>;
 
 /** Outside an area (a test, a dialog), a banner is simply shown, and said when it appears. */
@@ -44,32 +84,51 @@ const standalone: Area = {
   register: () => () => undefined,
   placeOf: () => 0,
   firstTimeOnTop: () => true,
+  unsay: () => undefined,
+  focusIn: () => undefined,
+  focusOut: () => undefined,
 };
 const AreaContext = createContext<Area>(standalone);
+/** Which of the area's children a banner comes from. */
+const SlotContext = createContext("");
+
+type Registered = Entry & Readonly<{ slot: string; element: HTMLElement }>;
+
+/** A banner's first action, rather than a "What's new" toggle before it. */
+const firstAction = (el: HTMLElement): HTMLElement | null =>
+  el.querySelector<HTMLElement>("button") ?? el.querySelector<HTMLElement>("a[href], summary");
 
 /**
  * The page's banners, one at a time: the most severe (ties: the newest), with "+N more" to show the
  * rest in place. Each banner still decides when it's there (and when it's dismissed); dismissing one
- * shows the next, and focus goes on to it.
+ * shows the next, and focus goes on to it. The children are rendered in the order they're shown, so
+ * Tab and screen readers follow the screen; each keeps its key, so moving it keeps its state.
  */
 export function BannerArea({ children }: Readonly<{ children: ReactNode }>): ReactElement {
-  const [entries, setEntries] = useState<readonly (Entry & { element: HTMLElement })[]>([]);
+  const [entries, setEntries] = useState<readonly Registered[]>([]);
   const [expanded, setExpanded] = useState(false);
   const seq = useRef(0);
   const said = useRef(new Set<string>());
-  const focusNext = useRef(false);
+  const focused = useRef<string | null>(null);
+  /** The place of a banner that went away with focus in it, until focus has moved on. */
+  const refocusAt = useRef<number | null>(null);
 
   const ranked = useMemo(() => rankBanners(entries), [entries]);
   const places = useMemo(() => placesOf(ranked, expanded), [ranked, expanded]);
+  const placesNow = useRef(places);
+  placesNow.current = places;
   const top = ranked.at(0);
 
-  const register = useCallback<Area["register"]>((id, severity, element) => {
+  const register = useCallback<Area["register"]>((id, severity, slot, element) => {
     seq.current += 1;
-    const entry = { id, severity, seq: seq.current, element };
+    const entry = { id, severity, seq: seq.current, slot, element };
     setEntries((all) => [...all.filter((e) => e.id !== id), entry]);
-    return (hadFocus): void => {
+    return (): void => {
       said.current.delete(id); // back again later, it's news again
-      if (hadFocus) focusNext.current = true;
+      if (focused.current === id) {
+        focused.current = null;
+        refocusAt.current = placesNow.current.get(id) ?? 0;
+      }
       setEntries((all) => all.filter((e) => e !== entry));
     };
   }, []);
@@ -83,6 +142,15 @@ export function BannerArea({ children }: Readonly<{ children: ReactNode }>): Rea
         said.current.add(id);
         return true;
       },
+      unsay: (id): void => {
+        said.current.delete(id);
+      },
+      focusIn: (id): void => {
+        focused.current = id;
+      },
+      focusOut: (id): void => {
+        if (focused.current === id) focused.current = null;
+      },
     }),
     [register, places, top?.id],
   );
@@ -94,31 +162,53 @@ export function BannerArea({ children }: Readonly<{ children: ReactNode }>): Rea
 
   // Fewer than two: nothing left to fold.
   if (expanded && ranked.length < 2) setExpanded(false);
+  // Folded, a new top banner would hide the one being used: show them all, before it's ever drawn hidden
+  // (hiding it would drop focus).
+  const registered = new Set(entries.map((e) => e.id));
+  if (expandsToKeepFocus({ focused: focused.current, top: top?.id, registered, expanded })) setExpanded(true);
 
-  // The banner with focus went away: on to the one now on top.
+  const byKey = new Map(
+    Children.toArray(children)
+      .filter(isValidElement)
+      .map((child) => [String(child.key), child]),
+  );
+  const slots = new Map(entries.map((e) => [e.id, e.slot]));
+  const order = childOrder(
+    [...byKey.keys()],
+    slots,
+    ranked.map((e) => e.id),
+  );
+
+  // The banner with focus went away: on to the one now in its place.
   useEffect(() => {
-    if (!focusNext.current) return;
-    focusNext.current = false;
-    // Its first action, rather than a "What's new" toggle before it.
-    const el = top?.element;
-    (el?.querySelector<HTMLElement>("button") ?? el?.querySelector<HTMLElement>("a[href], summary"))?.focus();
-  }, [top]);
+    if (refocusAt.current === null) return;
+    const shown = [...places.keys()];
+    const target = ranked.find((e) => e.id === focusTargetAfter(shown, refocusAt.current ?? 0));
+    refocusAt.current = null;
+    if (target) firstAction(target.element)?.focus();
+  }, [ranked, places]);
 
   return (
     <AreaContext.Provider value={area}>
       <div className="banner-area">
-        {children}
-        {ranked.length > 1 && (
-          <button
-            type="button"
-            className="link-btn banner-more"
-            aria-expanded={expanded}
-            onClick={() => {
-              setExpanded(!expanded);
-            }}
-          >
-            {moreText(ranked.length - 1, expanded)}
-          </button>
+        {order.map((key) =>
+          key === MORE ? (
+            <button
+              key={MORE}
+              type="button"
+              className="link-btn banner-more"
+              aria-expanded={expanded}
+              onClick={() => {
+                setExpanded(!expanded);
+              }}
+            >
+              {moreText(ranked.length - 1, expanded)}
+            </button>
+          ) : (
+            <SlotContext.Provider key={key} value={key}>
+              {byKey.get(key)}
+            </SlotContext.Provider>
+          ),
         )}
       </div>
     </AreaContext.Provider>
@@ -138,40 +228,56 @@ export function Banner({
   children,
 }: Readonly<{ id: string; severity: Severity; className: string; children: ReactNode }>): ReactElement {
   const area = useContext(AreaContext);
+  const slot = useContext(SlotContext);
   const { register } = area; // stable, unlike the area: registering again would make this the newest
   const ref = useRef<HTMLDivElement>(null);
-  const hasFocus = useRef(false);
   const place = area.placeOf(id);
+  const source = `banner:${id}`;
 
   useLayoutEffect(() => {
     if (!ref.current) return;
-    const unregister = register(id, severity, ref.current);
+    const unregister = register(id, severity, slot, ref.current);
     return (): void => {
       cancelAnnouncement(`banner:${id}`);
-      unregister(hasFocus.current);
+      unregister();
     };
-  }, [register, id, severity]);
+  }, [register, id, severity, slot]);
 
   const saidFor = useRef<string | null>(null);
+  const saidAt = useRef(0);
   useEffect(() => {
     if (place !== 0 || !ref.current || saidFor.current === id || !area.firstTimeOnTop(id)) return;
     saidFor.current = id;
+    saidAt.current = performance.now();
     const part = ref.current.querySelector("[data-said]") ?? ref.current;
-    announce(spokenText(part).trim(), { assertive: severity === "error", source: `banner:${id}` });
+    announce(spokenText(part).trim(), { assertive: severity === "error", source });
   });
+
+  // Folded away: what it was about to say isn't read now. If it likely wasn't heard, it's said later.
+  useEffect(() => {
+    if (place !== null || saidFor.current !== id) return;
+    cancelAnnouncement(source);
+    if (performance.now() - saidAt.current < UNHEARD_MS) {
+      saidFor.current = null;
+      area.unsay(id);
+    }
+  }, [place, id, source, area]);
 
   return (
     <div
       ref={ref}
       className={className}
       hidden={place === null}
-      // The toggle sits right under the top banner (order 1); the rest follow it.
-      style={place ? { order: place + 1 } : undefined}
       onFocus={() => {
-        hasFocus.current = true;
+        area.focusIn(id);
       }}
       onBlur={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget)) hasFocus.current = false;
+        const el = e.currentTarget;
+        if (el.contains(e.relatedTarget)) return;
+        // Moving a banner into its place blurs it for a moment: gone only if focus is still elsewhere.
+        requestAnimationFrame(() => {
+          if (!el.contains(document.activeElement)) area.focusOut(id);
+        });
       }}
     >
       {children}

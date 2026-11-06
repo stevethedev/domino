@@ -320,17 +320,16 @@
   width: 56px;
 }
 
-/* The page's banners: the top one, then "+N more", then the rest when expanded (see BannerArea). */
+/* The page's banners: the top one, then "+N more", then the rest when expanded, in DOM order (see BannerArea). */
 .banner-area {
   display: flex;
   flex-direction: column;
 }
-/* A folded banner: its own display (flex, for one with actions) would otherwise beat `hidden`. */
-.banner-area > [hidden] {
+/* A folded banner: specific enough to beat `.banner.actionable` and `.banner.update`, which set display. */
+.banner-area > .banner[hidden] {
   display: none;
 }
 .banner-more {
-  order: 1;
   align-self: flex-start;
   margin: var(--space-1) var(--space-3_5);
 }
