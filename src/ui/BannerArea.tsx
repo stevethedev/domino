@@ -188,11 +188,13 @@ export function BannerArea({ children }: Readonly<{ children: ReactNode }>): Rea
     ranked.map((e) => e.id),
   );
 
-  // Some browsers drop focus from a banner moved into its place: put it back, before it's drawn.
+  // Some browsers drop focus from a banner moved into its place: put it back, before it's drawn. Only
+  // when the order changed, so a click elsewhere isn't undone.
+  const orderKey = order.join(" ");
   useLayoutEffect(() => {
     const el = focusedEl.current;
     if (focusLost() && el?.isConnected && !el.closest("[hidden]")) el.focus({ preventScroll: true });
-  });
+  }, [orderKey]);
 
   // The banner with focus went away: on to the one now in its place. Only if focus really went with
   // it: a banner that's still there under a new id (an install that failed) keeps it.
