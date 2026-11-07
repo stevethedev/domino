@@ -63,7 +63,8 @@ export function ErrorBanner({
         <strong>{title}</strong>{" "}
         <ul>
           {errors.map((e) => (
-            <li key={e.siteId}>{siteErrorText(label(e.siteId), e.message)}</li>
+            // The space keeps it apart from the next site's when the list is read out as one.
+            <li key={e.siteId}>{siteErrorText(label(e.siteId), e.message)} </li>
           ))}
           {lagging.map((l) => (
             <li key={l.siteId}>

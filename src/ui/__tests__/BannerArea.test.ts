@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { MORE, childOrder, expandsToKeepFocus, focusTargetAfter, moreText, placesOf, rankBanners, type Severity } from "../BannerArea";
+import {
+  MORE,
+  blurLeaves,
+  childOrder,
+  expandsToKeepFocus,
+  focusTargetAfter,
+  moreText,
+  placesOf,
+  rankBanners,
+  type Severity,
+} from "../BannerArea";
 
 type Entry = { id: string; severity: Severity; seq: number };
 const entry = (id: string, severity: Severity, seq: number): Entry => ({ id, severity, seq });
@@ -102,5 +112,19 @@ describe("childOrder", () => {
 
   it("has no toggle for a single banner", () => {
     expect(childOrder(keys, new Map([["load", ".3"]]), ["load"])).toEqual([".3", ".0", ".1", ".2", ".4"]);
+  });
+});
+
+describe("blurLeaves", () => {
+  it("stays when focus moved within the banner", () => {
+    expect(blurLeaves(true, true)).toBe("stays");
+  });
+
+  it("leaves at once when focus went somewhere else, like the toggle", () => {
+    expect(blurLeaves(false, true)).toBe("leaves");
+  });
+
+  it("can't tell yet when focus went nowhere, as when the banner is moved", () => {
+    expect(blurLeaves(false, false)).toBe("unsure");
   });
 });

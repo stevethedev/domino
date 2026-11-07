@@ -44,6 +44,13 @@ export const expandsToKeepFocus = ({
 }: Readonly<{ focused: string | null; top: string | undefined; registered: ReadonlySet<string>; expanded: boolean }>): boolean =>
   !expanded && focused !== null && focused !== top && registered.has(focused);
 
+/**
+ * What a blur from a banner means. Into itself, it stays. To somewhere else (the toggle, say), it's
+ * left. To nowhere, it can't tell yet: that's also what moving the banner in the DOM looks like.
+ */
+export const blurLeaves = (intoItself: boolean, toSomewhere: boolean): "stays" | "leaves" | "unsure" =>
+  intoItself ? "stays" : toSomewhere ? "leaves" : "unsure";
+
 /** The toggle's place among the children. Children's keys (from `Children.toArray`) start with ".". */
 export const MORE = "more";
 
@@ -251,17 +258,17 @@ export function Banner({
   const ref = useRef<HTMLDivElement>(null);
   const place = area.placeOf(id);
   const source = `banner:${id}`;
+  const saidFor = useRef<string | null>(null);
 
   useLayoutEffect(() => {
     if (!ref.current) return;
     const unregister = register(id, severity, slot, ref.current);
     return (): void => {
       cancelAnnouncement(source);
+      saidFor.current = null; // like the area's record: back under this id later, it's news again
       unregister();
     };
   }, [register, id, severity, slot, source]);
-
-  const saidFor = useRef<string | null>(null);
   const saidAt = useRef(0);
   useEffect(() => {
     if (place !== 0 || !ref.current || saidFor.current === id || !area.firstTimeOnTop(id)) return;
@@ -291,11 +298,14 @@ export function Banner({
       }}
       onBlur={(e) => {
         const el = e.currentTarget;
-        if (el.contains(e.relatedTarget)) return;
-        // Moving a banner into its place blurs it for a moment: gone only if focus is still elsewhere.
-        requestAnimationFrame(() => {
-          if (!el.contains(document.activeElement)) area.focusOut(id);
-        });
+        const leaves = blurLeaves(el.contains(e.relatedTarget), e.relatedTarget !== null);
+        // At once, so a click on "Show fewer" that follows isn't undone by a stale record.
+        if (leaves === "leaves") area.focusOut(id);
+        // A move blurs it for a moment: gone only if focus is still elsewhere a frame later.
+        else if (leaves === "unsure")
+          requestAnimationFrame(() => {
+            if (!el.contains(document.activeElement)) area.focusOut(id);
+          });
       }}
     >
       {children}
