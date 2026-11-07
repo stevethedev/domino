@@ -223,7 +223,9 @@ export function BannerArea({ children }: Readonly<{ children: ReactNode }>): Rea
               type="button"
               className="link-btn banner-more"
               aria-expanded={expanded}
-              onClick={() => {
+              onClick={(e) => {
+                // WebKit doesn't focus a clicked button: focus left in a banner would keep it shown.
+                e.currentTarget.focus();
                 setExpanded(!expanded);
               }}
             >
