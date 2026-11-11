@@ -300,11 +300,11 @@ export function Banner({
       }}
       onBlur={(e) => {
         const el = e.currentTarget;
-        const leaves = blurLeaves(el.contains(e.relatedTarget), e.relatedTarget !== null);
+        const blur = blurLeaves(el.contains(e.relatedTarget), e.relatedTarget !== null);
         // At once, so a click on "Show fewer" that follows isn't undone by a stale record.
-        if (leaves === "leaves") area.focusOut(id);
+        if (blur === "leaves") area.focusOut(id);
         // A move blurs it for a moment: gone only if focus is still elsewhere a frame later.
-        else if (leaves === "unsure")
+        else if (blur === "unsure")
           requestAnimationFrame(() => {
             if (!el.contains(document.activeElement)) area.focusOut(id);
           });
