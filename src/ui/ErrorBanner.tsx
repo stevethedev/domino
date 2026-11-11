@@ -3,6 +3,7 @@ import type { SiteConfig } from "../config/types";
 import type { SiteError } from "../data/MultiSiteLoader";
 import { ageText, type LaggingSite } from "../state/refresh";
 import { useNow } from "./Refresh";
+import { Banner } from "./BannerArea";
 
 /** A site's error, naming the site once: Jira errors already start with it ("Acme returned 401 …"). */
 export function siteErrorText(label: string, message: string): string {
@@ -57,17 +58,18 @@ export function ErrorBanner({
   const label = (id: string): string => sites.find((s) => s.id === id)?.label ?? id;
   const title = errorBannerTitle(errors.length, lagging.length, attempted);
   return (
-    <div className="banner error actionable" role="alert">
-      <div className="banner-text">
-        <strong>{title}</strong>
+    <Banner id={`load-errors:${key}`} severity="error" className="banner error actionable">
+      <div className="banner-text" data-said>
+        <strong>{title}</strong>{" "}
         <ul>
           {errors.map((e) => (
-            <li key={e.siteId}>{siteErrorText(label(e.siteId), e.message)}</li>
+            // The space keeps it apart from the next site's when the list is read out as one.
+            <li key={e.siteId}>{siteErrorText(label(e.siteId), e.message)} </li>
           ))}
           {lagging.map((l) => (
             <li key={l.siteId}>
               {siteErrorText(label(l.siteId), l.message)}{" "}
-              {/* The age ticks; hidden from screen readers so this alert isn't re-announced every minute. */}
+              {/* The age ticks; hidden from screen readers, who hear this once, not every minute. */}
               <span className="muted" aria-hidden="true">
                 ({shownFrom(l.takenAt, now)})
               </span>
@@ -91,6 +93,6 @@ export function ErrorBanner({
           Dismiss
         </button>
       </div>
-    </div>
+    </Banner>
   );
 }
