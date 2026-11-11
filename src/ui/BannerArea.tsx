@@ -104,9 +104,9 @@ type Registered = Entry & Readonly<{ slot: string; element: HTMLElement }>;
 /** Focus is nowhere: what the browser does when the focused element goes away. */
 const focusLost = (): boolean => document.activeElement === null || document.activeElement === document.body;
 
-/** A banner's first action, rather than a "What's new" toggle before it. */
+/** A banner's first action it can take now (not a disabled "Reloading…"), rather than a "What's new" toggle before it. */
 const firstAction = (el: HTMLElement): HTMLElement | null =>
-  el.querySelector<HTMLElement>("button") ?? el.querySelector<HTMLElement>("a[href], summary");
+  el.querySelector<HTMLElement>("button:not(:disabled)") ?? el.querySelector<HTMLElement>("a[href], summary");
 
 /**
  * The page's banners, one at a time: the most severe (ties: the newest), with "+N more" to show the
