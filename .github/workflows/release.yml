@@ -19,6 +19,12 @@ on:
 permissions:
   contents: write
 
+# Two runs for one tag (a tag push and a dispatch, say) would each find no draft and make their own:
+# the second waits for the first, and reuses its draft.
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
   # rust.yml/typescript.yml only trigger on pushes to main/PRs, not tag
   # pushes, so a release build would otherwise skip verification entirely
@@ -108,6 +114,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # tauri-action writes these into latest.json, where the app shows them as "What's new"; with
+      # releaseId it doesn't read them from the release.
+      - name: Read release notes from CHANGELOG.md
+        id: notes
+        shell: bash
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          notes="$(node scripts/release-notes.mjs "$TAG")"
+          delimiter="NOTES_$(openssl rand -hex 16)" # no changelog line can end the output early
+          {
+            echo "body<<$delimiter"
+            echo "$notes"
+            echo "$delimiter"
+          } >> "$GITHUB_OUTPUT"
+
       # Signed updater artifacts and latest.json are built here only (tauri.release.conf.json), so
       # local `tauri build` works without the signing key, and only once the signing secret exists
       # (until then releases build without in-app update files). The app checks the latest
@@ -124,6 +146,7 @@ jobs:
           # With releaseId these don't find the release; they set latest.json's download links.
           tagName: ${{ inputs.tag || github.ref_name }}
           releaseDraft: true
+          releaseBody: ${{ steps.notes.outputs.body }}
           uploadUpdaterJson: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
           args: ${{ matrix.args }} ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' && '--config src-tauri/tauri.release.conf.json' || '' }}
 

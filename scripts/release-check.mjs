@@ -20,6 +20,8 @@ export function releaseProblems(release, manifest, signatures, platforms = PLATF
 
   const version = release.tag_name.replace(/^v/, "");
   if (manifest.version !== version) problems.push(`latest.json is for ${manifest.version}, not ${version}`);
+  // The app shows these as the update's "What's new".
+  if (!manifest.notes?.trim()) problems.push("latest.json has no release notes");
 
   // latest.json links a file by its API URL or its browser download link, depending on tagName.
   const byUrl = new Map(

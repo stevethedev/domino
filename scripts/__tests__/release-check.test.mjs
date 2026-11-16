@@ -12,6 +12,7 @@ const release = (overrides = {}) => ({
 const entry = (file) => ({ url: asset(file).url, signature: `sig of ${file}` });
 const manifest = (overrides = {}) => ({
   version: "0.8.0",
+  notes: "### Patch Changes\n\n- Fixed thing.",
   platforms: { "darwin-universal": entry("app.tar.gz"), "linux-x86_64": entry("app.AppImage"), "windows-x86_64": entry("setup.msi") },
   ...overrides,
 });
@@ -38,6 +39,11 @@ describe("releaseProblems", () => {
 
   it("flags a missing latest.json", () => {
     expect(releaseProblems(release(), null, signatures, platforms)).toEqual(["the release has no latest.json"]);
+  });
+
+  it("flags a latest.json without release notes, which the app shows as what's new", () => {
+    expect(releaseProblems(release(), manifest({ notes: "" }), signatures, platforms)).toEqual(["latest.json has no release notes"]);
+    expect(releaseProblems(release(), manifest({ notes: undefined }), signatures, platforms)).toEqual(["latest.json has no release notes"]);
   });
 
   it("flags a latest.json for another version", () => {
