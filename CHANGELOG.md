@@ -1,5 +1,25 @@
 # domino
 
+## 0.8.0
+
+### Minor Changes
+
+- [#44](https://github.com/stevethedev/domino/pull/44) [`2591e6e`](https://github.com/stevethedev/domino/commit/2591e6e296e22f6ec4cff83c5897460a99cdf00c) Thanks [@stevethedev](https://github.com/stevethedev)! - The timeline is one Tab stop, like the graph: Tab reaches it once and comes back to where you were. ↑ and ↓ move through its tickets and lane headers in order, Home and End go to the ends, and Page Up and Page Down jump a screen. On a lane header, ← folds the lane and → unfolds it; on a ticket, ← and → still follow its blocking links. Both Legends now list these keys.
+
+### Patch Changes
+
+- [#46](https://github.com/stevethedev/domino/pull/46) [`8a64818`](https://github.com/stevethedev/domino/commit/8a64818f183cd767625156c990f0856bc7ae2b11) Thanks [@stevethedev](https://github.com/stevethedev)! - Screen readers now hear messages reliably as they appear: notices, filter counts, and the canvas's own messages, including while Settings is open. A notice with Undo stays until you dismiss it, so there's always time to reach it, and a failure to show the settings file is reported in its banner, not in a passing notice.
+
+- [#51](https://github.com/stevethedev/domino/pull/51) [`f8f90f5`](https://github.com/stevethedev/domino/commit/f8f90f54f5def1c769408ba4e4121801f629672d) Thanks [@stevethedev](https://github.com/stevethedev)! - Banners no longer pile up at the top of the window: the most urgent one shows, with "+N more" to see the rest, and dismissing one brings up the next. Screen readers hear each banner once, when it shows, instead of again whenever it changes.
+
+- [#46](https://github.com/stevethedev/domino/pull/46) [`13e6855`](https://github.com/stevethedev/domino/commit/13e68553f1adfdb48b4c00e9acae63e304de8246) Thanks [@stevethedev](https://github.com/stevethedev)! - Every "are you sure?" now works the same way: it asks in place, puts focus on the safe choice (removing a site no longer lands on Remove), and Esc backs out without closing anything else. A settings form with mistakes says once what needs fixing, field by field, instead of announcing each field separately.
+
+- [#46](https://github.com/stevethedev/domino/pull/46) [`f0289c1`](https://github.com/stevethedev/domino/commit/f0289c1616a0555ed9451f3dcf6c1b441a56f19b) Thanks [@stevethedev](https://github.com/stevethedev)! - Focus comes back where you were. Closing the details panel returns to the issue it was showing, or, if that's hidden now, to what opened the panel or the view's Tab stop. Finding an issue that's filtered out or inside a folded epic focuses it as soon as it's drawn, instead of after a fixed wait. "Keep editing" in Settings and "Keep" on a saved view go back to the button you pressed.
+
+- [#46](https://github.com/stevethedev/domino/pull/46) [`36c0242`](https://github.com/stevethedev/domino/commit/36c0242173775d530a65c889fe233f75622fc3c8) Thanks [@stevethedev](https://github.com/stevethedev)! - Menus close when you Tab out of them, and the sidebar's filter menus open in place instead of being cut off by the sidebar. In Find, the first Esc closes the list and keeps what you typed, and the second takes you back to where you were. Screen readers hear how many tickets match as you type.
+
+- [#53](https://github.com/stevethedev/domino/pull/53) [`24f9239`](https://github.com/stevethedev/domino/commit/24f92392bbfb052c1c243db7b424baaa2dae2929) Thanks [@stevethedev](https://github.com/stevethedev)! - Connections to Jira and GitHub no longer trust certificates from the distrusted emSign intermediates (RUSTSEC-2026-0381, RUSTSEC-2026-0382, RUSTSEC-2026-0383). On Windows, in-app updates unpack with a fixed version of the zip library. The old one could be tricked by a crafted update archive into overwriting files, running out of memory, or skipping an integrity check (GHSA-m665-v7pm-7grj, GHSA-q7v9-x93c-xqv3, GHSA-8hxf-qr8p-62x4).
+
 ## 0.7.0
 
 ### Minor Changes
