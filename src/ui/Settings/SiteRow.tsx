@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type ReactElement } from "react";
 import type { HealthStatus, SiteAuth, SiteConfig } from "../../config/types";
 import { prefersReducedMotion } from "../../lib/motion";
+import { Confirm } from "../Confirm";
+import { useFocusReturn } from "../useFocusReturn";
 
 const AUTH_LABELS: Readonly<Record<SiteAuth["type"], string>> = {
   apiToken: "API token",
@@ -26,14 +28,12 @@ export function SiteRow({
   onRemove: () => void;
 }): ReactElement {
   const [confirming, setConfirming] = useState(false);
-  const confirmRef = useRef<HTMLButtonElement>(null);
+  const removeRef = useRef<HTMLButtonElement>(null);
+  const { restore } = useFocusReturn();
   const rowRef = useRef<HTMLTableRowElement>(null);
   useEffect(() => {
     if (highlight) rowRef.current?.scrollIntoView({ block: "nearest", behavior: prefersReducedMotion() ? "auto" : "smooth" });
   }, [highlight]);
-  useEffect(() => {
-    if (confirming) confirmRef.current?.focus();
-  }, [confirming]);
 
   return (
     <tr ref={rowRef} className={highlight ? "row-new" : undefined} data-site-id={site.id}>
@@ -71,21 +71,24 @@ export function SiteRow({
           Edit
         </button>
         {confirming ? (
-          <>
-            <button ref={confirmRef} type="button" className="danger" onClick={onRemove} aria-label={`Confirm removing ${site.label}`}>
-              Confirm remove
-            </button>
-            <button
-              type="button"
-              onClick={() => {
+          <Confirm
+            inline
+            label={`Remove ${site.label}`}
+            confirm={{ label: "Remove", run: onRemove }}
+            cancel={{
+              label: "Keep",
+              run: () => {
                 setConfirming(false);
-              }}
-            >
-              Keep
-            </button>
-          </>
+                // Back to Remove, drawn again in place of the question.
+                restore(() => [removeRef.current]);
+              },
+            }}
+          >
+            Remove {site.label}?
+          </Confirm>
         ) : (
           <button
+            ref={removeRef}
             type="button"
             onClick={() => {
               setConfirming(true);

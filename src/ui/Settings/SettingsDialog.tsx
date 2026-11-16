@@ -11,6 +11,9 @@ import { CachedTicketsSection } from "./CachedTicketsSection";
 import { blankSite, SiteForm, type SiteFormResult } from "./SiteForm";
 import { SiteRow } from "./SiteRow";
 import { Icon } from "../Icon";
+import { useFocusReturn } from "../useFocusReturn";
+import { LiveRegions } from "../Announcer";
+import { Confirm } from "../Confirm";
 
 type Editing = { kind: "new" } | { kind: "edit"; id: string } | null;
 
@@ -45,7 +48,7 @@ export function SettingsDialog({
   const [formDirty, setFormDirty] = useState(false);
   /** What to do once the user agrees to discard those edits (closing the form or the dialog). */
   const [pendingDiscard, setPendingDiscard] = useState<(() => void) | null>(null);
-  const returnFocusTo = useRef<HTMLElement | null>(null);
+  const discardReturn = useFocusReturn();
   /** Bumped on every close: the sections below remount, so their errors and prompts don't outlive a visit. */
   const [visit, setVisit] = useState(0);
   const config = domino.config;
@@ -55,7 +58,7 @@ export function SettingsDialog({
   const guard = (then: () => void): void => {
     if (formDirty) {
       // Whatever asked (a field, ×, an Edit button) gets focus back if the edits are kept.
-      returnFocusTo.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      discardReturn.remember();
       setPendingDiscard(() => then);
     } else then();
   };
@@ -163,6 +166,8 @@ export function SettingsDialog({
         onClose();
       }}
     >
+      {/* The rest of the page is inert while this is open: announcements are made in here. */}
+      <LiveRegions listening={open} />
       <header>
         <h2 id="settings-title">Settings</h2>
         <button type="button" className="icon-btn" onClick={closeDialog} aria-label="Close settings">
@@ -170,36 +175,27 @@ export function SettingsDialog({
         </button>
       </header>
       {pendingDiscard && (
-        <div className="banner warn actionable" role="alertdialog" aria-label="Unsaved site changes">
-          <div className="banner-text">Discard your changes to this site?</div>
-          <div className="banner-actions">
-            <button
-              type="button"
-              className="danger"
-              onClick={() => {
-                const then = pendingDiscard;
-                setPendingDiscard(null);
-                setEditing(null);
-                then();
-              }}
-            >
-              Discard
-            </button>
-            <button
-              type="button"
-              // The safe choice gets focus, so Enter keeps the edits.
-              autoFocus
-              onClick={() => {
-                setPendingDiscard(null);
-                requestAnimationFrame(() => {
-                  returnFocusTo.current?.focus();
-                });
-              }}
-            >
-              Keep editing
-            </button>
-          </div>
-        </div>
+        <Confirm
+          label="Unsaved site changes"
+          confirm={{
+            label: "Discard",
+            run: () => {
+              const then = pendingDiscard;
+              setPendingDiscard(null);
+              setEditing(null);
+              then();
+            },
+          }}
+          cancel={{
+            label: "Keep editing",
+            run: () => {
+              setPendingDiscard(null);
+              discardReturn.restore();
+            },
+          }}
+        >
+          Discard your changes to this site?
+        </Confirm>
       )}
       {error && (
         <p className="banner error" role="alert">

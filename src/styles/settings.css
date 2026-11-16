@@ -39,6 +39,7 @@ dialog.settings header {
   display: flex;
   gap: var(--space-1_5);
   justify-content: flex-end;
+  align-items: center;
   white-space: nowrap;
 }
 .health {

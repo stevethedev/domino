@@ -6,3 +6,13 @@
 export function fitKeyOf(scopeKey: string | null, groupBy: string): string {
   return JSON.stringify([scopeKey, groupBy]);
 }
+
+/** What decides whether a finished layout is fitted (see `fitsLayout`). */
+export type FinishedLayout = Readonly<{ nothingDrawn: boolean; keyChanged: boolean; wasEmpty: boolean; fitWaiting: boolean }>;
+
+/**
+ * Whether a finished layout is fitted: when it draws something, and the scope or grouping changed
+ * (see `fitKeyOf`), the last layout drew nothing (filters hid every card), or the last layout's
+ * fit is still waiting for its frame (this one is fitted in its place).
+ */
+export const fitsLayout = (l: FinishedLayout): boolean => !l.nothingDrawn && (l.keyChanged || l.wasEmpty || l.fitWaiting);

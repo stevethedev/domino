@@ -8,8 +8,12 @@ import { saveGitHubQuery, saveQuery } from "../state/useDomino";
 import { isOneOf } from "../lib/guards";
 import { NumberField } from "./NumberField";
 import { useDetailsMenu } from "./useDetailsMenu";
+import { announce, cancelAnnouncement } from "./Announcer";
 
 type Mode = Scope["mode"];
+
+/** What a failed Load says, so a later one replaces or drops it. */
+const ANNOUNCED_AS = "scope";
 
 /** A query scope, with the GitHub search when there is one (so scopes without it look as they always did). */
 const withGitHub = (scope: { mode: "jql"; jql: string }, github: string): Scope =>
@@ -95,6 +99,13 @@ export function ScopeInputs({
   const [key, setKey] = useState(scope.mode !== "jql" ? scope.key : "");
   const [depth, setDepth] = useState(scope.mode === "seed" ? scope.depth : 2);
   const [error, setError] = useState<string | null>(null);
+  // Unmounted (as when a new scope, from here or elsewhere, remounts it): its error not yet said goes too.
+  useEffect(
+    () => (): void => {
+      cancelAnnouncement(ANNOUNCED_AS);
+    },
+    [],
+  );
   const editor = useDetailsMenu();
   const runsId = useId();
   const presetsId = useId();
@@ -133,29 +144,39 @@ export function ScopeInputs({
     apply(q);
   };
 
+  /** Shown beside the field, and said once per Load that fails (not each time it renders). */
+  const fail = (message: string): void => {
+    setError(message);
+    announce(message, { assertive: true, source: ANNOUNCED_AS });
+  };
+  /** A Load that goes ahead: its earlier error, shown or still waiting to be said, is gone. */
+  const clearError = (): void => {
+    setError(null);
+    cancelAnnouncement(ANNOUNCED_AS);
+  };
   const submit = (e: React.FormEvent): void => {
     e.preventDefault();
     if (mode === "jql") {
-      setError(null);
+      clearError();
       saveQuery(jql.trim());
       saveGitHubQuery(github.trim());
       loadQuery(withGitHub({ mode, jql: jql.trim() }, github));
       return;
     }
     if (!keySite) {
-      setError("Select a site first");
+      fail("Select a site first");
       return;
     }
     const k = normalizeKeyInput(keySite, key);
     if (!isTicketKey(keySite, k)) {
-      setError(
+      fail(
         siteKindOf(keySite) === "github"
           ? "Enter a key like acme/web#12, or paste the issue's URL from this site"
           : "Enter a ticket key like CORE-1",
       );
       return;
     }
-    setError(null);
+    clearError();
     apply(mode === "epic" ? { mode, siteId, key: k } : { mode, siteId, key: k, depth });
   };
 
@@ -342,7 +363,7 @@ export function ScopeInputs({
         Load
       </button>
       {error && (
-        <span id="scope-error" role="alert" className="field-error">
+        <span id="scope-error" className="field-error">
           {error}
         </span>
       )}

@@ -14,7 +14,6 @@ import { DEFAULT_REFRESH_MINUTES, parseRefreshMinutes, REFRESH_MINUTES_KEY } fro
 import { useAutoRefresh } from "./state/useAutoRefresh";
 import { useDomino } from "./state/useDomino";
 import { loadViewOf, scopeLabel, type LoadView } from "./state/loadView";
-import { errorMessage } from "./data/errors";
 import { failureText, otherScopeFailureText } from "./state/refresh";
 import { useMyself } from "./state/useMyself";
 import { useUnblockedNotifications } from "./state/useUnblockedNotifications";
@@ -42,18 +41,23 @@ import { epicLaneId, foldedEpicUids, withEpicFolds } from "./graph/layout";
 import { Canvas, lanesFor, useFocusNode, type Filters, type ViewOptions } from "./ui/Canvas";
 import { ChangesPanel } from "./ui/ChangesPanel";
 import { EmptySearchBanner, emptyScopedSearches } from "./ui/EmptySearchBanner";
+import { Banner, BannerArea } from "./ui/BannerArea";
 import { ErrorBanner } from "./ui/ErrorBanner";
 import { FilterPanel } from "./ui/FilterPanel";
 import { FinishFirst } from "./ui/InsightsBar";
 import { ReleasesPanel } from "./ui/ReleasesPanel";
 import { UpdateBanner } from "./ui/UpdateBanner";
 import { BrandMark } from "./ui/BrandMark";
-import { TypeKey } from "./ui/IssueCard";
+import { ISSUE_DETAIL_ID, TypeKey } from "./ui/IssueCard";
 import { IssueDetail, type IssueDetailData } from "./ui/IssueDetail";
 import { ConfigProblemBanner } from "./ui/ConfigProblemBanner";
 import { noSitesShown } from "./ui/canvasMessage";
 import { Toast, type ToastMessage } from "./ui/Toast";
 import { focusFirst } from "./ui/focusFirst";
+import { FocusRequestContext, focusRequest, type FocusRequest } from "./ui/focusRequest";
+import { useFocusReturn } from "./ui/useFocusReturn";
+import { LiveRegions, useAnnounced } from "./ui/Announcer";
+import { viewItemOf, viewTabStop } from "./ui/viewItems";
 import { TimelineLegend } from "./ui/timeline/TimelineLegend";
 import { focusTimelineRow } from "./ui/timeline/focusItem";
 import { Glance } from "./ui/Glance";
@@ -87,6 +91,8 @@ const DEFAULT_VIEW: Omit<ViewOptions, "sort"> = { groupBy: "none", highlight: "n
 const SORT_KEY = "domino.sortBy";
 const NO_FOLDED_EPICS: ReadonlySet<string> = new Set();
 const NO_NODES: readonly GraphNode[] = [];
+/** How long focus waits for an issue to be drawn (see `focusWhenDrawn`) before giving up. */
+const FOCUS_GIVE_UP_MS = 2000;
 const parseViewMode = oneOf(isViewMode);
 const GLANCE_SCOPE_KEY = "domino.glanceScope";
 const NOTIFY_UNBLOCKED_KEY = "domino.notifyUnblocked";
@@ -342,6 +348,24 @@ function Shell(): ReactElement {
     }
     setCollapsedLanes(next);
   };
+  /** Focus waiting for a card or row to be drawn (see `FocusRequest`); one at a time. */
+  const [pendingFocus, setPendingFocus] = useState<FocusRequest | null>(null);
+  const focusWhenDrawn = (ids: readonly string[], then: () => void): void => {
+    const request: FocusRequest = focusRequest(ids, then, () => {
+      setPendingFocus((r) => (r === request ? null : r));
+    });
+    setPendingFocus(request);
+  };
+  // One that's never drawn gives up, rather than taking focus whenever it finally shows.
+  useEffect(() => {
+    if (!pendingFocus) return;
+    const timer = setTimeout(() => {
+      setPendingFocus((r) => (r === pendingFocus ? null : r));
+    }, FOCUS_GIVE_UP_MS);
+    return (): void => {
+      clearTimeout(timer);
+    };
+  }, [pendingFocus]);
   /** In the Graph, an issue inside a folded epic is revealed by unfolding that epic first. */
   const focusInGraph = (uid: string, moveFocus = true, follow = false): void => {
     // A ghost epic with loaded children is drawn as its summary while folded.
@@ -352,12 +376,10 @@ function Shell(): ReactElement {
     if (!hidden) return void focusGraphNode(uid, moveFocus, follow);
     if (epicUid === uid) return void focusGraphNode(summaryUid(epicUid), moveFocus, follow);
     toggleEpic(epicUid);
-    // Wait for the re-layout to render the issue, then focus it.
-    let tries = 0;
-    const retry = (): void => {
-      if (!focusGraphNode(uid, moveFocus, follow) && ++tries < 10) setTimeout(retry, 120);
-    };
-    setTimeout(retry, 120);
+    // Once the re-layout draws the issue, in whichever view drew it.
+    focusWhenDrawn([uid], () => {
+      latestFocusInView.current(uid, moveFocus, follow);
+    });
   };
   /** In the timeline, an issue inside a collapsed lane is revealed by expanding that lane first. */
   const focusInTimeline = (uid: string, moveFocus = true, follow = false): void => {
@@ -377,14 +399,23 @@ function Shell(): ReactElement {
     }, settleMs);
   };
   const focusInView = viewMode === "graph" ? focusInGraph : focusInTimeline;
+  // Read when a waiting focus is answered, a render or more after it was asked for.
+  const latestFocusInView = useRef(focusInView);
+  latestFocusInView.current = focusInView;
   // The issue open in the details panel. It closes by itself if the issue leaves the loaded graph.
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
   // Opening an issue moves focus into the panel; following links with the arrow keys doesn't.
   const [detailFocusRequest, setDetailFocusRequest] = useState(0);
-  const selectIssue = useCallback((uid: string) => {
-    setSelectedUid(uid);
-    setDetailFocusRequest((n) => n + 1);
-  }, []);
+  const { remember: rememberDetailOpener, restore: restoreDetailFocus } = useFocusReturn();
+  const selectIssue = useCallback(
+    (uid: string) => {
+      // What opened the panel, not a link followed inside it.
+      if (!document.getElementById(ISSUE_DETAIL_ID)?.contains(document.activeElement)) rememberDetailOpener();
+      setSelectedUid(uid);
+      setDetailFocusRequest((n) => n + 1);
+    },
+    [rememberDetailOpener],
+  );
   // From the insights, which already traverse the graph for it.
   const downstream = baseInsights.downstream;
   // The user's sort, shared by the Graph (within columns) and the Timeline (rows); null keeps each
@@ -431,14 +462,10 @@ function Shell(): ReactElement {
     const uid = selectedUid;
     setSelectedUid(null);
     if (!uid) return;
-    // Back to its card or row; if a filter or fold has hidden it, to the view's tab stop; with
-    // everything filtered out, to the canvas message's Clear filters.
-    focusFirst(
-      `[data-uid="${CSS.escape(uid)}"], [data-tl-uid="${CSS.escape(uid)}"]`,
-      // (The timeline's stop can be a lane header, when its rows are all filtered out or folded.)
-      '.canvas [data-uid][tabindex="0"], .canvas [data-tl-uid][tabindex="0"], .canvas [data-tl-lane][tabindex="0"]',
-      ".canvas-message button",
-    );
+    // Back to the card or row of the issue it showed; if a filter or fold has hidden that, to what
+    // opened the panel, then the view's Tab stop; with everything filtered out, to the canvas
+    // message's Clear filters.
+    restoreDetailFocus((opener) => [viewItemOf(uid), opener, viewTabStop(), document.querySelector<HTMLElement>(".canvas-message button")]);
   };
   // How many links "Hide implied links" removes from what's drawn (counted even while it's off),
   // on the graph actually drawn: folded epics have their own, combined links.
@@ -533,17 +560,12 @@ function Shell(): ReactElement {
         },
       },
     });
-    // Layout runs off the main thread: wait until the issue (or the epic card or lane row it sits
-    // in) is on screen, then focus it once; the focus helpers handle collapsed epics and lanes.
+    // Layout runs off the main thread: once the issue (or the epic card it's folded into) is
+    // drawn, focus it; the focus helpers handle folded epics and collapsed lanes.
     const epicUid = node.epic?.uid;
-    const selectors = [`[data-id="${CSS.escape(uid)}"]`, `[data-tl-uid="${CSS.escape(uid)}"]`];
-    if (epicUid) selectors.push(`[data-id="${CSS.escape(summaryUid(epicUid))}"]`);
-    let tries = 0;
-    const whenDrawn = (): void => {
-      if (document.querySelector(selectors.join(","))) focusInView(uid, moveFocus);
-      else if (++tries < 25) setTimeout(whenDrawn, 80);
-    };
-    setTimeout(whenDrawn, 80);
+    focusWhenDrawn(epicUid ? [uid, summaryUid(epicUid)] : [uid], () => {
+      latestFocusInView.current(uid, moveFocus);
+    });
   };
   useViewHotkeys(setViewMode);
 
@@ -552,6 +574,7 @@ function Shell(): ReactElement {
 
   return (
     <div className="app">
+      <LiveRegions />
       <header className="topbar">
         <h1 className="brand">
           <BrandMark /> Domino
@@ -603,59 +626,57 @@ function Shell(): ReactElement {
         </button>
       </header>
 
-      {domino.configError && (
-        <div className="banner error" role="alert">
-          Could not load configuration: {domino.configError}
-        </div>
-      )}
-      {domino.configFile && (
-        <ConfigProblemBanner
-          status={domino.configFile}
-          onReload={domino.reloadConfigFile}
-          onStartFresh={async () => {
-            const setAside = await domino.startFreshConfig();
-            if (setAside) setToast({ text: `Started fresh. Your old settings file is kept at ${setAside}.` });
-            // The banner is gone: on to adding a site.
-            requestAnimationFrame(() => focusFirst(".canvas-message button", 'button[aria-label="Settings"]'));
-          }}
-          onReveal={() => {
-            domino.store.revealFile().catch((e: unknown) => {
-              setToast({ text: errorMessage(e) }); // already says it couldn't show the file
-            });
-          }}
-          onOpenSettings={() => {
-            setSettingsOpen(true);
-          }}
-        />
-      )}
-      <UpdateBanner updates={updates} />
-      {config && (
-        <ErrorBanner
-          errors={errors}
-          // Only sites still selected: a deselected one's failure isn't news.
-          lagging={domino.background.lagging.filter((l) => domino.selected.includes(l.siteId))}
-          sites={config.sites}
-          attempted={domino.selectedSites.length}
-          onRetry={domino.reload}
-          onOpenSettings={() => {
-            setSettingsOpen(true);
-          }}
-        />
-      )}
-      {config && (
-        <EmptySearchBanner
-          // Only for what's on screen: the scope asked for, loaded. Null while loading keeps a dismissal.
-          searches={
-            load.status === "done" && loadView.mode === "current"
-              ? emptyScopedSearches(domino.scope, config.sites, load.result, domino.background.lagging)
-              : null
-          }
-          sites={config.sites}
-          onOpenSettings={() => {
-            setSettingsOpen(true);
-          }}
-        />
-      )}
+      <BannerArea>
+        {domino.configError && (
+          <Banner id={`config-error:${domino.configError}`} severity="error" className="banner error">
+            Could not load configuration: {domino.configError}
+          </Banner>
+        )}
+        {domino.configFile && (
+          <ConfigProblemBanner
+            status={domino.configFile}
+            onReload={domino.reloadConfigFile}
+            onStartFresh={async () => {
+              const setAside = await domino.startFreshConfig();
+              if (setAside) setToast({ text: `Started fresh. Your old settings file is kept at ${setAside}.` });
+              // The banner is gone: on to adding a site.
+              requestAnimationFrame(() => focusFirst(".canvas-message button", 'button[aria-label="Settings"]'));
+            }}
+            onReveal={() => domino.store.revealFile()}
+            onOpenSettings={() => {
+              setSettingsOpen(true);
+            }}
+          />
+        )}
+        <UpdateBanner updates={updates} />
+        {config && (
+          <ErrorBanner
+            errors={errors}
+            // Only sites still selected: a deselected one's failure isn't news.
+            lagging={domino.background.lagging.filter((l) => domino.selected.includes(l.siteId))}
+            sites={config.sites}
+            attempted={domino.selectedSites.length}
+            onRetry={domino.reload}
+            onOpenSettings={() => {
+              setSettingsOpen(true);
+            }}
+          />
+        )}
+        {config && (
+          <EmptySearchBanner
+            // Only for what's on screen: the scope asked for, loaded. Null while loading keeps a dismissal.
+            searches={
+              load.status === "done" && loadView.mode === "current"
+                ? emptyScopedSearches(domino.scope, config.sites, load.result, domino.background.lagging)
+                : null
+            }
+            sites={config.sites}
+            onOpenSettings={() => {
+              setSettingsOpen(true);
+            }}
+          />
+        )}
+      </BannerArea>
 
       <main className="workspace">
         <aside className="sidebar" aria-label="Insights, filters and warnings">
@@ -788,48 +809,50 @@ function Shell(): ReactElement {
           }}
         >
           <div className={stale ? "canvas-body stale" : "canvas-body"} ref={inertWhileStale} aria-hidden={stale || undefined}>
-            {viewMode === "graph" ? (
-              <Canvas
-                graph={graph}
-                insights={insights}
-                filters={filters}
-                view={shownView}
-                showSiteBadges={domino.loadedSiteCount > 1}
-                foldedEpics={foldedEpics}
-                onToggleEpic={toggleEpic}
-                selectedUid={selectedUid}
-                onSelect={selectIssue}
-                onTraverse={onTraverse}
-                linkPreview={preview}
-                scopeKey={shownScopeKey}
-                stale={stale}
-                order={order}
-                onClearSort={clearSort}
-              />
-            ) : (
-              <Suspense fallback={<div className="canvas-message">Loading timeline…</div>}>
-                <Timeline
+            <FocusRequestContext.Provider value={pendingFocus}>
+              {viewMode === "graph" ? (
+                <Canvas
                   graph={graph}
                   insights={insights}
                   filters={filters}
                   view={shownView}
-                  history={history}
-                  settings={estimates}
-                  onSettings={setEstimates}
-                  onOpen={openExternal}
-                  collapsedLanes={collapsedLanes}
-                  onCollapsedLanes={setCollapsedLanes}
+                  showSiteBadges={domino.loadedSiteCount > 1}
+                  foldedEpics={foldedEpics}
+                  onToggleEpic={toggleEpic}
                   selectedUid={selectedUid}
                   onSelect={selectIssue}
                   onTraverse={onTraverse}
                   linkPreview={preview}
-                  stale={stale}
-                  order={rowOrder}
-                  onClearSort={clearSort}
                   scopeKey={shownScopeKey}
+                  stale={stale}
+                  order={order}
+                  onClearSort={clearSort}
                 />
-              </Suspense>
-            )}
+              ) : (
+                <Suspense fallback={<div className="canvas-message">Loading timeline…</div>}>
+                  <Timeline
+                    graph={graph}
+                    insights={insights}
+                    filters={filters}
+                    view={shownView}
+                    history={history}
+                    settings={estimates}
+                    onSettings={setEstimates}
+                    onOpen={openExternal}
+                    collapsedLanes={collapsedLanes}
+                    onCollapsedLanes={setCollapsedLanes}
+                    selectedUid={selectedUid}
+                    onSelect={selectIssue}
+                    onTraverse={onTraverse}
+                    linkPreview={preview}
+                    stale={stale}
+                    order={rowOrder}
+                    onClearSort={clearSort}
+                    scopeKey={shownScopeKey}
+                  />
+                </Suspense>
+              )}
+            </FocusRequestContext.Provider>
           </div>
           <LoadPill
             view={loadView}
@@ -918,6 +941,7 @@ function CanvasMessage({
   onClearFilters: () => void;
 }): ReactElement | null {
   const { load, selectedSites, graph } = domino;
+  const said = useAnnounced<HTMLDivElement>();
   let msg: React.ReactNode = null;
   if (selectedSites.length === 0 && domino.config) {
     const why = noSitesShown(domino.config.sites);
@@ -965,8 +989,8 @@ function CanvasMessage({
   }
   if (!msg) return null;
   return (
-    <div className="canvas-message" role="status">
-      <div>{msg}</div>
+    <div className="canvas-message">
+      <div ref={said}>{msg}</div>
     </div>
   );
 }

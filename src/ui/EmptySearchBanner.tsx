@@ -1,4 +1,5 @@
 import { useState, type ReactElement } from "react";
+import { Banner } from "./BannerArea";
 import { siteKindOf, type SiteConfig } from "../config/types";
 import { combineGitHubQuery, repoScopeOf } from "../data/github/query";
 import type { LoadResult, Scope } from "../data/MultiSiteLoader";
@@ -56,12 +57,12 @@ export function EmptySearchBanner({
   if (!searches?.length || dismissed === key) return null;
   const label = (id: string): string => sites.find((s) => s.id === id)?.label ?? id;
   return (
-    <div className="banner warn actionable" role="status">
+    <Banner id={`empty-search:${key}`} severity="warning" className="banner warn actionable">
       <div className="banner-text">
-        <strong>Nothing found in {[...new Set(searches.flatMap((s) => s.names))].join(", ")}.</strong> GitHub leaves out what a token
-        can&apos;t see, without an error. If that&apos;s private, check the token for {searches.map((s) => label(s.siteId)).join(", ")}: a
-        classic token needs the repo scope and, for an org with SAML SSO, to be authorized for it (Configure SSO under your GitHub token
-        settings); a fine-grained one needs access to the repository.
+        <strong data-said>Nothing found in {[...new Set(searches.flatMap((s) => s.names))].join(", ")}.</strong> GitHub leaves out what a
+        token can&apos;t see, without an error. If that&apos;s private, check the token for{" "}
+        {searches.map((s) => label(s.siteId)).join(", ")}: a classic token needs the repo scope and, for an org with SAML SSO, to be
+        authorized for it (Configure SSO under your GitHub token settings); a fine-grained one needs access to the repository.
       </div>
       <div className="banner-actions">
         <button type="button" onClick={onOpenSettings}>
@@ -76,6 +77,6 @@ export function EmptySearchBanner({
           Dismiss
         </button>
       </div>
-    </div>
+    </Banner>
   );
 }

@@ -33,7 +33,7 @@ Not included: an in-app theme switch. The app keeps following the OS.
 
 ## 3. Focus helper
 
-Ships in three PRs. The first (timeline) is done in #44. Differences from the plan:
+Done in three PRs: the timeline in #44, focus return in #46, and menus and Find in the PR after it. Differences from the plan:
 
 - **The timeline is one Tab stop** over its lane headers and rows, in screen order. ↑/↓ move one item, Home/End go to the ends, PgUp/PgDn jump a screen, Enter or Space opens a row, and coming back returns to the last item. Lane headers are items too, so a header's ←/→ fold and unfold its lane, and ⌘/Ctrl+Enter opens an epic lane's epic.
 - **←/→ on a row still follow blocking links,** as they do in the graph, instead of folding lanes: both views keep one meaning for ←/→. A row's ↑/↓ move in order and no longer go through the link trail's alternatives; the graph's still do.
@@ -41,13 +41,37 @@ Ships in three PRs. The first (timeline) is done in #44. Differences from the pl
 - **A focused row that's folded away** hands focus to its lane's header.
 - **Both Legends name the arrow keys.**
 
-Still to do, in the next two PRs:
+Done in the second PR:
 
-- **`useFocusReturn`** remembers the element that opened a drawer, menu, editor or Find. It restores focus there, or to the view's Tab stop if that element is gone. It replaces the DOM-string lookups and the 25×80ms polling. (`src/App.tsx:445-449, 546-551, 861`, `src/ui/FilterPanel.tsx:264`, `src/ui/Settings/SettingsDialog.tsx:262-266`, `src/ui/SavedViewsMenu.tsx:110-113`)
-- **Menus stay `<details>`.** `useDetailsMenu` closes on `focusout` that leaves the menu, and Esc returns focus to the `<summary>`. The sidebar filter menus expand in place instead of overlaying, so they no longer get clipped. Native `popover` isn't used: macOS < 14 and older WebKitGTK don't support it. (`src/ui/useDetailsMenu.ts`, `src/styles/shell.css:1163-1167`)
-- **Find.** The first Esc closes the list and the second returns focus to where you were. "No tickets match" moves outside the listbox, the result count is announced, and `aria-controls` is set only while the list exists. (`src/ui/QuickFind.tsx`)
+- **Focus return** (`src/ui/useFocusReturn.ts`): `remember` as a drawer or prompt opens, `restore` as it closes; the return waits for the closing render, so no `requestAnimationFrame`. Used by the details panel, Settings' "Keep editing" and a saved view's "Keep". The details panel goes back to the issue it was showing first (it can differ from what opened it, after following links inside it), then the opener, then the view's Tab stop (`viewTabStop` in `src/ui/viewItems.ts`).
+- **No more polling for a just-revealed issue.** `focusWhenDrawn` in `App.tsx` leaves a `FocusRequest` (`src/ui/focusRequest.ts`) that the card or row answers once it's mounted, from an effect; it gives up after 2s. It replaces the 25×80ms and 10×120ms retries.
+- **Not changed:** the "button goes away" moves (Clear filters, Show, Start fresh) still focus a fixed element, since nothing opened them. A saved view's ✕ is drawn anew after "Keep", so it's found by name (`data-view`), not remembered.
+
+Done in the third PR:
+
+- **Menus stay `<details>`** and close when focus lands outside them: `useDetailsMenu` listens for `focusin` on the document, as it did for `mousedown` (`leavesMenu`), so Tab and hotkeys (`/` to Find) both close it. Focus leaving for nowhere (the window losing it, a click on a menu's padding) leaves it open. Info tips keep their own rule, closing then too, since their text takes focus (`focusLeaves`, now shared from `src/ui/useDetailsMenu.ts`). Esc already returned focus to the `<summary>`, and the canvas already ignores Esc from inside a `<details>`.
+- **The sidebar filter menus open in place,** pushing the fields below them down, so the sidebar's scroll no longer clips them.
+- **Find:** the first Esc closes the list and keeps what you typed; the second clears it and returns focus to where you were before Find (`useFocusReturn`, remembering the focus event's `relatedTarget`), or the view's Tab stop. A status region announces the count ("12 tickets match, showing the first 8", from `findStatus`). "No tickets match" shows beside the listbox, which exists only with options in it; `aria-expanded` and `aria-controls` follow it.
 
 ## 4. Messages and errors
+
+Ships in four PRs. Done in the first (the Announcer, toasts):
+
+- **One Announcer** (`src/ui/Announcer.tsx`): the page renders a polite and an assertive region once (`LiveRegions`), and `announce()` writes to them. The Settings dialog renders its own pair, listening only while it's open (`regionFor`: the regions mounted last win). Messages that appear with their text say it through `useAnnounced`, instead of a `role="status"` of their own: the toast, the canvas message, the filters' "Showing N of M", the empty-search banner's headline, and saved views' import and export notes. Regions that are always mounted (the load pill, Find's count) keep theirs.
+- **Toasts:** a plain one still stays 10s, pausing on hover or focus; one with an action stays until it's dismissed, used or replaced. The one error that went in a toast (Show file failing) is said in the settings-file banner, beside its button.
+
+Done in the second (Confirm, inline validation):
+
+- **One `Confirm`** (`src/ui/Confirm.tsx`): a labelled `role="group"`, described by its question, with the risky choice as a danger button and focus on the safe one; Esc picks the safe one without closing the menu or dialog around it. A banner by default, `inline` in a row or list item. It replaces the `role="alertdialog"` prompts for unsaved site changes and Disconnect, and the confirms for removing a site and deleting a saved view. Removing a site put focus on "Confirm remove"; it's on Keep now, and Keep goes back to Remove.
+- **Inline validation:** the site form's fields and the scope bar's error lose `role="alert"`. A failed submit says once what needs fixing (`problemsText`: "3 fields need fixing: Name: Required. …"), assertively, and a failed save or Load says its reason the same way. The settings-file banner's "Start fresh" confirm keeps its own buttons for now.
+
+Done in the third (one banner area):
+
+- **One `BannerArea`** (`src/ui/BannerArea.tsx`) holds the page's banners: the settings file's problem, a config that couldn't load, the app update, sites that failed or couldn't update, and empty GitHub searches. It shows the most severe (error, then warning, then info; ties go to the newest, `rankBanners`), with "+N more" under it to show the rest in place. Each banner still decides when it's there and keeps its own Dismiss or Later, so dismissing one shows the next, and focus moves on to the banner now in its place. A new banner never hides the one in use: the area expands instead. The banners are in the page in the order they're shown, so Tab and screen readers follow the screen.
+- **Each banner is said once,** the first time it's on top (assertive for errors), instead of a `role="alert"` or `role="status"` of its own. What's said is its message (`data-said`), not its buttons; a banner whose message changes (new failures, an install starting) is news again. One seen expanded isn't said when it later reaches the top. The update's download progress is there to read, not announced as it moves. The settings-file banner's later failures (Show file, Start fresh) say themselves when they appear, and its "Start fresh?" question describes the Keep button focus lands on.
+- **Not changed:** the Settings dialog's error banner and the timeline's own stay where they are, outside the page's area.
+
+Still to do: banners about a single site move into the load pill's popover.
 
 - **Where each kind of message goes.**
   - **Toast:** confirmations of something you just did, often with Undo. A plain confirmation stays at least 6s and pauses on hover or focus. A toast with an action, such as Undo, stays until it's dismissed, acted on or replaced by the next toast, so keyboard and screen-reader users can always reach it (WCAG 2.2.1). (`src/App.tsx:532-540`)

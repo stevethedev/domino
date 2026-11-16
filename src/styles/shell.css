@@ -320,6 +320,19 @@
   width: 56px;
 }
 
+/* The page's banners: the top one, then "+N more", then the rest when expanded, in DOM order (see BannerArea). */
+.banner-area {
+  display: flex;
+  flex-direction: column;
+}
+/* A folded banner: specific enough to beat `.banner.actionable` and `.banner.update`, which set display. */
+.banner-area > .banner[hidden] {
+  display: none;
+}
+.banner-more {
+  align-self: flex-start;
+  margin: var(--space-1) var(--space-3_5);
+}
 .banner {
   padding: var(--space-2) var(--space-3_5);
   border-bottom: 1px solid var(--border);
@@ -691,7 +704,7 @@
   white-space: nowrap;
 }
 .quick-find-empty {
-  cursor: default !important;
+  padding: var(--space-1_5) var(--space-2);
 }
 
 kbd {
@@ -891,15 +904,23 @@ kbd {
   white-space: nowrap;
 }
 .saved-view-confirm {
+  padding: var(--space-1) var(--space-1_5);
+}
+/* A Confirm in a row or list item: the question, then its two choices. */
+.confirm-inline {
   display: flex;
   align-items: center;
   gap: var(--space-1_5);
-  padding: var(--space-1) var(--space-1_5);
 }
-.saved-view-confirm > span {
+.confirm-question {
   flex: 1;
   min-width: 0;
+  white-space: normal;
   overflow-wrap: anywhere;
+}
+.confirm-actions {
+  display: flex;
+  gap: var(--space-1_5);
 }
 .saved-view-delete {
   font-size: var(--text-lg);
@@ -1143,11 +1164,13 @@ kbd {
   color: var(--link);
   font-weight: var(--weight-semibold);
 }
-/* The sidebar scrolls (and so clips), so these menus span the sidebar's width instead of the
-   default popover min-width. */
+/* The sidebar scrolls (and so would clip an overlay): these menus open in place, pushing what's
+   below them down, at the sidebar's width. */
 .filter-menu .popover {
-  right: 0;
+  position: static;
   min-width: 0;
+  margin-top: var(--space-1);
+  box-shadow: none;
   max-height: 50vh;
   overflow: auto;
 }

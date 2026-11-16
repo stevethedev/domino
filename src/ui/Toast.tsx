@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactElement } from "react";
 import { Icon } from "./Icon";
+import { announce, cancelAnnouncement } from "./Announcer";
 
 /** A passing notice about something the app just did, with an optional way to undo or follow up. */
 export type ToastMessage = Readonly<{
@@ -7,12 +8,17 @@ export type ToastMessage = Readonly<{
   action?: Readonly<{ label: string; run: () => void }>;
 }>;
 
-/** How long a notice stays; hovering or focusing it pauses the countdown. */
+/** What a screen reader hears for `toast`. */
+export const toastAnnouncement = (toast: ToastMessage): string =>
+  toast.action ? `${toast.text} ${toast.action.label} is available.` : toast.text;
+
+/** How long a plain notice stays (at least 6s); hovering or focusing it pauses the countdown. */
 const SHOW_MS = 10_000;
 
 /**
- * Shows `toast` at the bottom of the canvas until it's dismissed, replaced, or its time is up. The
- * countdown pauses while the pointer or keyboard focus is on it, so an Undo can't vanish in hand.
+ * Shows `toast` at the bottom of the canvas until it's dismissed or replaced. A plain notice also
+ * goes when its time is up, pausing while the pointer or focus is on it; one with an action (Undo)
+ * stays, so keyboard and screen-reader users can always reach it (WCAG 2.2.1).
  */
 export function Toast({ toast, onDismiss }: { toast: ToastMessage | null; onDismiss: () => void }): ReactElement | null {
   // Each notice gets a fresh card, so one dismissed while hovered can't leave the next paused.
@@ -33,16 +39,22 @@ function ToastCard({ toast, onDismiss }: { toast: ToastMessage; onDismiss: () =>
   const [paused, setPaused] = useState(false);
   const { action } = toast;
   useEffect(() => {
-    if (paused) return;
+    announce(toastAnnouncement(toast), { source: "toast" });
+    // Gone before it was read (dismissed, or replaced by the next): it isn't read late.
+    return (): void => {
+      cancelAnnouncement("toast");
+    };
+  }, [toast]);
+  useEffect(() => {
+    if (paused || action) return;
     const timer = setTimeout(onDismiss, SHOW_MS);
     return (): void => {
       clearTimeout(timer);
     };
-  }, [toast, paused, onDismiss]);
+  }, [toast, paused, action, onDismiss]);
   return (
     <div
       className="toast"
-      role="status"
       onPointerEnter={() => {
         setPaused(true);
       }}
