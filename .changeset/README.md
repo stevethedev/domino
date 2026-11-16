@@ -12,8 +12,8 @@ Pick the bump and write a summary. Domino's pre-1.0, so `minor` is a feature and
 
 1. Merge changes with changesets into `main`.
 2. The bot opens a "Version Packages" PR that bumps `package.json`, `src-tauri/Cargo.toml` and `src-tauri/tauri.conf.json` together (`scripts/sync-version.mjs`) and updates `CHANGELOG.md`.
-3. Merging it tags the release (`scripts/tag-release.mjs`), and `.github/workflows/release.yml` re-runs the checks and builds signed installers into a **draft** GitHub release.
-4. Publish the draft once the builds look right.
+3. Merging it tags the release (`scripts/tag-release.mjs`), and `.github/workflows/release.yml` re-runs the checks, makes one **draft** GitHub release (`scripts/release-draft.mjs`), and builds signed installers into it.
+4. Publish the draft once the run's `check-release` job passes (`scripts/release-check.mjs`): it's still a draft, and its `latest.json` offers the update on every platform. Publishing earlier leaves the remaining builds' users without the update. If a build fails, re-run the failed jobs; they upload into the same draft.
 
 The bot needs **Settings &rarr; Actions &rarr; Allow GitHub Actions to create and approve pull requests** turned on.
 
