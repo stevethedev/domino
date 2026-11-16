@@ -1,5 +1,6 @@
 import { useState, type ReactElement } from "react";
 import type { AppUpdate } from "../state/useAppUpdate";
+import { Banner } from "./BannerArea";
 
 /**
  * "Domino 0.2.0 is available": install now (the app restarts) or later. "Later" hides it for this
@@ -15,17 +16,22 @@ export function UpdateBanner({ updates }: { updates: AppUpdate }): ReactElement 
   if (state.status === "installing") {
     const percent = state.progress === null ? null : Math.round(state.progress * 100);
     return (
-      <div className="banner update" role="status">
-        <strong>Installing Domino {update.version}…</strong>
+      <Banner id={`update:installing:${update.version}`} severity="info" className="banner update">
+        {/* Said once; the progress is there to read, not announced as it moves. */}
+        <strong data-said>Installing Domino {update.version}…</strong>
         <progress max={100} value={percent ?? undefined} aria-label="Download progress" />
         <span className="muted">{percent === null ? "Downloading" : `${percent}%`}. Domino restarts when it's done.</span>
-      </div>
+      </Banner>
     );
   }
 
   return (
-    <div className={`banner update${state.status === "failed" ? " error" : ""}`} role={state.status === "failed" ? "alert" : "status"}>
-      <strong>
+    <Banner
+      id={state.status === "failed" ? `update:failed:${update.version}:${state.message}` : `update:available:${update.version}`}
+      severity={state.status === "failed" ? "error" : "info"}
+      className={`banner update${state.status === "failed" ? " error" : ""}`}
+    >
+      <strong data-said>
         {state.status === "failed" ? state.message : `Domino ${update.version} is available`}
         <span className="muted"> · you have {update.currentVersion}</span>
       </strong>
@@ -48,6 +54,6 @@ export function UpdateBanner({ updates }: { updates: AppUpdate }): ReactElement 
           Later
         </button>
       </div>
-    </div>
+    </Banner>
   );
 }

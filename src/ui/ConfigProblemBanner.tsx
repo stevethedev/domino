@@ -1,6 +1,8 @@
-import { useRef, useState, type ReactElement } from "react";
+import { useId, useRef, useState, type ReactElement } from "react";
 import type { ConfigFileStatus } from "../config/types";
 import { errorMessage } from "../data/errors";
+import { useAnnounced } from "./Announcer";
+import { Banner } from "./BannerArea";
 
 /**
  * Shown while the config file couldn't be used and the app is running on an empty config: what's
@@ -27,6 +29,10 @@ export function ConfigProblemBanner({
   const startFreshRef = useRef<HTMLButtonElement>(null);
   const [freshError, setFreshError] = useState<string | null>(null);
   const [revealError, setRevealError] = useState<string | null>(null);
+  // The banner is said once; a later failure in it is said when it appears.
+  const freshErrorRef = useAnnounced<HTMLParagraphElement>({ assertive: true });
+  const revealErrorRef = useAnnounced<HTMLParagraphElement>({ assertive: true });
+  const freshQuestion = useId();
   // Once the file is usable again, an old failure is no longer news.
   if (status.problem === null && (freshError !== null || revealError !== null)) {
     setFreshError(null);
@@ -34,9 +40,9 @@ export function ConfigProblemBanner({
   }
   if (status.problem === null) return null;
   return (
-    <div className="banner error actionable" role="alert">
-      <div className="banner-text">
-        <strong>Domino couldn't read its settings file, so it started with no sites.</strong> {status.problem}
+    <Banner id={`config-problem:${status.problem}`} severity="error" className="banner error actionable">
+      <div className="banner-text" data-said>
+        <strong>Domino couldn't read its settings file, so it started with no sites.</strong> {status.problem}{" "}
         <div className="muted small">
           Fix <code>{status.path}</code> and reload it, or add your sites again in Settings (saving there replaces the file).
         </div>
@@ -91,6 +97,7 @@ export function ConfigProblemBanner({
             <button
               type="button"
               autoFocus
+              aria-describedby={freshQuestion}
               onClick={() => {
                 setConfirmFresh(false);
                 requestAnimationFrame(() => startFreshRef.current?.focus()); // back to where they were
@@ -111,14 +118,22 @@ export function ConfigProblemBanner({
           </button>
         )}
       </div>
-      {freshError && <p className="small banner-confirm">Couldn't start fresh: {freshError}</p>}
-      {revealError && <p className="small banner-confirm">{revealError}</p>}
+      {freshError && (
+        <p ref={freshErrorRef} className="small banner-confirm">
+          Couldn't start fresh: {freshError}
+        </p>
+      )}
+      {revealError && (
+        <p ref={revealErrorRef} className="small banner-confirm">
+          {revealError}
+        </p>
+      )}
       {confirmFresh && (
-        <p className="small banner-confirm">
+        <p id={freshQuestion} className="small banner-confirm">
           Start with no sites? If the file is still there, it's kept beside it as <code>domino.config.broken.json</code> (or <code>-2</code>
           , <code>-3</code>… if earlier ones are there).
         </p>
       )}
-    </div>
+    </Banner>
   );
 }
