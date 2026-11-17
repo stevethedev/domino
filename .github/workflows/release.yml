@@ -19,6 +19,12 @@ on:
 permissions:
   contents: write
 
+# Two runs for one tag (a tag push and a dispatch, say) would each find no draft and make their own:
+# the second waits for the first, and reuses its draft.
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
   # rust.yml/typescript.yml only trigger on pushes to main/PRs, not tag
   # pushes, so a release build would otherwise skip verification entirely
@@ -29,8 +35,37 @@ jobs:
   verify-typescript:
     uses: ./.github/workflows/typescript.yml
 
-  build-and-release:
+  # One draft for the tag, made before the builds and handed to them by id. Left to find it by tag,
+  # each build makes its own draft when it can't see one (say, if it's been published), and the
+  # release splits across two. On a re-run this reuses the draft from the first attempt.
+  create-release:
     needs: [verify-rust, verify-typescript]
+    runs-on: ubuntu-latest
+    outputs:
+      id: ${{ steps.draft.outputs.id }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
+
+      - name: Install Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      # The release body is this version's CHANGELOG.md section (changesets/action never creates the
+      # release: tag-release.mjs tags and dispatches this build itself). Fails if the section is missing.
+      - name: Find or make the draft release
+        id: draft
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          id="$(node scripts/release-draft.mjs "$TAG")" # an assignment, so the step fails with the script
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+
+  build-and-release:
+    needs: create-release
     strategy:
       fail-fast: false
       matrix:
@@ -79,8 +114,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # The release body is this version's CHANGELOG.md section (changesets/action never creates the
-      # release: tag-release.mjs tags and dispatches this build itself). Fails if the section is missing.
+      # tauri-action writes these into latest.json, where the app shows them as "What's new"; with
+      # releaseId it doesn't read them from the release.
       - name: Read release notes from CHANGELOG.md
         id: notes
         shell: bash
@@ -98,7 +133,8 @@ jobs:
       # Signed updater artifacts and latest.json are built here only (tauri.release.conf.json), so
       # local `tauri build` works without the signing key, and only once the signing secret exists
       # (until then releases build without in-app update files). The app checks the latest
-      # *published* release, so an update reaches users when this draft is published.
+      # *published* release, so an update reaches users when this draft is published: once
+      # check-release passes.
       - name: Build and upload release assets
         uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
         env:
@@ -106,10 +142,38 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
+          releaseId: ${{ needs.create-release.outputs.id }}
+          # With releaseId these don't find the release; they set latest.json's download links.
           tagName: ${{ inputs.tag || github.ref_name }}
-          releaseName: "Domino ${{ inputs.tag || github.ref_name }}"
-          releaseBody: ${{ steps.notes.outputs.body }}
           releaseDraft: true
-          prerelease: false
-          includeUpdaterJson: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
+          releaseBody: ${{ steps.notes.outputs.body }}
+          uploadUpdaterJson: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
           args: ${{ matrix.args }} ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' && '--config src-tauri/tauri.release.conf.json' || '' }}
+
+  # Each build merges its platforms into latest.json by downloading and re-uploading it, so two
+  # finishing together can drop one's entries. This fails, naming what's wrong, unless the draft is
+  # still unpublished and latest.json offers the update on every platform with this release's files.
+  check-release:
+    needs: [create-release, build-and-release]
+    runs-on: ubuntu-latest
+    env:
+      # Unsigned builds upload no latest.json, so there's nothing to check.
+      SIGNED: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
+    steps:
+      - uses: actions/checkout@v7
+        if: env.SIGNED == 'true'
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
+
+      - name: Install Node
+        if: env.SIGNED == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Check the draft is ready to publish
+        if: env.SIGNED == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_ID: ${{ needs.create-release.outputs.id }}
+        run: node scripts/release-check.mjs "$RELEASE_ID"
